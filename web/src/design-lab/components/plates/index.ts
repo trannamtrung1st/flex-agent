@@ -1,5 +1,6 @@
 export { DemoPlate } from "./DemoPlate";
 export {
+  AssignmentPlate,
   CeremonyArea,
   CeremonyEmpty,
   CeremonyUnavailable,

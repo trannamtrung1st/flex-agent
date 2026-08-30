@@ -9,8 +9,8 @@ function productionBreadcrumbItems(pathname: string): BreadcrumbNavItem[] | null
     return null;
   }
 
-  if (pathname === "/activities") {
-    return [{ label: "Activities", current: true }];
+  if (pathname === "/activities" || pathname === "/my-work") {
+    return null;
   }
 
   if (pathname === "/activities/new") {
@@ -49,10 +49,6 @@ function productionBreadcrumbItems(pathname: string): BreadcrumbNavItem[] | null
       },
       { label: "Enrollment", current: true },
     ];
-  }
-
-  if (pathname === "/my-work") {
-    return [{ label: "My work", current: true }];
   }
 
   if (/^\/my-work\/[^/]+$/.test(pathname)) {

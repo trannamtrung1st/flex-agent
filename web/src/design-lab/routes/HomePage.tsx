@@ -9,20 +9,24 @@ import {
   usePrototypeSignOut,
   CATALOG_ROUTE,
 } from "../components";
-import { Key, ManagementLayout, OperateArea, Stack } from "../../design-system";
+import { AssignmentPlate, InstantReadout, Key, ManagementLayout, OperateArea, Stack } from "../../design-system";
 import { HOME_BAYS, HOME_DEMO, HOME_DEMO_KEYS } from "../data/fixtures/home";
 import type { HomeEnrollment } from "../data/types";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
-import { campaignDeadlineCopy, formatCampaignInstant } from "../../lib/campaign-timezone";
 import { DESIGN_LAB_CAMPAIGN_TIME_ZONE } from "../../lib/format";
 import { useSurface } from "../lib/useSurface";
 
-function enrollmentDeadlineCopy(entry: HomeEnrollment): string {
+function deadlineValue(entry: HomeEnrollment) {
   if (!entry.deadlineUtc) {
     return entry.deadline;
   }
-  return campaignDeadlineCopy(formatCampaignInstant(entry.deadlineUtc, DESIGN_LAB_CAMPAIGN_TIME_ZONE));
+  return (
+    <>
+      <InstantReadout value={entry.deadlineUtc} timeZone={DESIGN_LAB_CAMPAIGN_TIME_ZONE} />
+      <span className="visually-hidden">{DESIGN_LAB_CAMPAIGN_TIME_ZONE}</span>
+    </>
+  );
 }
 
 export function HomePage() {
@@ -103,7 +107,9 @@ export function HomePage() {
                     {bay.label}
                   </h2>
                   <Stack gap="4" className="bay-plates">
-                    {plates.length ? plates.map((entry) => <Plate key={entry.campaign} entry={entry} />) : (
+                    {plates.length ? plates.map((entry) => (
+                      <StatusBayPlate key={entry.campaign} entry={entry} />
+                    )) : (
                       <p className="bay-empty">No enrollments in this bay</p>
                     )}
                   </Stack>
@@ -117,30 +123,22 @@ export function HomePage() {
   );
 }
 
-function Plate({ entry }: { entry: HomeEnrollment }) {
+function StatusBayPlate({ entry }: { entry: HomeEnrollment }) {
+  const released = entry.record === "Released";
   return (
-    <article className={`plate${entry.record === "Released" ? " plate--released" : ""}`}>
-      <div className="plate-in">
-        <dl className="plate-readout">
-          <div className="plate-row">
-            <dt>Campaign</dt>
-            <dd>{entry.campaign}</dd>
-          </div>
-          <div className="plate-row plate-row--title">
-            <dt>Assignment</dt>
-            <dd>{entry.title}</dd>
-          </div>
-          <div className="plate-row">
-            <dt>Deadline</dt>
-            <dd>{enrollmentDeadlineCopy(entry)}</dd>
-          </div>
-          <div className="plate-row">
-            <dt>Phase</dt>
-            <dd>{entry.phase}</dd>
-          </div>
-          <div className="plate-row plate-row--record">
-            <dt>Record</dt>
-            <dd>
+    <AssignmentPlate
+      label={entry.campaign}
+      released={released}
+      rows={[
+        { term: "Campaign", value: entry.campaign },
+        { term: "Assignment", value: entry.title, className: "readout--title" },
+        { term: "Deadline", value: deadlineValue(entry) },
+        { term: "Phase", value: entry.phase },
+        {
+          term: "Record",
+          className: "readout--record",
+          value: (
+            <>
               {entry.record}
               {entry.mark === "live" ? (
                 <>
@@ -156,19 +154,21 @@ function Plate({ entry }: { entry: HomeEnrollment }) {
                   <span className="visually-hidden">— result sealed and released</span>
                 </>
               ) : null}
-            </dd>
-          </div>
-        </dl>
-        {entry.key ? (
-          <div className="plate-keys">
-            <Key variant={entry.key.kind === "open" ? "open" : "quiet"} to={entry.key.to}>
-              {entry.key.label}
-            </Key>
-          </div>
-        ) : (
-          <div className="plate-keys" aria-hidden="true" />
-        )}
-      </div>
-    </article>
+            </>
+          ),
+        },
+      ]}
+      action={
+        entry.key ? (
+          <Key
+            variant={entry.key.kind === "open" ? "open" : "quiet"}
+            to={entry.key.to}
+            ariaLabel={`${entry.key.label} ${entry.campaign}`}
+          >
+            {entry.key.label}
+          </Key>
+        ) : undefined
+      }
+    />
   );
 }

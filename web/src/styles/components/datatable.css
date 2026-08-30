@@ -206,6 +206,8 @@ input:focus-visible + .select-mark {
   --select-popover-max-height: var(--select-popover-max-height-foot);
 }
 
+/* Portaled panels ignore this: placeFloating owns flip. Kept for any
+   in-flow leftover that still uses .select-popover under the foot. */
 .datatable-foot .select-popover {
   top: auto;
   bottom: 100%;
@@ -327,6 +329,27 @@ input:focus-visible + .select-mark {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--hairline-dim);
   overflow: visible;
+}
+
+.datatable-assign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.datatable-assign .field-label {
+  flex: 0 0 auto;
+}
+
+.datatable-assign .searchable-select {
+  flex: 1 1 16rem;
+  width: auto;
+  min-width: 0;
+  max-width: 22rem;
 }
 
 .datatable-actions-keys {
@@ -1029,6 +1052,14 @@ td.cell-state { text-align: center; }
     max-width: 100%;
   }
   .datatable-actions { flex-wrap: wrap; gap: 8px; }
+  .datatable-assign {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .datatable-assign .searchable-select {
+    flex: 1 1 12rem;
+    max-width: none;
+  }
   .datatable-actions-keys {
     flex: 1 1 auto;
     justify-content: flex-end;

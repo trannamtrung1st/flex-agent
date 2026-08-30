@@ -50,7 +50,7 @@ export function PoliciesArea() {
       advisoryLabel="Future / not in current MVP"
       advisoryCopy="These are demonstration readouts of organization limits — not a preference sheet and not a policy-rule builder. Absent from production."
     >
-      <Stack gap="none">
+      <Stack gap="none" className="in-plate-host">
       <ReadoutGrid label="Organization policy bounds" columns={2}>
         <ReadoutGridRow label="Authorization and retention">
           <ReadoutGridField term="Authorization">

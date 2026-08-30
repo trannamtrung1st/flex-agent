@@ -14,19 +14,20 @@ function isAssociatedLabelTarget(target: Node, options?: { labelId?: string; con
 
 export function useDismissOnOutsidePointer(
   open: boolean,
-  rootRef: RefObject<HTMLElement | null>,
+  rootRef: RefObject<HTMLElement | null> | Array<RefObject<HTMLElement | null>>,
   onDismiss: (event: PointerEvent) => void,
   options?: { labelId?: string; controlId?: string },
 ) {
+  const roots = Array.isArray(rootRef) ? rootRef : [rootRef];
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (rootRef.current?.contains(target)) return;
+      if (roots.some((root) => root.current?.contains(target))) return;
       if (isAssociatedLabelTarget(target, options)) return;
       onDismiss(event);
     };
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [onDismiss, open, options?.controlId, options?.labelId, rootRef]);
+  }, [onDismiss, open, options?.controlId, options?.labelId, roots]);
 }

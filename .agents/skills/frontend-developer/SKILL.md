@@ -32,10 +32,17 @@ UI completion requires live-browser evidence, not code inspection.
   (`--operate-bay-gap`). `OperateArea` owns bay strata (head / context /
   advisory / optional frame). Omit the frame for stacked nested records and
   plate grids; keep it for one seated instrument. Titled field clusters use
-  `FormSection`. Use `gap="none"` only for fused instrument groups. See
+  `FormSection`. The group mark is a 2px `--hairline` underline under the legend words. Use
+  `gap="none"` only for fused instrument groups. See
   `docs/ui-ux/design-system/foundation/layout.md`,
   `components/cards.md`, `components/inputs.md`, and
   `components/layout-primitives.md`.
+- Feedback rungs: toast for transient mutation receipts, OperateArea
+  `advisory` for standing page conditions, `Alert` for blocking failures and
+  still-true work outcomes. See
+  `docs/ui-ux/design-system/components/alerts.md`. Production and lab Admin
+  mount `ToastHost` with default dock `bottom-center`; do not park receipts in
+  OperateArea `context`.
 
 ## Red-green-refactor
 

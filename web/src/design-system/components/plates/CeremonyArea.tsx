@@ -11,6 +11,8 @@ export type CeremonyRecovery = {
   to?: To;
   onClick?: () => void;
   disabled?: boolean;
+  /** Quiet Return/Reload by default. `transmit` is the auth commit (`Continue to sign in`). */
+  variant?: "quiet" | "transmit";
 };
 
 export function CeremonyWait({
@@ -98,7 +100,13 @@ export function CeremonyUnavailable({
     >
       <CeremonyEmpty note={note} alert={alert}>
         {recovery ? (
-          <Key variant="quiet" to={recovery.to} onClick={recovery.onClick} disabled={recovery.disabled}>
+          <Key
+            variant={recovery.variant ?? "quiet"}
+            size={recovery.variant === "transmit" ? "large" : "standard"}
+            to={recovery.to}
+            onClick={recovery.onClick}
+            disabled={recovery.disabled}
+          >
             {recovery.label}
           </Key>
         ) : null}

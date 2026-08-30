@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { createContext, useCallback, useContext, useState, type CSSProperties, type ReactNode } from "react";
 import { cx } from "../../../lib/cx";
 
 export type ToastNotice = {
@@ -9,9 +9,43 @@ export type ToastNotice = {
   leaving?: boolean;
 };
 
-export function ToastDock({ toasts }: { toasts: ToastNotice[] }) {
+export type ToastDockPlacement =
+  | "bottom-center"
+  | "bottom-start"
+  | "bottom-end"
+  | "top-center"
+  | "top-start"
+  | "top-end";
+
+export type ToastDockProps = {
+  toasts: ToastNotice[];
+  placement?: ToastDockPlacement;
+  /** Extra inset from the inline edge (gangway, rail). CSS length. */
+  offsetInline?: string;
+  /** Extra inset from the block edge (hull or action foot). CSS length. */
+  offsetBlock?: string;
+  className?: string;
+};
+
+export function ToastDock({
+  toasts,
+  placement = "bottom-center",
+  offsetInline,
+  offsetBlock,
+  className,
+}: ToastDockProps) {
+  const style = {
+    ...(offsetInline ? { "--toast-dock-offset-inline": offsetInline } : {}),
+    ...(offsetBlock ? { "--toast-dock-offset-block": offsetBlock } : {}),
+  } as CSSProperties;
+
   return (
-    <div className="toast-dock" aria-live="polite">
+    <div
+      className={cx("toast-dock", className)}
+      data-placement={placement}
+      aria-live="polite"
+      style={style}
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -20,6 +54,7 @@ export function ToastDock({ toasts }: { toasts: ToastNotice[] }) {
         >
           <p className="toast-copy">
             <span className="toast-label">{toast.label}</span>
+            {" "}
             {toast.copy}
           </p>
         </div>
@@ -44,4 +79,40 @@ export function useToasts(lingerMs = 4200) {
   }, [lingerMs]);
 
   return { toasts, pushToast };
+}
+
+export type PushToast = (notice: Omit<ToastNotice, "id" | "leaving">) => void;
+
+const ToastPushContext = createContext<PushToast>(() => {});
+
+export type ToastHostProps = {
+  children: ReactNode;
+  placement?: ToastDockPlacement;
+  offsetInline?: string;
+  offsetBlock?: string;
+};
+
+/** Production shells and lab Admin mount `ToastHost`. Deck specimens may use local `useToasts`. */
+export function ToastHost({
+  children,
+  placement = "bottom-center",
+  offsetInline,
+  offsetBlock,
+}: ToastHostProps) {
+  const { toasts, pushToast } = useToasts();
+  return (
+    <ToastPushContext.Provider value={pushToast}>
+      {children}
+      <ToastDock
+        toasts={toasts}
+        placement={placement}
+        offsetInline={offsetInline}
+        offsetBlock={offsetBlock}
+      />
+    </ToastPushContext.Provider>
+  );
+}
+
+export function usePushToast(): PushToast {
+  return useContext(ToastPushContext);
 }

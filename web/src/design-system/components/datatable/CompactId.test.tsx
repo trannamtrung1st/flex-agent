@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { NativeDialog } from "../overlays/NativeDialog";
 import { CompactId } from "./CompactId";
 
 const UUID = "a1000000-0000-4000-8000-000000000007";
@@ -58,5 +59,18 @@ describe("CompactId", () => {
   it("does not add a tab stop in dense registry tables by default", () => {
     render(<CompactId value={UUID} />);
     expect(screen.getByText("a1000000…000007").closest(".compact-id")).not.toHaveAttribute("tabindex");
+  });
+
+  it("seats the value plaque inside an open modal dialog", () => {
+    render(
+      <NativeDialog open onClose={() => undefined} className="dialog" labelledBy="title">
+        <h2 id="title">Assign Participant</h2>
+        <CompactId tabbable value={UUID} />
+      </NativeDialog>,
+    );
+    fireEvent.mouseEnter(screen.getByText("a1000000…000007").closest(".tip-host")!);
+    const plaque = screen.getByRole("tooltip");
+    expect(plaque).toHaveTextContent(UUID);
+    expect(plaque.parentElement).toBe(document.querySelector("dialog"));
   });
 });

@@ -1,61 +1,81 @@
-import { Key, OperateArea } from "../design-system";
+import { Navigate } from "react-router-dom";
+import { AssignmentPlate, Grid, Key, OperateArea } from "../design-system";
 import { useProductionApi } from "../api/production-api";
-import { AssignmentPlate } from "../components/work/AssignmentPlate";
 import { CeremonyUnavailable } from "../components/shell/SessionChrome";
 import {
   PRODUCTION_DESTINATIONS,
-  productionDestinationUnavailableCopy,
+  isProductionDestinationOpen,
   type ProductionDestinationId,
 } from "../router/production-navigation";
 
 const HOME_WELLS: Array<{
   id: Exclude<ProductionDestinationId, "home">;
   note: string;
-  always: boolean;
 }> = [
   {
     id: "activities",
     note: "Create and resume Assessment Campaign drafts for this organization.",
-    always: true,
-  },
-  {
-    id: "my-work",
-    note: "Open current Assignments and prepare a Submission version.",
-    always: true,
   },
   {
     id: "review",
     note: "Open assigned Review work. Evaluation, Human revision, and Review decision stay distinct.",
-    always: false,
   },
   {
     id: "release",
     note: "Open assigned Release work. Release remains independent of Review approval.",
-    always: false,
   },
   {
     id: "results",
     note: "Open Results the server has made visible to this relationship.",
-    always: false,
   },
 ];
 
+const ADMIN_HOME_DESCRIPTION =
+  "Current authorized work for this organization. Open the next safe destination.";
+
+function DestinationPlate({
+  id,
+  note,
+}: {
+  id: Exclude<ProductionDestinationId, "home">;
+  note: string;
+}) {
+  const destination = PRODUCTION_DESTINATIONS[id];
+  return (
+    <AssignmentPlate
+      label={destination.label}
+      rows={[
+        { term: "Purpose", value: note, className: "readout--title" },
+        { term: "Availability", value: "Available" },
+      ]}
+      action={(
+        <Key variant="open" to={destination.route} ariaLabel={`Open ${destination.label}`}>
+          Open
+        </Key>
+      )}
+    />
+  );
+}
+
 export function ProductionHomePage() {
   const { shell } = useProductionApi();
+  if (isProductionDestinationOpen(shell?.navigation, "my-work")) {
+    return <Navigate to="/my-work" replace />;
+  }
+
   const available = new Set(
     (shell?.navigation ?? [])
       .filter((item) => item.is_available)
       .map((item) => item.destination_id),
   );
-  const wells = HOME_WELLS.filter((well) => well.always || available.has(well.id));
-  const hasOpenDestination = wells.some((well) => available.has(well.id));
+  const wells = HOME_WELLS.filter((well) => available.has(well.id));
 
-  if (!hasOpenDestination) {
+  if (wells.length === 0) {
     return (
       <CeremonyUnavailable
         title="Home"
         description="Current authorized work for this organization."
-        note="Activities and My work are not available for the current authorized relationship."
+        note="Authorized work is not available for the current authorized relationship."
       />
     );
   }
@@ -66,29 +86,13 @@ export function ProductionHomePage() {
       framed={false}
       label="Home"
       title="Home"
-      description="Current authorized work for this organization. Open the next safe destination."
+      description={ADMIN_HOME_DESCRIPTION}
     >
-      <div className="destination-bays plate-bays--hug">
-        {wells.map((well) => {
-          const destination = PRODUCTION_DESTINATIONS[well.id];
-          const open = available.has(well.id);
-          return (
-            <AssignmentPlate
-              key={well.id}
-              label={destination.label}
-              rows={[
-                { term: "Purpose", value: open ? well.note : productionDestinationUnavailableCopy(well.id), className: "assignment-plate-row--title" },
-                { term: "Availability", value: open ? "Available" : "Not available" },
-              ]}
-              action={open ? (
-                <Key variant="open" to={destination.route} ariaLabel={`Open ${destination.label}`}>
-                  Open
-                </Key>
-              ) : undefined}
-            />
-          );
-        })}
-      </div>
+      <Grid gap="4" minItemWidth="control" fit="fill">
+        {wells.map((well) => (
+          <DestinationPlate key={well.id} id={well.id} note={well.note} />
+        ))}
+      </Grid>
     </OperateArea>
   );
 }

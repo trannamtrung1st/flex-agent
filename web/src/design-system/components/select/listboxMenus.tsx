@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
 import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
 
@@ -48,14 +49,7 @@ export function DisclosureMenu({
     });
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open]);
+  useDismissOnOutsidePointer(open, [rootRef, menuRef], () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
@@ -93,9 +87,12 @@ export function DisclosureMenu({
         <span className="seg-value" id={valueId}>{value}</span>
         <ChevronGlyph />
       </button>
+      <AnchoredOverlay open={open} triggerRef={keyRef} tokenSourceRef={rootRef} floatingRef={menuRef}>
+        {({ ref, style, overlayClassName }) => (
       <ul
-        ref={menuRef}
-        className="seg-menu select-popover popover-surface menu-surface option-menu"
+        ref={ref}
+        style={style}
+        className={`seg-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
         role="listbox"
         id={menuId}
         aria-label={ariaLabel}
@@ -136,6 +133,8 @@ export function DisclosureMenu({
           </li>
         ))}
       </ul>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }
@@ -202,6 +201,7 @@ export function DropdownSelect({
   const [open, setOpen] = useState(false);
   const keyRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const clearRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const normalizedOptions = useMemo(() => normalizeDropdownOptions(options), [options]);
@@ -222,7 +222,7 @@ export function DropdownSelect({
     keyRef.current?.focus();
   };
 
-  useDismissOnOutsidePointer(open, rootRef, () => setOpen(false), { labelId, controlId: id });
+  useDismissOnOutsidePointer(open, [rootRef, overlayRef], () => setOpen(false), { labelId, controlId: id });
 
   const focusOption = (idx: number) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='option']") ?? []);
@@ -282,8 +282,18 @@ export function DropdownSelect({
           </svg>
         )}
       </button>
+      <AnchoredOverlay
+        open={open}
+        triggerRef={keyRef}
+        tokenSourceRef={rootRef}
+        floatingRef={overlayRef}
+        align={isToolbar ? "start" : "stretch"}
+      >
+        {({ ref, style, overlayClassName }) => (
       <div
-        className={`${isToolbar ? "seg-menu" : "dropdown-menu"} select-popover popover-surface menu-surface`}
+        ref={ref}
+        style={style}
+        className={`${isToolbar ? "seg-menu" : "dropdown-menu"} select-popover popover-surface menu-surface ${overlayClassName}`}
         hidden={!open}
       >
         <ul
@@ -355,6 +365,8 @@ export function DropdownSelect({
           </div>
         ) : null}
       </div>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

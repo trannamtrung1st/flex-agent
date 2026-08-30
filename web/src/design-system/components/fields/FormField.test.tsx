@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FormField } from "./FormField";
@@ -40,5 +43,12 @@ describe("FormField", () => {
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveAttribute("aria-describedby", "demoError");
     expect(screen.getByText("Enter a bounded reason.")).toHaveAttribute("id", "demoError");
+  });
+
+  it("treats hints as sentence-case helpers, not microlabels", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const fieldsCss = readFileSync(join(here, "../../../styles/components/fields.css"), "utf8");
+    expect(fieldsCss).toMatch(/\.field-hint \{[^}]*text-transform:\s*none/);
+    expect(fieldsCss).not.toMatch(/\.field-hint \{[^}]*text-transform:\s*uppercase/);
   });
 });

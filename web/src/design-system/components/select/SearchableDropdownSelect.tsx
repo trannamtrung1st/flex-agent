@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, optionNounCount, pinIndex, stepVisibleIndex } from "./selectLogic";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
@@ -64,7 +65,7 @@ export function SearchableDropdownSelect({
     return pinIndex(filtered, options.indexOf(value));
   }, [caseSensitive, options, search, value]);
 
-  useDismissOnOutsidePointer(open, rootRef, () => close(), { labelId, controlId: id });
+  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => close(), { labelId, controlId: id });
 
   const selectOption = (opt: string) => {
     onChange(opt);
@@ -145,10 +146,13 @@ export function SearchableDropdownSelect({
         <span className="searchable-select-value dropdown-value select-value" id={valueId}>{value}</span>
         <ChevronGlyph className="dropdown-chevron chevron-glyph" />
       </button>
+      <AnchoredOverlay open={open} triggerRef={keyRef} tokenSourceRef={rootRef} floatingRef={panelRef} align="stretch">
+        {({ ref, style, overlayClassName }) => (
       <SearchableSelectPanel
         open={open}
-        panelRef={panelRef}
-        className="searchable-select-panel multiselect-panel dropdown-menu select-popover popover-surface menu-surface option-menu"
+        panelRef={ref}
+        style={style}
+        className={`searchable-select-panel multiselect-panel dropdown-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
         searchId={searchId}
         searchRef={searchRef}
         searchValue={search}
@@ -193,6 +197,8 @@ export function SearchableDropdownSelect({
           );
         })}
       </SearchableSelectPanel>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

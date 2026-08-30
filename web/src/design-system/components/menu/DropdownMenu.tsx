@@ -2,17 +2,16 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
-  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type Ref,
 } from "react";
-import { createPortal } from "react-dom";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { enabledMenuItems, stepMenuIndex } from "./dropdownMenuLogic";
 
 export type DropdownMenuAlign = "start" | "end" | "stretch";
+/** Retained for callers. Both values portal through `placeFloating`. */
 export type DropdownMenuPlacement = "connected" | "fixed";
 
 export type DropdownMenuTriggerBind = {
@@ -68,7 +67,7 @@ export function DropdownMenu({
   trigger,
   children,
   align = "end",
-  placement = "connected",
+  placement: _placement = "connected",
   focusOnOpen = true,
   labelledBy,
   label,
@@ -93,39 +92,15 @@ export function DropdownMenu({
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const focusFirstRef = useRef(false);
   const generatedId = useId();
   const panelId = menuId ?? generatedId;
-  const [pos, setPos] = useState<{ top: number; left: number; width?: number }>({ top: 0, left: 0 });
 
   const close = useCallback(() => {
     onOpenChange(false);
     triggerRef.current?.focus();
   }, [onOpenChange]);
-
-  const place = useCallback(() => {
-    const triggerEl = triggerRef.current;
-    const menu = menuRef.current;
-    if (!triggerEl || !menu) return;
-    const rect = triggerEl.getBoundingClientRect();
-    const box = menu.getBoundingClientRect();
-    let top = rect.bottom;
-    let left = align === "start" ? rect.left : rect.right - box.width;
-    if (align === "stretch") left = rect.left;
-    if (top + box.height > window.innerHeight - 8) top = Math.max(8, rect.top - box.height);
-    if (left < 8) left = Math.min(rect.left, window.innerWidth - box.width - 8);
-    if (align === "stretch") {
-      setPos({ top, left, width: rect.width });
-      return;
-    }
-    if (left + box.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - box.width - 8);
-    setPos({ top, left, width: undefined });
-  }, [align]);
-
-  useLayoutEffect(() => {
-    if (!open || placement !== "fixed") return;
-    place();
-  }, [open, place, placement, children]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,17 +113,6 @@ export function DropdownMenu({
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
   }, [open, onOpenChange]);
-
-  useEffect(() => {
-    if (!open || placement !== "fixed") return;
-    const onScroll = () => onOpenChange(false);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [open, onOpenChange, place, placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -215,25 +179,31 @@ export function DropdownMenu({
     },
   };
 
-  const panel = open ? (
-    <div
-      ref={menuRef}
-      id={panelId}
-      className={`menu-popover select-popover popover-surface menu-surface command-menu${placement === "fixed" ? " menu-popover--fixed" : ""}${panelClassName ? ` ${panelClassName}` : ""}`}
-      role="menu"
-      aria-labelledby={labelledBy}
-      aria-label={label}
-      style={placement === "fixed" ? { top: pos.top, left: pos.left, width: pos.width } : undefined}
-      onKeyDown={onMenuKeyDown}
-    >
-      {children}
-    </div>
-  ) : null;
-
   return (
-    <div className={`menu-shell menu-shell--${align}${className ? ` ${className}` : ""}`}>
+    <div ref={shellRef} className={`menu-shell menu-shell--${align}${className ? ` ${className}` : ""}`}>
       {trigger(bind)}
-      {placement === "fixed" && panel ? createPortal(panel, document.body) : panel}
+      <AnchoredOverlay
+        open={open}
+        triggerRef={triggerRef}
+        tokenSourceRef={shellRef}
+        floatingRef={menuRef}
+        align={align}
+      >
+        {({ ref, style, overlayClassName }) => (
+          <div
+            ref={ref}
+            id={panelId}
+            className={`menu-popover select-popover popover-surface menu-surface command-menu menu-popover--fixed ${overlayClassName}${panelClassName ? ` ${panelClassName}` : ""}`}
+            role="menu"
+            aria-labelledby={labelledBy}
+            aria-label={label}
+            style={style}
+            onKeyDown={onMenuKeyDown}
+          >
+            {children}
+          </div>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

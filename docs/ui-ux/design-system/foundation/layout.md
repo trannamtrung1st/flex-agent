@@ -45,7 +45,11 @@ Titled field clusters use `FormSection` ([inputs](../components/inputs.md)).
 The legend uses H2 / plate-title type, not `.field-label` microlabel type.
 Fieldset legends are unreliable flex items: group gap is
 `legend { margin-block-end: var(--form-group-gap) }`, not `Stack` gap alone.
-`gap="none"` is only for fused instrument groups (one plate, shared hairline).
+The group mark is a 2px `--hairline` rule under the legend words, not a full-width bay rule, rail, or pad
+on the fieldset. Sibling `FormSection`s in a `Stack` use `--operate-bay-gap`.
+Do not add a plate or `.form-divider`. `Grid` of FormSections is not a stack;
+keep `Grid` gap. `gap="none"` is only for fused instrument groups (one plate,
+shared hairline).
 
 ## Application shells
 
@@ -64,8 +68,11 @@ in `web/src/design-system/patterns/layouts/` and are documented in
    transcript column, inset examiner/Agent plate.
 4. **Reference** (`reference`) — catalog index / Component Deck only (design
    lab). Forbidden in the production entry graph. The Component Deck catalog
-   column is a document scroller; nested family specimens hug and do not
-   inner-scroll. Product hulls and other lab Operate routes keep hull scroll.
+   column is a document scroller; nested family specimens and seated in-flow
+   overlay recipes hug and do not inner-scroll. Native `<dialog>` overlays
+   still scroll inside the plate. A filling table in a live overlay keeps that
+   body scroll and does not nest a second vertical wheel on `.datatable-scroll`.
+   Product hulls and other lab Operate routes keep hull scroll.
 
 Inner feature composition (tables, Status Bays, reviewer record grid, gallery
 specimens) lives inside named slots and is not a fifth shell. Prefer the
@@ -158,8 +165,9 @@ a floating rounded card.
 **Shared horizon.** Sibling plates in a row share divider and key-foot
 geometry so a lone plate does not balloon beside crowded neighbors. Home
 destination plates and My work assignment plates occupy viewport-sized slots
-(`auto-fill`); they do not grow to fill leftover tracks when the roster is
-sparse.
+(`Grid` `fit="fill"`); they do not grow to fill leftover tracks when the roster is
+sparse. Status Bays share horizon inside each named column, not across a
+`Grid` fill track.
 
 ## Spatial Signature
 

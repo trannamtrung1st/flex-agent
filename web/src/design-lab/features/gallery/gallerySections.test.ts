@@ -12,6 +12,7 @@ describe("gallerySections", () => {
       "key-group",
       "pane",
       "frame",
+      "assignment-plate",
     ]);
   });
 
@@ -19,6 +20,20 @@ describe("gallerySections", () => {
     const ids: string[] = gallerySections.map((group) => group.id);
     expect(ids).not.toContain("keys");
     expect(ids).toContain("shells");
+  });
+
+  it("registers collapsible nav groups between nav rail and gangway", () => {
+    const navigation = gallerySections.find((group) => group.id === "navigation");
+    expect(navigation?.items.map((item) => item.id)).toEqual([
+      "strip",
+      "nav-rail",
+      "nav-groups",
+      "gangway",
+      "breadcrumbs",
+      "drawer",
+      "tabs",
+      "footer",
+    ]);
   });
 
   it("registers Compact ID between readout grid and datatable", () => {
@@ -29,6 +44,7 @@ describe("gallerySections", () => {
       "readout",
       "readout-grid",
       "compact-id",
+      "item-list",
       "datatable",
       "datatable-scroll",
     ]);
@@ -45,7 +61,9 @@ describe("gallerySections", () => {
     expect(orders.indexOf("typography")).toBeLessThan(orders.indexOf("keys"));
     expect(orders.indexOf("keys")).toBeLessThan(orders.indexOf("key-group"));
     expect(orders.indexOf("key-group")).toBeLessThan(orders.indexOf("pane"));
-    expect(orders.indexOf("pane")).toBeLessThan(orders.indexOf("strip"));
+    expect(orders.indexOf("pane")).toBeLessThan(orders.indexOf("frame"));
+    expect(orders.indexOf("frame")).toBeLessThan(orders.indexOf("assignment-plate"));
+    expect(orders.indexOf("assignment-plate")).toBeLessThan(orders.indexOf("strip"));
   });
 
   it("registers composition primitives after shells", () => {

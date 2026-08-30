@@ -179,7 +179,7 @@ export function CampaignsArea() {
         sealing={sealing}
         back={<BackKey label="Campaigns" onClick={backToRegistry} />}
       >
-          <Stack gap="none">
+          <Stack gap="none" className="in-plate-host">
           <ReadoutGrid label="Campaign record">
             <ReadoutGridRow label="Campaign summary">
               <ReadoutGridField term="Campaign" span={3}>

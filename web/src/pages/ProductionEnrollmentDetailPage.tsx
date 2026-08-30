@@ -15,15 +15,19 @@ import {
   ACCOMMODATION_DIMENSION_COPY,
   ACCOMMODATION_STATUS_COPY,
   ELIGIBILITY_COPY,
+  ENROLLMENT_TERMINAL_CONSEQUENCE,
   accommodationValueExample,
   accommodationValueHint,
   accommodationCurrentBoundTerm,
   accommodationCurrentUtc,
+  enrollmentLifecycleReason,
+  enrollmentLifecycleReceipt,
   enrollmentRecordVariant,
   enrollmentStatusCopy,
   pickerValueToUtcInstant,
   utcInstantToPickerValue,
   wordsFromCode,
+  type EnrollmentLifecycleOperation,
 } from "../lib/enrollment-presentation";
 import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import {
@@ -51,6 +55,7 @@ import {
   ReadoutList,
   Stack,
   StateReadout,
+  usePushToast,
   WorkWell,
   WorkWellHead,
   WorkWellSection,
@@ -66,6 +71,7 @@ export function ProductionEnrollmentDetailPage() {
   const { fetchJson } = useProductionApi();
   const client = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const confirmId = useId();
+  const lifecycleTitleId = useId();
   const valueId = useId();
   const fairnessId = useId();
   const [detail, setDetail] = useState<EnrollmentDetailV1 | null>(null);
@@ -73,8 +79,10 @@ export function ProductionEnrollmentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lifecycleConfirm, setLifecycleConfirm] = useState<"close" | "revoke" | null>(null);
   const [requestedValue, setRequestedValue] = useState("");
   const [fairnessException, setFairnessException] = useState(false);
+  const pushToast = usePushToast();
 
   const reload = useCallback(async () => {
     const [next, nextTiming] = await Promise.all([
@@ -161,14 +169,14 @@ export function ProductionEnrollmentDetailPage() {
     selectedDisplay && selectedDisplay !== "—" ? selectedDisplay : undefined,
   );
 
-  function mutate(operation: "suspend" | "restore" | "close" | "revoke") {
+  function mutate(operation: EnrollmentLifecycleOperation) {
     setPending(true);
     void client.mutate(
       activityId,
       cohortId,
       enrollmentId,
       operation,
-      "administrator_action",
+      enrollmentLifecycleReason(operation),
       revision,
       createEnrollmentIdempotencyKey(),
     )
@@ -177,6 +185,8 @@ export function ProductionEnrollmentDetailPage() {
           setError(enrollmentOutcomeCopy(outcome.outcome_code, "The Enrollment could not be updated."));
           return;
         }
+        setLifecycleConfirm(null);
+        pushToast(enrollmentLifecycleReceipt(operation));
         return reload();
       })
       .catch((caught: unknown) => {
@@ -193,6 +203,7 @@ export function ProductionEnrollmentDetailPage() {
           setError(enrollmentOutcomeCopy(outcome.outcome_code, failed));
           return;
         }
+        pushToast({ label: "Accommodation", copy: "The request was recorded." });
         return reload();
       })
       .catch((caught: unknown) => {
@@ -237,7 +248,7 @@ export function ProductionEnrollmentDetailPage() {
             <ReadoutGridField term="Accommodation">{timing ? consequence : "—"}</ReadoutGridField>
           </ReadoutGridRow>
         </ReadoutGrid>
-        {error && !confirmOpen ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
+        {error && !confirmOpen && !lifecycleConfirm ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
         <WorkWell
           live={false}
           label="Enrollment actions"
@@ -261,10 +272,16 @@ export function ProductionEnrollmentDetailPage() {
                     <Key variant="quiet" disabled={pending} onClick={() => mutate("restore")}>Restore Enrollment</Key>
                   ) : null}
                   {actions.includes("close") ? (
-                    <Key variant="quiet" disabled={pending} onClick={() => mutate("close")}>Close Enrollment</Key>
+                    <Key variant="quiet" className="key--danger" disabled={pending} onClick={() => {
+                      setError(null);
+                      setLifecycleConfirm("close");
+                    }}>Close Enrollment</Key>
                   ) : null}
                   {actions.includes("revoke") ? (
-                    <Key variant="quiet" disabled={pending} onClick={() => mutate("revoke")}>Revoke Enrollment</Key>
+                    <Key variant="quiet" className="key--danger" disabled={pending} onClick={() => {
+                      setError(null);
+                      setLifecycleConfirm("revoke");
+                    }}>Revoke Enrollment</Key>
                   ) : null}
                   {canRequest ? (
                     <Key variant="open" disabled={pending} onClick={() => {
@@ -409,6 +426,55 @@ export function ProductionEnrollmentDetailPage() {
           </WorkWellSection>
         </WorkWell>
       </Stack>
+      <CeremonyDialog
+        open={lifecycleConfirm !== null}
+        onClose={() => {
+          if (!pending) setLifecycleConfirm(null);
+        }}
+        labelledBy={lifecycleTitleId}
+      >
+        <DialogPlate>
+          <DialogPlateHead
+            title={lifecycleConfirm === "revoke" ? "Revoke this Enrollment?" : "Close this Enrollment?"}
+            titleId={lifecycleTitleId}
+          />
+          <DialogPlateBody>
+            <Stack gap="4">
+              {lifecycleConfirm && error ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
+              <p>
+                {lifecycleConfirm === "revoke" ? "Revoking" : "Closing"}{" "}
+                {detail.enrollment.display_label}. {ENROLLMENT_TERMINAL_CONSEQUENCE}
+              </p>
+              <p>
+                Required reason: {wordsFromCode(lifecycleConfirm ? enrollmentLifecycleReason(lifecycleConfirm) : "")}.
+              </p>
+            </Stack>
+          </DialogPlateBody>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={
+              <Key variant="quiet" disabled={pending} onClick={() => setLifecycleConfirm(null)}>
+                Cancel
+              </Key>
+            }
+            primary={
+              <Key
+                variant="transmit"
+                size="large"
+                className="key--danger"
+                waiting={pending}
+                disabled={pending || !lifecycleConfirm}
+                onClick={() => {
+                  if (!lifecycleConfirm) return;
+                  mutate(lifecycleConfirm);
+                }}
+              >
+                {lifecycleConfirm === "revoke" ? "Revoke Enrollment" : "Close Enrollment"}
+              </Key>
+            }
+          />
+        </DialogPlate>
+      </CeremonyDialog>
       <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
         <DialogPlate width="wide">
           <DialogPlateHead title="Request a bounded accommodation?" titleId={confirmId} />
@@ -504,6 +570,7 @@ export function ProductionEnrollmentDetailPage() {
                     setConfirmOpen(false);
                     setRequestedValue("");
                     setFairnessException(false);
+                    pushToast({ label: "Accommodation", copy: "The request was recorded." });
                     return reload();
                   })
                   .catch((caught: unknown) => {

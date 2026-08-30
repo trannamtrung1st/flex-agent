@@ -182,6 +182,17 @@
   border-bottom-color: transparent;
 }
 
+.select-shell--field.is-overlay-above:has(.select-trigger[aria-expanded="true"]) .select-trigger--field {
+  border-bottom-color: var(--hairline);
+  border-top-color: transparent;
+}
+
+.select-shell--context.is-overlay-above:has(.select-trigger[aria-expanded="true"]),
+.select-shell--toolbar.is-overlay-above:has(.select-trigger[aria-expanded="true"]) {
+  border-bottom-color: var(--hairline);
+  border-top-color: transparent;
+}
+
 .select-shell--context .select-popover,
 .select-shell--toolbar .select-popover {
   scrollbar-width: thin;

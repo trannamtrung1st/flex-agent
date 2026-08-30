@@ -19,6 +19,13 @@ const groups = [
 ] as const;
 
 describe("IndexRail", () => {
+  it("exposes group labels as collapsible summaries", () => {
+    render(<IndexRail groups={groups} activeId="color" />);
+
+    expect(screen.getByText("Foundations").closest("summary")).not.toBeNull();
+    expect(screen.getByText("Navigation").closest("summary")).not.toBeNull();
+  });
+
   it("uses the shared gangway tick for the current index item", () => {
     render(<IndexRail groups={groups} activeId="color" />);
 

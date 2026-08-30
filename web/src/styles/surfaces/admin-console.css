@@ -328,8 +328,8 @@ body {
 
 .ceremony-foot {
   flex-shrink: 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--hairline-dim);
+  padding-block-start: var(--plate-foot-pad-block);
+  border-block-start: 1px solid var(--hairline-dim);
 }
 
 .ceremony-foot-actions {

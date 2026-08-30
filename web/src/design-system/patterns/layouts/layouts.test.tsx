@@ -1,4 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -90,7 +93,17 @@ describe("shared layout library", () => {
     expect(scroller?.textContent).not.toContain("Assignment Station");
     expect(document.querySelector("#main-content")).toBeTruthy();
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
-    expect(screen.getByRole("button", { name: "Continue" }).closest(".layout-guided__actions")).toHaveAttribute("data-arrangement", "end");
+    const continueFoot = screen.getByRole("button", { name: "Continue" }).closest(".layout-guided__actions");
+    expect(continueFoot).toHaveAttribute("data-arrangement", "end");
+    expect(continueFoot).toHaveAttribute("data-hairline", "false");
+  });
+
+  it("sticks guided-task actions to the viewport floor at the stacked breakpoint", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../styles/components/layouts.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/@media \(max-width: 1080px\)[\s\S]*\.layout-guided__actions\s*\{[^}]*position:\s*fixed/);
   });
 
   it("renders guided-task split feet with secondary and primary slots", () => {
@@ -247,6 +260,30 @@ describe("shared layout library", () => {
     expect(nav).toHaveClass("is-collapsed");
   });
 
+  it("forwards collapsibleGroups to the gangway", () => {
+    wrap(
+      <ManagementLayout
+        commandStrip={{ homeTo: "/", homeLabel: "Home" }}
+        navigation={{
+          title: "Administrator",
+          groups: [
+            { label: "Ops", items: [{ to: "/ops", label: "Campaigns", abbr: "CAM", current: true }] },
+            { label: "Gov", items: [{ to: "/gov", label: "Audit", abbr: "AUD" }] },
+          ],
+          currentLabel: "Campaigns",
+          collapsibleGroups: true,
+        }}
+      >
+        <p>Work bay</p>
+      </ManagementLayout>,
+    );
+    const gangway = document.querySelector<HTMLElement>("[data-gangway]");
+    expect(gangway).not.toBeNull();
+    expect(within(gangway!).getByText("Ops").closest("summary")).not.toBeNull();
+    fireEvent.click(within(gangway!).getByText("Gov").closest("summary")!);
+    expect(within(gangway!).getByText("Gov").closest("details")).not.toHaveAttribute("open");
+  });
+
   it("owns the 1080px bulkhead instead of the gangway", () => {
     const previous = window.matchMedia;
     window.matchMedia = (query: string) => ({
@@ -289,6 +326,7 @@ describe("shared layout library", () => {
     expect(screen.queryByRole("link", { name: "Skip to main content" })).not.toBeInTheDocument();
     expect(screen.queryByRole("main")).not.toBeInTheDocument();
     expect(document.querySelector("#main-content")).toBeNull();
+    expect(document.querySelector(".layout-management")).toHaveAttribute("data-nested", "true");
     expect(document.querySelector(".layout-management__main")).toHaveTextContent("Specimen bay");
   });
 

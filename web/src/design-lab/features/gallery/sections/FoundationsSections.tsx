@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
-import { ActionMenuGlyph, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup } from "../../../components";
+import { ActionMenuGlyph, AssignmentPlate, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup, StateReadout } from "../../../components";
 import { Inline, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
 
@@ -274,6 +274,35 @@ export function FoundationsSections() {
         <div className="frame-demo-wrap">
           <EtchedFrame className="frame-demo" ticks="both"><span className="frame-demo-label">.frame-cut &gt; .frame-in · ticks · nodes</span></EtchedFrame>
         </div>
+      </GallerySection>
+
+      <GallerySection id="assignment-plate" title="Assignment plate" note={<>Destination and assignment tiles: <span className="code">frame-cut</span> at <span className="code">--notch</span>, horizon readout, trailing <span className="code">PlateFoot</span> <span className="code">end</span>. No etched ticks. Sit these in <span className="code">Grid fit=&quot;fill&quot;</span>.</>}>
+        <Spec wide tag="AssignmentPlate · available destination">
+          <AssignmentPlate
+            label="Activities"
+            rows={[
+              { term: "Purpose", value: "Create and resume Assessment Campaign drafts for this organization.", className: "readout--title" },
+              { term: "Availability", value: "Available" },
+            ]}
+            action={<Key variant="open" to="/activities" ariaLabel="Open Activities">Open</Key>}
+          />
+        </Spec>
+        <Spec wide tag="AssignmentPlate · released assignment">
+          <AssignmentPlate
+            label="Campaign A"
+            released
+            rows={[
+              { term: "Campaign", value: "Campaign A" },
+              { term: "Assignment", value: "Case study", className: "readout--title" },
+              {
+                term: "Record",
+                value: <StateReadout variant="sealed" solid label="Released" className="assignment-record" labelClassName="assignment-record-label" />,
+                className: "readout--record",
+              },
+            ]}
+            action={<Key variant="open" to="/my-work/enr-1" ariaLabel="Open Campaign A">Open</Key>}
+          />
+        </Spec>
       </GallerySection>
     </>
   );

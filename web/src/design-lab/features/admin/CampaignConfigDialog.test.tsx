@@ -69,5 +69,8 @@ describe("CampaignConfigDialog", () => {
     expect(within(dialog).getByText("Agent and Harness")).toBeInTheDocument();
     expect(within(dialog).getByText("Timing and attempts")).toBeInTheDocument();
     expect(dialog.querySelector(".form-divider")).toBeNull();
+    expect(sections[0]?.parentElement).toHaveClass("composition-stack");
+    expect(sections[0]?.parentElement).toHaveAttribute("data-flow-gap", "6");
+    expect(sections[0]?.nextElementSibling).toBe(sections[1]);
   });
 });

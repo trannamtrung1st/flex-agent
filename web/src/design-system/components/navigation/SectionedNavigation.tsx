@@ -1,9 +1,12 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { maxWidthQuery } from "../../../lib/breakpoints";
+import { useMediaQuery } from "../../../lib/useMediaQuery";
 
 export type SectionedNavigationGroup<TItem> = {
   id?: string;
   label: string;
   items: readonly TItem[];
+  collapsible?: boolean;
 };
 
 export type NavigationRenderState = {
@@ -28,17 +31,35 @@ export type SectionedNavigationProps<TItem> = {
   strategy: NavigationRenderStrategy<TItem>;
   variant: "gangway" | "rail" | "index";
   onNavigate?: () => void;
+  collapsibleGroups?: boolean;
+  forceExpanded?: boolean;
 };
+
+function groupKey(group: { id?: string; label: string }) {
+  return group.id ?? group.label;
+}
+
+function groupIsCollapsible<TItem>(
+  group: SectionedNavigationGroup<TItem>,
+  collapsibleGroups: boolean | undefined,
+  variant: SectionedNavigationProps<TItem>["variant"],
+) {
+  if (group.collapsible != null) return group.collapsible;
+  if (collapsibleGroups != null) return collapsibleGroups;
+  return variant === "index";
+}
 
 function SectionGroupLabel({
   as: Tag = "span",
   label,
+  onClick,
 }: {
   as?: "span" | "summary";
   label: string;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   return (
-    <Tag className="gangway-section-label">
+    <Tag className="gangway-section-label" onClick={onClick}>
       <span className="gangway-section-node" aria-hidden="true" />
       <span className="gangway-section-label-text">{label}</span>
     </Tag>
@@ -83,17 +104,37 @@ export function SectionedNavigation<TItem>({
   strategy,
   variant,
   onNavigate,
+  collapsibleGroups,
+  forceExpanded = false,
 }: SectionedNavigationProps<TItem>) {
-  const compactIndex = variant === "index" &&
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(max-width: 900px)").matches;
-  const [openIndex, setOpenIndex] = useState<number | null>(compactIndex ? 0 : null);
+  const compactCatalog = useMediaQuery(maxWidthQuery("gallery"));
+  const accordion = variant === "index" && compactCatalog;
+  const currentGroupIndex = groups.findIndex((group) => group.items.some((item) => strategy.isCurrent(item)));
+  const currentGroupKey = currentGroupIndex >= 0 ? groupKey(groups[currentGroupIndex]!) : null;
+  const [openIndex, setOpenIndex] = useState(() => Math.max(0, currentGroupIndex));
+  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(groups.map((group) => [groupKey(group), true])),
+  );
+
+  useEffect(() => {
+    if (currentGroupIndex < 0 || currentGroupKey == null) return;
+    setOpenIndex(currentGroupIndex);
+    setOpenKeys((current) => (
+      current[currentGroupKey] ? current : { ...current, [currentGroupKey]: true }
+    ));
+  }, [currentGroupIndex, currentGroupKey]);
   const listClass = variant === "gangway" ? "gangway-list" : variant === "index" ? "nav-list deck-index" : "nav-list";
-  const sectionClass = variant === "gangway" ? "gangway-section" : "nav-rail-section";
 
   return (
     <>
       {groups.map((group, groupIndex) => {
+        const key = groupKey(group);
+        const collapsible = groupIsCollapsible(group, collapsibleGroups, variant);
+        const sectionClass = variant === "index"
+          ? "nav-rail-section"
+          : variant === "gangway" || collapsible
+            ? "gangway-section"
+            : "nav-rail-section";
         const items = (
           <ul className={listClass}>
             {group.items.map((item) => {
@@ -116,30 +157,35 @@ export function SectionedNavigation<TItem>({
           </ul>
         );
 
-        if (variant === "index") {
+        if (collapsible) {
+          const open = forceExpanded || (accordion ? openIndex === groupIndex : openKeys[key] !== false);
+
           return (
             <details
               className={sectionClass}
-              key={group.id ?? group.label}
-              open={!compactIndex || openIndex === groupIndex}
-              onToggle={(event) => {
-                if (!compactIndex) return;
-                if (event.currentTarget.open) setOpenIndex(groupIndex);
-                else {
-                  setOpenIndex((current) => (
-                    current === groupIndex ? null : current
-                  ));
-                }
-              }}
+              key={key}
+              open={open}
             >
-              <SectionGroupLabel as="summary" label={group.label} />
+              <SectionGroupLabel
+                as="summary"
+                label={group.label}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (forceExpanded) return;
+                  if (accordion) {
+                    setOpenIndex((current) => (current === groupIndex ? -1 : groupIndex));
+                    return;
+                  }
+                  setOpenKeys((current) => ({ ...current, [key]: current[key] === false }));
+                }}
+              />
               {items}
             </details>
           );
         }
 
         return (
-          <section className={sectionClass} key={group.id ?? group.label}>
+          <section className={sectionClass} key={key}>
             {variant === "gangway" ? (
               <SectionGroupLabel label={group.label} />
             ) : (

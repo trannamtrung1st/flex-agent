@@ -1,5 +1,72 @@
 import type { StateIndicatorVariant } from "../design-system";
 
+export const PARTICIPANT_SELECT_PLACEHOLDER = "Select a Participant";
+
+export type EnrollmentLifecycleOperation = "suspend" | "restore" | "close" | "revoke";
+
+export const ENROLLMENT_LIFECYCLE_REASON: Record<EnrollmentLifecycleOperation, string> = {
+  suspend: "temporary_restriction",
+  restore: "restriction_removed",
+  close: "activity_or_enrollment_end",
+  revoke: "access_revoked",
+};
+
+export function enrollmentLifecycleReason(operation: EnrollmentLifecycleOperation): string {
+  return ENROLLMENT_LIFECYCLE_REASON[operation];
+}
+
+export function enrollmentLifecycleReceipt(operation: EnrollmentLifecycleOperation): { label: string; copy: string } {
+  switch (operation) {
+    case "suspend":
+      return { label: "Enrollment", copy: "Enrollment is suspended." };
+    case "restore":
+      return { label: "Enrollment", copy: "Enrollment is restored." };
+    case "close":
+      return { label: "Enrollment", copy: "Enrollment is closed." };
+    case "revoke":
+      return { label: "Enrollment", copy: "Enrollment is revoked." };
+  }
+}
+
+export function enrollmentAssignedReceipt(displayLabel: string): { label: string; copy: string } {
+  return { label: "Enrollment active", copy: displayLabel };
+}
+
+export const ENROLLMENT_TERMINAL_CONSEQUENCE =
+  "No new Submission intake or Attempt start will be authorized. History stays inspectable.";
+
+/**
+ * Optional client filter for a fully loaded page. The Assign Participant picker
+ * must not use this to hide enrolled identities after dumping every row
+ * (`UI-SUBM-DEC-13`). Exclusion, if needed later, belongs on the paged query.
+ */
+export function assignableEnrollmentCandidates<T extends { actor_id: string; display_label: string }>(
+  candidates: readonly T[],
+  enrollments: readonly { participant_actor_id: string }[],
+): T[] {
+  const taken = new Set(enrollments.map((row) => row.participant_actor_id));
+  return candidates.filter((candidate) => !taken.has(candidate.actor_id));
+}
+
+export function enrollmentAssignmentDescription(campaignTitle?: string, taskTitle?: string): string {
+  if (campaignTitle && taskTitle) {
+    return `${campaignTitle}. Activated cohort. Task ${taskTitle}. Assign one eligible Participant.`;
+  }
+  if (campaignTitle) {
+    return `${campaignTitle}. Activated cohort. Assign one eligible Participant.`;
+  }
+  return "Assign one eligible Participant to this activated cohort.";
+}
+
+export function candidateSelectOption(
+  candidate: { actor_id: string; display_label: string },
+  labelCounts: ReadonlyMap<string, number>,
+): string {
+  return (labelCounts.get(candidate.display_label) ?? 0) > 1
+    ? `${candidate.display_label} · ${candidate.actor_id}`
+    : candidate.display_label;
+}
+
 export const ELIGIBILITY_COPY: Record<string, string> = {
   too_early: "Too early",
   open: "Open",
@@ -56,6 +123,20 @@ export function wordsFromCode(value: string | undefined, labels: Record<string, 
 
 export function enrollmentStatusCopy(status: string): string {
   return wordsFromCode(status.toLowerCase(), ENROLLMENT_STATUS_COPY, status);
+}
+
+/** Assignment Station eligibility. `too_early` names which window is still closed. */
+export function assignmentEligibilityCopy(
+  state: string | undefined,
+  intakeOpen: boolean,
+  beginIntakePermitted = false,
+): string {
+  if (state === "too_early") {
+    return intakeOpen || beginIntakePermitted
+      ? "Attempt start has not opened"
+      : "Submission window has not opened";
+  }
+  return wordsFromCode(state, ELIGIBILITY_COPY);
 }
 
 export function canonicalUtcInstant(value?: string): string | null {

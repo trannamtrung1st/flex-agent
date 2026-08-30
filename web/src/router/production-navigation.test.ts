@@ -1,4 +1,4 @@
-import { isProductionDestinationOpen, productionDestinationUnavailableCopy, shouldHideProductionBreadcrumbs } from "./production-navigation";
+import { isProductionDestinationOpen, productionDestinationUnavailableCopy, shouldHideProductionBreadcrumbs, availableProductionDestinations, productionWorkspaceHome } from "./production-navigation";
 
 describe("shouldHideProductionBreadcrumbs", () => {
   const participantNav = [
@@ -23,14 +23,53 @@ describe("shouldHideProductionBreadcrumbs", () => {
     expect(shouldHideProductionBreadcrumbs("/activities", participantNav)).toBe(true);
   });
 
-  it("keeps crumbs on available workspace locators", () => {
-    expect(shouldHideProductionBreadcrumbs("/my-work", participantNav)).toBe(false);
+  it("hides crumbs on available gangway indexes", () => {
+    expect(shouldHideProductionBreadcrumbs("/activities", administratorNav)).toBe(true);
+    expect(shouldHideProductionBreadcrumbs("/my-work", participantNav)).toBe(true);
+  });
+
+  it("keeps crumbs on nested workspace locators", () => {
+    expect(shouldHideProductionBreadcrumbs("/my-work/enr-1", participantNav)).toBe(false);
     expect(shouldHideProductionBreadcrumbs("/activities/act-1/setup", administratorNav)).toBe(false);
   });
 
   it("treats Session as open when My work is available", () => {
     expect(isProductionDestinationOpen(participantNav, "sessions")).toBe(true);
     expect(isProductionDestinationOpen(administratorNav, "sessions")).toBe(false);
+  });
+});
+
+describe("availableProductionDestinations", () => {
+  it("omits Home when My work is the assignment index", () => {
+    expect(availableProductionDestinations([
+      { destination_id: "home", is_available: true },
+      { destination_id: "my-work", is_available: true },
+      { destination_id: "results", is_available: true },
+    ]).map((item) => item.id)).toEqual(["my-work", "results"]);
+  });
+
+  it("keeps Home when My work is not available", () => {
+    expect(availableProductionDestinations([
+      { destination_id: "home", is_available: true },
+      { destination_id: "activities", is_available: true },
+      { destination_id: "my-work", is_available: false },
+    ]).map((item) => item.id)).toEqual(["home", "activities"]);
+  });
+});
+
+describe("productionWorkspaceHome", () => {
+  it("lands My work actors on the assignment index", () => {
+    expect(productionWorkspaceHome([
+      { destination_id: "home", is_available: true },
+      { destination_id: "my-work", is_available: true },
+    ])).toBe("/my-work");
+  });
+
+  it("keeps administrators on Home", () => {
+    expect(productionWorkspaceHome([
+      { destination_id: "home", is_available: true },
+      { destination_id: "activities", is_available: true },
+    ])).toBe("/");
   });
 });
 

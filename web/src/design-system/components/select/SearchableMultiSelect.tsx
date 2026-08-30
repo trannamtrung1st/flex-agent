@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, stepVisibleIndex } from "./selectLogic";
 import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
@@ -51,6 +52,7 @@ export function SearchableMultiSelect({
   const resolvedListboxId = listboxId ?? `${uid}-listbox`;
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<Array<HTMLLIElement | null>>([]);
   const { open, search, setSearch, focusIdx, setFocusIdx, close, openPanel } = useSearchableSelect({
@@ -72,8 +74,8 @@ export function SearchableMultiSelect({
         ? selected.map((option) => option.label).join(" · ")
         : `${selected.length} ${optionNoun}s selected`;
 
-  useDismissOnOutsidePointer(open, rootRef, () => {
-    const focusWasInside = rootRef.current?.contains(document.activeElement);
+  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => {
+    const focusWasInside = rootRef.current?.contains(document.activeElement) || panelRef.current?.contains(document.activeElement);
     close(false);
     if (focusWasInside) requestAnimationFrame(() => triggerRef.current?.focus());
   });
@@ -134,10 +136,14 @@ export function SearchableMultiSelect({
         </span>
         <ChevronGlyph className="dropdown-chevron chevron-glyph" />
       </button>
+      <AnchoredOverlay open={open} triggerRef={triggerRef} tokenSourceRef={rootRef} floatingRef={panelRef} align="stretch">
+        {({ ref, style, overlayClassName }) => (
       <SearchableSelectPanel
         open={open}
         panelId={resolvedPanelId}
-        className="multiselect-panel dropdown-menu select-popover popover-surface option-menu"
+        panelRef={ref}
+        style={style}
+        className={`multiselect-panel dropdown-menu select-popover popover-surface option-menu ${overlayClassName}`}
         searchId={resolvedSearchId}
         searchRef={searchRef}
         searchValue={search}
@@ -206,6 +212,8 @@ export function SearchableMultiSelect({
           );
         })}
       </SearchableSelectPanel>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { forwardRef, type ElementType, type Ref } from "react";
 import { cx } from "../../../lib/cx";
 import { renderPolymorphic, type PolymorphicComponent, type PolymorphicProps } from "./polymorphic";
-import type { GridMinItemWidth, LayoutAlign, LayoutSpace } from "./types";
+import type { GridFit, GridMinItemWidth, LayoutAlign, LayoutSpace } from "./types";
 
 type GridOwn = {
   gap?: LayoutSpace;
   minItemWidth?: GridMinItemWidth;
+  fit?: GridFit;
   align?: Exclude<LayoutAlign, "baseline">;
 };
 
@@ -14,6 +15,7 @@ export const Grid = forwardRef(function Grid(
     as,
     gap = "none",
     minItemWidth = "panel",
+    fit = "fit",
     align = "stretch",
     className,
     ...rest
@@ -25,6 +27,7 @@ export const Grid = forwardRef(function Grid(
     className: cx("composition-grid", typeof className === "string" ? className : undefined),
     "data-flow-gap": gap,
     "data-flow-min": minItemWidth,
+    "data-flow-fit": fit,
     "data-flow-align": align,
   }, ref);
 }) as PolymorphicComponent<GridOwn>;

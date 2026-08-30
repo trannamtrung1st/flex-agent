@@ -1,6 +1,6 @@
 ---
 id: nested-scroll-ownership
-status: in-progress
+status: completed
 created: 2026-08-29
 updated: 2026-08-30
 ---

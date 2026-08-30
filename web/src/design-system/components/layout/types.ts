@@ -22,4 +22,6 @@ export type LayoutJustify = "start" | "center" | "end" | "between";
 
 export type GridMinItemWidth = "compact" | "control" | "panel" | "wide";
 
+export type GridFit = "fit" | "fill";
+
 export type ContainerSize = "prose" | "form" | "content" | "full";

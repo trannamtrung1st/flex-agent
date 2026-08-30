@@ -37,7 +37,7 @@ export function AssignmentStationLayout({
 
   return (
     <GuidedTaskLayout
-      homeTo="/"
+      homeTo={identity.home}
       homeLabel="Home"
       railLabel="Assignment instruments"
       brandSuffix="Assignment Station"

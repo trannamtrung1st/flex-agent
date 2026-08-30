@@ -124,6 +124,20 @@
   line-height: 1.45;
 }
 
+.workspace-area .operate-head-mast .operate-head-copy .page-desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .workspace-area .operate-head-copy .page-desc {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}
+
 .workspace-section > h2 {
   font-family: var(--font-plaque);
   text-transform: uppercase;
@@ -176,7 +190,7 @@
   overflow: visible;
 }
 
-.workspace-area > .operate-scroll > .destination-bays,
+.workspace-area > .operate-scroll > .composition-grid[data-flow-fit="fill"],
 .workspace-area > .operate-scroll > .assignment-bays {
   flex: 0 0 auto;
   min-height: auto;
@@ -350,38 +364,6 @@
   overflow: hidden;
 }
 
-.destination-bays,
-.assignment-bay-plates {
-  display: grid;
-  /* auto-fill keeps empty tracks so a lone plate occupies one slot, not the hull. */
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  align-content: start;
-  gap: var(--space-4);
-}
-
-.destination-bays {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-block: var(--space-2) var(--space-4);
-}
-
-.destination-bays > .assignment-plate,
-.assignment-bay-plates > .assignment-plate {
-  min-height: 0;
-}
-
-.plate-bays--hug .assignment-plate-readout {
-  flex: 0 1 auto;
-}
-
-.plate-bays--hug .assignment-plate-row {
-  flex: 0 0 auto;
-}
-
-.plate-bays--hug .assignment-plate-keys {
-  margin-top: auto;
-}
-
 .assignment-board > .frame-in > .frame-scroll,
 .assignment-station-board > .frame-in > .frame-scroll {
   padding: 0;
@@ -424,119 +406,6 @@
   letter-spacing: 0.22em;
   font-size: 0.72rem;
   color: var(--label);
-}
-
-.assignment-bay-plates {
-  flex: 0 0 auto;
-  min-height: 0;
-}
-
-.plate-bays--hug .assignment-bay {
-  flex: 0 0 auto;
-}
-
-.assignment-plate {
-  display: flex;
-  min-width: 0;
-  padding: 1px;
-  background: var(--hairline);
-  clip-path: polygon(
-    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
-    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
-    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
-  );
-}
-
-.assignment-plate-in {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  clip-path: polygon(
-    9px 0, calc(100% - 9px) 0, 100% 9px,
-    100% calc(100% - 9px), calc(100% - 9px) 100%,
-    9px 100%, 0 calc(100% - 9px), 0 9px
-  );
-  background: var(--panel-sheen), linear-gradient(rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.4)) var(--ground-deep);
-  box-shadow: var(--panel-inset);
-  padding: 6px 18px 18px;
-}
-
-.assignment-plate--released .assignment-plate-in {
-  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
-}
-
-.assignment-plate-readout {
-  flex: 0 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.assignment-plate-row {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  padding-top: 12px;
-}
-
-.assignment-plate-row::after {
-  content: "";
-  width: 100%;
-  height: 1px;
-  background: var(--hairline-dim);
-  margin-top: 12px;
-}
-
-.assignment-plate-row:last-of-type::after {
-  display: none;
-}
-
-.assignment-plate-row dt {
-  font-size: var(--microlabel-font-size);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
-  opacity: 0.85;
-  margin-bottom: 4px;
-}
-
-.assignment-plate-row dd {
-  font-size: 0.82rem;
-  line-height: 1.45;
-  color: var(--text);
-  letter-spacing: 0.02em;
-}
-
-.assignment-plate-row--title dd {
-  color: var(--text-bright);
-}
-
-.assignment-plate-row--record dd {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.assignment-record {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.assignment-record-label {
-  color: var(--text);
-}
-
-.assignment-plate-keys {
-  min-height: 58px;
-  margin-top: auto;
-  padding-block-start: 10px;
-  padding-block-end: 0;
-}
-
-.assignment-plate-keys--empty {
-  min-height: 24px;
 }
 
 .layout-guided .rail-brand {
@@ -859,10 +728,6 @@
   }
 }
 
-[data-theme="light"] .assignment-plate-in {
-  background: var(--panel-sheen), var(--ground-deep);
-}
-
 .registry-wall > .registry-frame.frame-cut,
 .registry-wall > .operate-scroll > .registry-frame.frame-cut {
   flex: 1 1 auto;
@@ -904,12 +769,6 @@
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
-}
-
-.registry-create {
-  width: min(100%, 40rem);
-  flex: 0 0 auto;
-  padding-block: 4px 12px;
 }
 
 .record-frame.frame-cut {
@@ -961,10 +820,6 @@
   height: 100%;
 }
 
-.create-eligibility-note {
-  margin: 0;
-}
-
 .create-ceremony__scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -987,7 +842,7 @@
 .workspace-form.setup-ceremony > .setup-ceremony__foot,
 .setup-ceremony > .setup-ceremony__foot {
   flex-shrink: 0;
-  margin-block-start: 0;
+  margin-block-start: var(--plate-foot-pad-block);
 }
 
 .setup-ceremony .select-shell--field {
@@ -1016,27 +871,14 @@
   flex-direction: column;
 }
 
-.setup-ceremony__memory {
-  margin: 0;
-  font-size: 0.74rem;
-  color: var(--label);
-  max-width: 52ch;
-}
-
 .setup-ceremony__foot {
   flex-shrink: 0;
   margin-block-start: auto;
 }
 
-.setup-ceremony__foot .key--activate {
-  min-width: 12rem;
-  justify-content: center;
-}
-
 @media (max-width: 720px) {
   .setup-ceremony__foot .key--activate {
     width: 100%;
-    min-width: 0;
   }
 
   .setup-ceremony__foot[data-arrangement="split"] {
@@ -1064,13 +906,5 @@
   .work-plane--ceremony .ceremony-frame.frame-cut {
     width: auto;
     max-width: 100%;
-  }
-
-  .destination-bays {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .assignment-bay-plates {
-    grid-template-columns: minmax(0, 1fr);
   }
 }

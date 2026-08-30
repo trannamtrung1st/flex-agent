@@ -22,6 +22,7 @@ import {
   REVIEWER_IDENTITY,
   SignOutCeremony,
   StateReadout,
+  StaticHeader,
   usePrototypeSignOut,
   type StateIndicatorVariant,
 } from "../components";
@@ -374,12 +375,12 @@ export function ReviewerPage() {
                     <caption className="visually-hidden">Sessions awaiting human review</caption>
                     <thead>
                       <tr>
-                        <th scope="col" {...datatableColMin("id")}><span className="col-head">Participant</span></th>
-                        <th scope="col" {...datatableColMin("label")}><span className="col-head">Campaign</span></th>
-                        <th scope="col" {...datatableColMin("label")}><span className="col-head">Assignment</span></th>
-                        <th scope="col" {...datatableColMin("instant")}><span className="col-head">Received</span></th>
-                        <th scope="col" {...datatableColMin("confidence")}><span className="col-head">Confidence</span></th>
-                        <th scope="col" {...datatableColMin("state")}><span className="col-head">State</span></th>
+                        <StaticHeader label="Participant" colMin="id" />
+                        <StaticHeader label="Campaign" colMin="label" />
+                        <StaticHeader label="Assignment" colMin="label" />
+                        <StaticHeader label="Received" colMin="instant" />
+                        <StaticHeader label="Confidence" colMin="confidence" />
+                        <StaticHeader label="State" colMin="state" />
                         <th scope="col"><span className="visually-hidden">Action</span></th>
                       </tr>
                     </thead>

@@ -24,6 +24,7 @@ export {
   MM_SS_PLACEHOLDER,
   MM_SS_WARNING_PLACEHOLDER,
   SCORE_PLACEHOLDER,
+  SETUP_RESOLVED_NOTE,
   mmSsError,
 } from "./fieldFormat";
 export { boundedReasonError, BOUNDED_REASON_MIN, clearValidationErrorOnValid, trimmedTextError } from "./fieldValidation";

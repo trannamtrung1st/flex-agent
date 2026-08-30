@@ -1,15 +1,21 @@
 import type { ReactNode } from "react";
 import {
+  Alert,
   BackKey,
   BreadcrumbNav,
   CeremonyArea,
   CeremonyUnavailable,
   CeremonyWait,
   EllipsisKey,
+  ErrorSummary,
   FieldInput,
   FormField,
+  FormSection,
+  Grid,
   CAMPAIGN_TITLE_PLACEHOLDER,
+  SETUP_RESOLVED_NOTE,
   GuidedTaskLayout,
+  Key,
   KeyGroup,
   LayoutAssignment,
   LiveSessionLayout,
@@ -31,25 +37,34 @@ import { LayoutSlot } from "./LayoutSlot";
 
 function SetupRecordSpec({
   titleId,
-  ready,
+  ready = false,
+  activated = false,
+  blocked = false,
 }: {
   titleId: string;
-  ready: boolean;
+  ready?: boolean;
+  activated?: boolean;
+  blocked?: boolean;
 }) {
+  const pageTitle = activated ? "Activated cohort" : "Setup and readiness";
+  const description = activated
+    ? "This cohort baseline is immutable. Assignment uses the authorized Participants destination."
+    : blocked
+      ? "Correct readiness blockers on revision 1, then check again."
+      : ready
+        ? "Activate this cohort. The browser is not activation authority."
+        : "Check readiness on revision 1, then activate this cohort.";
+  const readinessLabel = blocked ? "Blocked" : activated || ready ? "Ready" : "Not checked";
   return (
     <OperateArea
       className="workspace-area work-plane record-plane record-plane--setup"
       frameClassName="record-frame"
       label="Setup and readiness"
-      title="Setup and readiness"
-      description={
-        ready
-          ? "Activate this cohort. The browser is not activation authority."
-          : "Check readiness on revision 1, then activate this cohort."
-      }
+      title={pageTitle}
+      description={description}
       back={<BackKey label="Activities" onClick={() => undefined} />}
     >
-      <Stack gap="none" className="setup-ceremony">
+      <Stack gap="none" className={activated ? "setup-ceremony is-frozen" : "setup-ceremony"}>
         <ReadoutGrid label="Setup tracks" columns={4} className="assignment-instruments">
           <ReadoutGridRow label="Local through cohort">
             <ReadoutGridField term="Local">
@@ -60,48 +75,154 @@ function SetupRecordSpec({
             </ReadoutGridField>
             <ReadoutGridField term="Readiness">
               <StateReadout
-                variant={ready ? "sealed" : "dim"}
-                solid={ready}
-                label={ready ? "Ready" : "Not checked"}
-                className={ready ? undefined : "setup-track-now"}
+                variant={blocked ? "live" : activated || ready ? "sealed" : "dim"}
+                solid={activated || ready}
+                label={readinessLabel}
+                className={blocked || (!activated && !ready) ? "setup-track-now" : undefined}
               />
             </ReadoutGridField>
             <ReadoutGridField term="Cohort">
               <StateReadout
-                variant={ready ? "live" : "rest"}
-                label="Unactivated"
-                className={ready ? "setup-track-now" : undefined}
+                variant={activated ? "sealed" : ready ? "live" : "rest"}
+                solid={activated}
+                label={activated ? "Activated" : "Unactivated"}
+                className={activated || ready ? "setup-track-now" : undefined}
               />
             </ReadoutGridField>
           </ReadoutGridRow>
         </ReadoutGrid>
-        <Stack gap="4" className="create-ceremony__scroll">
-          <FormField id={titleId} layout="stack" label="Campaign title">
-            {(control) => (
-              <FieldInput
-                {...control}
-                defaultValue="Accessibility Standards Review"
-                placeholder={CAMPAIGN_TITLE_PLACEHOLDER}
-                width="wide"
-              />
+        <Stack gap="6" className="create-ceremony__scroll">
+          {blocked ? (
+            <ErrorSummary
+              headingId={`${titleId}-summary`}
+              title="Readiness blocked"
+              errors={[{ message: "Set a valid session window.", href: `#${titleId}-timezone` }]}
+            />
+          ) : null}
+          <Stack gap="4">
+            {activated ? (
+              <Alert variant="success" title="Cohort activated">
+                <p>Baseline recorded. Verification pending.</p>
+                <p>{SETUP_RESOLVED_NOTE}</p>
+              </Alert>
+            ) : (
+              <Alert variant="info" title={SETUP_RESOLVED_NOTE} />
             )}
-          </FormField>
-          <p className="setup-ceremony__memory">Stable — new long-term learning disabled</p>
+            <FormField id={titleId} layout="stack" label="Campaign title">
+              {(control) => (
+                <FieldInput
+                  {...control}
+                  defaultValue="Accessibility Standards Review"
+                  placeholder={CAMPAIGN_TITLE_PLACEHOLDER}
+                  width="wide"
+                  frozen={activated}
+                />
+              )}
+            </FormField>
+          </Stack>
+          <FormSection legend="Task and Submission requirements">
+            <Grid gap="4" minItemWidth="control">
+              <FormField id={`${titleId}-task`} layout="stack" label="Task">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="Shoreline brief" placeholder="—" />
+                )}
+              </FormField>
+              <FormField id={`${titleId}-task-submission`} layout="stack" label="Task and Submission">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="task-struct · v1" placeholder="—" />
+                )}
+              </FormField>
+            </Grid>
+          </FormSection>
+          <FormSection legend="Agent and Harness">
+            <Grid gap="4" minItemWidth="control">
+              <FormField id={`${titleId}-agent`} layout="stack" label="Agent">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="examiner-core · v1" placeholder="—" />
+                )}
+              </FormField>
+              <FormField id={`${titleId}-harness`} layout="stack" label="Harness">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="governed-exam · v1" placeholder="—" />
+                )}
+              </FormField>
+            </Grid>
+          </FormSection>
+          <FormSection legend="Assessment behavior">
+            <FormField id={`${titleId}-model`} layout="stack" label="Model">
+              {(control) => (
+                <FieldInput {...control} frozen width="wide" defaultValue="model-exam · v1" placeholder="—" />
+              )}
+            </FormField>
+          </FormSection>
+          <FormSection legend="Timing and Attempts">
+            <Grid gap="4" minItemWidth="compact">
+              <FormField id={`${titleId}-timezone`} layout="stack" label="Timezone">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="UTC" placeholder="—" />
+                )}
+              </FormField>
+              <FormField id={`${titleId}-attempts`} layout="stack" label="Attempt limit">
+                {(control) => (
+                  <FieldInput {...control} frozen width="wide" defaultValue="1" placeholder="—" />
+                )}
+              </FormField>
+            </Grid>
+          </FormSection>
+          <FormSection legend="Memory and capabilities">
+            <FormField id={`${titleId}-memory`} layout="stack" label="Memory">
+              {(control) => (
+                <FieldInput
+                  {...control}
+                  frozen
+                  width="wide"
+                  defaultValue="Stable — new long-term learning disabled"
+                  placeholder="—"
+                />
+              )}
+            </FormField>
+          </FormSection>
+          <FormSection legend="Review and Release requirements">
+            <FormField id={`${titleId}-review`} layout="stack" label="Review and Release">
+              {(control) => (
+                <FieldInput {...control} frozen width="wide" defaultValue="review-gate · v1" placeholder="—" />
+              )}
+            </FormField>
+          </FormSection>
+          <FormSection legend="Cohort">
+            <FormField id={`${titleId}-cohort-state`} layout="stack" label="Cohort state">
+                {(control) => (
+                  <FieldInput
+                    {...control}
+                    frozen
+                    width="wide"
+                    defaultValue={activated ? "Activated" : "Unactivated"}
+                    placeholder="—"
+                  />
+                )}
+            </FormField>
+          </FormSection>
         </Stack>
         <PlateFoot
           className="setup-ceremony__foot"
-          arrangement={ready ? "split" : "start"}
+          arrangement={activated ? "end" : ready ? "split" : "start"}
           secondary={
-            ready ? (
+            ready && !activated ? (
               <KeyGroup aria-label="Draft actions">
                 <EllipsisKey variant="quiet" type="button">Save draft</EllipsisKey>
                 <EllipsisKey variant="quiet" type="button">Check readiness</EllipsisKey>
               </KeyGroup>
             ) : undefined
           }
-          primary={ready ? <EllipsisKey variant="activate" type="button">Activate cohort</EllipsisKey> : undefined}
+          primary={
+            !activated && ready ? (
+              <EllipsisKey variant="activate" size="large" type="button">Activate cohort</EllipsisKey>
+            ) : undefined
+          }
         >
-          {ready ? null : (
+          {activated ? (
+            <Key variant="open" size="large" to="/shared/gallery#layout-management-empty">Assign Participants</Key>
+          ) : ready ? null : (
             <KeyGroup aria-label="Draft actions">
               <EllipsisKey variant="quiet" type="button">Save draft</EllipsisKey>
               <EllipsisKey variant="quiet" type="button">Check readiness</EllipsisKey>
@@ -202,11 +323,9 @@ export function LayoutSections() {
       <GallerySection
         id="layout-management-index"
         title="Management index"
-        note="Console list or registry. OperateArea supplies the page title and description. Omit BackKey — the gangway (or command-strip home) is the return path. Etch lists and tables; destination, assignment, and Status Bay plate grids set framed={false}."
+        note="Console list or registry. OperateArea supplies the page title and description. Omit BackKey and breadcrumbs — the gangway (or command-strip home) is the location and return path. Etch lists and tables; destination, assignment, and Status Bay plate grids set framed={false}."
       >
-        <ManagementPageSpec tag="OperateArea · title · description · registry body · no back" bulkheadId="layoutSpecIndexNav" breadcrumbs={
-          <BreadcrumbNav homeHref="/shared/gallery" items={[{ label: "Campaigns", current: true }]} />
-        }>
+        <ManagementPageSpec tag="OperateArea · title · description · registry body · no back" bulkheadId="layoutSpecIndexNav">
           <OperateArea
             className="workspace-area"
             label="Campaign registry"
@@ -261,7 +380,7 @@ export function LayoutSections() {
       <GallerySection
         id="layout-management-setup"
         title="Management setup"
-        note="Production Setup and readiness is this nested record: ReadoutGrid tracks on the etched ceremony plate, campaign title in the same well, and unarmed keys omitted. The Campaign Configuration dialog remains the keys and disabledReason specimen, not this station."
+        note="Production Setup and readiness is this nested record: ReadoutGrid tracks on the etched ceremony plate, a Note (Alert info) for frozen-cluster provenance, campaign title plus specified FormSections in the same well, frozen resolved fields, and unarmed keys omitted. Blocked Setup puts one ErrorSummary (**Readiness blocked**) before the Note. Activated Setup folds the same sentence into the Cohort activated Alert body. Source selection stays on Create. The Campaign Configuration dialog remains the keys specimen, not this station."
       >
         <ManagementPageSpec
           tag="OperateArea · ReadoutGrid tracks · Save and Check · Activate omitted"
@@ -278,15 +397,43 @@ export function LayoutSections() {
         >
           <SetupRecordSpec titleId="lab-setup-title-draft" ready={false} />
         </ManagementPageSpec>
+        <ManagementPageSpec
+          tag="Readiness blocked · ErrorSummary · Check again"
+          bulkheadId="layoutSpecSetupBlockedNav"
+          breadcrumbs={
+            <BreadcrumbNav
+              homeHref="/shared/gallery"
+              items={[
+                { label: "Activities", href: "/shared/gallery#layout-management-index" },
+                { label: "Setup and readiness", current: true },
+              ]}
+            />
+          }
+        >
+          <SetupRecordSpec titleId="lab-setup-title-blocked" blocked />
+        </ManagementPageSpec>
+        <ManagementPageSpec
+          tag="Activated cohort · Cohort activated Alert body · Assign Participants"
+          bulkheadId="layoutSpecSetupActivatedNav"
+          breadcrumbs={
+            <BreadcrumbNav
+              homeHref="/shared/gallery"
+              items={[
+                { label: "Activities", href: "/shared/gallery#layout-management-index" },
+                { label: "Activated cohort", current: true },
+              ]}
+            />
+          }
+        >
+          <SetupRecordSpec titleId="lab-setup-title-activated" activated />
+        </ManagementPageSpec>
       </GallerySection>
       <GallerySection
         id="layout-management-empty"
         title="Management empty"
-        note="Same OperateArea head as the index. Absence lives in the empty plate inside the etched frame, not as a replacement for the page title."
+        note="Same OperateArea head as the index, still without breadcrumbs. Absence lives in the empty plate inside the etched frame, not as a replacement for the page title."
       >
-        <ManagementPageSpec tag="OperateArea · title · description · empty plate · no back" bulkheadId="layoutSpecEmptyNav" breadcrumbs={
-          <BreadcrumbNav homeHref="/shared/gallery" items={[{ label: "Campaigns", current: true }]} />
-        }>
+        <ManagementPageSpec tag="OperateArea · title · description · empty plate · no back" bulkheadId="layoutSpecEmptyNav">
           <OperateArea
             className="workspace-area"
             label="Campaign registry"
@@ -302,7 +449,7 @@ export function LayoutSections() {
       <GallerySection
         id="layout-management-ceremony"
         title="Management ceremony"
-        note="Unavailable and recovery planes use CeremonyUnavailable: a hug column that sizes to the inset empty well (hugMeasure auto), with the operate-head inset by the frame cut so the title shares the visible top edge. Pass danger for Access denied / failed-sign-in titles (fault phosphor, not teal). Recovery is a quiet key centered in the well, never the amber Open-session skin. Pin sm/md/lg only when a dialog-width well is required. Do not stretch this well across the main landmark on desktop."
+        note="Unavailable and recovery planes use CeremonyUnavailable: a hug column that sizes to the inset empty well (hugMeasure auto), with the operate-head inset by the frame cut so the title shares the visible top edge. Pass danger for Access denied / failed-sign-in titles (fault phosphor, not teal). Recovery is a quiet key centered in the well, except auth Continue to sign in (transmit, large). Never use the amber Open-session skin. Pin sm/md/lg only when a dialog-width well is required. Do not stretch this well across the main landmark on desktop."
       >
         <div className="spec-row spec-row--layout-contain">
           <ManagementPageSpec tag="CeremonyUnavailable · hug · quiet recovery" bulkheadId="layoutSpecCeremonyNav">
@@ -318,6 +465,15 @@ export function LayoutSections() {
               note="My work is not available for the current authorized relationship."
               danger
               recovery={{ label: "Return to Home", to: "/shared/gallery" }}
+            />
+          </ManagementPageSpec>
+          <ManagementPageSpec tag="CeremonyUnavailable · transmit · Continue to sign in" bulkheadId="layoutSpecCeremonyAuthNav">
+            <CeremonyUnavailable
+              title="Sign-in could not be completed"
+              note="Sign-in could not be completed. No application session was created."
+              danger
+              alert
+              recovery={{ label: "Continue to sign in", variant: "transmit" }}
             />
           </ManagementPageSpec>
         </div>

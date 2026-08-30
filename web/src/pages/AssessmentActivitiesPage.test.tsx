@@ -123,7 +123,7 @@ describe("AssessmentActivitiesPage", () => {
     renderActivities({
       sources: REQUIRED_SOURCE_CATEGORIES.filter((category) => category !== "agent").map((category) => source(category)),
     });
-    expect(await screen.findByText(/No permitted Agent revisions are available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No permitted Agent revisions are available/i)).toHaveClass("advisory-copy");
     expect(screen.queryByRole("link", { name: "Create" })).not.toBeInTheDocument();
   });
 
@@ -209,7 +209,7 @@ describe("AssessmentActivitiesPage", () => {
       loadSourceOptions: () => Promise.reject(new Error("source unavailable")),
     });
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
-    expect(await screen.findByText(/No permitted Organization policy revisions are available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No permitted Organization policy revisions are available/i)).toHaveClass("advisory-copy");
   });
 
   it("does not request source options from cached create permission", async () => {

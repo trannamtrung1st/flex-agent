@@ -70,7 +70,7 @@ describe("production destination guards", () => {
     expect(screen.getByRole("region", { name: "Access denied" })).toHaveClass("work-plane--ceremony");
     expect(document.querySelector(".operate-column--hug")).toBeTruthy();
     expect(screen.getByText("Activities are not available for the current authorized relationship.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Home" })).toHaveAttribute("href", "/my-work");
     expect(screen.getByRole("link", { name: "Return to Home" })).toHaveClass("key--quiet");
     expect(screen.getAllByRole("link", { name: "My work" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Activities workspace")).not.toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("production destination guards", () => {
     expect(document.querySelector('[data-layout="guided-task"]')).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
     expect(screen.getByText("My work is not available for the current authorized relationship.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Home" })).toHaveAttribute("href", "/");
     expect(screen.queryByText("Assignment detail")).not.toBeInTheDocument();
   });
 

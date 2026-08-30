@@ -66,18 +66,22 @@ Administrator and lab management walls compose `OperateHead` plus optional
   fault phosphor (`fg-danger` + `danger-glow`). They always hug
   (`hugMeasure="auto"` unless the page pins a named size). Pages do not
   assemble this stack by hand. `CeremonyUnavailable` is the unknown /
-  denied / missing-resource plane: inset empty well plus a **quiet**
-  recovery key centered in the well (not the note start edge, and not
-  amber `open`).
+  denied / missing-resource / unauthenticated-gate plane: inset empty well
+  plus a recovery key centered in the well (not the note start edge, and not
+  amber `open`). Return and Reload stay **quiet**. Auth **Continue to sign
+  in** uses `recovery.variant="transmit"` (large).
 - `headArrangement="plaque"` for the reviewer record head (back, centered
   title and seal, session id)
 - `framed={false}` when the body must not nest in a second etched well.
-  Destination and assignment **plate grids** (production Home, My work
-  populated, and design-lab Status Bays when rostered) omit the well: each
-  assignment plate is already a pane. Those production bays use `auto-fill`
-  columns (`minmax(16rem, 1fr)`): column count comes from hull width, so one
-  plate keeps a slot instead of stretching. Compact viewports (≤720px) use a
-  single full-width column. Nested record ledgers and **stacked nested
+  Destination and assignment **plate grids** (production Home destination
+  catalog, production My work assignment lists, and
+  design-lab Status Bays when rostered) omit the well: each assignment plate
+  is already a pane. Production bays use `Grid` `fit="fill"` (`auto-fill`,
+  `minItemWidth="control"`): column count comes from hull width, so one plate
+  keeps a slot instead of stretching. Status Bays keep their named
+  four-column hull in domain CSS (not `Grid`). Compact viewports (≤720px) use a
+  single full-width column. When My work is available, production `/` redirects
+  to `/my-work` instead of rendering a second roster. Nested record ledgers and **stacked nested
   records** (Enrollment detail: OperateHead, ReadoutGrid, WorkWells) also
   omit it. A nested record that *is* one seated instrument — table, empty
   plate, ceremony form, or readout fused to a `PlateFoot` — keeps the well.
@@ -91,7 +95,10 @@ Administrator and lab management walls compose `OperateHead` plus optional
   Plate grids and stacked records scroll once in `.operate-scroll`. Any filling
   table inside that pane (production registry, review queue, lab walls) clips
   `.operate-scroll` so `.datatable-scroll` owns row overflow (and
-  horizontal overflow). Short hug registries restore operate-scroll. Fill-remaining instruments (split ledger, setup
+  horizontal overflow). Short hug registries restore operate-scroll. A filling
+  table in a live overlay is different: `.dialog-body` or `.ceremony-body` is the vertical wheel;
+  nested `.datatable-scroll` clips Y so it cannot compete ([modals](modals.md)).
+  Fill-remaining instruments (split ledger, setup
   ceremony, Status Bays) clip `.operate-scroll` the same way and scroll inside
   columns or the form well.
   Stretched `record-plane` setup ceremonies fill the remaining bay, clip
@@ -147,7 +154,37 @@ tick; `.briefing-sec ul li` ticks). Gallery: `pane` WorkWell specimen.
 
 `PlateFoot` is the reserved key rail for plates. Implementation:
 `PlateFoot` in `web/src/design-system/components/plates/`. It is an `Inline`
-`footer` (`.plate-foot`) with a closed `arrangement`:
+`footer` (`.plate-foot`) with a closed `arrangement`. Draw a 1px
+`hairline-dim` rule on the block-start edge of an in-plate `.plate-foot`
+(`hairline` defaults true) so the key rail is a distinct stratum from the
+plate body (Setup, Create, assignment plates, work wells, dialog feet). The
+rule is full-bleed to the plate bezel; keys stay on `--frame-inset-inline`.
+Ceremony wells zero `.frame-in` inline pad when they host `.setup-ceremony`
+or `.in-plate-host` and pad the host children instead, matching assignment plates.
+Hull chrome that is a sibling of an already-bezeled pane omits the rule:
+`PlateFoot` `hairline={false}` (`data-hairline="false"`). `GuidedTaskFoot`
+defaults off because guided-task actions sit in the bay below
+`.well-frame.pane`, whose bottom bezel is already the closing stroke.
+
+The sibling immediately before a hairline foot receives
+`--plate-foot-pad-block` padding on its block-end so air above the rule
+matches air below it (dialog-body and work-well__body already include that
+inset). Hull feet do not take that predecessor pad. Setup/Create docked feet
+use the same token as `margin-block-start` on the foot so the gap sits
+outside the inner scroller. Ceremony fill-grid feet (`.ceremony-foot`) use
+the same token as `padding-block-start` and are not `.plate-foot`.
+
+Dialog plates are not inside `.frame-in`. `.dialog-head`, `.dialog-body`, and
+`.dialog-foot` therefore set equal `--plate-foot-pad-block` on both block
+edges (inline `--frame-inset-inline`). Shared `.plate-foot` still zeros
+`padding-block-end` for etched-frame floors; `.dialog-foot` overrides that
+so the overlay plate has a matching floor. Work-well heads already use the
+same block inset via `--frame-inset-block-start` / `--frame-inset-block-end`.
+At compact viewports (≤720px) `:root` remaps `--frame-inset-block-start` and
+`--frame-inset-inline` to `--space-4`; `--plate-foot-pad-block` follows the
+start token, so dialog chrome stays equal on both block edges.
+
+`PlateFoot` arrangements:
 
 | Arrangement | Justify | Use |
 | --- | --- | --- |
@@ -160,8 +197,8 @@ tick; `.briefing-sec ul li` ticks). Gallery: `pane` WorkWell specimen.
 then primary. A missing secondary still leaves primary on the trailing edge.
 Confirm dialogs with Cancel + commit use `split`, not a trailing `KeyGroup`.
 Guided-task assignment-station chrome uses `GuidedTaskFoot` (`PlateFoot` plus
-`.layout-guided__actions`): trailing `end` for a single key (for example Begin
-intake) and `split` for Cancel intake + Submit version.
+`.layout-guided__actions`, `hairline` off): trailing `end` for a single key
+(for example Begin intake) and `split` for Cancel intake + Submit version.
 Do not add a third middle pile. Keys hug; they do not stretch on assignment
 plates. Ceremony fill-grid feet (`ceremony-foot`) are a separate recipe.
 
@@ -169,9 +206,13 @@ Pages do not set one-off `justify-content` or `plate-foot--start` on the rail.
 
 ## Enrollment / assignment plate
 
-Readout `<dl>` with shared horizon geometry and a reserved `PlateFoot`
-(`arrangement="end"`). Record marks follow [status](../foundation/status.md).
-Production actions follow permissions, not prototype OPEN/INSPECT labels.
+`AssignmentPlate` is the destination and assignment tile: `frame-cut` at
+`--notch` (no ticks or nodes), horizon `ReadoutList` (`tone="horizon"`), and a
+reserved `PlateFoot` (`arrangement="end"`). Record marks follow
+[status](../foundation/status.md). Production actions follow permissions, not
+prototype OPEN/INSPECT labels. Design-lab Status Bays seat the same plate
+inside the domain `.bays` / `.bay` / `.bay-plates` hull; they must not keep a
+local `.plate` clip-path twin. Gallery: `assignment-plate`.
 
 ## Demo plate
 
@@ -180,5 +221,6 @@ Design-lab only. Never in the production bundle (`PC-14`).
 ## Rules
 
 - No outer drop shadows.
-- Avoid nested plates when a divider suffices.
+- Avoid nested plates when a divider suffices. `FormSection` grouping is a
+  2px `--hairline` underline under the legend words, not a well.
 - Empty plates use the empty-state instrument, not bare text.

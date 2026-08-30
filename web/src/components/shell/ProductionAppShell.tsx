@@ -4,6 +4,7 @@ import {
   LayoutAssignment,
   ManagementLayout,
   operatorAccountActions,
+  ToastHost,
 } from "../../design-system";
 import { layoutIdForPath } from "../../router/route-layout-match";
 import { PRODUCTION_ROUTE_LAYOUTS } from "../../router/production-route-layouts";
@@ -56,38 +57,42 @@ export function ProductionAppShell() {
 
   if (assigned === "guided-task") {
     return (
-      <LayoutAssignment id="guided-task">
-        <Outlet />
-      </LayoutAssignment>
+      <ToastHost placement="bottom-center">
+        <LayoutAssignment id="guided-task">
+          <Outlet />
+        </LayoutAssignment>
+      </ToastHost>
     );
   }
 
   return (
-    <LayoutAssignment id={assigned}>
-      <ManagementLayout
-        contain={false}
-        commandStrip={{
-          homeTo: "/",
-          homeLabel: "Home",
-          profile: identity,
-          actions: operatorAccountActions(theme, toggleTheme, () => { void logout(); }),
-        }}
-        navigation={{
-          title: identity.role,
-          groups,
-          currentLabel,
-          ariaLabel: "Primary navigation",
-          bulkheadId: "workspaceNavBulkhead",
-        }}
-        banner={apiState === "ready" && errorMessage ? (
-          <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>
-        ) : null}
-        breadcrumbs={shouldHideProductionBreadcrumbs(location.pathname, shell?.navigation)
-          ? null
-          : <Breadcrumbs />}
-      >
-        <Outlet />
-      </ManagementLayout>
-    </LayoutAssignment>
+    <ToastHost placement="bottom-center">
+      <LayoutAssignment id={assigned}>
+        <ManagementLayout
+          contain={false}
+          commandStrip={{
+            homeTo: identity.home,
+            homeLabel: "Home",
+            profile: identity,
+            actions: operatorAccountActions(theme, toggleTheme, () => { void logout(); }),
+          }}
+          navigation={{
+            title: identity.role,
+            groups,
+            currentLabel,
+            ariaLabel: "Primary navigation",
+            bulkheadId: "workspaceNavBulkhead",
+          }}
+          banner={apiState === "ready" && errorMessage ? (
+            <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>
+          ) : null}
+          breadcrumbs={shouldHideProductionBreadcrumbs(location.pathname, shell?.navigation)
+            ? null
+            : <Breadcrumbs />}
+        >
+          <Outlet />
+        </ManagementLayout>
+      </LayoutAssignment>
+    </ToastHost>
   );
 }

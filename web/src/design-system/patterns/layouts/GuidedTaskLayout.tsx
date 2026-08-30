@@ -9,9 +9,10 @@ import { SkipLink } from "./SkipLink";
 
 export function GuidedTaskFoot({
   className,
+  hairline = false,
   ...props
 }: ComponentProps<typeof PlateFoot>) {
-  return <PlateFoot className={cx("layout-guided__actions", className)} {...props} />;
+  return <PlateFoot className={cx("layout-guided__actions", className)} hairline={hairline} {...props} />;
 }
 
 export type GuidedTaskLayoutProps = {
@@ -48,7 +49,7 @@ export function GuidedTaskLayout({
   useAssignedLayoutId("guided-task");
   return (
     <>
-      <div className="layout-guided" data-layout="guided-task">
+      <div className="layout-guided" data-layout="guided-task" data-nested={nested ? "true" : undefined}>
         {nested ? null : <SkipLink />}
         <div className="frame-traces" aria-hidden="true">
           <span className="trace trace-top" />

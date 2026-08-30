@@ -100,11 +100,6 @@ header.page-strip {
 
 .deck-rail details.nav-rail-section > summary.gangway-section-label {
   list-style: none;
-  cursor: pointer;
-}
-
-.deck-rail details.nav-rail-section > summary.gangway-section-label::-webkit-details-marker {
-  display: none;
 }
 
 /* deck index: gangway current grammar — reserved teal tick + Bright Text */
@@ -120,10 +115,6 @@ header.page-strip {
 .deck-index .nav-link[aria-current="location"]::before,
 .deck-index .nav-link[aria-current="page"]::before {
   display: none;
-}
-
-@media (min-width: 901px) /* bp.gallery */ {
-  .deck-rail details.nav-rail-section > summary.gangway-section-label { cursor: default; }
 }
 
 .deck-main { min-width: 0; }
@@ -609,6 +600,22 @@ header.page-strip {
   overflow: visible;
 }
 
+/* ═══ Item list specimen ═════════════════════════════════════════ */
+
+.item-list-demo {
+  width: 100%;
+  max-width: var(--content-width-structured);
+}
+
+.item-list-demo .frame-in,
+.item-list-demo .frame-scroll {
+  min-height: 0;
+}
+
+.item-list-demo .item-list-scroll {
+  flex: none;
+}
+
 /* ═══ Form demos ═════════════════════════════════════════════════ */
 
 .form-demo-grid {
@@ -893,8 +900,10 @@ header.page-strip {
 
 #form-recipes .form-recipe > .operate-scroll {
   flex: none;
-  overflow: visible;
   min-height: 0;
+  overflow-x: clip;
+  overflow-y: clip;
+  overscroll-behavior: auto;
 }
 
 #form-recipes .form-recipe .assignment-instruments {
@@ -921,6 +930,17 @@ header.page-strip {
 #form-recipes .form-recipe-dialog .dialog-plate {
   margin: 0;
   max-height: none;
+}
+
+/* Seated catalog plates hug like .layout-spec. Overlay .dialog-body still
+   inner-scrolls inside native <dialog>; do not copy this onto overlays.css. */
+#form-recipes .form-recipe-dialog .dialog-body,
+#form-recipes .form-recipe-dialog .ceremony-body {
+  flex: none;
+  min-height: auto;
+  overflow-x: clip;
+  overflow-y: clip;
+  overscroll-behavior: auto;
 }
 
 [data-theme="light"] #form-recipes .form-recipe-dialog-well {
@@ -1134,6 +1154,31 @@ header.page-strip {
 
 .nav-demo { width: 200px; max-width: 100%; }
 
+.nav-demo--index {
+  width: 232px;
+  --gangway-body-pad-inline-start: 14px;
+  --gangway-body-pad-inline-end: 12px;
+  --gangway-group-gap: 12px;
+  padding: 12px 0 8px;
+  border-right: 1px solid var(--hairline-dim);
+  background: rgba(2, 9, 14, 0.38);
+}
+
+.nav-demo--index .gangway-section-label {
+  margin-inline: 0;
+  padding-inline: var(--gangway-body-pad-inline-start) var(--gangway-body-pad-inline-end);
+}
+
+.nav-demo--index .deck-index {
+  padding-inline: var(--gangway-body-pad-inline-start) var(--gangway-body-pad-inline-end);
+}
+
+.nav-demo--index .nav-rail-section + .nav-rail-section {
+  margin-top: var(--gangway-group-gap);
+  padding-top: 0;
+  border-top: none;
+}
+
 /* gangway specimen: a miniature shell so the fold visibly reflows
    the content track beside it */
 .gangway-demo {
@@ -1274,7 +1319,6 @@ header.page-strip {
   /* the specimen placeholder wraps at this width; give the slot room
      so it never clips (the live surfaces autogrow the same slot) */
   .composer textarea { min-height: 96px; }
-  .toast-dock { right: 12px; bottom: 12px; left: 12px; align-items: stretch; }
   .toast { min-width: 0; max-width: none; }
   .form-demo-row {
     grid-template-columns: minmax(0, 1fr);

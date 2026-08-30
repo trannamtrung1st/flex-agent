@@ -9,6 +9,7 @@ import {
   ErrorSummary,
   IconButton,
   Key,
+  SETUP_RESOLVED_NOTE,
   StageBars,
   ToastDock,
   TooltipHost,
@@ -29,7 +30,7 @@ export function FeedbackSections({
 
   return (
     <>
-      <GallerySection id="toast" title="Toast" note="Instrument slips docking bottom-right. The system voice leads with a teal tick; attention warms the bezel and carries the warn triangle.">
+      <GallerySection id="toast" title="Toast" note="Instrument slips. ToastDock / ToastHost take placement (bottom-center, bottom-start, bottom-end, top-center, top-start, top-end) plus optional offsetInline and offsetBlock. Production defaults to bottom-center so start and trailing PlateFoot keys stay clear. Compact widths stretch above the docked foot, not over it.">
         <div className="spec-row">
           <Spec tag=".toast"><Key id="toastSystemKey" onClick={() => pushToast({ label: "Link", copy: "Submission v2 preserved. Earlier versions remain on record." })}>Fire system slip</Key></Spec>
           <Spec tag=".toast--attention"><Key id="toastAttentionKey" onClick={() => pushToast({ label: "Time warning", copy: "10 minutes remain in this session.", attention: true })}>Fire attention slip</Key></Spec>
@@ -59,9 +60,10 @@ export function FeedbackSections({
         </Spec>
       </GallerySection>
 
-      <GallerySection id="alert" title="Alert" note="Workspace banner combining an advisory strip with optional body copy. Danger uses alert semantics and the attention voice.">
+      <GallerySection id="alert" title="Alert" note="Workspace banner combining an advisory strip with optional body copy. Danger uses alert semantics and the attention voice. Frozen form clusters use the Note (info) strip for shared provenance, not a floating field-hint. The Draft saved specimen is the info skin only — production Save draft receipts use toast, not this banner.">
         <Spec wide tag=".workspace-alert · danger"><Alert variant="danger" title="Request could not be completed">The server could not complete this request. Try again.</Alert></Spec>
         <Spec wide tag=".workspace-alert · status"><Alert variant="info" title="Draft saved">Campaign configuration is stored locally until you check readiness.</Alert></Spec>
+        <Spec wide tag=".workspace-alert · info · form provenance"><Alert variant="info" title={SETUP_RESOLVED_NOTE} /></Spec>
       </GallerySection>
 
       <GallerySection id="error-summary" title="Error summary" note="Named validation summary before fields. Each item may link to the invalid control.">
@@ -102,7 +104,7 @@ export function FeedbackSections({
           </CeremonyArea>
         </Spec>
       </GallerySection>
-      <ToastDock toasts={toasts} />
+      <ToastDock toasts={toasts} placement="bottom-center" offsetInline="234px" />
     </>
   );
 }

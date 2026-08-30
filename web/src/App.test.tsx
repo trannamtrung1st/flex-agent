@@ -39,7 +39,7 @@ describe("App production shell", () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
     expect(document.querySelector(".strip-brand")).not.toHaveClass("strip-brand--origin");
-    expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue to sign in" })).toHaveClass("key", "key--transmit", "key--large");
     expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /operator menu/i })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Sign in required" })).toHaveClass("work-plane--ceremony");
@@ -59,7 +59,7 @@ describe("App production shell", () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Sign-in could not be completed" })).toBeInTheDocument();
     expect(screen.getByText("Sign-in could not be completed. No application session was created.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue to sign in" })).toHaveClass("key", "key--transmit", "key--large");
     expect(screen.queryByText(/authn\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/unknown_subject/)).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Sign-in could not be completed" })).toHaveClass(
@@ -122,7 +122,7 @@ describe("App production shell", () => {
     expect(screen.queryByRole("navigation", { name: /primary navigation/i })).not.toBeInTheDocument();
     await waitFor(() => {
     expect(screen.queryByRole("heading", { name: /^home$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue to sign in" })).toHaveClass("key", "key--transmit", "key--large");
     expect(screen.getByRole("region", { name: "Your access changed" })).toHaveClass("work-plane--ceremony");
   });
   });
@@ -193,5 +193,33 @@ describe("App production shell", () => {
     expect(screen.getByRole("link", { name: "Return to Home" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Return to Home" })).toHaveClass("key--quiet");
     expect(screen.getByRole("link", { name: "Return to Home" })).not.toHaveClass("key--open");
+  });
+
+  it("recovers an unknown locator to My work when that destination is available", async () => {
+    window.history.pushState({}, "", "/not-a-destination");
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return json(200, { authenticated: true, csrf_token: "csrf" });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return json(200, {
+          schema_version: "v1",
+          actor_id: "actor-1",
+          organization_id: "org-1",
+          relationship: "participant",
+          navigation: [
+            { destination_id: "home", is_available: true },
+            { destination_id: "my-work", is_available: true },
+          ],
+          permitted_actions: [],
+        });
+      }
+      return json(404, {});
+    }));
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "This destination is not available" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Home" })).toHaveAttribute("href", "/my-work");
   });
 });

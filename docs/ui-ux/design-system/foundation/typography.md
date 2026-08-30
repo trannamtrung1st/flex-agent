@@ -22,7 +22,10 @@ surfaces. Keep the CSS fallback stacks for unload or failure.
 - **Two voices.** Michroma names (brand, plate titles, key captions, bay heads).
   Sometype Mono speaks (transcript, readouts, inputs, navigation tokens, errors).
 - Placard and microlabel strings are uppercase with wide tracking. Sentence-case
-  body copy uses Sometype Mono and is not forced to uppercase. Work-well and
+  body copy uses Sometype Mono and is not forced to uppercase. Field hints and
+  errors are helpers in that sentence-case voice. Standing **Note** copy on
+  `Alert` / `Advisory` uses Small helper size (about 0.78rem), not the 0.68rem
+  field-hint floor. Work-well and
   briefing section labels are teal microlabels; they do not take a leading
   instrument tick.
 - Do not use a third family for headings.

@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { EMPTY_SELECTION, isSelected, matchingQueryKey, resolveSelectedIds, toggleRow, type TableSelection } from "../../../../design-system/patterns/tableSelection";
 import {
   ActivationMark,
@@ -13,7 +13,9 @@ import {
   EmptyPlate,
   EtchedFrame,
   HeaderSelectionControl,
+  Inline,
   InstantReadout,
+  ItemList,
   Key,
   KeyGroup,
   ReadoutGrid,
@@ -23,6 +25,7 @@ import {
   RowActionMenu,
   SelectMark,
   SortableHeader,
+  StaticHeader,
   StateIndicator,
   TableSelectionBand,
   ToolbarReadout,
@@ -31,6 +34,7 @@ import {
   recordResultMark,
   useDatatableDetailGutter,
   useTableController,
+  type ItemListLoadMoreTrigger,
   type SortDirection,
   type TableAction,
 } from "../../../components";
@@ -65,6 +69,109 @@ const rows: Row[] = Array.from({ length: 100 }, (_, index) => {
     ).toISOString(),
   };
 });
+
+const ITEM_LIST_TITLES = [
+  "Access Review",
+  "Policy Walkthrough",
+  "Evidence Intake",
+  "Control Mapping",
+  "Scope Confirmation",
+  "Interview Circuit",
+  "Residual Review",
+  "Release Check",
+  "Field Observation",
+  "Attestation Sweep",
+  "Exception Ledger",
+  "Closeout Briefing",
+  "Vendor Recertification",
+  "Access Recheck",
+  "Boundary Walk",
+  "Privilege Census",
+  "Key Ceremony",
+  "Retention Sweep",
+  "Shadow Inventory",
+  "Change Freeze Brief",
+  "Incident Replay",
+  "Control Sampling",
+  "Segregation Check",
+  "Owner Attestation",
+  "Evidence Backfill",
+  "Risk Recast",
+  "Third-Party Review",
+  "Model Card Audit",
+  "Prompt Boundary Check",
+  "Tool Allowlist Review",
+  "Session Isolation Drill",
+  "Release Gate Walk",
+  "Rollback Rehearsal",
+  "Watchdesk Handoff",
+  "Archive Integrity Check",
+  "Policy Diff Review",
+  "Consent Ledger Sweep",
+  "Memory Scope Review",
+  "Evaluator Recalibration",
+  "Outcome Release Brief",
+] as const;
+
+const ITEM_LIST_CAMPAIGNS = ITEM_LIST_TITLES.map((title, index) => ({
+  id: `cmp-${String(42 + index).padStart(4, "0")}`,
+  title,
+}));
+
+const ITEM_LIST_PAGE = 8;
+export const ITEM_LIST_LOAD_DELAY_MS = 800;
+
+function ItemListSpecimen({
+  trigger = "button",
+  label,
+}: {
+  trigger?: ItemListLoadMoreTrigger;
+  label: string;
+}) {
+  const [visible, setVisible] = useState(ITEM_LIST_PAGE);
+  const [waiting, setWaiting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current != null) clearTimeout(timerRef.current);
+  }, []);
+
+  const items = ITEM_LIST_CAMPAIGNS.slice(0, visible);
+  const hasMore = visible < ITEM_LIST_CAMPAIGNS.length;
+
+  const requestMore = useCallback(() => {
+    if (timerRef.current != null) return;
+    setWaiting(true);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setVisible((count) => Math.min(ITEM_LIST_CAMPAIGNS.length, count + ITEM_LIST_PAGE));
+      setWaiting(false);
+    }, ITEM_LIST_LOAD_DELAY_MS);
+  }, []);
+
+  return (
+    <EtchedFrame className="item-list-demo" inset="flush">
+      <ItemList
+        items={items}
+        itemKey={(item) => item.id}
+        label={label}
+        scroll
+        renderItem={(item) => (
+          <Inline gap="4" justify="between" wrap={false} align="center">
+            <span>{item.title}</span>
+            <Key size="compact" ariaLabel={`Open ${item.title}`}>Open</Key>
+          </Inline>
+        )}
+        loadMore={hasMore || waiting ? {
+          trigger,
+          waiting,
+          onLoadMore: requestMore,
+          children: "Load more campaigns",
+        } : null}
+      />
+    </EtchedFrame>
+  );
+}
 
 function DatatableDetailRow({
   colSpan,
@@ -401,20 +508,20 @@ function WideDatatableSpecimen() {
             <caption className="visually-hidden">Wide registry</caption>
             <thead>
               <tr>
-                <th scope="col" {...datatableColMin("id")}><span className="col-head">Participant</span></th>
-                <th scope="col" {...datatableColMin("label")}><span className="col-head">Campaign</span></th>
-                <th scope="col" {...datatableColMin("stage")}><span className="col-head">Stage</span></th>
-                <th scope="col" {...datatableColMin("label")}><span className="col-head">Cohort</span></th>
-                <th scope="col" {...datatableColMin("label")}><span className="col-head">Channel</span></th>
-                <th scope="col" {...datatableColMin("label")}><span className="col-head">Locale</span></th>
-                <th scope="col" {...datatableColMin("count")}><span className="col-head">Attempt</span></th>
-                <th scope="col" {...datatableColMin("state")}><span className="col-head">Session</span></th>
-                <th scope="col" {...datatableColMin("instant")}><span className="col-head">Received</span></th>
-                <th scope="col" {...datatableColMin("instant")}><span className="col-head">Deadline</span></th>
-                <th scope="col" {...datatableColMin("result")}><span className="col-head">Result</span></th>
-                <th scope="col" {...datatableColMin("confidence")}><span className="col-head">Confidence</span></th>
-                <th scope="col" {...datatableColMin("label")}><span className="col-head">Reviewer</span></th>
-                <th scope="col" {...datatableColMin("rev")}><span className="col-head">Rev</span></th>
+                <StaticHeader label="Participant" colMin="id" />
+                <StaticHeader label="Campaign" colMin="label" />
+                <StaticHeader label="Stage" colMin="stage" />
+                <StaticHeader label="Cohort" colMin="label" />
+                <StaticHeader label="Channel" colMin="label" />
+                <StaticHeader label="Locale" colMin="label" />
+                <StaticHeader label="Attempt" colMin="count" />
+                <StaticHeader label="Session" colMin="state" />
+                <StaticHeader label="Received" colMin="instant" />
+                <StaticHeader label="Deadline" colMin="instant" />
+                <StaticHeader label="Result" colMin="result" />
+                <StaticHeader label="Confidence" colMin="confidence" />
+                <StaticHeader label="Reviewer" colMin="label" />
+                <StaticHeader label="Rev" colMin="rev" />
               </tr>
             </thead>
             <tbody>
@@ -476,8 +583,9 @@ export function DataSections({
       <GallerySection id="select-mark" title="Select mark" note="Teal selection marks for row and header checkboxes. Four header states — none, partial, page, and matching — use explicit modifiers; do not rely on :checked alone to distinguish page from matching.">
         <div className="spec-row">{["", " select-mark--partial is-indeterminate", " select-mark--page", " select-mark--matching"].map((suffix, index) => <Spec key={suffix || "none"} tag={[".select-mark · none", ".select-mark--partial", ".select-mark--page", ".select-mark--matching"][index]}><span className={`select-mark${suffix}`} aria-hidden="true" /></Spec>)}</div>
       </GallerySection>
-      <GallerySection id="readout" title="Readout rows" note="The rail's reading grammar: dim microlabel over mono value, hairline dividers between rows.">
+      <GallerySection id="readout" title="Readout rows" note="Rail grammar is a dim microlabel over a mono value. Horizon rows (assignment and destination plates) use teal labels and Bright Text titles.">
         <div className="readout-demo"><ReadoutList rows={[{ term: "Session ID", value: "FXA-7C19-2A07" }, { term: "Participant ID", value: "CND-8842-19" }, { term: "Protocol", value: "V7.3.1" }]} /><span className="spec-tag">.readout-stack &gt; .readout · dt/dd</span></div>
+        <div className="readout-demo"><ReadoutList tone="horizon" rows={[{ term: "Purpose", value: "Create and resume Assessment Campaign drafts.", className: "readout--title" }, { term: "Availability", value: "Available" }]} /><span className="spec-tag">tone=horizon · .readout--horizon</span></div>
       </GallerySection>
       <GallerySection id="readout-grid" title="Readout grid" note="Aligned instrument data for records and configuration plates. Every row uses the same named column count; fields span tracks by meaning, so hairline divisions remain continuous.">
         <Spec wide tag="ReadoutGrid · ReadoutGridRow · ReadoutGridField · columns / span">
@@ -499,6 +607,18 @@ export function DataSections({
             <CompactId tabbable value="GOVERNED-AUDIT-01" display="GOV…01" />
           </Spec>
         </div>
+      </GallerySection>
+      <GallerySection
+        id="item-list"
+        title="Item list"
+        note="Generic record rows with custom content from renderItem. Nested overflow is intentional. Load more has two triggers: a trailing key, or auto-request when the nested scrollport reaches its end. Deck demos delayed waiting so the occupied key and WaitPanel stay inspectable."
+      >
+        <Spec wide tag="trigger=button · Load more key inside named nested scroll">
+          <ItemListSpecimen label="Campaigns" />
+        </Spec>
+        <Spec wide tag="trigger=end · sentinel at nested scroll end">
+          <ItemListSpecimen trigger="end" label="End-paged campaigns" />
+        </Spec>
       </GallerySection>
       <GallerySection id="datatable" title="Datatable" note="The canonical manifest grammar: one shared 18px inline gutter across toolbar, table, expanded detail, and pagination; a persistent action bar; compact selection band; multi-column sort; teal row selection; expandable row detail; and pagination controls.">
         <Spec wide tag=".datatable-frame + .datatable · shared 18px gutter · full-bleed detail · page then all-matching selection"><DatatableSpecimen announce={announce} /></Spec>

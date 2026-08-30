@@ -51,11 +51,10 @@ body {
   font-family: var(--font-plaque);
   text-transform: uppercase;
   font-weight: 400;
-  font-size: 0.66rem;
-  letter-spacing: 0.3em;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
   text-align: center;
   color: var(--teal);
-  text-shadow: 0 0 10px rgba(60, 192, 191, 0.6), 0 0 24px rgba(60, 192, 191, 0.3);
   margin: 0 0 var(--frame-content-pad-block-end) 0;
   flex-shrink: 0;
 }
@@ -81,12 +80,25 @@ body {
 }
 .bay-plates::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
 
+.bays .assignment-plate {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bays .assignment-plate .readout-stack--horizon {
+  flex: 1 1 auto;
+}
+
+.bays .assignment-plate .readout--horizon {
+  flex: 1 1 0;
+}
+
 /* dense board: any stacked bay switches every plate to content height so
    lone plates do not stretch beside crowded neighbors */
-.bays--dense .plate { flex: 0 0 auto; }
-.bays--dense .plate-row { flex: none; }
-.bays--dense .plate-keys { min-height: 0; padding-top: 14px; }
-.bays--dense .plate-keys:empty { display: none; }
+.bays--dense .assignment-plate { flex: 0 0 auto; }
+.bays--dense .readout--horizon { flex: none; }
+.bays--dense .assignment-plate-keys { min-height: 0; padding-top: 14px; }
+.bays--dense .assignment-plate-keys--empty { display: none; }
 
 .bay-empty {
   font-size: 0.62rem;
@@ -99,91 +111,7 @@ body {
   opacity: 0.8;
 }
 
-/* ═══ Enrollment plates ══════════════════════════════════════════ */
-
-.plate {
-  flex: 1 1 auto;
-  display: flex;
-  padding: 1px;
-  background: var(--hairline);
-  clip-path: polygon(
-    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
-    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
-    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
-  );
-}
-
-.plate-in {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  clip-path: polygon(
-    9px 0, calc(100% - 9px) 0, 100% 9px,
-    100% calc(100% - 9px), calc(100% - 9px) 100%,
-    9px 100%, 0 calc(100% - 9px), 0 9px
-  );
-  background: var(--panel-sheen), linear-gradient(rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.4)) var(--ground-deep);
-  box-shadow: var(--panel-inset);
-  padding: 6px 18px 18px;
-}
-
-.plate--released .plate-in {
-  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
-}
-
-.plate-readout {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* rows share one horizon across all four plates: equal flex tracks inside
-   identically-sized plates, divider seated tight under the value, slack after */
-.plate-row {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  padding-top: 12px;
-}
-
-.plate-row::after {
-  content: "";
-  width: 100%;
-  height: 1px;
-  background: var(--hairline-dim);
-  margin-top: 12px;
-}
-
-.plate-row:last-of-type::after { display: none; }
-
-.plate-row dt {
-  font-size: var(--microlabel-font-size);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
-  opacity: 0.85;
-  margin-bottom: 4px;
-}
-
-.plate-row dd {
-  font-size: 0.82rem;
-  line-height: 1.45;
-  color: var(--text);
-  letter-spacing: 0.02em;
-}
-
-.plate-row--title dd {
-  color: var(--text-bright);
-}
-
-.plate-row--record dd {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* record state marks come from the shared component family sheets (.state-node) */
+/* Record seal mark (lab Status Bays released plates) */
 .record-seal {
   width: 22px;
   height: 22px;
@@ -202,20 +130,6 @@ body {
   stroke-linecap: square;
   filter: drop-shadow(0 0 4px var(--teal-glow));
 }
-
-/* ═══ Plate keys ═════════════════════════════════════════════════ */
-
-/* every plate reserves the key foot so record rows share one horizon
-   whether or not a key is present; slack lives here, not in the rows */
-.plate-keys {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 58px;
-  padding-top: 10px;
-}
-
-/* .key family comes from the shared component family sheets */
 
 /* ═══ Empty board ════════════════════════════════════════════════ */
 
@@ -252,7 +166,7 @@ body {
 
   .board-frame { display: block; }
   .frame-in { display: block; }
-  .plate { flex: none; }
+  .bays .assignment-plate { flex: none; }
 
   .bays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
 

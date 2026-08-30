@@ -156,10 +156,13 @@ describe("candidate style entry graph", () => {
     expect(recordPlaneSetupScroll).toMatch(/overflow:\s*hidden/);
     expect(ceremonyInnerScroll).toMatch(/overflow-y:\s*auto/);
     expect(ceremonyInnerScroll).toMatch(/scrollbar-gutter:\s*stable/);
+    expect(appShell).toMatch(
+      /\.workspace-form\.setup-ceremony > \.setup-ceremony__foot,\s*\.setup-ceremony > \.setup-ceremony__foot \{[^}]*margin-block-start:\s*var\(--plate-foot-pad-block\)/,
+    );
     expect(setupCeremony).toMatch(/display:\s*flex/);
     expect(setupCeremony).toMatch(/flex-direction:\s*column/);
     expect(appShell).toMatch(
-      /\.workspace-area > \.operate-scroll > \.destination-bays,\s*\.workspace-area > \.operate-scroll > \.assignment-bays \{[^}]*flex:\s*0 0 auto/,
+      /\.workspace-area > \.operate-scroll > \.composition-grid\[data-flow-fit="fill"\],\s*\.workspace-area > \.operate-scroll > \.assignment-bays \{[^}]*flex:\s*0 0 auto/,
     );
     expect(appShell).toMatch(
       /\.workspace-area\.record-plane--setup > \.operate-scroll,\s*\.workspace-area\.record-plane--setup > \.workspace-alert \{[^}]*width:\s*min\(100%,\s*52rem\)/,
@@ -256,6 +259,9 @@ describe("candidate style entry graph", () => {
     expect(appShell).toMatch(
       /\.operate-head-mast\s*>\s*:not\(\.operate-head-copy\)\s*\{[^}]*order:\s*-1/,
     );
+    expect(appShell).toContain(
+      ".workspace-area .operate-head-copy .page-desc {\n    white-space: normal;",
+    );
   });
 
   it("keeps datatable horizontal overflow on the table scrollport, not the etched frame", () => {
@@ -266,6 +272,25 @@ describe("candidate style entry graph", () => {
     expect(frame).toMatch(/overflow-x:\s*visible/);
     expect(frame).not.toMatch(/overflow-x:\s*auto/);
     expect(scroll).toMatch(/overflow-x:\s*auto/);
+  });
+
+  it("lets overlay dialog-body own vertical scroll when it hosts a table", () => {
+    const overlays = readFileSync(join(srcRoot, "styles/components/overlays.css"), "utf8");
+    const host = String.raw`:is\(\.dialog-body, \.ceremony-body\):has\(\.datatable-scroll\)`;
+    const clip = overlays.match(new RegExp(`${host} \\{[^}]+\\}`))?.[0] ?? "";
+    const fill = overlays.match(new RegExp(`${host} > \\.datatable \\{[^}]+\\}`))?.[0] ?? "";
+    const rows = overlays.match(new RegExp(`${host} \\.datatable-scroll \\{[^}]+\\}`))?.[0] ?? "";
+    const toolbar = overlays.match(new RegExp(`${host} \\.datatable-toolbar \\{[^}]+\\}`))?.[0] ?? "";
+
+    expect(clip).toMatch(/overflow-y:\s*auto/);
+    expect(clip).not.toMatch(/overflow-y:\s*clip/);
+    expect(clip).not.toMatch(/overflow:\s*hidden/);
+    expect(fill).toMatch(/flex:\s*0 0 auto/);
+    expect(rows).toMatch(/overflow-y:\s*clip/);
+    expect(rows).toMatch(/overflow-x:\s*auto/);
+    expect(rows).toMatch(/overscroll-behavior-y:\s*auto/);
+    expect(toolbar).toMatch(/position:\s*sticky/);
+    expect(toolbar).toMatch(/top:\s*0/);
   });
 
   it("keeps datatable body text at the design-system compact floor (0.75rem)", () => {
@@ -322,7 +347,6 @@ describe("candidate style entry graph", () => {
       "styles/components/datatable.css",
       "styles/surfaces/admin-console.css",
       "styles/surfaces/reviewer-console.css",
-      "styles/surfaces/participant-home.css",
       "styles/surfaces/participant-journey.css",
       "styles/components/overlays.css",
     ];
@@ -379,12 +403,22 @@ describe("candidate style entry graph", () => {
     expect(formRow).toMatch(/padding:\s*var\(--field-label-gap\)\s+0/);
     expect(fields).toMatch(/\.form-row--pair \{ flex-direction: column; gap: var\(--form-group-gap\)/);
 
-    const section = fields.match(/\.form-section\s*>\s*legend\s*\{[^}]+\}/)?.[0] ?? "";
+    const sectionBox = fields.match(/^\.form-section\s*\{[^}]+\}/m)?.[0] ?? "";
+    expect(sectionBox).not.toMatch(/border-inline-start/);
+    expect(sectionBox).not.toMatch(/padding-inline-start/);
+    expect(sectionBox).toMatch(/border:\s*0/);
+
+    const section = fields.match(/^\.form-section\s*>\s*legend\s*\{[^}]+\}/m)?.[0] ?? "";
     expect(section).toMatch(/margin:\s*0\s+0\s+var\(--form-group-gap\)/);
+    expect(section).toMatch(/padding:\s*0\s+0\s+var\(--space-2\)/);
+    expect(section).toMatch(/width:\s*max-content/);
+    expect(section).not.toMatch(/^\s*width:\s*100%;/m);
+    expect(section).toMatch(/border-block-end:\s*2px\s+solid\s+var\(--hairline\)/);
     expect(section).toMatch(/font-size:\s*0\.72rem/);
     expect(section).toMatch(/color:\s*var\(--text-bright\)/);
     expect(section).not.toMatch(/font-size:\s*0\.62rem/);
     expect(section).not.toMatch(/color:\s*var\(--label\)/);
+    expect(fields).not.toMatch(/\.composition-stack\s*>\s*\.form-section\s*\+\s*\.form-section/);
     expect(fields).not.toMatch(
       /\.dialog-body > \.field-stack,\s*\n\.ceremony-body > \.field-stack,\s*\n\.bulkhead-body > \.field-stack\s*\{[^}]*margin-top:\s*2px/,
     );
@@ -412,14 +446,15 @@ describe("candidate style entry graph", () => {
     expect(plaque).toMatch(/gap:\s*var\(--form-group-gap\)/);
   });
 
-  it("sizes Home and My work plate bays with auto-fill slots, not auto-fit stretch", () => {
-    const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
-    const plateBays = appShell.match(
-      /\.destination-bays,\s*\.assignment-bay-plates\s*\{[^}]+\}/,
+  it("sizes Home and My work plate bays with Grid fill slots, not auto-fit stretch", () => {
+    const primitives = readFileSync(join(srcRoot, "styles/components/layout-primitives.css"), "utf8");
+    const fill = primitives.match(
+      /\.composition-grid\[data-flow-fit="fill"\]\s*\{[^}]+\}/,
     )?.[0] ?? "";
 
-    expect(plateBays).toMatch(/repeat\(auto-fill,\s*minmax\(16rem,\s*1fr\)\)/);
-    expect(plateBays).not.toMatch(/auto-fit/);
+    expect(fill).toMatch(/repeat\(auto-fill,/);
+    expect(fill).not.toMatch(/auto-fit/);
+    expect(primitives).toMatch(/\.composition-grid\s*\{[^}]*auto-fit/);
   });
 
   it("does not keep a combined styles index the candidate can import", () => {

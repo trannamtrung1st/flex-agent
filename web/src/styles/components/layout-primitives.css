@@ -52,6 +52,10 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--flow-min, var(--grid-min-panel))), 1fr));
 }
 
+.composition-grid[data-flow-fit="fill"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--flow-min, var(--grid-min-panel))), 1fr));
+}
+
 .composition-split {
   --split-start: 220px;
   --split-end: 280px;
@@ -311,3 +315,9 @@
 .composition-inset[data-flow-block="16"] { --flow-pad-block: var(--space-16); }
 .composition-inset[data-flow-block="20"] { --flow-pad-block: var(--space-20); }
 .composition-inset[data-flow-block="24"] { --flow-pad-block: var(--space-24); }
+
+@media (max-width: 720px) /* bp.compact */ {
+  .composition-grid[data-flow-fit="fill"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

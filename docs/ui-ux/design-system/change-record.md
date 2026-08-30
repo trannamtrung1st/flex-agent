@@ -44,6 +44,24 @@ must still verify every token pairing in both themes.
 Exact versions are pinned in `web/package.json`. Self-host only. Include OFL
 notices with the SPA license inventory.
 
+## Item list primitive (2026-08-30)
+
+`ItemList` is the shared record-row primitive: `renderItem` supplies custom
+row content; optional `loadMore` requests the next page via a trailing
+full-width key (`trigger="button"`, default) or an end-of-scroll sentinel
+(`trigger="end"`) inside an optional named nested scrollport. Rows own a
+`--space-4` gutter; Deck specimens seat the list in a flush etched frame.
+Deck catalog section `item-list`.
+WorkWell prose lists and submission version lineage stay composition, not this
+component.
+
+## Participants assignment lists (2026-08-30)
+
+Product interaction (`UI-SUBM-DEC-13`–`16` in the Submission and Attempt
+specification): cursor-paged Participants and options, stay on the registry
+after assign, reserved select-all for future bulk, and Close/Revoke confirmation
+with required reason codes. Not a design-system primitive change.
+
 ## Official docs refresh (2026-08-30)
 
 Canonical modules synced to the current Shipboard implementation without
@@ -54,14 +72,29 @@ family is not yet production-backed. Deck catalog includes `datatable-scroll`.
 Layouts record current production assignment and keep approved Session/Review
 families from the Activity IA as the contract target.
 
+`Grid` `fit="fill"` and `AssignmentPlate` are the destination / assignment plate
+recipes. Home omits unavailable destinations. When My work is available,
+production `/` redirects to `/my-work` and Home is omitted from the gangway.
+Design-lab Status Bays reuse `AssignmentPlate` inside the domain bay hull.
+
 Consistency pass: canonical IA now lists `/activities/new` and `/results`;
 unavailable locators may stay on `management` until the host contract exists.
 Frontend architecture, design-lab README, and frontend-developer skill use the
 same clone rule.
 
+`StaticHeader` is the unsorted column-head cell (`.col-head`) beside
+`SortableHeader`. Naked `th` text is not a valid head.
+
 Root `DESIGN.md` remains a generated adapter (`python3 scripts/impeccable_context.py
 generate`). The adapter source list now also fingerprints lists, tables,
 inputs, borders, and empty/loading. It is not a Stitch token sheet.
+
+## Viewport-aware overlays (2026-08-30)
+
+Portaled plaques, menus, and select popovers share `placeFloating` (flip, shift,
+and size into an 8px viewport inset). CSS `[data-tip]` plaques and native dialog
+centering are unchanged. Clone `AnchoredOverlay` for new overlays. `DropdownMenu`
+`placement` still exists on the API; both values portal.
 
 ## Etched frame clip vs grouping (2026-08-30)
 
@@ -74,6 +107,14 @@ a stacked-record `ReadoutGrid` in its own well — it is a rule band
 ([content](components/content.md)). Unframed `record-plane` no longer carries
 a `.record-frame` grow/undo rule — stacked records are not a clipped
 instrument.
+
+## FormSection stacked siblings (2026-08-30)
+
+`FormSection` grouping is title-owned: a 2px `--hairline` rule under the legend
+words (not the bay width), then `--form-group-gap` to the fields. Sibling clusters use `Stack` bay gap.
+Do not pad, rail, or top-border the fieldset — fieldset block padding sits
+between legend and fields. Do not wrap clusters in plates or insert
+`.form-divider`. Side-by-side FormSections on `Grid` keep Grid gap only.
 
 ## Operate / form spacing rungs (2026-08-29)
 
@@ -238,7 +279,9 @@ rails follow the same hull rule; overlay bulkhead drawers stay opaque.
 `CompactId` is the shared center-truncated identifier readout. It uses
 `TooltipHost` `tone="value"` so the full identifier stays exact-case on hover.
 Dense registry tables omit per-cell tab stops; pass `tabbable` for
-focus-visible plaque in standalone surfaces. `compactRegistryId` lives beside
+focus-visible plaque in standalone surfaces. The plaque also opens when the
+compact form differs from the value, or when CSS clips a value that already
+fits logically. `compactRegistryId` lives beside
 the component. Component Deck section: `compact-id`. Production Enrollment
 registry and the assignment instrument rail consume it. Activities registry
 dropped its Campaign ID column in the shipboard reset (IDs remain searchable).
@@ -256,6 +299,11 @@ must not interpolate `undefined` or report the viewer timezone as unavailable.
 the plaque and select or copy its text. Selection drags that start on the
 plaque keep it open until pointer up. Opening one plaque dismisses any other.
 CSS `data-tip` plaques stay inspect-only.
+
+Modal `<dialog>` is a top layer. `overlayPortalRoot` seats `TooltipHost`
+plaques and fixed `DropdownMenu` panels in that dialog when the host lives
+there, so CompactId, header-select tips, and row menus remain visible inside
+Assign and other ceremonies.
 
 ## Ceremony unavailable helper (2026-08-29)
 
@@ -280,11 +328,29 @@ ceremony shows `CeremonyUnavailable danger`. Light theme keeps wine
 `center` | `end` (default) | `split`. Assignment and destination plates use
 `end`. Work wells use `start`. Dialog feet use the same primitive except
 ceremony fill-grid feet. There is no `plate-foot--start` class hatch and no
-free middle slot.
+free middle slot. Every `.plate-foot` draws a `hairline-dim` block-start
+rule; dialog and work-well feet inherit it instead of a second stroke.
+`.ceremony-foot` keeps the same token. Air above the rule uses
+`--plate-foot-pad-block` on the preceding sibling (except dialog and
+work-well bodies, which already pad). Dialog `.dialog-head`, `.dialog-body`,
+and `.dialog-foot` use that same token on both block edges (inline
+`--frame-inset-inline`) instead of the prototype 22/14, 18/24/20, and 14/20
+offsets. Ceremony fill `.ceremony-foot` uses the token as `padding-block-start`.
+
+## Plate foot hairline composition (2026-08-30)
+
+In-plate `PlateFoot` keeps the `hairline-dim` block-start rule (`hairline`
+default true) full-bleed to the bezel. Hull chrome that is a sibling of a
+complete pane — `GuidedTaskFoot` — sets `hairline={false}` so a floating
+internal divider does not sit under the well-frame. Assignment-plate and
+Setup/Create `.setup-ceremony` inner padding no longer insets that rule;
+keys stay on `--frame-inset-inline`. Fused lab readout+foot wells use the
+same recipe via `.in-plate-host`. Lab assignment-station actions use
+`GuidedTaskFoot` rather than a local `.action-keys` fragment.
 
 ## Plate bay slots (2026-08-29)
 
-Home destination plates and My work assignment plates use `auto-fill` columns
+Home destination plates and My work assignment plates use `Grid` `fit="fill"`
 so a lone plate occupies one hull slot instead of stretching. Compact
 viewports still use one full-width column.
 
@@ -309,6 +375,18 @@ filling-registry `.datatable-scroll` (rows), split-ledger columns, assignment
 `main`. Stacked management wells (Enrollment detail) overflow visible inside
 `.operate-scroll`.
 
+## Overlay filling-table scroll (2026-08-30)
+
+Live overlay form and confirm dialogs still inner-scroll `.dialog-body`.
+When that body hosts `.datatable-scroll` (Assign Participant picker), keep
+one vertical wheel on `.dialog-body` or `.ceremony-body` (the clip-path
+plate’s direct child). Nested `.datatable-scroll` uses `overflow-y: clip` so
+it cannot compete; horizontal overflow stays on the table. Override its
+default `overscroll-behavior: contain` on the Y axis
+(`overscroll-behavior-y: auto`) or the table swallows the wheel.
+`.datatable-toolbar` is sticky so search stays seated; pagination stays in
+flow. Short lists still hug. Future picker filters belong in `DataTableToolbar`.
+
 ## Nested scroll ownership (2026-08-30)
 
 Status Bays keep per-column `.bay-plates` scroll; the operate wrapper is
@@ -325,6 +403,42 @@ The Component Deck catalog column is the vertical wheel target. Nested family
 specimens (`.layout-spec`) hug instead of acting as `72dvh` mini-hulls; inner
 operate, rail, well, and table regions use `overflow-x`/`overflow-y: clip`
 (tables keep `overflow-x: auto` with `overflow-y: clip` so `visible` does not
-compute to `auto`). The sticky deck index rail still
-inner-scrolls. Overlay widgets are unchanged. Production hulls and design-lab
-Operate routes keep the nested-scroll ownership rules above.
+compute to `auto`). Form recipes hug the same way: OperateArea
+`.operate-scroll` and seated in-flow `DialogPlate` bodies use `overflow-x`/
+`overflow-y: clip` and `overscroll-behavior: auto`. Overlay `max-height` is
+dropped on seated plates. Overlay `overflow-y: auto` plus
+`overscroll-behavior: contain` otherwise traps the wheel even when the plate
+is shorter than the viewport. Native `<dialog>` DemoDialog specimens still
+inner-scroll. The sticky deck index rail still inner-scrolls. Other overlay
+widgets are unchanged. Production hulls and design-lab Operate routes keep
+their own scroll ownership.
+
+## Ceremony auth commit recovery (2026-08-30)
+
+`CeremonyUnavailable` recovery defaults to a quiet Return/Reload key.
+`recovery.variant="transmit"` (large) is reserved for **Continue to sign in**
+on the unauthenticated gate and access-changed reauth. Amber `open` stays off
+this plane. Production auth no longer assembles `CeremonyArea` + `CeremonyEmpty`
++ `Key` by hand.
+
+## Setup provenance Note (2026-08-30)
+
+Frozen Setup cluster provenance uses the shared workspace **Note**
+(`Alert` info, advisory copy at 0.78rem) at the top of the ceremony form.
+It is not a floating field-hint. Activated Setup folds the same sentence
+into the existing Cohort activated Alert body. Gallery: `alert` plus
+Management setup. Advisory vs Alert placement, Setup shared-control copy, and
+the implementation-guide Feedback index were aligned the same day. Readiness
+blockers use ErrorSummary (**Readiness blocked**), not a warning Alert. The
+resolved-note copy constant is `SETUP_RESOLVED_NOTE` beside campaign field
+placeholders. Gallery Setup includes draft, blocked, and activated compositions.
+Save and check failures on a blocked revision stay in the same ErrorSummary.
+Save-only Setup failures use **Correct the following**, matching Create.
+
+## Assignment Station guided-task foot (2026-08-30)
+
+At ≤1080px the `guided-task` actions foot is `position: fixed` on the
+viewport floor (`--ground-deep`, hairline) so Cancel / Submit stay reachable
+while the stacked well scrolls. Assignment Station Submit version stays visible
+during intake and uses `disabledReason` when empty or not permitted.
+

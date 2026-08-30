@@ -79,7 +79,18 @@ describe("EtchedFrame", () => {
     expect(foot).toHaveTextContent("Configure");
     expect(foot).toHaveAttribute("data-arrangement", "end");
     expect(foot).toHaveAttribute("data-flow-justify", "end");
+    expect(foot).toHaveAttribute("data-hairline", "true");
     expect(foot).toHaveClass("composition-inline");
+  });
+
+  it("lets hull chrome omit the in-plate hairline", () => {
+    const { container } = render(
+      <PlateFoot hairline={false}>
+        <button type="button">Cancel intake</button>
+      </PlateFoot>,
+    );
+
+    expect(container.querySelector("footer.plate-foot")).toHaveAttribute("data-hairline", "false");
   });
 
   it("maps start, center, and split arrangements onto Inline justify", () => {
@@ -131,6 +142,38 @@ describe("EtchedFrame", () => {
     expect(platesCss).toMatch(
       /\.plate-foot\[data-arrangement="split"\] \.plate-foot-slot--primary \{[^}]*margin-inline-start:\s*auto/,
     );
+    expect(platesCss).toMatch(
+      /\.plate-foot \{[^}]*width:\s*100%;[^}]*border-block-start:\s*1px solid var\(--hairline-dim\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.plate-foot\[data-hairline="false"\] \{[^}]*border-block-start:\s*none/,
+    );
+    expect(platesCss).toMatch(
+      /:has\(\+ \.plate-foot:not\(\[data-hairline="false"\]\)\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.assignment-plate\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in \{[^}]*padding-inline:\s*0/,
+    );
+    expect(platesCss).toMatch(
+      /\.assignment-plate \.assignment-plate-keys \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in:has\(\.setup-ceremony\),\s*\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in:has\(\.in-plate-host\) \{[^}]*padding-inline:\s*0/,
+    );
+    expect(platesCss).toMatch(
+      /\.setup-ceremony > :not\(\.plate-foot\),\s*\.in-plate-host > :not\(\.plate-foot\) \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.setup-ceremony > \.plate-foot,\s*\.in-plate-host > \.plate-foot \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
+    );
+    expect(platesCss).not.toMatch(/\.work-well > \.work-well__foot \{[^}]*border-(?:top|block-start):/);
+    expect(platesCss).toMatch(
+      /:has\(\+ \.plate-foot:not\(\[data-hairline="false"\]\)\):not\(\.dialog-body\):not\(\.work-well__body\):not\(\.create-ceremony__scroll\) \{[^}]*padding-block-end:\s*var\(--plate-foot-pad-block\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.assignment-plate \.assignment-plate-keys \{[^}]*padding-block-start:\s*var\(--plate-foot-pad-block\)/,
+    );
+    expect(platesCss).not.toMatch(/\.assignment-plate \.assignment-plate-keys \{[^}]*padding-block-start:\s*10px/);
   });
 
   it("clips half-beads on the inner pane and scrolls payload separately", () => {

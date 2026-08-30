@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
 import { IconButton, Key } from "../keys";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { selectShellStyle, type SelectPopoverConfig } from "../select/selectShell";
 import { useDismissOnOutsidePointer } from "../select/useDismissOnOutsidePointer";
 import { DateGlyph, TimeGlyph } from "./TemporalGlyphs";
@@ -74,6 +75,7 @@ export function DateTimePicker({
   const today = now ?? toIsoDate(new Date());
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const hourRef = useRef<HTMLUListElement>(null);
   const minuteRef = useRef<HTMLUListElement>(null);
   const secondRef = useRef<HTMLUListElement>(null);
@@ -103,7 +105,7 @@ export function DateTimePicker({
   const cells = useMemo(() => calendarCells(view.year, view.month), [view.month, view.year]);
   const selectedIso = parseIsoDate(date) ? date : "";
 
-  useDismissOnOutsidePointer(open, rootRef, () => {
+  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => {
     setOpen(false);
   }, { labelId, controlId: id });
 
@@ -117,7 +119,7 @@ export function DateTimePicker({
     if (justOpened) {
       if (mode !== "time") {
         const iso = parseIsoDate(date) ? date : today;
-        rootRef.current?.querySelector<HTMLButtonElement>(`[data-day="${iso}"]`)?.focus();
+        panelRef.current?.querySelector<HTMLButtonElement>(`[data-day="${iso}"]`)?.focus();
       } else {
         hourRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
       }
@@ -192,7 +194,7 @@ export function DateTimePicker({
       const parsed = parseIsoDate(next);
       if (parsed) setView({ year: parsed.year, month: parsed.month });
       requestAnimationFrame(() => {
-        rootRef.current?.querySelector<HTMLButtonElement>(`[data-day="${next}"]`)?.focus();
+        panelRef.current?.querySelector<HTMLButtonElement>(`[data-day="${next}"]`)?.focus();
       });
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -263,12 +265,15 @@ export function DateTimePicker({
         </span>
         <ChevronGlyph className="dropdown-chevron chevron-glyph" />
       </button>
+      <AnchoredOverlay open={open} triggerRef={triggerRef} tokenSourceRef={rootRef} floatingRef={panelRef} align="stretch">
+        {({ ref, style, overlayClassName }) => (
       <div
+        ref={ref}
         id={panelId}
-        className={`datetime-popover select-popover popover-surface menu-surface${mode === "datetime" ? " datetime-popover--split" : ""}`}
+        style={style}
+        className={`datetime-popover select-popover popover-surface menu-surface${mode === "datetime" ? " datetime-popover--split" : ""} ${overlayClassName}`}
         role="dialog"
         aria-label={dialogLabel}
-        hidden={!open}
       >
         {mode !== "time" ? (
           <div className="datetime-calendar">
@@ -440,6 +445,8 @@ export function DateTimePicker({
           </Key>
         </div>
       </div>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

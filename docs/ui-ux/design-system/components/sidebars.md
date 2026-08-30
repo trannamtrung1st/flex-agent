@@ -17,7 +17,8 @@ is `transparent` so the hull shows through; the examiner plate remains inset.
 - Collapsed codes use trailing tooltips; full names remain available to
   assistive technology.
 - Role home returns to the current actor’s operational home from the Activity
-  IA, not prototype `/participant-*` paths.
+  IA, not prototype `/participant-*` paths. When My work is available, that
+  home is `/my-work` (`/` redirects there).
 - Campaign context sits in-page (Campaign Context instrument), not as silent
   substitution in the rail (`PC-06`).
 - Rail internals that overflow a short desktop scroll inside the rail; do not
@@ -28,7 +29,9 @@ is `transparent` so the hull shows through; the examiner plate remains inset.
 ## Breadcrumbs
 
 `BreadcrumbNav` is an in-bay trail (`nav` / `aria-label="Breadcrumb"`), not a
-second gangway. Home plus slash-separated **reachable destinations**. Ancestor
+second gangway. Omit it on gangway indexes (`/`, `/activities`, `/my-work`): the
+current destination is already the gangway item and the `OperateHead` title.
+Nested records keep Home plus slash-separated **reachable destinations**. Ancestor
 crumbs are `.text-link` (phosphor color, no underline). The current crumb uses
 `aria-current="page"` and is not a link. Nested-record `BackKey` belongs in
 `OperateHead` beside the copy cluster (trailing at desktop; own leading row at compact widths),
@@ -42,8 +45,19 @@ The design lab and shared library import the presentational primitive. Gallery:
 ## Index rail
 
 `IndexRail` is the reference-shell catalog (`ReferenceLayout`): `.deck-rail` >
-`.nav-rail` plus `SectionedNavigation`. Gallery section `nav-rail` shows the
-shared `.nav-rail` / `.nav-link` grammar (teal tick + Bright Text when
-current), including a nested `OperateHead` + `BackKey` specimen. That grammar
-is not production area navigation; production area nav is gangway/bulkhead.
-Current destination is never amber.
+`.nav-rail` plus `SectionedNavigation`. Group headers are native
+`<details>`/`<summary>` controls: hand pointer, teal hover, diamond node
+lit when open. Desktop keeps groups independently open by default; at
+≤900px the catalog accordion allows one open group. Gallery section
+`nav-rail` shows the shared `.nav-rail` / `.nav-link` grammar (teal tick +
+Bright Text when current), including a nested `OperateHead` + `BackKey`
+specimen. Gallery section `nav-groups` shows the collapsible grouped
+variant. That grammar is not production area navigation; production area
+nav is gangway/bulkhead. Current destination is never amber.
+
+Gangway group collapse is opt-in (`collapsibleGroups`, or per-group
+`collapsible`). `ManagementLayout` forwards that flag to the desktop
+gangway and the drawer `AreaGroupList` so both shells stay in the same
+mode. When the gangway width-collapses to the 76px code rail, groups
+force-open so channel codes stay reachable. The group that owns the
+current destination reopens when the current item moves.

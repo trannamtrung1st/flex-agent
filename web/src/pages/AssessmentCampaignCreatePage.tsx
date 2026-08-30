@@ -13,7 +13,6 @@ import {
 } from "../api/production-assessment";
 import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import {
-  Alert,
   BackKey,
   CAMPAIGN_TITLE_PLACEHOLDER,
   DropdownSelect,
@@ -82,6 +81,7 @@ function SourceField({
   const selected = options.find((option) => sourceOptionIdentity(option) === selectedValue);
   const hasSelectedOption = Boolean(selected);
   const slack = Boolean(selectedValue && !hasSelectedOption);
+  const showDevelopment = markDevelopment && selected && !selected.production_eligible;
   const dropdownOptions = [
     ...(options.length === 0 && !selectedValue ? [{ value: "", label: "Unavailable" }] : []),
     ...(slack ? [{ value: selectedValue, label: "No longer available" }] : []),
@@ -92,40 +92,39 @@ function SourceField({
   ];
 
   return (
-    <FormField
-      id={fieldId}
-      layout="stack"
-      label={sourceCategoryLabel(category)}
-      labelAssociatesControl={false}
-      error={error}
-      hint={slack
-        ? "No longer available"
-        : markDevelopment && selected && !selected.production_eligible
-          ? (
-            <StateReadout
-              variant="rest"
-              label={sourceEligibilityLabel(false)}
-            />
-          )
-          : undefined}
-    >
-      {(fieldControl, { labelId }) => (
-        <Controller
-          control={control}
-          name={`sources.${category}`}
-          render={({ field }) => (
-            <DropdownSelect
-              id={fieldControl.id}
-              labelId={labelId}
-              describedBy={fieldControl["aria-describedby"]}
-              value={field.value}
-              options={dropdownOptions}
-              onChange={field.onChange}
-            />
-          )}
+    <Stack gap="2.5">
+      <FormField
+        id={fieldId}
+        layout="stack"
+        label={sourceCategoryLabel(category)}
+        labelAssociatesControl={false}
+        error={error}
+        hint={slack ? "No longer available" : undefined}
+      >
+        {(fieldControl, { labelId }) => (
+          <Controller
+            control={control}
+            name={`sources.${category}`}
+            render={({ field }) => (
+              <DropdownSelect
+                id={fieldControl.id}
+                labelId={labelId}
+                describedBy={fieldControl["aria-describedby"]}
+                value={field.value}
+                options={dropdownOptions}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        )}
+      </FormField>
+      {showDevelopment ? (
+        <StateReadout
+          variant="rest"
+          label={sourceEligibilityLabel(false)}
         />
-      )}
-    </FormField>
+      ) : null}
+    </Stack>
   );
 }
 
@@ -262,11 +261,10 @@ export function AssessmentCampaignCreatePage({
       title="Create assessment Campaign"
       description="Activity form: Campaign. Configured type: Assessment."
       back={<BackKey to="/activities" label="Activities" />}
-      context={missingCategory ? (
-        <Alert variant="info" title={`No permitted ${sourceCategoryLabel(missingCategory)} revisions are available`}>
-          A ready source set is required before a draft can be created.
-        </Alert>
-      ) : null}
+      empty={missingCategory ? {
+        label: `No permitted ${sourceCategoryLabel(missingCategory)} revisions are available`,
+        note: "A ready source set is required before a draft can be created.",
+      } : undefined}
     >
       {missingCategory ? null : (
         <Stack
@@ -326,7 +324,6 @@ export function AssessmentCampaignCreatePage({
             <StateReadout
               variant="rest"
               label={LISTED_REVISIONS_DEVELOPMENT_NOTE}
-              className="create-eligibility-note"
             />
           ) : null}
           <FormSection legend="Agent and Harness">
@@ -364,7 +361,7 @@ export function AssessmentCampaignCreatePage({
           </FormSection>
           </Stack>
           <PlateFoot className="setup-ceremony__foot" arrangement="end">
-            <Key type="submit" variant="transmit" disabled={createMutation.isPending} waiting={createMutation.isPending}>
+            <Key type="submit" variant="transmit" size="large" disabled={createMutation.isPending} waiting={createMutation.isPending}>
               {createMutation.isPending ? "Creating…" : "Create"}
             </Key>
           </PlateFoot>

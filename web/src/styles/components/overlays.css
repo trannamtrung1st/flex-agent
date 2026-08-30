@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 22px 24px 14px;
+  padding: var(--plate-foot-pad-block) var(--frame-inset-inline);
   border-bottom: 1px solid var(--hairline-dim);
 }
 
@@ -66,12 +66,42 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px 24px 20px;
+  padding: var(--plate-foot-pad-block) var(--frame-inset-inline);
   font-size: 0.84rem;
   line-height: 1.55;
   color: var(--text);
   display: flex;
   flex-direction: column;
+}
+
+/* Filling table in a live overlay: dialog/ceremony body is the vertical
+   wheel (clip-path plate’s direct child). Nested .datatable-scroll stays a
+   horizontal scroller only. Override its default overscroll-behavior:
+   contain — otherwise the table eats the wheel and the body never moves.
+   Sticky toolbar keeps search seated while the body scrolls. Pagination
+   stays in flow (sticky bottom after the rows does not pin on first paint). */
+:is(.dialog-body, .ceremony-body):has(.datatable-scroll) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+}
+
+:is(.dialog-body, .ceremony-body):has(.datatable-scroll) > .datatable {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+:is(.dialog-body, .ceremony-body):has(.datatable-scroll) .datatable-scroll {
+  flex: 0 0 auto;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior-y: auto;
+}
+
+:is(.dialog-body, .ceremony-body):has(.datatable-scroll) .datatable-toolbar {
+  position: sticky;
+  top: 0;
 }
 
 .dialog-readout {
@@ -95,8 +125,7 @@
 .dialog-foot {
   flex-shrink: 0;
   gap: 10px;
-  padding: 14px 24px 20px;
-  border-top: 1px solid var(--hairline-dim);
+  padding: var(--plate-foot-pad-block) var(--frame-inset-inline);
   align-items: center;
 }
 
@@ -181,23 +210,14 @@
   pointer-events: auto;
   user-select: text;
   cursor: text;
-  transform: translateX(-50%);
   box-shadow: 0 10px 28px rgba(2, 9, 14, 0.62);
-}
-
-.tip-plaque--above {
-  transform: translate(-50%, -100%);
-}
-
-.tip-plaque--below {
-  transform: translate(-50%, 0);
 }
 
 .tip-plaque--above::before,
 .tip-plaque--below::before {
   content: "";
   position: absolute;
-  left: 50%;
+  left: var(--tip-connector, 50%);
   width: 1px;
   height: 9px;
   background: var(--hairline);
@@ -216,7 +236,7 @@
 .tip-plaque--below::after {
   content: "";
   position: absolute;
-  left: 50%;
+  left: var(--tip-connector, 50%);
   width: 48px;
   height: 14px;
   transform: translateX(-50%);
@@ -236,6 +256,21 @@
   letter-spacing: 0.04em;
   font-size: 0.68rem;
   color: #e6eef2;
+}
+
+.floating-overlay {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 55;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.floating-overlay--above.select-popover {
+  border-top: 1px solid var(--hairline);
+  border-bottom: none;
 }
 
 .datatable-selection-sep {
@@ -263,19 +298,66 @@
 
 /* ═══ Toast (instrument slip) ════════════════════════════════════ */
 
-/* transient system messages dock bottom-right as notched hairline
-   slips; system voice is teal, attention warms to amber and carries
-   the warn triangle. Arrivals sweep in like ledger turns. */
+/* Placement is `data-placement` on ToastDock / ToastHost (default
+   bottom-center). Offsets are --toast-dock-offset-inline / -block. */
 .toast-dock {
+  --toast-dock-inset: 22px;
+  --toast-dock-offset-inline: 0px;
+  --toast-dock-offset-block: 0px;
   position: fixed;
-  right: 22px;
-  bottom: 22px;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 10px;
   pointer-events: none;
+}
+
+.toast-dock[data-placement="bottom-center"] {
+  inset-block-end: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-start: var(--toast-dock-offset-inline);
+  inset-inline-end: 0;
+  inset-block-start: auto;
+  align-items: center;
+}
+
+.toast-dock[data-placement="top-center"] {
+  inset-block-start: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-start: var(--toast-dock-offset-inline);
+  inset-inline-end: 0;
+  inset-block-end: auto;
+  align-items: center;
+}
+
+.toast-dock[data-placement="bottom-start"] {
+  inset-block-end: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-start: calc(var(--toast-dock-inset) + var(--toast-dock-offset-inline));
+  inset-block-start: auto;
+  inset-inline-end: auto;
+  align-items: flex-start;
+}
+
+.toast-dock[data-placement="bottom-end"] {
+  inset-block-end: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-end: calc(var(--toast-dock-inset) + var(--toast-dock-offset-inline));
+  inset-block-start: auto;
+  inset-inline-start: auto;
+  align-items: flex-end;
+}
+
+.toast-dock[data-placement="top-start"] {
+  inset-block-start: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-start: calc(var(--toast-dock-inset) + var(--toast-dock-offset-inline));
+  inset-block-end: auto;
+  inset-inline-end: auto;
+  align-items: flex-start;
+}
+
+.toast-dock[data-placement="top-end"] {
+  inset-block-start: calc(var(--toast-dock-inset) + var(--toast-dock-offset-block));
+  inset-inline-end: calc(var(--toast-dock-inset) + var(--toast-dock-offset-inline));
+  inset-block-end: auto;
+  inset-inline-start: auto;
+  align-items: flex-end;
 }
 
 .toast {
@@ -290,11 +372,29 @@
   background: var(--panel-sheen), linear-gradient(rgba(2, 9, 14, 0.94), rgba(2, 9, 14, 0.94)), var(--ground-deep);
   box-shadow: var(--panel-inset);
   pointer-events: auto;
-  animation: toast-sweep 320ms var(--ease-out) both;
+  animation: toast-sweep-end 320ms var(--ease-out) both;
 }
 
-@keyframes toast-sweep {
+.toast-dock[data-placement$="-start"] .toast {
+  animation-name: toast-sweep-start;
+}
+
+.toast-dock[data-placement$="-center"] .toast {
+  animation-name: toast-sweep-center;
+}
+
+@keyframes toast-sweep-end {
   from { clip-path: inset(0 0 0 100%); opacity: 0.4; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+@keyframes toast-sweep-start {
+  from { clip-path: inset(0 100% 0 0); opacity: 0.4; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+@keyframes toast-sweep-center {
+  from { clip-path: inset(100% 0 0 0); opacity: 0.4; }
   to { clip-path: inset(0 0 0 0); opacity: 1; }
 }
 
@@ -338,6 +438,20 @@
 }
 
 .toast--attention .toast-label { color: var(--amber); }
+
+@media (max-width: 720px) /* bp.compact */ {
+  .toast-dock[data-placement^="bottom"],
+  .toast-dock[data-placement^="top"] {
+    inset-inline-start: 12px;
+    inset-inline-end: 12px;
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }

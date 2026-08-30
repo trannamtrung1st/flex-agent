@@ -11,7 +11,9 @@ Gallery: `error-summary` (parts) and `form-recipes` (commission invalid submit).
   plus a focusable heading (`tabIndex={-1}`), not a red banner identity.
   `role="alert"` on the summary root.
 - Default heading copy is **There is a problem** unless the governing spec
-  supplies a tighter title.
+  supplies a tighter title. Setup readiness blockers use **Readiness blocked**.
+  A save or check failure on a blocked revision stays in that same summary
+  (unlinked item first); do not stack a second **Correct the following** summary.
 - Each item may link to the invalid control (`href`) as a `.text-link` (color
   only, no underline).
 - Server-bounded reason categories stay opaque; do not leak internals.

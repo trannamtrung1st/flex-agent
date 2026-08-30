@@ -166,7 +166,7 @@ function CommissionRecipe({
           </Grid>
         </FormSection>
         <PlateFoot className="setup-ceremony__foot" arrangement="end">
-          <Key type="submit" variant="transmit">
+          <Key type="submit" variant="transmit" size="large">
             Create
           </Key>
         </PlateFoot>
@@ -548,7 +548,7 @@ export function FormRecipeSections() {
     <GallerySection
       id="form-recipes"
       title="Form recipes"
-      note="Clone these compositions. Form controls below is the parts catalog. Commission is OperateArea, ErrorSummary, stacked title, FormSection + Grid, PlateFoot — same rungs as create Campaign (control 10px, group 16px, bay 24px). Production create adds the remaining required sources into Source set and owns submit with React Hook Form. Pair instruments share one horizon. Ledger mix places ReadoutGrid identity on the etched plate, etches frozen sources and cooldown as FormFields, and keeps timing, window, score, and notes editable on a two-up Grid. Dialog forms reuse DialogPlate with the same stacked fields; this plate stays seated so the recipe is visible without opening a modal."
+      note="Clone these compositions. Form controls below is the parts catalog. Commission is OperateArea, ErrorSummary, stacked title, FormSection + Grid, PlateFoot — same rungs as create Campaign (control 10px, group 16px, bay 24px). FormSection grouping is a 2px hairline underline under the legend words. Production create adds the remaining required sources into Source set and owns submit with React Hook Form. Pair instruments share one horizon. Ledger mix places ReadoutGrid identity on the etched plate, etches frozen sources and cooldown as FormFields, and keeps timing, window, score, and notes editable on a two-up Grid. Dialog forms reuse DialogPlate with the same stacked fields; this plate stays seated so the recipe is visible without opening a modal."
     >
       <Spec wide tag="OperateArea · ErrorSummary · FormSection · Grid · PlateFoot · ready">
         <CommissionRecipe

@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { ITEM_LIST_LOAD_DELAY_MS } from "./sections/DataSections";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MemoryRouter } from "react-router-dom";
+import { SETUP_RESOLVED_NOTE } from "../../../design-system/components/fields/fieldFormat";
 import { GalleryDeck } from "./GalleryDeck";
 import { gallerySectionItems } from "./gallerySections";
 
@@ -39,6 +41,39 @@ describe("GalleryDeck", () => {
     expect(within(section).getByText("GOV…01")).toBeInTheDocument();
   });
 
+  it("renders a nested-scroll Item list specimen with Load more", () => {
+    vi.useFakeTimers();
+    try {
+      renderGalleryDeck();
+      const section = document.getElementById("item-list")!;
+      expect(within(section).getByRole("heading", { name: "Item list" })).toBeInTheDocument();
+      expect(section.querySelectorAll(".item-list-demo.frame-cut--flush")).toHaveLength(2);
+      const keyed = within(section).getByRole("region", { name: "Campaigns, scrollable" });
+      expect(keyed).toHaveClass("item-list-scroll");
+      expect(within(keyed).getByRole("list", { name: "Campaigns" })).toBeInTheDocument();
+      expect(within(keyed).getByRole("button", { name: "Open Access Review" })).toBeInTheDocument();
+      expect(within(keyed).getByRole("button", { name: "Load more campaigns" })).toBeInTheDocument();
+      expect(within(keyed).queryByRole("button", { name: "Open Field Observation" })).not.toBeInTheDocument();
+
+      const loadMore = within(keyed).getByRole("button", { name: "Load more campaigns" });
+      fireEvent.click(loadMore);
+      expect(loadMore).toHaveAttribute("aria-busy", "true");
+      expect(within(keyed).queryByRole("button", { name: "Open Field Observation" })).not.toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(ITEM_LIST_LOAD_DELAY_MS);
+      });
+      expect(within(keyed).getByRole("button", { name: "Open Field Observation" })).toBeInTheDocument();
+
+      const ended = within(section).getByRole("region", { name: "End-paged campaigns, scrollable" });
+      expect(ended).toHaveClass("item-list-scroll");
+      expect(within(ended).getByRole("list", { name: "End-paged campaigns" })).toBeInTheDocument();
+      expect(within(ended).queryByRole("button", { name: /Load more/i })).not.toBeInTheDocument();
+      expect(ended.querySelector(".item-list__end")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders a many-column datatable specimen that names a horizontal scroll region", () => {
     renderGalleryDeck();
     const section = document.getElementById("datatable-scroll")!;
@@ -56,10 +91,27 @@ describe("GalleryDeck", () => {
     expect(within(region).getAllByRole("time").length).toBeGreaterThan(0);
   });
 
+  it("renders Alert Note specimens including frozen-cluster provenance", () => {
+    renderGalleryDeck();
+    const section = document.getElementById("alert")!;
+    expect(within(section).getByRole("heading", { name: "Alert" })).toBeInTheDocument();
+    expect(within(section).getByText("Draft saved")).toHaveClass("advisory-copy");
+    expect(within(section).getByText(SETUP_RESOLVED_NOTE)).toHaveClass("advisory-copy");
+    expect(within(section).getByText(SETUP_RESOLVED_NOTE).closest(".workspace-alert")).toBeTruthy();
+  });
+
   it("renders a FormSection specimen on the form deck", () => {
     renderGalleryDeck();
     const section = document.getElementById("form")!;
     expect(within(section).getByRole("group", { name: "Agent and Harness" })).toHaveClass("form-section");
+    expect(within(section).getByRole("group", { name: "Source set" })).toHaveClass("form-section");
+    expect(within(section).getByRole("group", { name: "Agent and Harness" }).nextElementSibling).toBe(
+      within(section).getByRole("group", { name: "Source set" }),
+    );
+    expect(within(section).getByRole("group", { name: "Agent and Harness" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
   });
 
   it("renders cloneable form recipes with commission, invalid, pair, ledger, and dialog specimens", () => {
@@ -72,6 +124,10 @@ describe("GalleryDeck", () => {
     expect(within(ready).getByRole("textbox", { name: "Campaign title" })).toHaveValue("Structural Audit Q3");
     expect(within(ready).getByRole("group", { name: "Agent and Harness" })).toHaveClass("form-section");
     expect(within(ready).getByRole("group", { name: "Source set" })).toHaveClass("form-section");
+    expect(within(ready).getByRole("group", { name: "Agent and Harness" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
     expect(within(ready).getByRole("button", { name: "Create" })).toHaveAttribute("type", "submit");
     expect(within(ready).queryByRole("alert")).not.toBeInTheDocument();
 
@@ -89,6 +145,13 @@ describe("GalleryDeck", () => {
     expect(within(instruments).getByRole("textbox", { name: "Session limit" })).toHaveValue("60:00");
     expect(within(instruments).getByRole("textbox", { name: "Time warning at" })).toHaveValue("10:00");
     expect(within(instruments).getByRole("textbox", { name: "Adjusted rationale" })).toBeInTheDocument();
+    expect(within(instruments).getByRole("group", { name: "Timing" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    expect(within(instruments).getByRole("group", { name: "Timing" }).nextElementSibling).toBe(
+      within(instruments).getByRole("group", { name: "Adjustment" }),
+    );
     expect(within(instruments).getByRole("button", { name: "Record" })).toHaveAttribute("type", "submit");
 
     expect(within(section).getByRole("heading", { name: "Record accommodation" })).toBeInTheDocument();
@@ -103,6 +166,20 @@ describe("GalleryDeck", () => {
     expect(within(ledger).getByText("Frozen at activation")).toBeInTheDocument();
     expect(within(ledger).getByRole("group", { name: "Committed sources" })).toHaveClass("form-section");
     expect(within(ledger).getByRole("group", { name: "Score and notes" })).toHaveClass("form-section");
+    expect(within(ledger).getByRole("group", { name: "Committed sources" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    expect(within(ledger).getByRole("group", { name: "Timing and attempts" }).parentElement).toHaveClass(
+      "composition-grid",
+    );
+    expect(within(ledger).getByRole("group", { name: "Timing and attempts" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    expect(within(ledger).getByRole("group", { name: "Timing and attempts" }).nextElementSibling).toBe(
+      within(ledger).getByRole("group", { name: "Window" }),
+    );
     expect(within(ledger).getByRole("textbox", { name: "Campaign title" })).not.toHaveAttribute("readOnly");
     expect(within(ledger).getByRole("textbox", { name: "Cooldown" })).toHaveAttribute("readOnly");
     expect(within(ledger).getByRole("textbox", { name: "Cooldown" }).closest(".field-input")).toHaveClass("is-frozen");
@@ -167,7 +244,20 @@ describe("GalleryDeck", () => {
     expect(typographyIdx).toBeLessThan(keysIdx);
     expect(keysIdx).toBeLessThan(keyGroupIdx);
     expect(keyGroupIdx).toBeLessThan(paneIdx);
+    expect(paneIdx).toBeLessThan(labels.indexOf("Etched frame"));
+    expect(labels.indexOf("Etched frame")).toBeLessThan(labels.indexOf("Assignment plate"));
+    expect(within(index).getByRole("link", { name: "Assignment plate" })).toHaveAttribute("href", "#assignment-plate");
     expect(screen.queryByRole("group", { name: "Keys" })).not.toBeInTheDocument();
+  });
+
+  it("renders an assignment plate specimen with a trailing Open key", () => {
+    renderGalleryDeck();
+    const section = document.getElementById("assignment-plate")!;
+    expect(within(section).getByRole("heading", { name: "Assignment plate" })).toBeInTheDocument();
+    const plate = within(section).getByRole("article", { name: "Activities" });
+    expect(plate).toHaveClass("assignment-plate", "frame-cut");
+    expect(within(plate).getByRole("link", { name: "Open Activities" })).toHaveAttribute("href", "/activities");
+    expect(within(section).getByRole("article", { name: "Campaign A" })).toHaveClass("assignment-plate--released");
   });
 
   it("renders full-width layout specimens with labeled slot regions", () => {
@@ -220,7 +310,7 @@ describe("GalleryDeck", () => {
     renderGalleryDeck();
 
     const index = document.getElementById("layout-management-index")!;
-    expect(within(index).getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+    expect(within(index).queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
     expect(within(index).getByRole("heading", { level: 1, name: "Campaign Registry" })).toBeInTheDocument();
     expect(within(index).getByText("Find a campaign, then open its record to inspect or configure.")).toBeInTheDocument();
     expect(within(index).queryByRole("button", { name: "Campaigns" })).not.toBeInTheDocument();
@@ -244,20 +334,47 @@ describe("GalleryDeck", () => {
     expect(within(record).getByLabelText("Campaign record").closest(".frame-cut")).toBeNull();
 
     const setup = document.getElementById("layout-management-setup")!;
-    expect(within(setup).getByRole("heading", { level: 1, name: "Setup and readiness" })).toBeInTheDocument();
+    expect(within(setup).getAllByRole("heading", { level: 1, name: "Setup and readiness" })).toHaveLength(2);
     expect(within(setup).queryByText("Activity")).not.toBeInTheDocument();
-    const setupTrail = within(setup).getByRole("navigation", { name: "Breadcrumb" });
-    expect(within(setupTrail).getByRole("link", { name: "Activities" })).toHaveClass("text-link");
-    expect(within(setupTrail).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
-    const setupTracks = within(setup).getByLabelText("Setup tracks");
-    expect(setup.querySelector(".frame-cut")).toContainElement(setupTracks);
-    expect(setupTracks.closest(".create-ceremony__scroll")).toBeNull();
+    const setupTrails = within(setup).getAllByRole("navigation", { name: "Breadcrumb" });
+    expect(setupTrails).toHaveLength(3);
+    expect(within(setupTrails[0]).getByRole("link", { name: "Activities" })).toHaveClass("text-link");
+    expect(within(setupTrails[0]).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
+    expect(within(setupTrails[1]).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
+    expect(within(setupTrails[2]).getByText("Activated cohort")).toHaveAttribute("aria-current", "page");
+    const setupTracks = within(setup).getAllByLabelText("Setup tracks");
+    expect(setupTracks).toHaveLength(3);
+    expect(within(setup).getAllByRole("group", { name: "Task and Submission requirements" })[0].parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    expect(setup.querySelector(".frame-cut")).toContainElement(setupTracks[0]);
+    expect(setupTracks[0].closest(".create-ceremony__scroll")).toBeNull();
     expect(setup.querySelector(".readout-grid--columns-4")).toBeTruthy();
-    expect(within(setup).getByRole("button", { name: "Save draft" }).closest(".create-ceremony__scroll")).toBeNull();
-    expect(within(setup).getByRole("button", { name: "Check readiness" })).toBeInTheDocument();
+    expect(within(setup).getAllByRole("button", { name: "Save draft" })[0].closest(".create-ceremony__scroll")).toBeNull();
+    expect(within(setup).getAllByRole("button", { name: "Check readiness" })).toHaveLength(2);
     expect(within(setup).queryByRole("button", { name: "Activate cohort" })).not.toBeInTheDocument();
+    expect(within(setup).getByRole("heading", { name: "Readiness blocked" })).toBeInTheDocument();
+    const timezone = within(setup).getAllByRole("textbox", { name: "Timezone" })[1];
+    expect(within(setup).getByRole("link", { name: "Set a valid session window." })).toHaveAttribute(
+      "href",
+      `#${timezone.getAttribute("id")}`,
+    );
+    const resolvedNotes = within(setup).getAllByText(SETUP_RESOLVED_NOTE);
+    expect(resolvedNotes).toHaveLength(3);
+    expect(resolvedNotes[0]).toHaveClass("advisory-copy");
+    expect(resolvedNotes[0].closest(".workspace-alert-body")).toBeNull();
+    expect(resolvedNotes[1].closest(".workspace-alert-body")).toBeNull();
+    expect(resolvedNotes[2].closest(".workspace-alert-body")).toBeTruthy();
+    expect(within(setup).getByRole("heading", { level: 1, name: "Activated cohort" })).toBeInTheDocument();
+    expect(within(setup).getByRole("link", { name: "Assign Participants" })).toBeInTheDocument();
+    expect(within(setup).getByRole("link", { name: "Assign Participants" }).closest(".create-ceremony__scroll")).toBeNull();
+    for (const memory of within(setup).getAllByRole("textbox", { name: "Memory" })) {
+      expect(memory).not.toHaveAccessibleDescription(SETUP_RESOLVED_NOTE);
+    }
 
     const empty = document.getElementById("layout-management-empty")!;
+    expect(within(empty).queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
     expect(within(empty).getByRole("heading", { level: 1, name: "Campaign Registry" })).toBeInTheDocument();
     expect(within(empty).getByText("No campaigns listed")).toBeInTheDocument();
     expect(within(empty).queryByRole("button", { name: "Campaigns" })).not.toBeInTheDocument();
@@ -274,6 +391,12 @@ describe("GalleryDeck", () => {
     const denied = within(ceremony).getByRole("heading", { level: 1, name: "Access denied" });
     expect(denied.closest(".workspace-area")).toHaveClass("workspace-area--danger");
     expect(within(ceremony).getByText("My work is not available for the current authorized relationship.")).toBeInTheDocument();
+    const authCommit = within(ceremony).getByRole("button", { name: "Continue to sign in" });
+    expect(authCommit).toHaveClass("key", "key--transmit", "key--large");
+    expect(authCommit).not.toHaveClass("key--open");
+    expect(within(ceremony).getByRole("heading", { level: 1, name: "Sign-in could not be completed" }).closest(".workspace-area")).toHaveClass(
+      "workspace-area--danger",
+    );
 
     const loading = document.getElementById("layout-management-loading")!;
     expect(within(loading).getByRole("heading", { level: 1, name: "Establishing session" })).toBeInTheDocument();
@@ -410,6 +533,10 @@ describe("GalleryDeck", () => {
     expect(document.querySelector("#empty .spec--center")).toHaveAttribute("data-flow-align", "center");
     expect(document.getElementById("composition-grid")?.querySelector('[data-flow-min="wide"]')).toBeTruthy();
     expect(document.querySelectorAll('#composition-grid [data-flow-min="wide"] .composition-demo-tile')).toHaveLength(6);
+    expect(document.getElementById("composition-grid")?.querySelector('[data-flow-fit="fill"]')).toHaveAttribute(
+      "data-flow-min",
+      "control",
+    );
     expect(screen.getByRole("group", { name: "Participant channels" })).toBeInTheDocument();
     const galleryCss = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "../../../styles/surfaces/gallery.css"),
@@ -472,6 +599,12 @@ describe("GalleryDeck", () => {
     );
     expect(galleryCss).not.toMatch(/\.deck-index \.nav-link\.is-current \{ color: var\(--teal\)/);
     expect(galleryCss).toMatch(/\.sec-note\s*\{[^}]*max-width:\s*100ch/);
+    const navigationCss = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../styles/components/navigation.css"),
+      "utf8",
+    );
+    expect(navigationCss).toMatch(/summary\.gangway-section-label \{[^}]*cursor:\s*pointer/);
+    expect(galleryCss).not.toMatch(/summary\.gangway-section-label \{ cursor: default; \}/);
   });
 
   it("pins the deck index bulkhead hairline to the full sticky scrollport on desktop", () => {

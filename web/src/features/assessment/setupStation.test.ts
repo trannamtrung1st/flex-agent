@@ -1,7 +1,12 @@
 import type { AssessmentSetupView } from "../../api/production-assessment";
 import {
+  setupBlockerHref,
+  setupCeremonySummary,
+  setupDurationLabel,
   setupMemoryCopy,
   setupNextAction,
+  setupOpaqueCaption,
+  setupSourceCaption,
   setupTracks,
 } from "./setupStation";
 
@@ -38,6 +43,24 @@ describe("setupStation", () => {
     expect(setupMemoryCopy("disabled")).toBe("Stable — new long-term learning disabled");
   });
 
+  it("captions a bound source as revision identity, not a raw digest", () => {
+    expect(setupSourceCaption(view({
+      sources: [{
+        category: "agent",
+        source_id: "agent-core",
+        version_id: "v3",
+        content_digest: "a".repeat(64),
+      }],
+    }), "agent")).toBe("agent-core · v3");
+    expect(setupSourceCaption(view(), "agent")).toBe("Not bound");
+  });
+
+  it("formats attempt duration and omits an absent digest as not seated", () => {
+    expect(setupDurationLabel(90)).toBe("01:30");
+    expect(setupDurationLabel(null)).toBe("Not seated");
+    expect(setupOpaqueCaption()).toBe("Not seated");
+  });
+
   it("arms activation only after a current ready result", () => {
     const ready = view({
       permitted_actions: ["save_draft", "check_readiness", "activate_cohort"],
@@ -61,5 +84,28 @@ describe("setupStation", () => {
       "readiness:Ready:false",
       "cohort:Activated:true",
     ]);
+  });
+
+  it("points a timing blocker at the timezone field and folds a save error into one summary", () => {
+    expect(setupBlockerHref("setup-title", "timing")).toBe("#setup-title-timezone");
+    expect(setupBlockerHref("setup-title", "unknown")).toBe("#setup-title");
+    expect(setupCeremonySummary("setup-title", "This draft could not be saved.", [{
+      category: "timing",
+      severity: "blocker",
+      reason_code: "window",
+      recovery_hint: "Set a valid session window.",
+    }])).toEqual({
+      headingId: "setup-title-summary",
+      title: "Readiness blocked",
+      errors: [
+        "This draft could not be saved.",
+        { message: "Set a valid session window.", href: "#setup-title-timezone" },
+      ],
+    });
+    expect(setupCeremonySummary("setup-title", "This draft could not be saved.", [])).toEqual({
+      headingId: "setup-title-summary",
+      title: "Correct the following",
+      errors: ["This draft could not be saved."],
+    });
   });
 });

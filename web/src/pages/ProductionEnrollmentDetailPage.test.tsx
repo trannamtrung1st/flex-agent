@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { FlexQueryProvider } from "../api/query-client";
@@ -373,5 +373,118 @@ describe("ProductionEnrollmentDetailPage", () => {
     expect(JSON.parse(grantBody as string).requested_value).toBe("2026-09-01T12:00:00Z");
     expect(await screen.findByText("The accommodation could not be recorded.")).toBeInTheDocument();
     expect(screen.getByText("Request did not complete")).toBeInTheDocument();
+  });
+
+  it("confirms Close Enrollment with the required reason code before posting", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return jsonResponse({ authenticated: true, csrf_token: "csrf" });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return jsonResponse({
+          schema_version: "v1",
+          actor_id: "actor-1",
+          organization_id: "org-1",
+          relationship: "administrator",
+          navigation: [{ destination_id: "activities", is_available: true }],
+          permitted_actions: [],
+        });
+      }
+      if (url.includes("/enrollments/enr-1/timing")) {
+        return jsonResponse({
+          schema_version: "v2",
+          enrollment: {
+            enrollment_id: "enr-1",
+            status: "active",
+            revision: 1,
+            visibility: "administrator",
+            permitted_actions: [],
+          },
+          baseline: {
+            starts_at_utc: "2026-08-01T00:00:00Z",
+            ends_at_utc: "2026-09-01T00:00:00Z",
+            deadline_utc: "2026-09-01T12:00:00Z",
+            time_zone_id: "UTC",
+            attempt_limit: 1,
+          },
+          effective: {
+            submission_starts_at_utc: "2026-08-01T00:00:00Z",
+            submission_exclusive_end_utc: "2026-09-01T12:00:00Z",
+            attempt_start_utc: "2026-08-01T00:00:00Z",
+            attempt_start_exclusive_end_utc: "2026-09-01T12:00:00Z",
+            evaluated_at_utc: "2026-08-28T00:00:00Z",
+            eligibility_state: "open",
+            is_authoritative: true,
+            time_zone_id: "UTC",
+            participant_consequence_code: "none",
+          },
+          current_accommodations: [],
+          policy_available: false,
+          permitted_dimensions: [],
+          permitted_reason_categories: [],
+          history: [],
+        });
+      }
+      if (url.includes("/enrollments/enr-1/close") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v1",
+          succeeded: true,
+          outcome_code: "enrollment.closed",
+          permitted_actions: [],
+        });
+      }
+      if (url.includes("/enrollments/enr-1")) {
+        return jsonResponse({
+          schema_version: "v1",
+          enrollment: {
+            enrollment_id: "enr-1",
+            participant_actor_id: "p-1",
+            display_label: "Pat Participant",
+            status: "active",
+            revision: 1,
+            assigned_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+            visibility: "administrator",
+            permitted_actions: ["close", "revoke"],
+          },
+          history: [],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/enrollments/enr-1"]}>
+            <Routes>
+              <Route
+                path="/activities/:activityId/cohorts/:cohortId/enrollments/:enrollmentId"
+                element={<ProductionEnrollmentDetailPage />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Close Enrollment" }));
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/close"))).toBe(false);
+    const dialog = await screen.findByRole("dialog", { name: "Close this Enrollment?" });
+    expect(within(dialog).getByText(/No new Submission intake or Attempt start/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Activity or enrollment end/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close Enrollment" }));
+    await waitFor(() => {
+      const closeCall = fetchMock.mock.calls.find((call) => {
+        const url = String(call[0]);
+        return url.includes("/enrollments/enr-1/close") && call[1]?.method === "POST";
+      });
+      expect(closeCall).toBeDefined();
+      expect(JSON.parse(String(closeCall?.[1]?.body))).toEqual(
+        expect.objectContaining({ reason_code: "activity_or_enrollment_end" }),
+      );
+    });
   });
 });

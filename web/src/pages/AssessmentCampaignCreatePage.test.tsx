@@ -72,11 +72,20 @@ describe("AssessmentCampaignCreatePage", () => {
     expect(region.querySelector(".frame-cut")).toContainElement(screen.getByLabelText("Campaign title"));
     expect(screen.getByRole("heading", { name: "Create assessment Campaign" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Activities" })).toHaveAttribute("href", "/activities");
+    expect(screen.getByRole("button", { name: "Create" })).toHaveClass("key", "key--transmit", "key--large");
     expect(screen.getByRole("button", { name: "Create" }).closest(".plate-foot")).toHaveAttribute("data-arrangement", "end");
     expect(screen.getByRole("button", { name: "Create" }).closest(".create-ceremony__scroll")).toBeNull();
     expect(screen.getByRole("button", { name: /Agent/ })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Agent and Harness" })).toHaveClass("form-section");
     expect(screen.getByRole("group", { name: "Source set" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Agent and Harness" }).nextElementSibling).toBe(
+      screen.getByRole("group", { name: "Source set" }),
+    );
+    expect(screen.getByRole("group", { name: "Agent and Harness" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    expect(region.querySelector(".create-ceremony__scroll")?.querySelector(".form-divider")).toBeNull();
     expect(screen.getByRole("button", { name: /Harness/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Organization policy/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Agent/ }).compareDocumentPosition(screen.getByRole("button", { name: /Organization policy/ }))
@@ -92,7 +101,9 @@ describe("AssessmentCampaignCreatePage", () => {
         production_eligible: false,
       })),
     });
-    expect(await screen.findByText("Listed revisions are development only.")).toBeInTheDocument();
+    const plateNote = await screen.findByText("Listed revisions are development only.");
+    expect(plateNote.closest(".state-cell")).toBeTruthy();
+    expect(plateNote.closest(".create-eligibility-note")).toBeNull();
     expect(screen.queryByText("development")).not.toBeInTheDocument();
     expect(screen.queryByText("available")).not.toBeInTheDocument();
   });
@@ -106,7 +117,11 @@ describe("AssessmentCampaignCreatePage", () => {
     });
     expect(await screen.findByLabelText("Agent")).toBeInTheDocument();
     expect(screen.queryByText("Listed revisions are development only.")).not.toBeInTheDocument();
-    expect(await screen.findAllByText("development")).toHaveLength(1);
+    const developmentMarks = await screen.findAllByText("development");
+    expect(developmentMarks).toHaveLength(1);
+    const developmentMark = developmentMarks[0];
+    expect(developmentMark.closest(".state-cell")).toBeTruthy();
+    expect(developmentMark.closest(".field-hint")).toBeNull();
     expect(screen.queryByText("available")).not.toBeInTheDocument();
   });
 
@@ -114,8 +129,15 @@ describe("AssessmentCampaignCreatePage", () => {
     renderCreate({
       sources: REQUIRED_SOURCE_CATEGORIES.filter((category) => category !== "agent").map((category) => source(category)),
     });
-    expect(await screen.findByText(/No permitted Agent revisions are available/i)).toBeInTheDocument();
+    const emptyLabel = await screen.findByText(/No permitted Agent revisions are available/i);
+    const region = screen.getByRole("region", { name: "Create assessment Campaign" });
+    expect(region).toHaveClass("record-plane", "record-plane--setup");
+    expect(region.querySelector(".frame-cut")).toContainElement(emptyLabel);
+    expect(emptyLabel.closest(".empty-plate")).toHaveClass("empty-plate--inset");
+    expect(screen.getByText("A ready source set is required before a draft can be created.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Activities" })).toHaveAttribute("href", "/activities");
     expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
   });
 
   it("removes protected create controls when access is lost", async () => {

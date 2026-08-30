@@ -80,6 +80,10 @@ export function shouldHideProductionBreadcrumbs(
     return true;
   }
 
+  if (pathname === "/activities" || pathname === "/my-work") {
+    return true;
+  }
+
   if (pathname.startsWith("/activities") && !isProductionDestinationOpen(navigation, "activities")) {
     return true;
   }
@@ -102,7 +106,16 @@ export function availableProductionDestinations(
 
   return DESTINATION_ORDER
     .map((id) => PRODUCTION_DESTINATIONS[id])
-    .filter((destination) => available.has(destination.id));
+    .filter((destination) => available.has(destination.id))
+    .filter((destination) => !(destination.id === "home" && available.has("my-work")));
+}
+
+export function productionWorkspaceHome(
+  navigation: Array<{ destination_id: string; is_available: boolean }> | undefined,
+): string {
+  return isProductionDestinationOpen(navigation, "my-work")
+    ? PRODUCTION_DESTINATIONS["my-work"].route
+    : PRODUCTION_DESTINATIONS.home.route;
 }
 
 export function productionNavGroups(

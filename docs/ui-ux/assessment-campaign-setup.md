@@ -11,6 +11,7 @@
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
 | **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of the retired specification at Git `eb9c398`. `UI-ACT-DEC-*` dispositions remain in force as AC-traced interaction rules. |
+| **Last amended** | 2026-08-30 — Save-draft success is a toast labeled **Draft** (`This revision is saved.`), not an Alert banner. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Activity-administrator interaction for creating, saving, checking readiness, activating, and inspecting a P0 assessment Campaign and its cohort baseline |
 | **Journey** | [`JRN-MVP-1`](activity-campaign-journey.md#jrn-mvp-1-configure-and-activate-assessment-campaign) |
@@ -267,8 +268,13 @@ a new revision and cohort candidate.
   and labels them **Unsaved changes** until committed.
 - A source name, description, or other supplied label renders as inert text and
   cannot create trusted controls, links, or markup.
-- Read-only inherited values use an **Inherited from …** or **Resolved from …**
-  label. They are not rendered as editable disabled form controls.
+- Read-only inherited values are frozen slots, not editable disabled form
+  controls. They are not labeled per field with **Inherited from …** or
+  **Resolved from …**. On Setup, one shared **Resolved from this Activity
+  revision** line uses the workspace Note (`Alert` info) at the top of the
+  form, grouped with Campaign title; after cohort activation the same sentence
+  sits in the **Cohort activated** Alert body. See
+  [alerts](design-system/components/alerts.md).
 - If a current upper-scope value narrows an administrator entry, the interface
   shows the requested value, effective value, source category, and safe
   explanation returned by the server. It never implies that a wider request
@@ -426,8 +432,8 @@ Enrollments** surface after activation.
    activation actions are unavailable. An attempted navigation that could
    discard the pending local state uses the unsaved-change warning defined
    below.
-4. Success announces **Draft revision saved** and shows the new permitted
-   revision label and save time.
+4. Success shows a toast labeled **Draft** with copy **This revision is
+   saved.**, and the form shows the new permitted revision label and save time.
 5. Validation failure keeps the local input, focuses the error summary, and
    links each safely disclosable error to its field or section.
 6. A transient failure says the draft was not saved and offers **Try saving
@@ -683,7 +689,7 @@ later superseding link remain inspectable.
 | Empty selector | **No permitted … revisions are available** | Offer only a returned authorized owning action or contact route |
 | Unsaved | **Unsaved changes** | Warn before leaving; offer **Save draft and leave**, **Stay on page**, and **Leave without saving** for in-app navigation |
 | Saving | **Saving draft…** | Prevent conflicting save/activation; do not claim a new revision |
-| Saved | **Draft revision saved** | Show current revision and **Check readiness** |
+| Saved | Toast **Draft** · **This revision is saved.** | Show current revision and **Check readiness** |
 | Blocked | **Readiness blocked** | Focus result summary and link every safe blocker to correction |
 | Ready | **Ready to activate** | Offer deliberate **Activate cohort** when still permitted |
 | Activating | **Activating cohort…** | Prevent duplicate command and wait for authoritative outcome |
@@ -718,7 +724,7 @@ WCAG 2.2 AA is the approved target inherited from the Activity journey.
 | --- | --- |
 | Save success | Keep focus on the initiating control and announce the new saved revision politely |
 | Validation failure | Move focus to the error-summary heading; links move to and identify the affected field or section |
-| Readiness completion | Move focus to the readiness-result heading and announce blocker/warning counts without repeating the full content |
+| Readiness completion | When blockers exist, move focus to the **Readiness blocked** summary heading. When the check is ready with no blockers, keep focus on **Check readiness**. Announce blocker or warning counts without repeating the full content |
 | Activation dialog opens | Move focus inside the dialog, expose title and consequence, contain focus, and restore it on cancel |
 | Activation begins | Move focus to or announce the in-page pending status once; do not repeatedly interrupt reading |
 | Activation succeeds | Move focus to the success heading and expose the next permitted action |
@@ -747,7 +753,9 @@ At wide widths, the sectioned form may use a main column with a secondary
 status/action summary. At narrow widths and 400 percent zoom:
 
 1. Campaign identity and server status remain first.
-2. The error or readiness summary follows when present.
+2. The error or readiness summary follows when present (one summary: blockers
+   own the **Readiness blocked** title; a concurrent save or check failure is
+   an extra unlinked item, not a second summary).
 3. Setup sections use one reading column.
 4. Primary and secondary actions remain in document order and do not cover
    fields, messages, or the activation consequence.

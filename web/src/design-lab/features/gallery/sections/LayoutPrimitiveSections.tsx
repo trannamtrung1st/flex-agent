@@ -39,7 +39,7 @@ export function LayoutPrimitiveSections() {
         </Spec>
       </GallerySection>
 
-      <GallerySection id="composition-grid" title="Grid" note="Equal tiles that reflow as the frame narrows. Tighter tiles pack more columns; wider tiles stay roomy.">
+      <GallerySection id="composition-grid" title="Grid" note="Equal tiles that reflow as the frame narrows. Default fit packs leftover space (auto-fit). Fill keeps empty slots so a lone plate does not stretch (auto-fill). Compact fill grids stay one column.">
         <Spec wide tag="reflowing tiles">
           <Grid gap="3" minItemWidth="compact">
             <Tile label="Compact A" />
@@ -83,6 +83,11 @@ export function LayoutPrimitiveSections() {
               <Tile label="Wide" />
             </Grid>
           </Stack>
+        </Spec>
+        <Spec wide tag="fit fill · one tile keeps a slot">
+          <Grid gap="3" minItemWidth="control" fit="fill">
+            <Tile label="Fill A" />
+          </Grid>
         </Spec>
       </GallerySection>
 

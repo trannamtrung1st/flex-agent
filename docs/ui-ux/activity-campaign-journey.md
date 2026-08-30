@@ -250,8 +250,9 @@ exact participant-facing Result. Only then can the Participant view it.
    Activity form and `Assessment` as the configured type/use case.
 2. The interface creates or loads a server-owned draft and presents only
    permitted existing Agent/Harness sources and assessment parameters.
-3. The administrator saves, leaves, and resumes the draft. The page labels
-   unsaved local changes, saved draft revision, stale conflict, and validation
+3. The administrator saves, leaves, and resumes the draft. Save success is a
+   toast labeled **Draft** (`This revision is saved.`). The page labels unsaved
+   local changes, the current saved revision, stale conflict, and validation
    results distinctly.
 4. **Readiness** summarizes the candidate task, timing, Attempts, source
    revisions, model, knowledge, text workflow, rubric, review gate, Stable
@@ -281,9 +282,11 @@ Trace: `AC-ACT-1`–`AC-ACT-27`, `AC-AUTH-4`–`AC-AUTH-5`,
    and chooses an authorized Participant identity from the same Organization.
 2. The interface shows the frozen cohort relationship and does not suggest that
    assignment changes the activation baseline.
-3. A successful operation creates one active Enrollment. Duplicate equivalent
-   requests reconcile to the existing Enrollment; conflicts show the current
-   safe state.
+3. A successful operation creates one active Enrollment. The administrator
+   stays on the Participants registry and sees a toast labeled **Enrollment
+   active** (`UI-SUBM-DEC-14`). Duplicate equivalent requests reconcile to the
+   existing Enrollment (**Already assigned** toast); conflicts show the current
+   safe state. Lists are cursor-paged (`UI-SUBM-DEC-13`).
 4. The Participant discovers the assignment in **My work**. External
    invitation channels are not required for MVP and never grant access.
 5. Suspension, revocation, or closure removes prohibited next actions without
@@ -473,6 +476,12 @@ authority is independent. If both appear within one visual work area in a later
 interaction design, they must retain separate labels, permissions, counts,
 commands, and confirmation boundaries.
 
+Home remains a P0 destination and the `/` locator (sign-in gate, recovery,
+command-strip brand). Current production does not keep a second assignment
+index on Home: when **My work** is available, `/` redirects to `/my-work` and
+Home is omitted from the gangway (`IA-MVP-1` interim). A dedicated Home-work
+feed may restore a distinct Home list later.
+
 ### Activity and Campaign hierarchy
 
 ```text
@@ -556,6 +565,15 @@ assignment time, and permitted next actions. The client must not infer urgency
 from its clock, stale cache, hidden records, or inaccessible counts. Stable
 server ordering resolves any remaining tie. Empty bands are omitted without
 revealing inaccessible work.
+
+Current production Home is an interim until a dedicated Home-work feed exists.
+It must not invent urgency from the client clock. Administrator Home lists
+available destination plates and omits unavailable destinations. When
+**My work** is available, `/` redirects to `/my-work` (the JRN-MVP-3
+assignment index) and Home is omitted from the gangway so the roster is not
+shown twice. Status Bays remain a design-lab donor. Live Session continuity
+(band 1) and ordered Review/Release/administration bands still require a
+server Home-work or session-continuity contract.
 
 ### `IA-MVP-2` — Context preservation
 

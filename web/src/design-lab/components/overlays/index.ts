@@ -1,4 +1,5 @@
 export {
+  AnchoredOverlay,
   Bulkhead,
   CeremonyDialog,
   DialogPlate,
@@ -6,9 +7,16 @@ export {
   DialogPlateFooter,
   DialogPlateHead,
   NativeDialog,
+  overlayPortalRoot,
+  placeFloating,
   ToastDock,
+  ToastHost,
+  useFloatingPlacement,
+  usePushToast,
   useToasts,
   type CeremonyDialogVariant,
+  type PushToast,
+  type ToastDockPlacement,
   type ToastNotice,
 } from "../../../design-system/components/overlays";
 export { SignOutCeremony } from "./SignOutCeremony";

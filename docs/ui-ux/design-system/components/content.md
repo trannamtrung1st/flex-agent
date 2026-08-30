@@ -21,6 +21,13 @@ chamfer and ticks is a grouping box.
 Teal microlabel over Bright Text values, hairline dividers. Times lead with
 the named Campaign timezone (`PC-11`).
 
+Two list tones:
+
+- **Rail** (default `.readout`) — dim microlabel, denser rows, for instrument rails.
+- **Horizon** (`ReadoutList` `tone="horizon"`) — teal microlabel, assignment /
+  destination plates. Title values use `.readout--title`; record marks use
+  `.readout--record`.
+
 ## Untrusted content
 
 Sanitize and isolate untrusted rich content. Never present internal rubric or

@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode, Ref } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
 import { Key } from "../keys/Key";
 
 export function SearchableSelectPanel({
@@ -27,11 +27,13 @@ export function SearchableSelectPanel({
   onSearchKeyDown,
   onDone,
   doneLabel = "Done",
+  style,
 }: {
   open: boolean;
   panelId?: string;
-  panelRef?: Ref<HTMLDivElement>;
+  panelRef?: Ref<HTMLElement | null>;
   className: string;
+  style?: CSSProperties;
   searchId: string;
   searchRef: Ref<HTMLInputElement>;
   searchValue: string;
@@ -55,7 +57,16 @@ export function SearchableSelectPanel({
   doneLabel?: string;
 }) {
   return (
-    <div ref={panelRef} id={panelId} className={className} hidden={!open}>
+    <div
+      ref={(node) => {
+        if (typeof panelRef === "function") panelRef(node);
+        else if (panelRef) panelRef.current = node;
+      }}
+      id={panelId}
+      className={className}
+      style={style}
+      hidden={!open}
+    >
       <div className="multiselect-search">
         <label className="visually-hidden" htmlFor={searchId}>{searchPlaceholder}</label>
         <input

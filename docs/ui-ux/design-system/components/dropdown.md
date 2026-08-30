@@ -23,8 +23,14 @@ authority (`PC-06`).
 
 ## Placement
 
-Popover sheen plus overlay umbra. Foot menus open upward inside clipped frames.
-Width tokens come from the select-shell family, not ad-hoc per page.
+Popover sheen plus overlay umbra. Do not CSS-position a new popover against
+its trigger. Clone `AnchoredOverlay` / `placeFloating`: portal through
+`overlayPortalRoot`, then flip, shift, and size into an 8px viewport inset.
+Foot listboxes open upward when the viewport below the trigger cannot fit the
+panel. After portal, match trigger width in pixels; do not reuse percentage
+`--select-popover-width` tokens on the floating node (they resolve against the
+viewport). `DropdownMenu` `placement` stays on the API; both `connected` and
+`fixed` use that path. Gallery: `searchable-select`, `multiselect`, `menu`.
 
 ## Rules
 

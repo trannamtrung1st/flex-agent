@@ -32,7 +32,7 @@ export function AssignmentSpine({
         {NODES.map((node, index) => {
           const viewing = view === node.id;
           const locked = node.id === "attempt";
-          const nodeState = locked ? "locked" : "current";
+          const nodeState = locked ? "locked" : (viewing ? "current" : "rest");
           const name = locked
             ? `${node.label} — not available from this application`
             : `${node.label} — ${node.short}`;

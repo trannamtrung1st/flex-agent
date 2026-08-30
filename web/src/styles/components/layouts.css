@@ -178,8 +178,6 @@
 
 .layout-guided__actions {
   flex-shrink: 0;
-  padding-top: 4px;
-  padding-block-start: 4px;
 }
 
 .layout-guided__main.well-frame {
@@ -290,10 +288,29 @@
 
   .layout-guided__bay {
     padding: 0;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .layout-guided__main,
+  .layout-guided__main.well-frame {
+    flex: 0 0 auto;
+    min-height: 0;
   }
 
   html:has(.layout-guided) body {
     overflow: auto;
+  }
+
+  .layout-guided__actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    margin-inline: 0;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: var(--ground-deep);
+    border-top: 1px solid var(--hairline-dim);
   }
 
   .layout-guided .frame-traces {
@@ -530,6 +547,32 @@
   .skip-link:focus-visible {
     outline-color: Highlight;
     border-color: Highlight;
+  }
+}
+
+/* ToastHost is a sibling of the layout; inset the default bottom-center
+   strip past gangway/rail and above a viewport-fixed guided-task foot.
+   Shells override with ToastHost offsetInline / offsetBlock. */
+html:has(.layout-management:not([data-nested]) .gangway:not(.is-collapsed)) .toast-dock:is([data-placement$="-start"], [data-placement$="-center"]) {
+  --toast-dock-offset-inline: 248px;
+}
+
+html:has(.layout-management:not([data-nested]) .gangway.is-collapsed) .toast-dock:is([data-placement$="-start"], [data-placement$="-center"]) {
+  --toast-dock-offset-inline: var(--gangway-w-collapsed, 76px);
+}
+
+html:has(.layout-guided:not([data-nested])) .toast-dock:is([data-placement$="-start"], [data-placement$="-center"]) {
+  --toast-dock-offset-inline: 260px;
+}
+
+@media (max-width: 1080px) {
+  html:has(.layout-management:not([data-nested])) .toast-dock,
+  html:has(.layout-guided:not([data-nested])) .toast-dock:is([data-placement$="-start"], [data-placement$="-center"]) {
+    --toast-dock-offset-inline: 0px;
+  }
+
+  html:has(.layout-guided:not([data-nested])) .toast-dock[data-placement^="bottom"] {
+    --toast-dock-offset-block: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 }
 

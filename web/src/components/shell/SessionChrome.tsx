@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CeremonyArea, CeremonyEmpty, CeremonyWait, Key, LayoutAssignment, ManagementLayout } from "../../design-system";
+import { CeremonyArea, CeremonyEmpty, CeremonyUnavailable, CeremonyWait, Key, LayoutAssignment, ManagementLayout } from "../../design-system";
 import { ThemeToggle } from "./ThemeToggle";
 import { useProductionApi } from "../../api/production-api";
 
@@ -56,13 +56,18 @@ export function SessionStatusScreen({
 export function AccessChangedScreen() {
   const { login } = useProductionApi();
   return (
-    <SessionStatusScreen title="Your access changed" variant="danger">
-      <CeremonyEmpty note="This destination is not available for the current authorized relationship.">
-        <Key variant="transmit" onClick={() => { login(); }}>
-          Continue to sign in
-        </Key>
-      </CeremonyEmpty>
-    </SessionStatusScreen>
+    <UnauthenticatedChrome>
+      <CeremonyUnavailable
+        title="Your access changed"
+        danger
+        note="This destination is not available for the current authorized relationship."
+        recovery={{
+          label: "Continue to sign in",
+          variant: "transmit",
+          onClick: () => { login(); },
+        }}
+      />
+    </UnauthenticatedChrome>
   );
 }
 

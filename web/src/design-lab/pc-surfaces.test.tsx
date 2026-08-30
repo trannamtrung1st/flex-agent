@@ -32,6 +32,14 @@ describe("PC-03 participant disclosure", () => {
 });
 
 describe("PC-07 assignment lifecycle", () => {
+  it("seats lab journey actions in GuidedTaskFoot without an in-plate hairline", () => {
+    renderLab("/design-lab/participant-journey?demo=briefing");
+    const foot = document.querySelector(".layout-guided__actions");
+    expect(foot?.tagName).toBe("FOOTER");
+    expect(foot).toHaveAttribute("data-hairline", "false");
+    expect(document.querySelector(".action-keys")).toBeNull();
+  });
+
   it("does not let Mark Submission Complete unlock examination", () => {
     renderLab("/design-lab/participant-journey?demo=submission");
     expect(screen.queryByRole("button", { name: /Mark Submission Complete/i })).not.toBeInTheDocument();
@@ -185,6 +193,7 @@ describe("PC-05 and PC-06 campaign setup", () => {
     expect(screen.queryByRole("button", { name: "Configure campaign" })).not.toBeInTheDocument();
     const foot = screen.getByRole("main").querySelector(".plate-foot");
     expect(foot).toBeTruthy();
+    expect(foot?.parentElement).toHaveClass("in-plate-host");
     expect(within(foot as HTMLElement).getByText("Configuration frozen at activation")).toBeInTheDocument();
   });
 

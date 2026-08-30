@@ -24,10 +24,16 @@ root inside a slot when demonstrating a family; wrap each specimen in
 `LayoutAssignment` for that family and set `nested` so the specimen does not
 emit a second skip link, `main`, or `#main-content`. Nested family specimens
 hug content: the catalog column (`body`) is the vertical wheel target. They
-must not inner-scroll. Product hulls and design-lab Operate routes keep the
+must not inner-scroll. Seated overlay recipes (in-flow `DialogPlate`, not a
+native `<dialog>`) hug the same way: neutralize `.dialog-body` overflow in
+gallery CSS only. Live overlay dialogs keep inner body scroll so tall
+ceremonies stay usable. A filling table in a live overlay keeps that body
+scroll: nested `.datatable-scroll` must not be a second vertical wheel
+inside a clip-path plate. Product hulls and design-lab Operate routes keep the
 scroll ownership in this module. The optional management
 `breadcrumbs` slot is `BreadcrumbNav` (`.text-link` ancestors, no underline).
-Omit it on ceremony and guided-task / live-session families.
+Omit it on ceremony, console index / empty-index, and guided-task /
+live-session families. Nested management records keep the trail.
 
 ## Allowed vs forbidden
 
@@ -40,7 +46,11 @@ Management `children` is one `OperateArea` (`className="workspace-area"`).
 That plate owns the page title (`h1`), optional description, optional
 `BackKey`, optional advisory/context, and the body: an etched well, an empty
 plate, or `framed={false}` content when the body is already a plate grid, a
-stacked nested record, or a split ledger.
+stacked nested record, or a split ledger. OperateArea `advisory` is page-level
+(with the operate head). Do not put mutation receipts or blocking errors in
+`context`; those belong to toast and in-body `Alert`. `ToastHost` defaults to
+`placement="bottom-center"` so start and trailing `PlateFoot` keys stay clear.
+Frozen-cluster provenance uses in-form `Alert`; see [alerts](alerts.md).
 Pages do not assemble `OperateHead` plus `EtchedFrame` by hand, and they do
 not place a second heading stack above the operate area. Design-lab Home and
 Reviewer consoles use the same plate. The reviewer record is the split-ledger
@@ -79,7 +89,7 @@ size="form"`. Etched table plates stay inside that pad.
 | Nested one-instrument record | required | recommended | `BackKey` to the parent index, same trailing placement as stacked records | filling table, empty/wait plate, or readout fused to a `PlateFoot` (lab Campaign record): keep the etched well |
 | Split ledger | required (`headArrangement="plaque"`) | recommended | `BackKey` in the plaque | `SplitBay` start/main/end plus sibling decision foot; `framed={false}` and layout `contain={false}` |
 | Empty index | required (same as the populated index) | recommended | omit | `empty` plate inside the frame |
-| Ceremony / unavailable | required | prefer the inset empty note | omit | `CeremonyUnavailable` hug column (default `hugMeasure="auto"`; same 36rem auto cap as loading so short notes do not collapse the well); inset empty well + quiet recovery key centered in the well. Title aligns to the chamfered top edge. Pin `sm`/`md`/`lg` only when the well must match a dialog rung. Full-width operate bays stay `composition="fill"` so titles keep wordmark alignment. Do not assemble `CeremonyArea` + `CeremonyEmpty` + `Key` by hand for this plane. |
+| Ceremony / unavailable | required | prefer the inset empty note | omit | `CeremonyUnavailable` hug column (default `hugMeasure="auto"`; same 36rem auto cap as loading so short notes do not collapse the well); inset empty well + recovery key centered in the well. Default recovery is **quiet**. Auth **Continue to sign in** uses `recovery.variant="transmit"` (large commit). Title aligns to the chamfered top edge. Pin `sm`/`md`/`lg` only when the well must match a dialog rung. Full-width operate bays stay `composition="fill"` so titles keep wordmark alignment. Do not assemble `CeremonyArea` + `CeremonyEmpty` + `Key` by hand for this plane. |
 | Ceremony / loading | required | optional session copy | omit | `CeremonyArea` hug column (same `auto` cap as unavailable, 36rem so the well does not collapse to the status label); `CeremonyWait` inset wait-plate (wait-mark, label, scan-track). Do not drop an inline `WaitPanel` into the etched well. |
 
 Forbidden: a page or route module importing `CommandStrip`, `ConsoleFoot`,
@@ -97,12 +107,16 @@ a shell; declaring reserved `.layout-*` structural selectors; selecting
   Framed instruments grow with content. Filling registries scroll row overflow on
   `.datatable-scroll`. Any operate pane that contains a filling table (review
   queue, lab walls, production registries) is a flex column clipped so that
-  table is the wheel target; hug lists restore operate-scroll. Fill-remaining
+  table is the wheel target; hug lists restore operate-scroll. A filling table
+  in a live overlay keeps `.dialog-body` or `.ceremony-body` as the wheel ([modals](modals.md)).
+  Fill-remaining
   instruments (split ledger, setup ceremony, Status Bays) clip `.operate-scroll`
   and scroll inside columns or the form well. Ceremony hug may overflow on `main`
   so a centered empty or wait well is not trapped.
 - Guided task stacks the instrument band at ≤1080px. Rail brand stays outside
-  the rail scroller on desktop.
+  the rail scroller on desktop. At that stacked breakpoint the actions foot is
+  `position: fixed` on the viewport floor so transmit keys stay reachable while
+  the page scrolls (`IA-MVP-4`).
 - Live session stacks at ≤1180px and reflows with page scroll at ≤760px so
   transcript, composer, and completion stay reachable at 400% zoom.
 - Contrast, keyboard, focus, reduced motion, and forced colors follow the
@@ -135,6 +149,9 @@ matches those families where the host contract is implemented:
 | `/my-work/:enrollmentId` | `guided-task` |
 | `/sessions/:sessionId`, `/review`, `/review/:reviewId`, `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `live-session` for Session and `guided-task` for Review/Release records. |
 | unknown locator (`*`) | `management` |
+
+When My work is available, production `/` redirects to `/my-work`; administrator
+`/` stays this `management` destination catalog.
 
 New production pages clone a matching existing production surface and Deck
 specimen. Isolated lab journeys remain donors for shells whose approved family

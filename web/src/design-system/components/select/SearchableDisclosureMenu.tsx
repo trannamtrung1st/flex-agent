@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
+import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, optionNounCount, pinIndex, stepVisibleIndex } from "./selectLogic";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
@@ -69,7 +70,7 @@ export function SearchableDisclosureMenu({
     return pinIndex(filtered, options.findIndex((opt) => opt.id === selectedId));
   }, [caseSensitive, options, search, selectedId]);
 
-  useDismissOnOutsidePointer(open, rootRef, () => close());
+  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => close());
 
   const selectOption = (id: string) => {
     onSelect(id);
@@ -150,11 +151,14 @@ export function SearchableDisclosureMenu({
         <span className="seg-value" id={triggerValueId}>{value}</span>
         <ChevronGlyph />
       </button>
+      <AnchoredOverlay open={open} triggerRef={keyRef} tokenSourceRef={rootRef} floatingRef={panelRef}>
+        {({ ref, style, overlayClassName }) => (
       <SearchableSelectPanel
         open={open}
-        panelRef={panelRef}
+        panelRef={ref}
+        style={style}
         panelId={menuId ? undefined : `${uid}-panel`}
-        className="searchable-disclosure-panel multiselect-panel seg-menu select-popover popover-surface menu-surface option-menu"
+        className={`searchable-disclosure-panel multiselect-panel seg-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
         searchId={searchId}
         searchRef={searchRef}
         searchValue={search}
@@ -199,6 +203,8 @@ export function SearchableDisclosureMenu({
           );
         })}
       </SearchableSelectPanel>
+        )}
+      </AnchoredOverlay>
     </div>
   );
 }

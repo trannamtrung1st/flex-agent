@@ -14,11 +14,12 @@ import {
   DialogPlateHead,
   Key,
   OperateArea,
+  usePushToast,
 } from "../design-system";
 import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import { SetupCeremonyStation } from "../features/assessment/SetupCeremonyStation";
 import { SetupUnsavedLeaveDialog } from "../features/assessment/SetupUnsavedLeaveDialog";
-import { isSetupTitleDirty, setupNextAction } from "../features/assessment/setupStation";
+import { focusSetupSummary, isSetupTitleDirty, setupBlockers, setupNextAction } from "../features/assessment/setupStation";
 
 export interface AssessmentSetupPageProps {
   loadSetup: (activityId: string) => Promise<AssessmentSetupView>;
@@ -42,6 +43,7 @@ export function AssessmentSetupPage({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"load" | "save" | "ready" | "activate" | null>("load");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const pushToast = usePushToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -103,15 +105,19 @@ export function AssessmentSetupPage({
         setTitle(next.title);
         setError(null);
       });
+      pushToast({ label: "Draft", copy: "This revision is saved." });
       return true;
     } catch (caught: unknown) {
       if (isAssessmentAccessLoss(caught)) throw caught;
-      setError("This draft could not be saved. Reconcile before retrying.");
+      flushSync(() => {
+        setError("This draft could not be saved. Reconcile before retrying.");
+      });
+      focusSetupSummary(titleId);
       return false;
     } finally {
       setPending(null);
     }
-  }, [activityId, saveDraft, title, view]);
+  }, [activityId, pushToast, saveDraft, title, titleId, view]);
 
   const stayOnPage = useCallback(() => {
     allowNavigationRef.current = false;
@@ -199,12 +205,20 @@ export function AssessmentSetupPage({
           setPending("ready");
           void checkReadiness(activityId)
             .then((next) => {
-              setView(next);
-              setError(null);
+              flushSync(() => {
+                setView(next);
+                setError(null);
+              });
+              if (setupBlockers(next).length > 0) {
+                focusSetupSummary(titleId);
+              }
             })
             .catch((caught: unknown) => {
               if (isAssessmentAccessLoss(caught)) throw caught;
-              setError("Readiness could not be checked.");
+              flushSync(() => {
+                setError("Readiness could not be checked.");
+              });
+              focusSetupSummary(titleId);
             })
             .finally(() => setPending(null));
         }}
@@ -222,6 +236,7 @@ export function AssessmentSetupPage({
             primary={
               <Key
                 variant="activate"
+                size="large"
                 disabled={busy}
                 onClick={() => {
                   setPending("activate");
@@ -233,8 +248,11 @@ export function AssessmentSetupPage({
                     })
                     .catch((caught: unknown) => {
                       if (isAssessmentAccessLoss(caught)) throw caught;
-                      setError("Activation did not complete. Reconcile before retrying.");
-                      setConfirmOpen(false);
+                      flushSync(() => {
+                        setError("Activation did not complete. Reconcile before retrying.");
+                        setConfirmOpen(false);
+                      });
+                      focusSetupSummary(titleId);
                     })
                     .finally(() => setPending(null));
                 }}

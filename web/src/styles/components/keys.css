@@ -130,6 +130,7 @@ a.key[aria-disabled="true"] {
 .key--large {
   font-size: var(--key-large-font-size);
   padding: var(--key-large-padding-block) var(--key-large-padding-inline);
+  min-height: 44px;
 }
 
 .key--back {
@@ -367,4 +368,15 @@ a.key[aria-disabled="true"] {
   --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.36), rgba(226, 163, 60, 0.2)), var(--ground-deep);
 }
 .key--activate:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; }
+
+/* size="large" after hot-key padding so ceremony height is not stuck at 10px block */
+.key--transmit.key--large,
+.key--open.key--large,
+.key--inspect.key--large,
+.key--release.key--large,
+.key--begin.key--large,
+.key--activate.key--large {
+  padding-block: var(--key-large-padding-block);
+  font-size: var(--key-large-font-size);
+}
 

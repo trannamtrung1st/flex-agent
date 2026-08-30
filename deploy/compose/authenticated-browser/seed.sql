@@ -95,6 +95,80 @@ VALUES (
     CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, actor_id) DO NOTHING;
 
+-- Numbered extras: demo.admin1–5 and demo.participant1–30 (Keycloak ids d2000000 / e2000000).
+INSERT INTO actors (id, created_at)
+SELECT format('a2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid, CLOCK_TIMESTAMP()
+FROM generate_series(1, 5) AS gs(i)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO human_identity_bindings (
+    binding_id, issuer, subject, actor_id, created_at, disabled_at)
+SELECT
+    format('b2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    'http://localhost:18080/realms/flex-agent',
+    format('d2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0')),
+    format('a2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    CLOCK_TIMESTAMP(),
+    NULL
+FROM generate_series(1, 5) AS gs(i)
+ON CONFLICT (issuer, subject) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+SELECT
+    grants.organization_id,
+    format('a2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    1,
+    grants.granted_action,
+    CLOCK_TIMESTAMP()
+FROM actor_organization_grants AS grants
+CROSS JOIN generate_series(1, 5) AS gs(i)
+WHERE grants.organization_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    AND grants.actor_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+INSERT INTO actors (id, created_at)
+SELECT format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid, CLOCK_TIMESTAMP()
+FROM generate_series(1, 30) AS gs(i)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO human_identity_bindings (
+    binding_id, issuer, subject, actor_id, created_at, disabled_at)
+SELECT
+    format('b3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    'http://localhost:18080/realms/flex-agent',
+    format('e2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0')),
+    format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    CLOCK_TIMESTAMP(),
+    NULL
+FROM generate_series(1, 30) AS gs(i)
+ON CONFLICT (issuer, subject) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+SELECT
+    grants.organization_id,
+    format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    1,
+    grants.granted_action,
+    CLOCK_TIMESTAMP()
+FROM actor_organization_grants AS grants
+CROSS JOIN generate_series(1, 30) AS gs(i)
+WHERE grants.organization_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    AND grants.actor_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+INSERT INTO identity_human_display_profiles (
+    organization_id, actor_id, display_label, created_at, updated_at)
+SELECT
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
+    format('Synthetic Participant %s', gs.i),
+    CLOCK_TIMESTAMP(),
+    CLOCK_TIMESTAMP()
+FROM generate_series(1, 30) AS gs(i)
+ON CONFLICT (organization_id, actor_id) DO NOTHING;
+
 INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
 VALUES
     ('22222222-2222-2222-2222-222222222201', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'assessment.organization_policy.v1', CLOCK_TIMESTAMP()),

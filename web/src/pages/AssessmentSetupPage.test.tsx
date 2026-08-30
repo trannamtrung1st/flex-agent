@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import type { AssessmentSetupView } from "../api/production-assessment";
-import { CAMPAIGN_TITLE_PLACEHOLDER } from "../design-system/components/fields/fieldFormat";
+import { CAMPAIGN_TITLE_PLACEHOLDER, SETUP_RESOLVED_NOTE } from "../design-system/components/fields/fieldFormat";
+import { ToastHost } from "../design-system";
 import { AssessmentSetupPage, type AssessmentSetupPageProps } from "./AssessmentSetupPage";
 
 function view(overrides: Partial<AssessmentSetupView> = {}): AssessmentSetupView {
@@ -53,7 +54,11 @@ function renderSetup(
 
   return {
     router,
-    ...render(<RouterProvider router={router} />),
+    ...render(
+      <ToastHost>
+        <RouterProvider router={router} />
+      </ToastHost>,
+    ),
   };
 }
 
@@ -79,12 +84,42 @@ describe("AssessmentSetupPage", () => {
     expect(screen.getByText("Local")).toBeInTheDocument();
     expect(screen.getByText("Draft")).toBeInTheDocument();
     expect(screen.getByText("Readiness")).toBeInTheDocument();
-    expect(screen.getByText("Cohort")).toBeInTheDocument();
+    expect(within(tracks).getByText("Cohort")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Campaign title" })).toHaveClass("field-input--wide");
     expect(screen.getByRole("textbox", { name: "Campaign title" })).toHaveAttribute(
       "placeholder",
       CAMPAIGN_TITLE_PLACEHOLDER,
     );
+    expect(screen.getByRole("group", { name: "Task and Submission requirements" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Agent and Harness" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Assessment behavior" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Timing and Attempts" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Memory and capabilities" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Review and Release requirements" })).toHaveClass("form-section");
+    expect(screen.getByRole("group", { name: "Cohort" })).toHaveClass("form-section");
+    expect(region.querySelector(".create-ceremony__scroll")?.querySelector(".form-divider")).toBeNull();
+    expect(
+      screen.getByRole("group", { name: "Task and Submission requirements" }).nextElementSibling,
+    ).toBe(screen.getByRole("group", { name: "Agent and Harness" }));
+    expect(screen.getByRole("group", { name: "Task and Submission requirements" }).parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "6",
+    );
+    const memory = screen.getByRole("textbox", { name: "Memory" });
+    expect(memory).toHaveClass("is-frozen");
+    expect(memory).toHaveValue("Stable — new long-term learning disabled");
+    expect(memory).not.toHaveAccessibleDescription(SETUP_RESOLVED_NOTE);
+    const resolved = screen.getByText(SETUP_RESOLVED_NOTE);
+    expect(resolved).toHaveClass("advisory-copy");
+    expect(resolved.closest(".workspace-alert")).toBeTruthy();
+    expect(resolved.closest(".field-hint")).toBeNull();
+    const titleField = screen.getByRole("textbox", { name: "Campaign title" });
+    expect(resolved.compareDocumentPosition(titleField) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText(SETUP_RESOLVED_NOTE)).toHaveLength(1);
+    expect(screen.getByText("Note")).toBeInTheDocument();
+    expect(document.querySelector(".setup-ceremony__memory")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Agent" })).toHaveValue("Not bound");
+    expect(screen.getByRole("textbox", { name: "Agent" })).toHaveClass("is-frozen");
     expect(screen.getByText("Saved as revision 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check readiness" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Activate cohort" })).not.toBeInTheDocument();
@@ -100,6 +135,22 @@ describe("AssessmentSetupPage", () => {
     expect(screen.queryByRole("button", { name: "Activate cohort" })).not.toBeInTheDocument();
   });
 
+  it("etches bound Task and Agent revisions on frozen fields", async () => {
+    renderSetup(view({
+      task_title: "Shoreline brief",
+      sources: [{
+        category: "agent",
+        source_id: "examiner-core",
+        version_id: "v2",
+        content_digest: "b".repeat(64),
+      }],
+    }));
+
+    expect(await screen.findByRole("textbox", { name: "Task" })).toHaveValue("Shoreline brief");
+    expect(screen.getByRole("textbox", { name: "Task" })).toHaveClass("is-frozen");
+    expect(screen.getByRole("textbox", { name: "Agent" })).toHaveValue("examiner-core · v2");
+  });
+
   it("marks local unsaved when the title differs from the saved revision", async () => {
     renderSetup(view({ permitted_actions: ["save_draft", "check_readiness"] }));
 
@@ -109,6 +160,19 @@ describe("AssessmentSetupPage", () => {
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
     expect(field).toHaveAccessibleDescription("Unsaved changes");
     expect(screen.getByText("Save this draft, then check readiness.")).toBeInTheDocument();
+  });
+
+  it("toasts when a draft save succeeds", async () => {
+    const saveDraft = vi.fn().mockResolvedValue(view({ title: "Campaign B", revision_number: 2 }));
+    renderSetup(view({ permitted_actions: ["save_draft", "check_readiness"] }), { saveDraft });
+
+    const field = await screen.findByRole("textbox", { name: "Campaign title" });
+    fireEvent.change(field, { target: { value: "Campaign B" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    expect(await screen.findByText("This revision is saved.")).toBeInTheDocument();
+    expect(screen.getByText("This revision is saved.").closest(".toast")).toHaveAttribute("role", "status");
+    expect(saveDraft).toHaveBeenCalledWith("act-1", "Campaign B", 1);
   });
 
   it("lists readiness blockers and withholds Activate cohort", async () => {
@@ -123,15 +187,78 @@ describe("AssessmentSetupPage", () => {
     }));
 
     expect(await screen.findByText("Set a valid session window.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Readiness blocked" })).toBeInTheDocument();
+    const timezone = screen.getByRole("textbox", { name: "Timezone" });
+    expect(screen.getByRole("link", { name: "Set a valid session window." })).toHaveAttribute(
+      "href",
+      `#${timezone.getAttribute("id")}`,
+    );
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Activate cohort" })).not.toBeInTheDocument();
+  });
+
+  it("moves focus to Readiness blocked after Check readiness returns blockers", async () => {
+    const checkReadiness = vi.fn().mockResolvedValue(view({
+      permitted_actions: ["save_draft", "check_readiness"],
+      issues: [{
+        category: "timing",
+        severity: "blocker",
+        reason_code: "window",
+        recovery_hint: "Set a valid session window.",
+      }],
+    }));
+    renderSetup(view({ permitted_actions: ["save_draft", "check_readiness"] }), { checkReadiness });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Check readiness" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Readiness blocked" })).toHaveFocus();
+    });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("keeps one summary when a save error lands on an already blocked revision", async () => {
+    const saveDraft = vi.fn().mockRejectedValue(new Error("save failed"));
+    renderSetup(view({
+      permitted_actions: ["save_draft", "check_readiness"],
+      issues: [{
+        category: "timing",
+        severity: "blocker",
+        reason_code: "window",
+        recovery_hint: "Set a valid session window.",
+      }],
+    }), { saveDraft });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("This draft could not be saved. Reconcile before retrying.")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("heading", { name: "Readiness blocked" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Correct the following" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Readiness blocked" })).toHaveFocus();
+  });
+
+  it("moves focus to Correct the following after a save failure", async () => {
+    const saveDraft = vi.fn().mockRejectedValue(new Error("save failed"));
+    renderSetup(view({ permitted_actions: ["save_draft", "check_readiness"] }), { saveDraft });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Correct the following" })).toHaveFocus();
+    });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("arms Activate cohort only after a current ready result and confirms before calling activate", async () => {
     const activateCohort = vi.fn();
     renderSetup(view({ issues: [] }), { activateCohort });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Activate cohort" }));
+    const activate = await screen.findByRole("button", { name: "Activate cohort" });
+    expect(activate).toHaveClass("key--activate", "key--large");
+    fireEvent.click(activate);
 
     expect(screen.getByRole("dialog", { name: "Activate this cohort?" })).toBeInTheDocument();
     expect(activateCohort).not.toHaveBeenCalled();
@@ -150,12 +277,14 @@ describe("AssessmentSetupPage", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByText("Activated")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Campaign title" })).toHaveClass("is-frozen");
-    expect(screen.getByRole("link", { name: "Assign Participants" })).toHaveAttribute(
-      "href",
-      "/activities/act-1/cohorts/coh-1/enrollments",
-    );
+    const assign = screen.getByRole("link", { name: "Assign Participants" });
+    expect(assign).toHaveAttribute("href", "/activities/act-1/cohorts/coh-1/enrollments");
+    expect(assign).toHaveClass("key--open", "key--large");
     expect(screen.getByRole("link", { name: "Assign Participants" }).closest(".create-ceremony__scroll")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+    expect(screen.getByText("Cohort activated")).toBeInTheDocument();
+    expect(screen.getByText(SETUP_RESOLVED_NOTE)).toBeInTheDocument();
+    expect(screen.getByText(SETUP_RESOLVED_NOTE).closest(".workspace-alert-body")).toBeTruthy();
   });
 
   it("warns before leaving with unsaved changes and can stay on page", async () => {

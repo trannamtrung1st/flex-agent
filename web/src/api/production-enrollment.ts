@@ -75,16 +75,27 @@ export function createEnrollmentIdempotencyKey(): string {
   return `enr-${crypto.randomUUID()}`;
 }
 
+function withCursor(path: string, cursor?: string | null): string {
+  if (!cursor) return path;
+  return `${path}?cursor=${encodeURIComponent(cursor)}`;
+}
+
 export function createProductionEnrollmentClient(fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>) {
   return {
-    listCandidates(activityId: string, cohortId: string) {
+    listCandidates(activityId: string, cohortId: string, cursor?: string | null) {
       return fetchJson<CandidatePageV1>(
-        `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options`,
+        withCursor(
+          `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options`,
+          cursor,
+        ),
       );
     },
-    listEnrollments(activityId: string, cohortId: string) {
+    listEnrollments(activityId: string, cohortId: string, cursor?: string | null) {
       return fetchJson<EnrollmentPageV1>(
-        `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/enrollments`,
+        withCursor(
+          `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/enrollments`,
+          cursor,
+        ),
       );
     },
     getEnrollment(activityId: string, cohortId: string, enrollmentId: string) {
@@ -233,7 +244,9 @@ export function enrollmentFailureCopy(error: unknown, fallback: string): string 
 }
 
 export function enrollmentOutcomeCopy(outcomeCode: string | undefined, fallback: string): string {
-  return outcomeCode === "enrollment.rate_limited" ? EnrollmentRateLimitedCopy : fallback;
+  if (outcomeCode === "enrollment.rate_limited") return EnrollmentRateLimitedCopy;
+  if (outcomeCode === "enrollment.assignment.deduplicated") return "Already assigned";
+  return fallback;
 }
 
 async function readMutation(

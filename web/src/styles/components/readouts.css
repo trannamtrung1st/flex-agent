@@ -1,9 +1,8 @@
 /* ═══ Readout rows (microlabel-over-value stack) ═════════════════ */
 
-/* The instrument rail's reading grammar: a dim mono microlabel over a
-   mono value, hairline dividers between rows. Used on the session and
-   journey rails; other readout forms (home plate rows, admin detail
-   band) keep their own horizon mechanics locally. */
+/* The rail's reading grammar: a dim mono microlabel over a
+   mono value, hairline dividers between rows. Horizon plates use
+   .readout--horizon (assignment / destination). */
 .readout-stack {
   display: flex;
   flex-direction: column;
@@ -27,6 +26,65 @@
 }
 
 .readout dd { font-size: 0.82rem; letter-spacing: 0.06em; color: var(--text); }
+
+/* Horizon stack: assignment and destination plates. Teal microlabel, Bright
+   Text title values, ::after hairlines. Rail .readout stays denser. */
+.readout-stack--horizon {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.readout--horizon {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.readout--horizon:first-child {
+  border-top: 0;
+}
+
+.readout--horizon::after {
+  content: "";
+  width: 100%;
+  height: 1px;
+  background: var(--hairline-dim);
+  margin-top: 12px;
+}
+
+.readout--horizon:last-of-type::after {
+  display: none;
+}
+
+.readout--horizon dt {
+  font-size: var(--microlabel-font-size);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.readout--horizon dd {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.readout--horizon.readout--title dd {
+  color: var(--text-bright);
+}
+
+.readout--horizon.readout--record dd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
 /* ═══ Readout grid (aligned instrument data) ═════════════════════ */
 

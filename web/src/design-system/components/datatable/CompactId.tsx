@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { compactRegistryId } from "./compactRegistryId";
 import { TooltipHost } from "../keys/TooltipHost";
 
@@ -15,14 +16,21 @@ export function CompactId({
   tabbable?: boolean;
 }) {
   const shown = display ?? compactRegistryId(value);
-  const truncated = shown !== value;
-  const focusable = truncated && tabbable;
+  const logicallyTruncated = shown !== value;
+  const compactRef = useRef<HTMLSpanElement>(null);
+  const focusable = logicallyTruncated && tabbable;
 
   return (
-    <TooltipHost tip={truncated ? value : undefined} tone="value" className={className}>
-      <span className="compact-id" tabIndex={focusable ? 0 : undefined}>
-        <span aria-hidden={truncated || undefined}>{shown}</span>
-        {truncated ? <span className="visually-hidden">{value}</span> : null}
+    <TooltipHost
+      tip={value}
+      tone="value"
+      className={className}
+      tipOnlyWhenTruncated={!logicallyTruncated}
+      truncationRef={logicallyTruncated ? undefined : compactRef}
+    >
+      <span ref={compactRef} className="compact-id" tabIndex={focusable ? 0 : undefined}>
+        <span aria-hidden={logicallyTruncated || undefined}>{shown}</span>
+        {logicallyTruncated ? <span className="visually-hidden">{value}</span> : null}
       </span>
     </TooltipHost>
   );

@@ -80,14 +80,103 @@
   padding-block-end: var(--plate-foot-pad-block);
 }
 
-/* Reserved key foot inside etched frames; block rhythm matches --frame-inset-block-start. */
+/* Reserved key foot inside etched frames; block rhythm matches --frame-inset-block-start.
+   Hairline is the shared internal divider (border-subtle); dialog and work-well feet inherit it. */
 .plate-foot {
+  align-self: stretch;
+  width: 100%;
   padding-block-start: var(--plate-foot-pad-block);
   padding-block-end: 0;
+  border-block-start: 1px solid var(--hairline-dim);
+}
+
+.plate-foot[data-hairline="false"] {
+  border-block-start: none;
+  padding-block-start: 0;
 }
 
 .plate-foot[data-arrangement="split"] .plate-foot-slot--primary {
   margin-inline-start: auto;
+}
+
+/* Equal air above the rule for non-scrolling predecessors (assignment readouts).
+   Dialog and work-well bodies already include that inset. Ceremony inner scroll
+   must not pad: the docked foot sits outside the scroller. Hull chrome omits
+   the rule and does not steal pad from the preceding pane. */
+:has(+ .plate-foot:not([data-hairline="false"])):not(.dialog-body):not(.work-well__body):not(.create-ceremony__scroll) {
+  padding-block-end: var(--plate-foot-pad-block);
+}
+
+.assignment-plate {
+  --cut: var(--notch);
+  display: flex;
+  min-width: 0;
+}
+
+.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-block-start: 6px;
+  padding-inline: 0;
+  padding-block-end: 0;
+}
+
+.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in:has(.plate-foot) {
+  padding-block-end: 0;
+}
+
+.assignment-plate-in > :not(.plate-foot) {
+  padding-inline: var(--frame-inset-inline);
+}
+
+.assignment-plate--released > .frame-in {
+  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
+}
+
+[data-theme="light"] .assignment-plate > .frame-in {
+  background: var(--panel-sheen), var(--ground-deep);
+}
+
+.assignment-plate .assignment-plate-keys {
+  min-height: 58px;
+  margin-top: auto;
+  padding-block-start: var(--plate-foot-pad-block);
+  padding-block-end: var(--frame-inset-block-end);
+  padding-inline: var(--frame-inset-inline);
+}
+
+.assignment-plate-keys--empty {
+  min-height: 24px;
+}
+
+/* Setup/Create and fused in-plate hosts: full-bleed foot hairline. */
+.frame-cut:not(.frame-cut--flush) > .frame-in:has(.setup-ceremony),
+.frame-cut:not(.frame-cut--flush) > .frame-in:has(.in-plate-host) {
+  padding-inline: 0;
+  padding-block-end: 0;
+}
+
+.setup-ceremony > :not(.plate-foot),
+.in-plate-host > :not(.plate-foot) {
+  padding-inline: var(--frame-inset-inline);
+}
+
+.setup-ceremony > .plate-foot,
+.in-plate-host > .plate-foot {
+  padding-inline: var(--frame-inset-inline);
+  padding-block-end: var(--frame-inset-block-end);
+}
+
+.assignment-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignment-record-label {
+  color: var(--text);
 }
 
 /* ═══ Guided-task work well (shell slot plate) ═══════════════════ */
@@ -280,7 +369,6 @@
   margin-top: auto;
   padding-inline: var(--frame-inset-inline);
   padding-block-end: var(--frame-inset-block-end);
-  border-top: 1px solid var(--hairline-dim);
 }
 
 .work-well > .work-well__foot .briefing-ack {

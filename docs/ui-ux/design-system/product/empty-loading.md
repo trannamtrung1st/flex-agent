@@ -8,10 +8,10 @@ separated modifiers (`empty-plate--inset`, `empty-plate--separated`) sit a
 dashed hairline empty note after seated content. Unoccupied bays use dashed
 absence, not a second clipped card. `OperateArea` `empty` renders this plate
 inside the etched frame. Page-level unknown, denied, and missing-resource
-planes use `CeremonyUnavailable`: hug ceremony + inset empty well + **quiet**
-recovery centered in the well (Return, Reload). Do not use a commit/amber
-`open` key on those actions. Auth commit stays `transmit` (`Continue to sign
-in`).
+planes use `CeremonyUnavailable`: hug ceremony + inset empty well + recovery
+centered in the well (Return, Reload). Do not use a commit/amber
+`open` key on those actions. Default recovery is **quiet**. Auth commit stays
+`transmit` (`Continue to sign in` via `recovery.variant="transmit"`).
 
 ## Loading
 

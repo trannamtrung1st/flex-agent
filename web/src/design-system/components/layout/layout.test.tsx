@@ -43,6 +43,7 @@ describe("layout primitives", () => {
     expect(grid).toHaveAttribute("data-flow-gap", "none");
     expect(grid).toHaveAttribute("data-flow-min", "panel");
     expect(grid).toHaveAttribute("data-flow-align", "stretch");
+    expect(grid).toHaveAttribute("data-flow-fit", "fit");
 
     rerender(<Container>container</Container>);
     const container = screen.getByText("container");
@@ -95,7 +96,7 @@ describe("layout primitives", () => {
     render(
       <>
         <Inline wrap={false} justify="between" gap="3">cluster</Inline>
-        <Grid minItemWidth="compact" gap="4">tiles</Grid>
+        <Grid minItemWidth="compact" gap="4" fit="fill">tiles</Grid>
         <Container size="form" align="center">form</Container>
         <Inset space="6" inline="2" block="4">pad</Inset>
       </>,
@@ -104,6 +105,7 @@ describe("layout primitives", () => {
     expect(screen.getByText("cluster")).toHaveAttribute("data-flow-justify", "between");
     expect(screen.getByText("cluster")).toHaveAttribute("data-flow-gap", "3");
     expect(screen.getByText("tiles")).toHaveAttribute("data-flow-min", "compact");
+    expect(screen.getByText("tiles")).toHaveAttribute("data-flow-fit", "fill");
     expect(screen.getByText("form")).toHaveAttribute("data-flow-size", "form");
     expect(screen.getByText("form")).toHaveAttribute("data-flow-align", "center");
     expect(screen.getByText("pad")).toHaveAttribute("data-flow-space", "6");
@@ -150,6 +152,7 @@ describe("layout primitives", () => {
     expect(css).not.toMatch(/(?:^|})\s*\[data-flow-gap=/);
     expect(css).not.toMatch(/(?:^|})\s*\.layout-/);
     expect(css).toMatch(/auto-fit/);
+    expect(css).toMatch(/\.composition-grid\[data-flow-fit="fill"\][^{]*\{[^}]*auto-fill/);
     expect(css).toMatch(/grid-template-areas:\s*"start main end"/);
     expect(css).toMatch(/--content-width-prose/);
     expect(css).toMatch(/--content-width-form/);

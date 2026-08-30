@@ -6,6 +6,7 @@ export { SplitBay, type SplitBayProps } from "./SplitBay";
 export { Stack } from "./Stack";
 export type {
   ContainerSize,
+  GridFit,
   GridMinItemWidth,
   LayoutAlign,
   LayoutJustify,

@@ -16,11 +16,11 @@ Gallery specimens: Component Deck sections `composition-*` (visual showcase only
 | Page chrome, landmarks, skip link, gangway/rail | One closed shell family |
 | Vertical rhythm between siblings | `Stack` |
 | Horizontal groups that may wrap | `Inline` |
-| Equal-width tiles that reflow by available space | `Grid` |
+| Equal-width tiles that reflow by available space | `Grid` (`fit="fill"` for destination / assignment plate slots) |
 | Readable or form column width | `Container` |
 | Tokenized logical padding | `Inset` |
 | Named start/main/end tracks that stay columns | `SplitBay` |
-| Status Bays or live-session hull columns | Domain / shell CSS, not `Grid` |
+| Status Bays or live-session hull columns | Domain / shell CSS, not `Grid`. Status Bay *plates* still use `AssignmentPlate`. |
 
 Feature pages import primitives from the production design-system barrel. They
 do not import `design-lab` or assemble shells from chrome primitives.
@@ -49,7 +49,7 @@ Shared tokens:
 | --- | --- | --- | --- |
 | `Stack` | `gap`, `align` | `gap="none"`, `align="stretch"` | `.composition-stack` |
 | `Inline` | `gap`, `align`, `justify`, `wrap` | `gap="none"`, `align="center"`, `justify="start"`, `wrap={true}` | `.composition-inline` |
-| `Grid` | `gap`, `minItemWidth`, `align` | `gap="none"`, `minItemWidth="panel"`, `align="stretch"` | `.composition-grid` |
+| `Grid` | `gap`, `minItemWidth`, `fit`, `align` | `gap="none"`, `minItemWidth="panel"`, `fit="fit"`, `align="stretch"` | `.composition-grid` |
 | `Container` | `size`, `align` | `size="content"`, `align="start"` | `.composition-container` |
 | `Inset` | `space`, `inline`, `block` | all `none`; axis props override `space` | `.composition-inset` |
 | `SplitBay` | `start`, `end`, `head`, `foot`, `overlay`, `toolbar`, `drawer` | `drawer={false}` | `.composition-split` |
@@ -58,8 +58,12 @@ Labeled sibling-key clusters use `KeyGroup`, which renders `Inline` (`gap="2.5"`
 
 Plate action rails use `PlateFoot` (an `Inline` `footer` plus `.plate-foot`) with closed `arrangement` values `start` | `center` | `end` | `split`. See [plates](cards.md#plate-foot).
 
-`Grid.minItemWidth`: `compact` \| `control` \| `panel` \| `wide`. Columns use
-`repeat(auto-fit, minmax(min(100%, var(--grid-min-*)), 1fr))`.
+`Grid.minItemWidth`: `compact` \| `control` \| `panel` \| `wide`.
+`Grid.fit`: `fit` (default) \| `fill`. Columns use
+`repeat(auto-fit, minmax(min(100%, var(--grid-min-*)), 1fr))` unless
+`fit="fill"`, which uses `auto-fill` so a lone tile keeps a slot. Compact
+viewports (≤720px) force fill grids to one column. Destination and assignment
+plate grids use `minItemWidth="control"` and `fit="fill"`.
 
 `Container.size`: `prose` (68ch) \| `form` (52rem) \| `content` (shell max) \| `full`.
 
@@ -79,7 +83,9 @@ arbitrary child margins to fake rhythm.
 Component Deck `composition-recipes` shows common inner slots (a `Container
 size="form"` column, a grouped list with trailing open keys). Those are
 specimens of the primitives above, not additional components. Cloneable
-OperateArea forms with real fields live on `form-recipes`.
+OperateArea forms with real fields live on `form-recipes`. `FormSection`
+legends mark clusters with a 2px `--hairline` underline under the title words
+([inputs](inputs.md)).
 
 ## Semantic examples
 
@@ -91,6 +97,9 @@ OperateArea forms with real fields live on `form-recipes`.
       <FormField layout="stack" id="title" label="Campaign title">{/* control */}</FormField>
       <FormSection legend="Agent and Harness">
         <Grid gap="4" minItemWidth="control">{/* fields */}</Grid>
+      </FormSection>
+      <FormSection legend="Source set">
+        <Grid gap="4" minItemWidth="compact">{/* fields */}</Grid>
       </FormSection>
     </Stack>
   </Container>
@@ -120,7 +129,7 @@ OperateArea forms with real fields live on `form-recipes`.
 
 - Preserve source order as reading and focus order. Do not reorder for visual
   effect.
-- Intrinsic wrap and auto-fit reflow; 400% zoom must not clip focus or actions.
+- Intrinsic wrap and auto-fit / auto-fill reflow; 400% zoom must not clip focus or actions.
   Wrapping `Inline` children keep their content size and move to the next line;
   only `wrap={false}` shrinks children onto one row.
 - Logical padding (`padding-block` / `padding-inline`) for `Inset`.

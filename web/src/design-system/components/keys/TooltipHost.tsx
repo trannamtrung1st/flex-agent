@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cx } from "../../../lib/cx";
+import { overlayPortalRoot } from "../overlays/overlayPortalRoot";
+import { useFloatingPlacement } from "../overlays/AnchoredOverlay";
 import { useTruncated } from "./useTruncated";
 
 export type TooltipTone = "label" | "value";
@@ -33,23 +35,19 @@ export function TooltipHost({
   const selectingRef = useRef(false);
   const pointerInsideRef = useRef(false);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0, above: true });
   const truncated = useTruncated(truncationRef ?? { current: null }, Boolean(tipOnlyWhenTruncated && truncationRef));
   const effectiveTip = tipOnlyWhenTruncated ? (truncated ? tip : undefined) : tip;
   const watchTip = Boolean(tip);
   const owner = useRef({});
-
-  const place = useCallback(() => {
-    const el = hostRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const above = rect.top > 72;
-    setPos({
-      top: above ? rect.top - 10 : rect.bottom + 10,
-      left: rect.left + rect.width / 2,
-      above,
-    });
-  }, []);
+  const { style: plaqueStyle, side } = useFloatingPlacement({
+    open,
+    triggerRef: hostRef,
+    floatingRef: plaqueRef,
+    preferredSide: "top",
+    align: "center",
+    offset: 10,
+    size: false,
+  });
 
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current != null) {
@@ -78,9 +76,8 @@ export function TooltipHost({
     dismissOpenPlaque = closePlaque;
     pointerInsideRef.current = true;
     clearHideTimer();
-    place();
     setOpen(true);
-  }, [clearHideTimer, closePlaque, effectiveTip, place]);
+  }, [clearHideTimer, closePlaque, effectiveTip]);
 
   const hideNow = useCallback((related?: EventTarget | null) => {
     if (selectingRef.current) return;
@@ -100,18 +97,6 @@ export function TooltipHost({
       closePlaque();
     }, TOOLTIP_HIDE_DELAY_MS);
   }, [clearHideTimer, closePlaque]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    place();
-    const onReflow = () => place();
-    window.addEventListener("scroll", onReflow, true);
-    window.addEventListener("resize", onReflow);
-    return () => {
-      window.removeEventListener("scroll", onReflow, true);
-      window.removeEventListener("resize", onReflow);
-    };
-  }, [open, place]);
 
   useEffect(
     () => () => {
@@ -179,10 +164,10 @@ export function TooltipHost({
               ref={plaqueRef}
               className={cx(
                 "tip-plaque",
-                pos.above ? "tip-plaque--above" : "tip-plaque--below",
+                side === "top" ? "tip-plaque--above" : "tip-plaque--below",
                 tone === "value" && "tip-plaque--value",
               )}
-              style={{ top: pos.top, left: pos.left }}
+              style={plaqueStyle}
               role="tooltip"
               onMouseEnter={show}
               onMouseLeave={scheduleHide}
@@ -192,7 +177,7 @@ export function TooltipHost({
             >
               {effectiveTip}
             </span>,
-            document.body,
+            overlayPortalRoot(hostRef.current),
           )
         : null}
     </>

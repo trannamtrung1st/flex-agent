@@ -16,7 +16,8 @@ import {
 import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import {
   ACCOMMODATION_CONSEQUENCE_COPY,
-  ELIGIBILITY_COPY,
+  assignmentEligibilityCopy,
+  enrollmentStatusCopy,
   wordsFromCode,
 } from "../lib/enrollment-presentation";
 import {
@@ -38,6 +39,7 @@ import {
   ReadoutList,
   Stack,
   StateReadout,
+  usePushToast,
   WaitPlate,
   WorkWell,
   WorkWellHead,
@@ -75,11 +77,12 @@ function assignmentPhaseCopy(
   pending: boolean,
   permitted: SubmissionPermittedActionV2[],
   intakeOpen: boolean,
+  intakeItemCount = 0,
 ): string {
   if (pending) return "Working…";
   if (view === "attempt") return "Not available here";
   if (permitted.includes("begin_intake")) return "Begin intake";
-  if (intakeOpen && permitted.includes("finalize_intake")) return "Submit version";
+  if (intakeOpen && permitted.includes("finalize_intake") && intakeItemCount > 0) return "Submit version";
   if (intakeOpen) return "Intake receiving";
   return "Submission";
 }
@@ -164,6 +167,7 @@ export function ProductionMyWorkDetailPage() {
   const [directText, setDirectText] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [view, setView] = useState<AssignmentStationView>("submission");
+  const pushToast = usePushToast();
 
   const reload = useCallback(async () => {
     const [work, timingResult, submissionResult] = await Promise.all([
@@ -192,7 +196,10 @@ export function ProductionMyWorkDetailPage() {
   const permitted = actionsOf(submission);
   const intake = submission?.active_intake ?? null;
 
-  async function runMutation(work: () => Promise<{ succeeded: boolean; outcome_code: string }>) {
+  async function runMutation(
+    work: () => Promise<{ succeeded: boolean; outcome_code: string }>,
+    receipt?: { label: string; copy: string },
+  ) {
     setPending(true);
     try {
       const outcome = await work();
@@ -201,6 +208,7 @@ export function ProductionMyWorkDetailPage() {
         return false;
       }
       await reload();
+      if (receipt) pushToast(receipt);
       return true;
     } catch (caught: unknown) {
       setError(enrollmentFailureCopy(caught, "The Submission could not be updated."));
@@ -255,8 +263,13 @@ export function ProductionMyWorkDetailPage() {
   const zone = timing?.effective?.time_zone_id ?? assignment.time_zone_id ?? "UTC";
   const deadline = assignment.deadline_utc;
   const formattedDeadline = deadline ? formatCampaignInstant(deadline, zone) : null;
-  const eligibility = wordsFromCode(timing?.effective?.eligibility_state, ELIGIBILITY_COPY);
+  const eligibility = assignmentEligibilityCopy(
+    timing?.effective?.eligibility_state,
+    Boolean(intake),
+    permitted.includes("begin_intake"),
+  );
   const released = isReleasedRecord(assignment.status);
+  const recordLabel = enrollmentStatusCopy(assignment.status);
   const consequence = wordsFromCode(
     timing?.participant_consequence_code && timing.participant_consequence_code !== "none"
       ? timing.participant_consequence_code
@@ -272,7 +285,7 @@ export function ProductionMyWorkDetailPage() {
     <StateReadout
       variant={released ? "sealed" : "rest"}
       solid={released}
-      label={assignment.status}
+      label={recordLabel}
       className="assignment-record"
       labelClassName="assignment-record-label"
     />
@@ -281,16 +294,17 @@ export function ProductionMyWorkDetailPage() {
   const versions = [...(submission?.version_history ?? [])].sort((a, b) => b.version_number - a.version_number);
 
   const submissionActions = view === "submission" && (
-    permitted.includes("begin_intake")
-    || permitted.includes("cancel_intake")
-    || permitted.includes("finalize_intake")
+    permitted.includes("begin_intake") || Boolean(intake)
   ) ? (() => {
     const beginKey = permitted.includes("begin_intake") ? (
       <Key
         variant="begin"
         disabled={pending}
         onClick={() => {
-          void runMutation(() => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()));
+          void runMutation(
+            () => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()),
+            { label: "Intake", copy: "Intake is open." },
+          );
         }}
       >
         Begin intake
@@ -313,8 +327,21 @@ export function ProductionMyWorkDetailPage() {
         Cancel intake
       </Key>
     ) : null;
-    const submitKey = intake && permitted.includes("finalize_intake") ? (
-      <Key variant="transmit" disabled={pending} onClick={() => setConfirmOpen(true)}>
+    const submitBlock = intake
+      ? intake.items.length === 0
+        ? "Add direct text or an attachment before submitting this version."
+        : permitted.includes("finalize_intake")
+          ? undefined
+          : "Submit version is not permitted for this intake."
+      : undefined;
+    const submitKey = intake ? (
+      <Key
+        variant="transmit"
+        ariaLabel="Submit version"
+        disabled={pending || Boolean(submitBlock)}
+        disabledReason={!pending ? submitBlock : undefined}
+        onClick={() => setConfirmOpen(true)}
+      >
         Submit version
       </Key>
     ) : null;
@@ -355,8 +382,8 @@ export function ProductionMyWorkDetailPage() {
         <AssignmentHeading
           title={title}
           meta={meta || undefined}
-          phase={assignmentPhaseCopy(view, pending, permitted, Boolean(intake))}
-          record={assignment.status}
+          phase={assignmentPhaseCopy(view, pending, permitted, Boolean(intake), intake?.items.length ?? 0)}
+          record={recordLabel}
           released={released}
         />
       )}
@@ -386,6 +413,7 @@ export function ProductionMyWorkDetailPage() {
                       expected_revision: intake.revision,
                       idempotency_key: createSubmissionIdempotencyKey(),
                     }),
+                    { label: "Submission", copy: "This version is preserved. Earlier versions remain on record." },
                   ).then(() => setConfirmOpen(false));
                 }}
               >
@@ -431,7 +459,7 @@ export function ProductionMyWorkDetailPage() {
               ) : null}
               {intake ? (
                 <p>
-                  Intake {intake.status}, revision {intake.revision}.
+                  Intake {wordsFromCode(intake.status).toLowerCase()}, revision {intake.revision}.
                   {intake.items.length > 0
                     ? ` ${formatItemCount(intake.items.length)} received locally until the server accepts a version.`
                     : " No items yet."}

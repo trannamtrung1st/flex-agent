@@ -24,16 +24,20 @@ form owners (ADR-019). Server validation still wins.
 
 Titled field clusters use `FormSection` (`fieldset.form-section` plus `legend`).
 The legend is an H2 / plate title (0.72rem placard, `--text-bright`), not a
-field microlabel. Group gap is
-`legend { margin-block-end: var(--form-group-gap) }` because fieldset legends
-often do not participate in flex `gap`. Sibling sections and the operate bay
-use `--operate-bay-gap`. Do not give the legend a 4px local margin or `--label`
-microlabel type.
+field microlabel. Grouping chrome lives on the **legend only**: a 2px
+`--hairline` rule under the title words (not the bay width), then `--form-group-gap` to the fields.
+Do not pad, rail, or top-border the fieldset — that interval lands between
+the legend and the fields. Sibling sections in a `Stack` use bay gap
+(`gap="6"`). Do not wrap clusters in plates, and do not insert `.form-divider`
+between `FormSection`s. Side-by-side clusters stay on `Grid` gap only. Do not
+give the legend a 4px local margin or `--label` microlabel type.
 
 Cloneable page and dialog compositions live on Component Deck `form-recipes`
 (OperateArea, ErrorSummary, stacked fields, FormSection + Grid, pair rows,
 ReadoutGrid identity with frozen FormFields beside live inputs, DialogPlate,
-PlateFoot). `form` remains the parts catalog.
+PlateFoot). The seated DialogPlate recipe hugs the catalog document; it is
+not a mini overlay scroller. `form` remains the parts catalog. The Dialog
+section still opens live `<dialog>` specimens.
 
 ## Number fields
 
@@ -64,7 +68,8 @@ validation, and **named Campaign timezone with UTC fallback** (`PC-11`,
 `UI-SUBM-DEC-6`, `UI-SUBM-DEC-12`). Browser-local time is supplementary.
 
 Closed marks use `YYYY-MM-DD` and 24h `HH:MM` (optional seconds). Selected day
-and wheel values use teal inset bezels, not amber.
+and wheel values use teal inset bezels, not amber. `DateTimePicker` popovers
+use the same `placeFloating` path as selects. Gallery: `datetime`.
 
 ## File intake
 
@@ -89,10 +94,15 @@ the field label.
 ## Rules
 
 - Associate label, hint, and error with the control. Keep the label visible;
-  put the example in `placeholder`. Stacked labels (`FormField` `layout="stack"`,
+  put the example in `placeholder`. Field hints are sentence-case helpers
+  (`fg-subtle` / `--label-dim`, 0.68rem): instruction tied to one control, not
+  microlabels and not cluster provenance. Shared frozen-cluster provenance
+  uses the workspace **Note** (`Alert` `variant="info"`; see
+  [alerts](alerts.md)). Stacked labels (`FormField` `layout="stack"`,
   `.field-stack`) use `--field-label-gap` (control rung); do not add local
   margin between the microlabel and the slot. Titled clusters use `FormSection`
-  (`--form-group-gap`), not a second field-label margin.
+  (`--form-group-gap`), not a second field-label margin. The group mark is a
+  2px `--hairline` underline under the legend words. Do not pad the fieldset or insert `.form-divider`.
 - Pair rows stack at ≤720px without letting a long error drop the neighbor.
 - Width tokens: narrow, standard, wide/full.
 - Use `FieldNumber` when the value is a steppable number; keep text (including

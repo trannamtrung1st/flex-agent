@@ -16,6 +16,7 @@ export type ManagementNavigation = {
   currentLabel: string;
   ariaLabel?: string;
   bulkheadId?: string;
+  collapsibleGroups?: boolean;
 };
 
 export type ManagementLayoutProps = {
@@ -53,7 +54,7 @@ export function ManagementLayout({
   const navLabel = navigation?.ariaLabel ?? "Primary navigation";
 
   return (
-    <div className="layout-management" data-layout="management">
+    <div className="layout-management" data-layout="management" data-nested={nested ? "true" : undefined}>
       {nested ? null : <SkipLink />}
       <CommandStrip {...commandStrip} />
       {banner}
@@ -66,6 +67,7 @@ export function ManagementLayout({
               collapsed={gangwayCollapsed}
               onCollapsedChange={setGangwayCollapsed}
               ariaLabel={navLabel}
+              collapsibleGroups={navigation.collapsibleGroups}
             />
           ) : null}
           <div className="layout-management__content">
@@ -104,7 +106,12 @@ export function ManagementLayout({
           titleId={`${bulkheadId}Title`}
         >
           <nav className="nav-rail" aria-label={navLabel}>
-            <AreaGroupList groups={navigation.groups} variant="rail" onNavigate={() => setNavOpen(false)} />
+            <AreaGroupList
+              groups={navigation.groups}
+              variant="rail"
+              collapsibleGroups={navigation.collapsibleGroups}
+              onNavigate={() => setNavOpen(false)}
+            />
           </nav>
         </Bulkhead>
       ) : null}

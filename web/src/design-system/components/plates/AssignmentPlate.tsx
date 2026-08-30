@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { cx } from "../../lib/cx";
-import { PlateFoot, ReadoutList, type ReadoutListRow } from "../../design-system";
+import { cx } from "../../../lib/cx";
+import { PlateFoot } from "./EtchedFrame";
+import { ReadoutList, type ReadoutListRow } from "../readouts/ReadoutList";
 
 export function AssignmentPlate({
   label,
@@ -15,11 +16,11 @@ export function AssignmentPlate({
 }) {
   return (
     <article
-      className={cx("assignment-plate", released && "assignment-plate--released")}
+      className={cx("assignment-plate", "frame-cut", released && "assignment-plate--released")}
       aria-label={label}
     >
-      <div className="assignment-plate-in">
-        <ReadoutList className="assignment-plate-readout" rowClassName="assignment-plate-row" rows={rows} />
+      <div className="frame-in assignment-plate-in">
+        <ReadoutList tone="horizon" rows={rows} />
         <PlateFoot
           className={cx("assignment-plate-keys", !action && "assignment-plate-keys--empty")}
           arrangement="end"

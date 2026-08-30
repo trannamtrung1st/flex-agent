@@ -6,6 +6,7 @@ export const MM_SS_EXTENSION_PLACEHOLDER = "15:00";
 export const MM_SS_HINT = `MM:SS · e.g. ${MM_SS_PLACEHOLDER}`;
 
 export const CAMPAIGN_TITLE_PLACEHOLDER = "Enter a campaign title";
+export const SETUP_RESOLVED_NOTE = "Resolved from this Activity revision.";
 export const CALLSIGN_PLACEHOLDER = "BERTH-04";
 export const COOLDOWN_PLACEHOLDER = "24H";
 export const MAX_ATTEMPTS_PLACEHOLDER = "3";

@@ -41,10 +41,14 @@ Do not use v0.1 Deep-Space styling as the target look.
    Inner page/form rhythm uses control / group / bay tokens (`--field-label-gap`,
    `--form-group-gap`, `--operate-bay-gap`): `OperateArea` owns bay strata
    (head / context / advisory / optional frame); titled field clusters use
-   `FormSection`. `gap="none"` is only for fused plates.
+   `FormSection`. The group mark is a 2px `--hairline` underline under the
+   legend words, not a fieldset rail or pad. Sibling sections use bay `Stack` gap. Do not use a plate or
+   `.form-divider`. `gap="none"` is only for fused plates.
    Shells wrap main content in an even `Inset` when `contain` is true
    (management and reference catalog default on; hull shells and the Component
    Deck default off). That pad is not a max-width column.
+   Clone floating plaques, menus, and select popovers from `AnchoredOverlay`
+   / `placeFloating`. Do not CSS-position a new overlay against its trigger.
 
 ## Foundation index
 
@@ -96,17 +100,18 @@ are visual evidence; the module is the contract.
 | Foundations | `colors` | [colors](foundation/colors.md) |
 | Foundations | `type`, `typography` | [typography](foundation/typography.md) |
 | Foundations | `keys`, `key-group` | [buttons](components/buttons.md), [button groups](components/button-group.md) |
-| Foundations | `pane`, `frame` | [plates](components/cards.md) (`pane` includes the WorkWell section-label vs list-tick specimen) |
+| Foundations | `pane`, `frame`, `assignment-plate` | [plates](components/cards.md) (`pane` includes the WorkWell section-label vs list-tick specimen; `assignment-plate` is the destination / assignment tile) |
 | Navigation | `nav-rail` | [sidebars](components/sidebars.md) (`.nav-rail` grammar; `IndexRail` on the reference shell) |
 | Navigation | `strip`, `gangway`, `drawer`, `footer` | [layouts](components/layouts.md), [sidebars](components/sidebars.md) |
 | Navigation | `breadcrumbs` | [sidebars](components/sidebars.md) |
 | Navigation | `tabs` | [tabs](components/tabs.md) |
 | Data | `marks` | [badges](components/badges.md) |
 | Data | `select-mark` | [selection](components/radios-checkboxes-toggle.md), [tables](components/tables.md) |
-| Data | `readout`, `readout-grid` | [content](components/content.md) |
+| Data | `readout`, `readout-grid` | [content](components/content.md) (rail and horizon readout lists) |
 | Data | `compact-id` | [tables](components/tables.md), [technical metadata](product/technical-metadata.md), [tooltips](components/tooltips-popovers.md) |
+| Data | `item-list` | [lists](components/lists.md) (`ItemList` · `renderItem` · `loadMore.trigger` button or end) |
 | Data | `datatable`, `datatable-scroll` | [tables](components/tables.md), [pagination](components/pagination.md) |
-| Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) |
+| Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) (`alert` includes in-form frozen-cluster provenance; production and lab Admin mount `ToastHost`; default dock `bottom-center`) |
 | Feedback | `tooltip` | [tooltips](components/tooltips-popovers.md) |
 | Feedback | `error-summary` | [error summary](components/error-summary.md) |
 | Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md) |
@@ -114,7 +119,7 @@ are visual evidence; the module is the contract.
 | Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (`composition-recipes` are specimen recipes, not a fifth primitive) |
 | Overlays & input | `form-recipes` | [inputs](components/inputs.md), [error summary](components/error-summary.md), [layout primitives](components/layout-primitives.md), [plates](components/cards.md), [modals](components/modals.md) |
 | Overlays & input | `form`, `file`, `datetime` | [inputs](components/inputs.md), [attachments](product/attachments.md) |
-| Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) |
+| Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) (`placeFloating`; live `DropdownSelect` plus row-grammar specimen) |
 | Overlays & input | `dialog` | [modals](components/modals.md) |
 
 ## Product-pattern index
@@ -145,6 +150,8 @@ specification authorize it.
 - Product: empty/loading, protected content, technical metadata
 - Governing specification: [Activity journey](../activity-campaign-journey.md)
 - States: unauthenticated, loading, denied, ready, context replacement, logout
+- When My work is available, production `/` redirects to `/my-work` and Home is
+  omitted from the gangway; administrator Home remains the destination catalog
 - Gallery: command strip, gangway/bulkhead, quiet keys, empty plate (Deck:
   `strip`, `gangway`, `keys`, `empty`)
 
@@ -176,6 +183,7 @@ specification authorize it.
 - States: no assignment, loading, denied, versioned submission, upload
   validation, pending, cancelling, reconciling, duplicate, conflict,
   unavailable, narrow
+- Production `/` redirects here when My work is available (one assignment index)
 - Constraints: `PC-03`, `PC-07` (rail cannot mutate lifecycle)
 
 ### MVP Text Session (production contract-unavailable; lab composition donor)

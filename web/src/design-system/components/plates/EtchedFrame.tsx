@@ -83,12 +83,15 @@ export function PlateFoot({
   children,
   className,
   arrangement = "end",
+  hairline = true,
   secondary,
   primary,
 }: {
   children?: ReactNode;
   className?: string;
   arrangement?: PlateFootArrangement;
+  /** In-plate stratum divider. Hull chrome (guided-task bay sibling) sets false. */
+  hairline?: boolean;
   secondary?: ReactNode;
   primary?: ReactNode;
 }) {
@@ -110,6 +113,7 @@ export function PlateFoot({
       justify={ARRANGEMENT_JUSTIFY[arrangement]}
       wrap
       data-arrangement={arrangement}
+      data-hairline={hairline ? "true" : "false"}
     >
       {cluster}
     </Inline>

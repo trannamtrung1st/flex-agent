@@ -10,7 +10,7 @@
 | **Version** | 1.0 |
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
-| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of retired v0.2 at Git `eb9c398`. `UI-SUBM-DEC-*` dispositions remain in force as AC-traced interaction rules. |
+| **Last amended** | 2026-08-30 — `UI-SUBM-DEC-13`–`UI-SUBM-DEC-16` clarified (registry cursor **Load more**, picker DataTable paging, assign receipt as toast) |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Administrator Enrollment interaction and Participant Submission preparation, intake, accepted-version history, Attempt readiness, start, and recovery for a P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-2`](activity-campaign-journey.md#jrn-mvp-2-assign-participant) and [`JRN-MVP-3`](activity-campaign-journey.md#jrn-mvp-3-submit-work-and-start-attempt) |
@@ -137,7 +137,11 @@ server authorization.
 
 The original decisions were approved on 2026-08-09. Version 0.2 amended
 `UI-SUBM-DEC-10` and approved `UI-SUBM-DEC-11`–`UI-SUBM-DEC-12` on
-2026-08-23. Stable IDs are retained for traceability and future supersession.
+2026-08-23. `UI-SUBM-DEC-13`–`UI-SUBM-DEC-16` were added on 2026-08-30.
+The same day, `UI-SUBM-DEC-13` and `UI-SUBM-DEC-14` were clarified so paging
+and assign-success feedback match the design-system toast/advisory split and
+the Participants registry **Load more** instrument. Stable IDs are retained
+for traceability and future supersession.
 
 | ID | Approved decision | Rationale and consequence |
 | --- | --- | --- |
@@ -153,6 +157,10 @@ The original decisions were approved on 2026-08-09. Version 0.2 amended
 | `UI-SUBM-DEC-10` | Own the P0 fairness-exception approval interaction in a bounded section on the Enrollment. Show a non-committed **Approval required** state to the requester; expose **Approve exception** and **Reject exception** only to a different separately authorized actor; and fail closed when no approved route or approver exists. | Preserves `REQ-ACT-42`, makes the exact baseline/request/effect visible in context, avoids an unnecessary governance destination, and prevents self-approval or policy widening. This resolves `Q-SUBM-UX-1`. |
 | `UI-SUBM-DEC-11` | Present only the currently permitted subset of four timing dimensions—Submission deadline, earliest Attempt start, latest Attempt start, and per-Attempt duration—as one normalized replacement value per request. Use a policy-supplied reason selection and collect no free-text reason or diagnosis. | Keeps the form bounded, understandable, and privacy-minimized while preventing client-authored dimensions, deltas, composition, or production reason vocabularies. |
 | `UI-SUBM-DEC-12` | Keep immutable baseline timing and current effective timing visibly distinct. When the browser cannot format the governing named timezone, show exact UTC plus the unchanged timezone identifier and state that local conversion is unavailable; never substitute the browser timezone. | Prevents an accommodation or display fallback from looking like a Cohort edit or changing the authoritative cutoff. |
+| `UI-SUBM-DEC-13` | Page Participants and participant-options with signed server cursors (`limit`, `cursor`, `has_more`). Do not load every row in the browser to exclude already-enrolled identities. Options may include currently enrolled Participants. | Client-side exclude-after-load-all does not scale. Equivalent retry is a toast labeled **Already assigned**, not a second **Enrollment active**. Search and sort apply to fetched pages. When the Participants registry `has_more`, OperateArea advisory plus **Load more Participants** fetch the next signed cursor. The Assign Participant picker pages the **already fetched** option set with DataTable pagination; a **Load more** control inside the picker (next options cursor) remains deferred. |
+| `UI-SUBM-DEC-14` | After a successful assign, stay on the Participants registry and show a toast labeled **Enrollment active** (copy is the permitted display identity). Do not require opening Enrollment detail. | Administrators usually continue assigning; bulk assign later should stay on the same registry. Detail remains available from the row identifier. Transient receipts use toast; see [alerts, advisories, and toasts](design-system/components/alerts.md). |
+| `UI-SUBM-DEC-15` | Keep header select-all on the Assign Participant picker as reserved chrome for a future bulk-assign contract. P0 commit stays disabled unless exactly one row is selected. | Avoids ripping out selection grammar that bulk assign will need; `UI-SUBM-DEC-9` still governs the P0 command. |
+| `UI-SUBM-DEC-16` | **Close Enrollment** and **Revoke Enrollment** require confirmation that names the Enrollment, the terminal consequence (no new intake or Attempt start; history preserved), and the operation's required reason code. No free-text reason. | Matches the lifecycle command contract (`activity_or_enrollment_end`, `access_revoked`) and prevents an accidental terminal mutation. |
 
 ## Information architecture
 
@@ -183,7 +191,9 @@ Activities
 
 The page does not expose raw Submission content unless the current actor also
 has the exact sensitive-content action and resource scope. Participant selection
-returns only authorized candidates; unavailable identities do not affect totals,
+returns authorized organization members for this Activity (`UI-SUBM-DEC-13`).
+The list is cursor-paged; it is not a complete dump filtered in the browser to
+hide already-enrolled identities. Unavailable identities do not affect totals,
 suggestions, or empty-state copy.
 
 ### Participant entry and hierarchy
@@ -191,8 +201,8 @@ suggestions, or empty-state copy.
 The Participant enters from:
 
 - **My work** → a current assignment;
-- **Home** → the highest-priority current action, such as **Continue upload**,
-  **Submit version**, **Start Attempt**, or **Continue Attempt**; or
+- **Home** (`/`) → the same assignment index while My work is available
+  (production redirects `/` to `/my-work` so there is one roster); or
 - an authorized assignment deep link.
 
 ```text
@@ -327,10 +337,11 @@ On command:
 1. Disable only the duplicate assignment action and label it **Assigning
    Participant**.
 2. Keep the current cohort context and safe navigation available.
-3. On success, name the Participant using only permitted display identity, show
-   **Enrollment active**, and link to the Enrollment detail.
-4. On an equivalent retry, return the same Enrollment and state **Already
-   assigned** without presenting duplicate work as a second success.
+3. On success, name the Participant using only permitted display identity in a
+   toast labeled **Enrollment active**. Stay on the Participants registry; do
+   not require opening Enrollment detail (`UI-SUBM-DEC-14`).
+4. On an equivalent retry, return the same Enrollment and show a toast labeled
+   **Already assigned** without presenting duplicate work as a second success.
 5. On conflict, show the current non-sensitive relationship and the safe next
    action; never overwrite or silently reassign it.
 6. If an external delivery side effect is later configured, show delivery
@@ -353,8 +364,10 @@ The detail presents readable effective facts before protected provenance:
 **Revoke Enrollment** appear only when individually authorized. Suspension is
 described as a reversible restriction. Closure and revocation state that no new
 Submission intake or Attempt start will be authorized and that history is
-preserved. Destructive terminal changes require a confirmation with the exact
-Enrollment, consequence, and required reason. The interface does not claim an
+preserved. Destructive terminal changes require confirmation that names the
+Enrollment, that consequence, and the operation's required reason code
+(`activity_or_enrollment_end` for Close, `access_revoked` for Revoke). No
+free-text reason (`UI-SUBM-DEC-16`). The interface does not claim an
 active Session was stopped; Session control belongs to its own policy and
 surface.
 
@@ -948,13 +961,15 @@ None.
 
 ## Approval record
 
-- Product review approved `UI-SUBM-DEC-1`–`UI-SUBM-DEC-12`, including one
+- Product review approved `UI-SUBM-DEC-1`–`UI-SUBM-DEC-16`, including one
   Assignment workspace, independent state tracks, explicit version submission,
   deliberate Attempt confirmation, start reconciliation, server-authoritative
   timing, newest-first immutable history, deliberate exact-version access,
-  one-at-a-time P0 assignment, bounded/minimized accommodation input,
-  baseline/effective timing separation, timezone fallback, and Enrollment-based
-  distinct-actor fairness-exception approval.
+  one-at-a-time P0 assignment, reserved select-all for future bulk, cursor-paged
+  lists that may include enrolled identities, stay-on-registry after assign,
+  Close/Revoke confirmation with required reason codes, bounded/minimized
+  accommodation input, baseline/effective timing separation, timezone fallback,
+  and Enrollment-based distinct-actor fairness-exception approval.
 - UI/UX review confirmed information hierarchy, terminology, local-versus-
   accepted state, intake and Attempt transitions, content, focus, keyboard,
   announcements, narrow layout, 400 percent zoom/reflow, and reduced-motion

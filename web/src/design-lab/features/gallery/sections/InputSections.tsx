@@ -32,6 +32,7 @@ import {
   SearchableDisclosureMenu,
   SearchableDropdownSelect,
   SearchableMultiSelect,
+  Stack,
   TimePicker,
   mmSsError,
 } from "../../../components";
@@ -252,6 +253,7 @@ export function InputSections() {
   const [harness, setHarness] = useState(harnesses[0]);
   const [context, setContext] = useState(campaigns[0].id);
   const [toolbar, setToolbar] = useState("All stages");
+  const [menuStage, setMenuStage] = useState<(typeof OPTION_MENU_SPECIMEN)[number]>("Examination");
   const [optionalOwner, setOptionalOwner] = useState<string | null>("Auditor");
   const [searchHarness, setSearchHarness] = useState(harnesses[0]);
   const [searchCampaign, setSearchCampaign] = useState(campaigns[0].id);
@@ -272,7 +274,7 @@ export function InputSections() {
 
   return (
     <>
-      <GallerySection id="form" title="Form controls" note="Parts catalog. Clone whole OperateArea compositions from Form recipes above. Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Ceremony, create, and dialogs use FormField layout=stack (label over slot, --field-label-gap / 10px). Titled clusters use FormSection (--form-group-gap). Horizon rows remain .form-row / .form-demo-row. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
+      <GallerySection id="form" title="Form controls" note="Parts catalog. Clone whole OperateArea compositions from Form recipes above. Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Ceremony, create, and dialogs use FormField layout=stack (label over slot, --field-label-gap / 10px). Titled clusters use FormSection: plate-title legend with a 2px hairline underline under the name only, then --form-group-gap to the fields. Horizon rows remain .form-row / .form-demo-row. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
         <div className="spec-row spec-row--fields">
           <Spec tag=".field-input · text slot · example placeholder">
             <FormField id="demoText" label="Callsign" className="form-demo-row">
@@ -300,18 +302,32 @@ export function InputSections() {
         </div>
         <div className="spec-row spec-row--fields">
           <Spec tag=".form-section · titled cluster">
-            <FormSection legend="Agent and Harness">
-              <FormField id="demoSectionAgent" label="Agent" layout="stack">
-                {(controlProps) => (
-                  <FieldInput
-                    {...controlProps}
-                    type="text"
-                    defaultValue="EXAMINER-CORE"
-                    placeholder="EXAMINER-CORE"
-                  />
-                )}
-              </FormField>
-            </FormSection>
+            <Stack gap="6">
+              <FormSection legend="Agent and Harness">
+                <FormField id="demoSectionAgent" label="Agent" layout="stack">
+                  {(controlProps) => (
+                    <FieldInput
+                      {...controlProps}
+                      type="text"
+                      defaultValue="EXAMINER-CORE"
+                      placeholder="EXAMINER-CORE"
+                    />
+                  )}
+                </FormField>
+              </FormSection>
+              <FormSection legend="Source set">
+                <FormField id="demoSectionTask" label="Task" layout="stack">
+                  {(controlProps) => (
+                    <FieldInput
+                      {...controlProps}
+                      type="text"
+                      defaultValue="TASK-STRUCT-01"
+                      placeholder="TASK-STRUCT-01"
+                    />
+                  )}
+                </FormField>
+              </FormSection>
+            </Stack>
           </Spec>
         </div>
         <div className="spec-row spec-row--field-stacks">
@@ -687,8 +703,21 @@ export function InputSections() {
         </Spec>
       </GallerySection>
 
-      <GallerySection id="menu" title="Option menu" note="Single-select listbox grammar: popover sheen on the consumer plate, hairline row dividers, teal-glass hover and keyboard focus, 7×1px teal tick plus Bright Text on the selected option. Selected rest is the tick, not the glass. Multiselect uses the square select-mark; time wheels and calendar days use the inset bezel. .command-menu is the action cousin — same hover and hairlines, no tick.">
-        <Spec tag=".option-menu.popover-surface · positioning stays on the consumer">
+      <GallerySection id="menu" title="Option menu" note="Single-select listbox grammar: popover sheen, hairline row dividers, teal-glass hover and keyboard focus, 7×1px teal tick plus Bright Text on the selected option. Selected rest is the tick, not the fill. Live placement uses DropdownSelect / placeFloating. The always-open specimen is row chrome only. .command-menu is the action cousin — same hover and hairlines, no tick.">
+        <Spec tag="DropdownSelect · placeFloating">
+          <div className="form-demo-row form-demo-row--fit">
+            <span className="field-label" id="demoMenuLabel">Stage</span>
+            <DropdownSelect
+              id="demoMenuKey"
+              valueId="demoMenuValue"
+              labelId="demoMenuLabel"
+              value={menuStage}
+              options={[...OPTION_MENU_SPECIMEN]}
+              onChange={(value) => setMenuStage(value as (typeof OPTION_MENU_SPECIMEN)[number])}
+            />
+          </div>
+        </Spec>
+        <Spec tag=".option-menu.popover-surface · row grammar (not placement)">
           <OptionMenuSpecimen />
         </Spec>
       </GallerySection>

@@ -72,17 +72,21 @@ describe("design lab routes", () => {
     expect(document.querySelector(".bay")).toHaveClass("composition-stack");
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
     expect(document.querySelector(".board-frame.frame-cut")).toBeNull();
-    expect(screen.getByRole("region", { name: "Assigned work by record state" }).querySelector(".frame-cut")).toBeNull();
+    expect(screen.getByRole("region", { name: "Assigned work by record state" }).querySelector(".board-frame")).toBeNull();
+    const plate = screen.getByRole("article", { name: "Systems Design Q3" });
+    expect(plate).toHaveClass("assignment-plate", "frame-cut");
+    expect(plate.closest(".bay-plates")).toBeTruthy();
+    expect(document.querySelector("article.plate")).toBeNull();
   });
 
   it("shows a readable open key and deadline on a single assignment plate", () => {
     renderLab("/design-lab/participant-home?demo=single");
-    const plate = screen.getByText("Systems Design Q3").closest("article");
-    expect(plate).toBeTruthy();
+    const plate = screen.getByRole("article", { name: "Systems Design Q3" });
+    expect(plate).toHaveClass("assignment-plate", "frame-cut");
     expect(plate).toHaveTextContent("Real-time Inventory & Order Management at Scale");
     expect(plate).toHaveTextContent("Briefing");
     expect(plate).not.toHaveTextContent("2026-09-12T23:00:00Z");
-    const open = screen.getByRole("link", { name: "Open" });
+    const open = screen.getByRole("link", { name: "Open Systems Design Q3" });
     expect(open).toHaveClass("key--open");
     expect(open.querySelector(".key-label")).toHaveTextContent("Open");
   });

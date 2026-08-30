@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { FlexQueryProvider } from "../api/query-client";
+import { ToastHost } from "../design-system";
 import { ProductionMyWorkDetailPage } from "./ProductionMyWorkDetailPage";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -76,15 +77,17 @@ function stubAuthenticatedFetch(handler: (url: string, init?: RequestInit) => Re
 
 function renderDetail() {
   return render(
-    <FlexQueryProvider>
-      <ProductionApiProvider>
-        <MemoryRouter initialEntries={["/my-work/enr-1"]}>
-          <Routes>
-            <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
-          </Routes>
-        </MemoryRouter>
-      </ProductionApiProvider>
-    </FlexQueryProvider>,
+    <ToastHost>
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <MemoryRouter initialEntries={["/my-work/enr-1"]}>
+            <Routes>
+              <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>
+    </ToastHost>,
   );
 }
 
@@ -137,6 +140,8 @@ describe("ProductionMyWorkDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Case study" })).toBeInTheDocument();
     expect(document.querySelector(".assignment-meta")).toHaveTextContent("Campaign A");
+    fireEvent.mouseEnter(screen.getByText("enr…1").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("enr-1");
     expect(screen.getByLabelText("Assignment status")).toHaveTextContent(/Begin intake/);
     expect(document.querySelector('[data-layout="guided-task"]')).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
@@ -144,6 +149,7 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.getByRole("heading", { name: "Submission" })).toBeInTheDocument();
     expect(screen.getByText(/Direct text up to 4,000 bytes/)).toBeInTheDocument();
     expect(screen.getByText(/Eligibility: Open/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Active");
     expect(screen.getByRole("navigation", { name: "Assignment phases" })).toBeInTheDocument();
     const begin = screen.getByRole("button", { name: "Begin intake" });
     const beginFoot = begin.closest(".layout-guided__actions");
@@ -193,6 +199,28 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["complete_item", "cancel_intake", "finalize_intake"],
         });
       }
+      if (url.includes("/intake/") && url.includes("/items") && init?.method === "POST") {
+        submission = submissionPayload({
+          permitted_actions: [],
+          active_intake: {
+            intake_id: "in-1",
+            submission_id: "sub-1",
+            status: "receiving",
+            revision: 2,
+            created_at_utc: "2026-08-28T00:00:00Z",
+            updated_at_utc: "2026-08-28T00:00:00Z",
+            items: [{ item_id: "it-1", category: "direct_text", byte_count: 20 }],
+            permitted_actions: ["complete_item", "cancel_intake", "finalize_intake"],
+          },
+        });
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "ok",
+          intake_id: "in-1",
+          permitted_actions: ["complete_item", "cancel_intake", "finalize_intake"],
+        });
+      }
       if (url.includes("/finalize") && init?.method === "POST") {
         submission = submissionPayload({
           permitted_actions: [],
@@ -216,23 +244,34 @@ describe("ProductionMyWorkDetailPage", () => {
 
     renderDetail();
     fireEvent.click(await screen.findByRole("button", { name: "Begin intake" }));
+    expect(await screen.findByText("Intake is open.")).toBeInTheDocument();
+    expect(screen.getByText("Intake is open.").closest(".toast")).toHaveAttribute("role", "status");
     expect(await screen.findByLabelText("Direct text")).toHaveAttribute(
       "placeholder",
       "Write or paste the submission text",
     );
-    expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Submit version");
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Intake receiving");
     const submit = await screen.findByRole("button", { name: "Submit version" });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Direct text"), { target: { value: "Evidence paragraph." } });
+    fireEvent.click(screen.getByRole("button", { name: "Add direct text" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Submit version" })).toBeEnabled();
+    });
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Submit version");
+    const enabledSubmit = screen.getByRole("button", { name: "Submit version" });
     const cancel = screen.getByRole("button", { name: "Cancel intake" });
-    const splitFoot = submit.closest(".layout-guided__actions");
+    const splitFoot = enabledSubmit.closest(".layout-guided__actions");
     expect(splitFoot).toHaveAttribute("data-arrangement", "split");
-    expect(cancel.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    fireEvent.click(submit);
+    expect(cancel.compareDocumentPosition(enabledSubmit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    fireEvent.click(enabledSubmit);
     const dialog = await screen.findByRole("dialog", { name: "Submit this version?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Submit version" }));
     await waitFor(() => {
       expect(screen.getByText(/Accepted version 1 remains immutable/)).toBeInTheDocument();
       expect(screen.getByText(/1 item/)).toBeInTheDocument();
     });
+    expect(screen.getByText("This version is preserved. Earlier versions remain on record.")).toBeInTheDocument();
     const versions = screen.getByRole("list", { name: "Accepted submission versions" });
     expect(versions.tagName).toBe("OL");
     const versionItem = versions.querySelector(":scope > li");
@@ -288,5 +327,8 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(document.querySelector(".field-file-well")).toBeTruthy();
     expect(screen.getByText("Drop files onto this bay")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Attachments (.txt or .md)" })).toBeInTheDocument();
+    const blockedSubmit = screen.getByRole("button", { name: "Submit version" });
+    expect(blockedSubmit).toBeDisabled();
+    expect(blockedSubmit).toHaveAccessibleDescription(/not permitted for this intake/);
   });
 });

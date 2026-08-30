@@ -208,6 +208,47 @@ describe("TooltipHost focus-visible", () => {
     fireEvent.mouseEnter(screen.getByRole("button").closest(".tip-host")!);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Harness snapshot");
   });
+
+  it("seats a label plaque inside an open modal dialog", async () => {
+    const { NativeDialog } = await import("../overlays/NativeDialog");
+    render(
+      <NativeDialog open onClose={() => undefined} className="dialog" labelledBy="title">
+        <h2 id="title">Confirm</h2>
+        <TooltipHost tip="Select all visible participants.">
+          <button type="button">Select page</button>
+        </TooltipHost>
+      </NativeDialog>,
+    );
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Select page" }).closest(".tip-host")!);
+    const plaque = screen.getByRole("tooltip");
+    expect(plaque).toHaveTextContent("Select all visible participants.");
+    expect(plaque.parentElement).toBe(document.querySelector("dialog"));
+  });
+
+  it("shifts a value plaque inward from the right viewport edge", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 400 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 400 });
+    render(
+      <TooltipHost tip="a1000000-0000-4000-8000-000000000007" tone="value">
+        <button type="button">id</button>
+      </TooltipHost>,
+    );
+    const host = screen.getByRole("button").closest(".tip-host") as HTMLElement;
+    host.getBoundingClientRect = () => ({
+      x: 360, y: 80, top: 80, left: 360, right: 392, bottom: 104, width: 32, height: 24, toJSON() { return {}; },
+    });
+    fireEvent.mouseEnter(host);
+    const plaque = screen.getByRole("tooltip");
+    plaque.getBoundingClientRect = () => ({
+      x: 0, y: 0, top: 0, left: 0, right: 240, bottom: 32, width: 240, height: 32, toJSON() { return {}; },
+    });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    const left = Number.parseFloat(plaque.style.left);
+    expect(left + 240).toBeLessThanOrEqual(392);
+    expect(left).toBeGreaterThanOrEqual(8);
+  });
 });
 
 describe("TooltipHost linger and selection", () => {
@@ -341,6 +382,20 @@ describe("EllipsisKey", () => {
     expect(button).toHaveClass("key--truncate");
     expect(button.closest(".tip-host")).toHaveClass("tip-host");
     expect(button.querySelector(".key-label")).toBeTruthy();
+  });
+});
+
+describe("ceremony size", () => {
+  it("lets large hot keys keep notch inset while using ceremony block padding and 44px floor", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const keysCss = readFileSync(join(here, "../../../styles/components/keys.css"), "utf8");
+    const large = keysCss.match(/\.key--large \{[^}]+\}/)?.[0] ?? "";
+    expect(large).toMatch(/min-height:\s*44px/);
+    const largeHot = keysCss.match(
+      /\.key--transmit\.key--large,\s*\.key--open\.key--large,\s*\.key--inspect\.key--large,\s*\.key--release\.key--large,\s*\.key--begin\.key--large,\s*\.key--activate\.key--large \{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(largeHot).toMatch(/padding-block:\s*var\(--key-large-padding-block\)/);
+    expect(largeHot).toMatch(/font-size:\s*var\(--key-large-font-size\)/);
   });
 });
 

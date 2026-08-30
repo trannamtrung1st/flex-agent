@@ -1,6 +1,13 @@
 import {
+  assignableEnrollmentCandidates,
+  candidateSelectOption,
+  enrollmentAssignmentDescription,
   enrollmentRecordVariant,
   enrollmentStatusCopy,
+  assignmentEligibilityCopy,
+  enrollmentLifecycleReason,
+  enrollmentLifecycleReceipt,
+  enrollmentAssignedReceipt,
   wordsFromCode,
   canonicalUtcInstant,
   accommodationValueExample,
@@ -14,7 +21,23 @@ describe("enrollment copy", () => {
   it("names eligibility and lifecycle codes for operators", () => {
     expect(wordsFromCode("too_early", { too_early: "Too early" })).toBe("Too early");
     expect(enrollmentStatusCopy("active")).toBe("Active");
+    expect(assignmentEligibilityCopy("too_early", false)).toBe("Submission window has not opened");
+    expect(assignmentEligibilityCopy("too_early", false, true)).toBe("Attempt start has not opened");
+    expect(assignmentEligibilityCopy("too_early", true)).toBe("Attempt start has not opened");
+    expect(assignmentEligibilityCopy("open", false)).toBe("Open");
     expect(wordsFromCode("restriction_removed")).toBe("Restriction removed");
+    expect(enrollmentLifecycleReason("close")).toBe("activity_or_enrollment_end");
+    expect(enrollmentLifecycleReason("revoke")).toBe("access_revoked");
+    expect(enrollmentLifecycleReason("suspend")).toBe("temporary_restriction");
+    expect(enrollmentLifecycleReason("restore")).toBe("restriction_removed");
+    expect(enrollmentLifecycleReceipt("suspend")).toEqual({
+      label: "Enrollment",
+      copy: "Enrollment is suspended.",
+    });
+    expect(enrollmentAssignedReceipt("Casey Candidate")).toEqual({
+      label: "Enrollment active",
+      copy: "Casey Candidate",
+    });
     expect(canonicalUtcInstant("2026-09-01T12:00:00Z")).toBe("2026-09-01T12:00:00Z");
     expect(accommodationValueExample("submission_deadline_utc", "2026-09-01T12:00:00Z")).toBe("2026-09-01T12:00:00Z");
     expect(accommodationValueExample("per_attempt_duration_seconds")).toBe("900");
@@ -64,5 +87,33 @@ describe("enrollmentRecordVariant", () => {
   it("uses rest for other lifecycle states", () => {
     expect(enrollmentRecordVariant("closed")).toEqual({ variant: "rest" });
     expect(enrollmentRecordVariant("revoked")).toEqual({ variant: "rest" });
+  });
+});
+
+describe("assignment selector", () => {
+  it("drops candidates already present on the roster", () => {
+    expect(assignableEnrollmentCandidates(
+      [
+        { actor_id: "p-1", display_label: "Pat" },
+        { actor_id: "p-2", display_label: "Casey" },
+      ],
+      [{ participant_actor_id: "p-1" }],
+    )).toEqual([{ actor_id: "p-2", display_label: "Casey" }]);
+  });
+
+  it("names Campaign and Task on the assignment surface", () => {
+    expect(enrollmentAssignmentDescription()).toBe("Assign one eligible Participant to this activated cohort.");
+    expect(enrollmentAssignmentDescription("Shoreline Operations")).toBe(
+      "Shoreline Operations. Activated cohort. Assign one eligible Participant.",
+    );
+    expect(enrollmentAssignmentDescription("Shoreline Operations", "Harbor Watch")).toBe(
+      "Shoreline Operations. Activated cohort. Task Harbor Watch. Assign one eligible Participant.",
+    );
+  });
+
+  it("disambiguates duplicate display labels with the actor id", () => {
+    const counts = new Map([["Pat", 2]]);
+    expect(candidateSelectOption({ actor_id: "p-1", display_label: "Pat" }, counts)).toBe("Pat · p-1");
+    expect(candidateSelectOption({ actor_id: "p-1", display_label: "Pat" }, new Map([["Pat", 1]]))).toBe("Pat");
   });
 });

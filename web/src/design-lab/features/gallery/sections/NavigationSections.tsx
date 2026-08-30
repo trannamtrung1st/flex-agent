@@ -15,9 +15,12 @@ import {
   OperateHead,
   PARTICIPANT_IDENTITY,
   ReadoutList,
+  SectionedNavigation,
+  hashNavigationStrategy,
   labAccountActions,
   type CommandStripNavItem,
   type GangwayGroup,
+  type IndexRailGroup,
 } from "../../../components";
 import { useTheme } from "../../../../lib/useTheme";
 import { PanelTabs } from "../PanelTabs";
@@ -54,8 +57,33 @@ const stripRoleNav: CommandStripNavItem[] = [
   { to: "/shared/gallery#strip", label: "Results", inactive: true },
 ];
 
+const collapsibleIndexGroups: IndexRailGroup[] = [
+  {
+    id: "foundations",
+    label: "Foundations",
+    items: [
+      { id: "colors", label: "Colors" },
+      { id: "type", label: "Type voices" },
+      { id: "typography", label: "Typography" },
+      { id: "keys", label: "Keys" },
+      { id: "pane", label: "Pane" },
+      { id: "frame", label: "Etched frame" },
+    ],
+  },
+  {
+    id: "navigation",
+    label: "Navigation",
+    items: [
+      { id: "strip", label: "Command strip" },
+      { id: "nav-groups", label: "Nav groups" },
+      { id: "gangway", label: "Gangway" },
+    ],
+  },
+];
+
 export function NavigationSections() {
   const [collapsed, setCollapsed] = useState(false);
+  const [groupGangwayCollapsed, setGroupGangwayCollapsed] = useState(false);
   const [drawer, setDrawer] = useState<"leading" | "trailing" | "form" | null>(null);
   const [footerState, setFooterState] = useState("Populated roster");
   const { theme, toggleTheme } = useTheme();
@@ -104,7 +132,21 @@ export function NavigationSections() {
         </Spec>
       </GallerySection>
 
-      <GallerySection id="gangway" title="Gangway side menu" note="Persistent collapsible side menu for shell layouts — the in-layout counterpart to the bulkhead drawer. Width rides --gangway-w (232px); the toggle folds it to a 76px rail of engraved channel codes.">
+      <GallerySection id="nav-groups" title="Collapsible nav groups" note="Grouped side menus disclose with native details. Group headers keep the diamond node and gangway label voice; the pointer is a hand because the row is a control. Index catalogs start open on desktop and accordion to one group at ≤900px. Gangway group collapse is opt-in.">
+        <div className="spec-row">
+          <Spec tag="summary.gangway-section-label · cursor:pointer · details">
+            <nav className="nav-rail nav-demo nav-demo--index" aria-label="Collapsible index specimen">
+              <SectionedNavigation
+                groups={collapsibleIndexGroups}
+                strategy={hashNavigationStrategy("colors")}
+                variant="index"
+              />
+            </nav>
+          </Spec>
+        </div>
+      </GallerySection>
+
+      <GallerySection id="gangway" title="Gangway side menu" note="Persistent collapsible side menu for shell layouts — the in-layout counterpart to the bulkhead drawer. Width rides --gangway-w (232px); the toggle folds it to a 76px rail of engraved channel codes. Pass collapsibleGroups to let section headers fold their destinations while the gangway is expanded.">
         <Spec wide tag=".gangway · head / body / foot · .gangway-abbr · .is-collapsed — click the chevron key to fold">
           <div className="gangway-demo">
             <Gangway
@@ -118,10 +160,24 @@ export function NavigationSections() {
             <div className="gangway-demo-canvas"><span className="gangway-demo-note">Shell content region — the gangway is a grid track; the fold reflows this column.</span></div>
           </div>
         </Spec>
+        <Spec wide tag=".gangway · collapsibleGroups — group headers fold destinations; the 76px rail force-opens them">
+          <div className="gangway-demo">
+            <Gangway
+              title="Administrator"
+              groups={gangwayGroups}
+              collapsed={groupGangwayCollapsed}
+              onCollapsedChange={setGroupGangwayCollapsed}
+              collapsibleGroups
+              ariaLabel="Collapsible gangway specimen"
+              footer={<ReadoutList rows={[{ term: "Operator", value: "ADM-7X92-19" }]} />}
+            />
+            <div className="gangway-demo-canvas"><span className="gangway-demo-note">Click a group title to fold its destinations. Fold the rail and the codes stay on the channel.</span></div>
+          </div>
+        </Spec>
       </GallerySection>
 
-      <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Shared in-bay trail (BreadcrumbNav). Home plus reachable destinations only — not a URL-segment dump, not a second gangway, and not the BackKey row. Ancestors stay linked; the current crumb is plain text with aria-current.">
-        <Spec wide tag="index · Home / current">
+      <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Shared in-bay trail (BreadcrumbNav). Production gangway indexes omit it. Nested records keep Home plus reachable destinations — not a URL-segment dump, not a second gangway, and not the BackKey row. Ancestors stay linked; the current crumb is plain text with aria-current.">
+        <Spec wide tag="primitive · Home / current">
           <BreadcrumbNav items={[{ label: "My work", current: true }]} />
         </Spec>
         <Spec wide tag="nested record · Activities / Setup">

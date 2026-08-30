@@ -12,6 +12,7 @@ export const gallerySections = [
       { id: "key-group", label: "Key group" },
       { id: "pane", label: "Pane" },
       { id: "frame", label: "Etched frame" },
+      { id: "assignment-plate", label: "Assignment plate" },
     ],
   },
   {
@@ -20,6 +21,7 @@ export const gallerySections = [
     items: [
       { id: "strip", label: "Command strip" },
       { id: "nav-rail", label: "Nav rail" },
+      { id: "nav-groups", label: "Nav groups" },
       { id: "gangway", label: "Gangway" },
       { id: "breadcrumbs", label: "Breadcrumbs" },
       { id: "drawer", label: "Bulkhead drawer" },
@@ -36,6 +38,7 @@ export const gallerySections = [
       { id: "readout", label: "Readout rows" },
       { id: "readout-grid", label: "Readout grid" },
       { id: "compact-id", label: "Compact ID" },
+      { id: "item-list", label: "Item list" },
       { id: "datatable", label: "Datatable" },
       { id: "datatable-scroll", label: "Datatable scroll" },
     ],

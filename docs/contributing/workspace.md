@@ -154,8 +154,10 @@ Leaving the candidate overlay active while using the canonical gateway breaks
 sign-in on `:18080` (**Sign-in could not be completed**).
 
 Synthetic administrator username `demo.admin` is in
-`deploy/compose/keycloak/flex-agent-realm.json`. Do not copy fixture passwords
-into task records, screenshots, or Production configuration.
+`deploy/compose/keycloak/flex-agent-realm.json`, with numbered extras
+`demo.admin1`–`demo.admin5` and `demo.participant1`–`demo.participant30`
+(original `demo.admin` / `demo.participant` remain). Do not copy fixture
+passwords into task records, screenshots, or Production configuration.
 
 Isolated design lab (`http://localhost:5275/design-lab/surfaces`, or
 `http://127.0.0.1:5275` when started with `--host 127.0.0.1`). Probe both

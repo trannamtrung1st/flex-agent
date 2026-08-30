@@ -3,7 +3,8 @@
 - [x] Participant session: side menu header should be sticky and consistent with other surfaces/pages.
 - [x] Outside components vs design-system/components? unify.
 - [x] Enhance breadcrumb as shared component in design-system.
-- [ ] Auto detect/locate tooltip? overlay?
+- [x] Auto detect/locate tooltip? overlay?
+- [ ] Scan plain html, class, css convert to component.
 - [x] Review VersionList component?
 - [x] Improve docs/rules/skills, that we ensure consistency of new features by clone or copy from existing ones (and verify against latest specs/rules/skills).
 - [ ] Consolidate docs/specs into latest snapshot and moving forward. Remove decisions records, etc as this is only solo project. I don't care about historical records yet.

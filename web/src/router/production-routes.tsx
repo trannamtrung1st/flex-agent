@@ -16,7 +16,7 @@ import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage"
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
 import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
 import { GuidedTaskFoot, Key, WorkWell, WorkWellSection } from "../design-system";
-import { isProductionDestinationOpen, productionDestinationUnavailableCopy } from "./production-navigation";
+import { isProductionDestinationOpen, productionDestinationUnavailableCopy, productionWorkspaceHome } from "./production-navigation";
 import { PRODUCTION_ROUTE_LAYOUTS } from "./production-route-layouts";
 import { layoutIdForPath } from "./route-layout-match";
 
@@ -37,6 +37,7 @@ export function ProductionDestinationGuard({
   }
 
   const note = productionDestinationUnavailableCopy(destinationId);
+  const homeTo = productionWorkspaceHome(shell?.navigation);
   if (layoutIdForPath(location.pathname, PRODUCTION_ROUTE_LAYOUTS) === "guided-task") {
     return (
       <AssignmentStationLayout
@@ -50,7 +51,7 @@ export function ProductionDestinationGuard({
         )}
         actions={(
           <GuidedTaskFoot arrangement="end">
-            <Key variant="quiet" to="/">Return to Home</Key>
+            <Key variant="quiet" to={homeTo}>Return to Home</Key>
           </GuidedTaskFoot>
         )}
       >
@@ -68,7 +69,18 @@ export function ProductionDestinationGuard({
       title="Access denied"
       note={note}
       danger
-      recovery={{ label: "Return to Home", to: "/" }}
+      recovery={{ label: "Return to Home", to: homeTo }}
+    />
+  );
+}
+
+function ProductionContractUnavailable({ title, note }: { title: string; note: string }) {
+  const { shell } = useProductionApi();
+  return (
+    <ContractUnavailablePage
+      title={title}
+      note={note}
+      homeTo={productionWorkspaceHome(shell?.navigation)}
     />
   );
 }
@@ -172,7 +184,7 @@ export function createProductionRouter() {
         path: "sessions/:sessionId",
         element: (
           <ProductionDestinationGuard destinationId="sessions">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Text Session"
               note="Session command and snapshot HTTP are not exposed to this SPA. The host maps SSE events only. The Session remains on the server."
             />
@@ -183,7 +195,7 @@ export function createProductionRouter() {
         path: "review",
         element: (
           <ProductionDestinationGuard destinationId="review">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Review work"
               note="Review-case APIs are not exposed to this SPA yet. Evaluation, Human revision, and Review decision remain distinct server objects."
             />
@@ -194,7 +206,7 @@ export function createProductionRouter() {
         path: "review/:reviewId",
         element: (
           <ProductionDestinationGuard destinationId="review">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Review case"
               note="This locator is not backed by a production Review API in the current contract set."
             />
@@ -205,7 +217,7 @@ export function createProductionRouter() {
         path: "release",
         element: (
           <ProductionDestinationGuard destinationId="release">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Release work"
               note="Release APIs are not exposed to this SPA yet. Release remains independent of Review approval."
             />
@@ -216,7 +228,7 @@ export function createProductionRouter() {
         path: "release/:resultId",
         element: (
           <ProductionDestinationGuard destinationId="release">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Release Result"
               note="This locator is not backed by a production Release API in the current contract set."
             />
@@ -227,7 +239,7 @@ export function createProductionRouter() {
         path: "results",
         element: (
           <ProductionDestinationGuard destinationId="results">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Results"
               note="Participant Result visibility is server-owned. This SPA has no Result list contract yet, so the destination stays unavailable rather than inventing scores."
             />
@@ -238,7 +250,7 @@ export function createProductionRouter() {
         path: "results/:resultId",
         element: (
           <ProductionDestinationGuard destinationId="results">
-            <ContractUnavailablePage
+            <ProductionContractUnavailable
               title="Result"
               note="Participant Result visibility is server-owned. This SPA has no Result read contract yet, so the view stays unavailable rather than inventing a score."
             />

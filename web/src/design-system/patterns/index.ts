@@ -20,6 +20,7 @@ export {
   matchingQueryKey,
   normalizeSelection,
   removeIds,
+  resolveSelectedIds,
   selectionCopy,
   toggleRow,
   transitionHeaderSelection,

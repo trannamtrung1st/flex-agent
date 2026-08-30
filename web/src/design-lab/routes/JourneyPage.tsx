@@ -14,7 +14,7 @@ import {
   TransmitChevron,
   usePrototypeSignOut,
 } from "../components";
-import { GuidedTaskLayout, PlateStatusMark, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../design-system";
+import { GuidedTaskFoot, GuidedTaskLayout, PlateStatusMark, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../design-system";
 import { JOURNEY_DEMO_KEYS, JOURNEY_DEMOS, JOURNEY_PHASES, type JourneyDemo } from "../data/fixtures/journey";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
@@ -140,7 +140,7 @@ export function JourneyPage() {
       actions={
         <>
           <p className="action-note bar-note">Synthetic demonstration content — no real participant data.</p>
-          <div className="action-keys">
+          <GuidedTaskFoot arrangement="end">
             <Actions
               view={viewPhase}
               snap={snap}
@@ -152,7 +152,7 @@ export function JourneyPage() {
                 announce(`Returned to ${JOURNEY_PHASES.find((p) => p.id === snap.current)?.label} phase.`);
               }}
             />
-          </div>
+          </GuidedTaskFoot>
         </>
       }
       overlays={

@@ -38,6 +38,12 @@
   display: none;
 }
 
+.bulkhead .nav-rail {
+  --gangway-body-pad-inline-start: 0;
+  --gangway-body-pad-inline-end: 0;
+  --gangway-group-gap: 12px;
+}
+
 .nav-list {
   list-style: none;
   display: flex;
@@ -467,6 +473,26 @@ body.is-bulkhead-open { overflow: hidden; }
 
 .gangway-section-label-text {
   line-height: 1;
+}
+
+summary.gangway-section-label {
+  list-style: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+summary.gangway-section-label::-webkit-details-marker {
+  display: none;
+}
+
+summary.gangway-section-label:hover,
+summary.gangway-section-label:focus-visible {
+  color: var(--teal);
+}
+
+details[open] > summary.gangway-section-label .gangway-section-node {
+  border-color: var(--teal);
+  background: rgba(60, 192, 191, 0.22);
 }
 
 .gangway.is-collapsed .gangway-section + .gangway-section::before {

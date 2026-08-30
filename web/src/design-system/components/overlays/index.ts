@@ -11,4 +11,17 @@ export {
   type DialogPlateWidth,
 } from "./DialogPlate";
 export { NativeDialog } from "./NativeDialog";
-export { ToastDock, useToasts, type ToastNotice } from "./ToastDock";
+export { overlayPortalRoot } from "./overlayPortalRoot";
+export { placeFloating } from "./placeFloating";
+export { AnchoredOverlay, useFloatingPlacement } from "./AnchoredOverlay";
+export {
+  ToastDock,
+  ToastHost,
+  usePushToast,
+  useToasts,
+  type PushToast,
+  type ToastDockPlacement,
+  type ToastDockProps,
+  type ToastHostProps,
+  type ToastNotice,
+} from "./ToastDock";

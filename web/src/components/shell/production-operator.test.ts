@@ -6,7 +6,7 @@ describe("productionOperatorIdentity", () => {
       shortId: "Demo Participant",
       fullId: "Demo Participant",
       role: "Participant",
-      home: "/",
+      home: "/my-work",
     });
   });
 
@@ -21,5 +21,10 @@ describe("productionOperatorIdentity", () => {
 
   it("maps reviewer relationships", () => {
     expect(productionOperatorRole("reviewer", [])).toBe("Reviewer");
+  });
+
+  it("uses My work as operational home when that destination is available", () => {
+    expect(productionOperatorIdentity("participant", ["my-work"]).home).toBe("/my-work");
+    expect(productionOperatorIdentity("administrator", ["activities", "home"]).home).toBe("/");
   });
 });

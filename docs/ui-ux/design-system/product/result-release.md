@@ -8,8 +8,9 @@ redefine Result construction, visibility, correction, or notification.
 Use Shipboard plates, ceremony dialogs, and commit keys for the authorized
 Release flow only. Do not adopt prototype **Approve & Release** (`PC-01`).
 Released Participant views render only server-projected fields (`PC-04`).
-Before Release, Participant Home/My Work show **Result not available**
-(`PC-03`).
+Before Release, Participant **My work** and design-lab Status Bays show
+**Result not available** (`PC-03`). Production Participant `/` redirects to
+`/my-work` and is not a second roster.
 
 ## Distinct state tracks
 

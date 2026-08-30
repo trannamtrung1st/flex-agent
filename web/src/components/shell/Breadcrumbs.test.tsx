@@ -61,12 +61,13 @@ describe("Breadcrumbs", () => {
     expect(screen.queryByText(/33333333-3333-4333-8333-333333333333/i)).not.toBeInTheDocument();
   });
 
-  it("marks Activities as current on the index", () => {
-    renderTrail("/activities");
+  it("omits the trail on gangway indexes", () => {
+    const activities = renderTrail("/activities");
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+    activities.unmount();
 
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-    expect(screen.getByText("Activities")).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByRole("link", { name: "Activities" })).not.toBeInTheDocument();
+    renderTrail("/my-work");
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
   });
 
   it("labels the Campaign create locator instead of echoing new", () => {

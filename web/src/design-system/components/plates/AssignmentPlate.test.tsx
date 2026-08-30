@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { Key } from "../../design-system";
-import { AssignmentPlate } from "./AssignmentPlate";
+import { AssignmentPlate, Key } from "../../index";
 
 describe("AssignmentPlate", () => {
   it("seats the next-action key on a trailing plate foot", () => {
@@ -24,7 +23,11 @@ describe("AssignmentPlate", () => {
     expect(foot).toHaveClass("plate-foot", "assignment-plate-keys");
     expect(foot).toHaveAttribute("data-arrangement", "end");
     expect(foot).toHaveAttribute("data-flow-justify", "end");
+    expect(foot).toHaveAttribute("data-hairline", "true");
     expect(foot).not.toHaveClass("assignment-plate-keys--empty");
+    expect(open.closest("article")).toHaveClass("assignment-plate", "frame-cut");
+    expect(open.closest("article")?.querySelector(".readout--horizon")).toBeTruthy();
+    expect(open.closest("article")?.querySelector(".frame-tick")).toBeNull();
   });
 
   it("reserves an empty trailing foot when no action is authorized", () => {

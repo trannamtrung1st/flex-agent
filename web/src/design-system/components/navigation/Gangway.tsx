@@ -1,23 +1,23 @@
 import type { ReactNode } from "react";
 import { ChevronGlyph } from "../glyphs";
 import { routeNavigationStrategy, type RouteNavigationItem } from "./navigationStrategies";
-import { SectionedNavigation } from "./SectionedNavigation";
+import { SectionedNavigation, type SectionedNavigationGroup } from "./SectionedNavigation";
 
 export type GangwayItem = RouteNavigationItem;
-export type GangwayGroup = {
-  id?: string;
-  label: string;
-  items: GangwayItem[];
-};
+export type GangwayGroup = SectionedNavigationGroup<GangwayItem>;
 
 export function AreaGroupList({
   groups,
   variant,
   onNavigate,
+  collapsibleGroups,
+  forceExpanded,
 }: {
   groups: readonly GangwayGroup[];
   variant: "gangway" | "rail";
   onNavigate?: () => void;
+  collapsibleGroups?: boolean;
+  forceExpanded?: boolean;
 }) {
   return (
     <SectionedNavigation
@@ -25,6 +25,8 @@ export function AreaGroupList({
       strategy={routeNavigationStrategy}
       variant={variant}
       onNavigate={onNavigate}
+      collapsibleGroups={collapsibleGroups}
+      forceExpanded={forceExpanded}
     />
   );
 }
@@ -36,6 +38,7 @@ export function Gangway({
   onCollapsedChange,
   footer,
   ariaLabel = "Areas",
+  collapsibleGroups,
 }: {
   title: string;
   groups: readonly GangwayGroup[];
@@ -43,6 +46,7 @@ export function Gangway({
   onCollapsedChange: (collapsed: boolean) => void;
   footer?: ReactNode;
   ariaLabel?: string;
+  collapsibleGroups?: boolean;
 }) {
   const toggleLabel = collapsed ? "Expand menu" : "Collapse menu";
 
@@ -66,7 +70,12 @@ export function Gangway({
       </header>
 
       <div className="gangway-body">
-        <AreaGroupList groups={groups} variant="gangway" />
+        <AreaGroupList
+          groups={groups}
+          variant="gangway"
+          collapsibleGroups={collapsibleGroups}
+          forceExpanded={collapsed}
+        />
       </div>
 
       {footer ? <footer className="gangway-foot">{footer}</footer> : null}

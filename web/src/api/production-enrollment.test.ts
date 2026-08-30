@@ -1,5 +1,5 @@
 import { ProductionApiError } from "./production-api";
-import { createProductionEnrollmentClient } from "./production-enrollment";
+import { createProductionEnrollmentClient, enrollmentOutcomeCopy } from "./production-enrollment";
 
 describe("production enrollment client", () => {
   it("maps a 409 conflict onto a failed mutation outcome", async () => {
@@ -45,6 +45,25 @@ describe("production enrollment client", () => {
 
     expect(JSON.parse(body)).toEqual(
       expect.objectContaining({ idempotency_key: "enr-retry-1" }),
+    );
+  });
+
+  it("passes a signed list cursor on the next page request", async () => {
+    const fetchJson = vi.fn().mockResolvedValue({ schema_version: "v1", items: [], has_more: false });
+    const client = createProductionEnrollmentClient(fetchJson);
+    await client.listEnrollments("act-1", "coh-1", "cur-1");
+    await client.listCandidates("act-1", "coh-1", "cur-2");
+    expect(fetchJson.mock.calls[0]?.[0]).toBe(
+      "/v1/assessment/activities/act-1/cohorts/coh-1/enrollments?cursor=cur-1",
+    );
+    expect(fetchJson.mock.calls[1]?.[0]).toBe(
+      "/v1/assessment/activities/act-1/cohorts/coh-1/participant-options?cursor=cur-2",
+    );
+  });
+
+  it("names a duplicate assignment without treating it as a second success", () => {
+    expect(enrollmentOutcomeCopy("enrollment.assignment.deduplicated", "Assignment did not complete.")).toBe(
+      "Already assigned",
     );
   });
 });

@@ -20,6 +20,10 @@ export function productionOperatorRole(
   return "Participant";
 }
 
+export function productionOperatorHome(destinationIds: string[]): "/" | "/my-work" {
+  return destinationIds.includes("my-work") ? "/my-work" : "/";
+}
+
 export function productionOperatorIdentity(
   relationship: string | undefined,
   destinationIds: string[],
@@ -31,6 +35,6 @@ export function productionOperatorIdentity(
     shortId: seated,
     fullId: seated,
     role,
-    home: "/",
+    home: productionOperatorHome(destinationIds),
   };
 }

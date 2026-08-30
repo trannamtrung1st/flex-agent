@@ -10,7 +10,6 @@ import {
 import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import { sourceCategoryLabel } from "../features/assessment/campaignCreatePresentation";
 import {
-  Alert,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
@@ -112,11 +111,10 @@ export function AssessmentActivitiesPage({
       label="Activities"
       title="Activities"
       description="Create and resume Assessment Campaign drafts."
-      context={canCreate && missingCategory ? (
-        <Alert variant="info" title={`No permitted ${sourceCategoryLabel(missingCategory)} revisions are available`}>
-          A ready source set is required before a draft can be created.
-        </Alert>
-      ) : null}
+      advisory={canCreate && missingCategory ? {
+        label: "Sources",
+        copy: `No permitted ${sourceCategoryLabel(missingCategory)} revisions are available. A ready source set is required before a draft can be created.`,
+      } : undefined}
     >
       <ActivityRegistry rows={rows} offerCreate={offerCreate} />
     </OperateArea>

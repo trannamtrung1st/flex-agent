@@ -5,9 +5,9 @@ import {
   Announcer,
   CATALOG_ROUTE,
   SignOutCeremony,
-  ToastDock,
+  ToastHost,
   usePrototypeSignOut,
-  useToasts,
+  usePushToast,
 } from "../components";
 import { ManagementLayout } from "../../design-system";
 import { createCampaigns } from "../data/fixtures/campaigns";
@@ -23,13 +23,21 @@ import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useSurface } from "../lib/useSurface";
 
 export function AdminPage() {
+  return (
+    <ToastHost placement="bottom-center">
+      <AdminPageBody />
+    </ToastHost>
+  );
+}
+
+function AdminPageBody() {
   useSurface("admin-console");
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState(() => createCampaigns());
   const [sealing, setSealing] = useState(false);
   const { message, announce } = useAnnouncer();
-  const { toasts, pushToast } = useToasts();
+  const pushToast = usePushToast();
   const { actions, signOutOpen, setSignOutOpen } = usePrototypeSignOut();
 
   const campaignId = searchParams.get("campaign");
@@ -110,12 +118,12 @@ export function AdminPage() {
         currentLabel: areaLabel,
         ariaLabel: "Administrator areas",
         bulkheadId: "adminNavBulkhead",
+        collapsibleGroups: true,
       }}
       footerNote="Synthetic demonstration content — no real participant data."
       overlays={
         <>
           <Announcer message={message} />
-          <ToastDock toasts={toasts} />
           <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
         </>
       }

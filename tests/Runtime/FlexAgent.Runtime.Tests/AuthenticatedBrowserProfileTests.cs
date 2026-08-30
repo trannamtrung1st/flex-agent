@@ -123,6 +123,15 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("demo.unbound", usernames);
         Assert.Contains("demo.zeroorg", usernames);
         Assert.Contains("demo.ambiguous", usernames);
+        for (var i = 1; i <= 5; i++)
+        {
+            Assert.Contains($"demo.admin{i}", usernames);
+        }
+
+        for (var i = 1; i <= 30; i++)
+        {
+            Assert.Contains($"demo.participant{i}", usernames);
+        }
     }
 
     [Fact]
@@ -145,6 +154,10 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("cccccccc-cccc-4ccc-8ccc-cccccccccccd", seed);
         Assert.Contains("identity_human_display_profiles", seed);
         Assert.Contains("demo.participant", seed);
+        Assert.Contains("d2000000-0000-4000-8000-", seed);
+        Assert.Contains("e2000000-0000-4000-8000-", seed);
+        Assert.Contains("generate_series(1, 5)", seed);
+        Assert.Contains("generate_series(1, 30)", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
     }

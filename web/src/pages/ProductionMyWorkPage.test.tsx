@@ -76,21 +76,25 @@ describe("ProductionMyWorkPage", () => {
     renderPage();
 
     const plate = await screen.findByRole("article", { name: "Campaign A" });
-    expect(plate).toHaveClass("assignment-plate");
+    expect(plate).toHaveClass("assignment-plate", "frame-cut");
     expect(plate).not.toHaveAttribute("aria-live");
-    expect(plate.closest(".frame-cut")).toBeNull();
-    expect(screen.getByRole("region", { name: "My work" }).querySelector(".frame-cut")).toBeNull();
+    expect(plate.querySelector(".frame-tick")).toBeNull();
+    expect(screen.getByRole("region", { name: "My work" }).querySelector(".frame-cut")).toBe(plate);
     expect(screen.getByRole("link", { name: "Open Campaign A" })).toHaveAttribute("href", "/my-work/enr-1");
     expect(screen.getByRole("link", { name: "Open Campaign A" }).closest("footer")).toHaveAttribute("data-arrangement", "end");
     expect(plate).toHaveTextContent("Case study");
-    expect(plate).toHaveTextContent("active");
+    expect(plate).toHaveTextContent("Active");
     expect(screen.getByRole("heading", { name: "Current assignments" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "My work" })).not.toHaveClass("assignment-board--hug");
     expect(screen.getByRole("region", { name: "My work" }).querySelector(":scope > .operate-scroll")).toContainElement(
       document.querySelector(".assignment-bays"),
     );
-    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays", "plate-bays--hug");
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays");
     expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--dense");
+    const plates = plate.closest(".composition-grid");
+    expect(plates).toHaveAttribute("data-flow-fit", "fill");
+    expect(plates).toHaveAttribute("data-flow-min", "control");
+    expect(document.querySelector(".assignment-bay-plates")).toBeNull();
   });
 
   it("shows a readable UTC deadline when the campaign zone cannot be converted", async () => {
@@ -162,8 +166,9 @@ describe("ProductionMyWorkPage", () => {
     await screen.findByRole("article", { name: "Campaign A" });
     expect(screen.getByRole("article", { name: "Campaign B" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "My work" })).not.toHaveClass("assignment-board--hug");
-    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays", "plate-bays--hug");
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays");
     expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--dense");
+    expect(document.querySelectorAll(".assignment-bays .composition-grid[data-flow-fit='fill']")).toHaveLength(1);
   });
 
   it("seats an inset empty plate in the operate well when there is no assigned work", async () => {

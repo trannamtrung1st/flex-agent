@@ -30,7 +30,29 @@ describe("CeremonyUnavailable", () => {
     expect(recovery).toHaveAttribute("href", "/");
     expect(recovery).toHaveClass("key", "key--quiet");
     expect(recovery).not.toHaveClass("key--open");
+    expect(recovery).not.toHaveClass("key--transmit");
     expect(recovery.parentElement).toHaveClass("tip-host");
+  });
+
+  it("lights Continue to sign in as a large transmit recovery, not a quiet Return key", () => {
+    render(
+      <CeremonyUnavailable
+        title="Sign-in could not be completed"
+        note="Sign-in could not be completed. No application session was created."
+        danger
+        alert
+        recovery={{ label: "Continue to sign in", variant: "transmit", onClick: () => {} }}
+      />,
+    );
+
+    const recovery = screen.getByRole("button", { name: "Continue to sign in" });
+    expect(recovery).toHaveClass("key", "key--transmit", "key--large");
+    expect(recovery).not.toHaveClass("key--quiet");
+    expect(recovery).not.toHaveClass("key--open");
+    expect(screen.getByRole("heading", { name: "Sign-in could not be completed" }).closest(".workspace-area")).toHaveClass(
+      "workspace-area--danger",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in could not be completed. No application session was created.");
   });
 
   it("lights denied ceremony titles with fault phosphor, not teal emission", () => {

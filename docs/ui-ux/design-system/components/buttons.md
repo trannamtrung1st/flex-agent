@@ -44,7 +44,9 @@ target rules via hit area.
 Transparent, `fg-muted` text, hairline border. Hover/focus: teal text and
 border. Active: Teal Glow fill. Use for Back, Cancel, View, Return, Reload,
 and secondary workspace actions. Ceremony unavailable recovery
-(`CeremonyUnavailable`) is always this skin.
+(`CeremonyUnavailable`) is this skin for Return, Reload, and other
+non-commit recovery. The auth commit **Continue to sign in** is the
+documented exception: `recovery.variant="transmit"`.
 
 ### Commit (primary)
 
@@ -54,7 +56,8 @@ Amber text and border over a faint amber fill. Hover: Amber Bright and
 in a region (amber ration). Map to the spec’s primary action (Save draft,
 Submit version, Start Attempt, Release Result, and similar). Occupied commit
 keys drop amber for teal wait. Do not use this skin for Return, Reload, or
-other ceremony recovery.
+other ceremony recovery. Auth **Continue to sign in** on
+`CeremonyUnavailable` is the exception (`recovery.variant="transmit"`).
 
 ### Destructive
 
