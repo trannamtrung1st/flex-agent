@@ -10,14 +10,24 @@ import {
   DialogPlateFooter,
   DialogPlateHead,
   DropdownSelect,
+  FieldFile,
   FieldInput,
   FieldNumber,
   FieldTextarea,
   FormField,
+  FormSection,
+  CAMPAIGN_TITLE_PLACEHOLDER,
   Key,
-  KeyGroup,
+  ACCOMMODATION_VALUE_PLACEHOLDER,
+  ADJUSTED_RATIONALE_PLACEHOLDER,
+  CALLSIGN_PLACEHOLDER,
+  COMPOSER_PLACEHOLDER,
+  COOLDOWN_PLACEHOLDER,
   MM_SS_HINT,
   MM_SS_PATTERN,
+  MM_SS_PLACEHOLDER,
+  MM_SS_WARNING_PLACEHOLDER,
+  SCORE_PLACEHOLDER,
   RadioGroup,
   SearchableDisclosureMenu,
   SearchableDropdownSelect,
@@ -137,14 +147,101 @@ function DemoDialog({
       <DialogPlate width={width}>
         <DialogPlateHead title={title} titleId={titleId} />
         <DialogPlateBody>{children}</DialogPlateBody>
-        <DialogPlateFooter>
-          <KeyGroup>
-            <Key onClick={onClose}>Cancel</Key>
+        <DialogPlateFooter
+          arrangement="split"
+          secondary={<Key onClick={onClose}>Cancel</Key>}
+          primary={
             <Key variant={width === "default" ? "release" : "transmit"} onClick={onClose}>{commit}</Key>
-          </KeyGroup>
-        </DialogPlateFooter>
+          }
+        />
       </DialogPlate>
     </CeremonyDialog>
+  );
+}
+
+function FileIntakeSpecimens() {
+  const [many, setMany] = useState<File[]>([
+    new File(["# Shoreline brief"], "briefing.md", { type: "text/markdown" }),
+    new File(["local candidate text"], "notes.txt", { type: "text/plain" }),
+  ]);
+  const [one, setOne] = useState<File[]>([]);
+
+  return (
+    <div className="spec-row spec-row--files">
+      <Spec wide tag=".field-file · multiple · seated rows · Remove">
+        <FormField id="demoFilesMany" label="Attachments (.txt or .md)" layout="stack" labelAssociatesControl={false}>
+          {(control, { labelId }) => (
+            <FieldFile
+              id={control.id}
+              labelledBy={labelId}
+              mode="multiple"
+              accept=".txt,.md,text/plain,text/markdown"
+              hint="UTF-8 .txt or .md"
+              files={many}
+              describedBy={control["aria-describedby"]}
+              invalid={control["aria-invalid"]}
+              onFilesChange={setMany}
+            />
+          )}
+        </FormField>
+      </Spec>
+      <Spec tag=".field-file · single · empty bay">
+        <FormField id="demoFileOne" label="Briefing file" layout="stack" labelAssociatesControl={false}>
+          {(control, { labelId }) => (
+            <FieldFile
+              id={control.id}
+              labelledBy={labelId}
+              mode="single"
+              accept=".txt,.md,text/plain,text/markdown"
+              hint="One UTF-8 .txt or .md"
+              files={one}
+              describedBy={control["aria-describedby"]}
+              invalid={control["aria-invalid"]}
+              onFilesChange={setOne}
+            />
+          )}
+        </FormField>
+      </Spec>
+      <Spec tag=".field-file · disabled">
+        <FormField id="demoFileDisabled" label="Locked intake" layout="stack" labelAssociatesControl={false}>
+          {(control, { labelId }) => (
+            <FieldFile
+              id={control.id}
+              labelledBy={labelId}
+              mode="multiple"
+              hint="Receiving version"
+              files={[]}
+              disabled
+              describedBy={control["aria-describedby"]}
+              invalid={control["aria-invalid"]}
+              onFilesChange={() => undefined}
+            />
+          )}
+        </FormField>
+      </Spec>
+      <Spec tag=".field-file · invalid">
+        <FormField
+          id="demoFileInvalid"
+          label="Required attachment"
+          layout="stack"
+          labelAssociatesControl={false}
+          error="Seat a permitted .txt or .md file."
+        >
+          {(control, { labelId }) => (
+            <FieldFile
+              id={control.id}
+              labelledBy={labelId}
+              mode="single"
+              hint="UTF-8 .txt or .md"
+              files={[]}
+              invalid={control["aria-invalid"]}
+              describedBy={control["aria-describedby"]}
+              onFilesChange={() => undefined}
+            />
+          )}
+        </FormField>
+      </Spec>
+    </div>
   );
 }
 
@@ -175,12 +272,12 @@ export function InputSections() {
 
   return (
     <>
-      <GallerySection id="form" title="Form controls" note="Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
+      <GallerySection id="form" title="Form controls" note="Parts catalog. Clone whole OperateArea compositions from Form recipes above. Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Ceremony, create, and dialogs use FormField layout=stack (label over slot, --field-label-gap / 10px). Titled clusters use FormSection (--form-group-gap). Horizon rows remain .form-row / .form-demo-row. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
         <div className="spec-row spec-row--fields">
-          <Spec tag=".field-input · text slot">
+          <Spec tag=".field-input · text slot · example placeholder">
             <FormField id="demoText" label="Callsign" className="form-demo-row">
               {(controlProps) => (
-                <FieldInput {...controlProps} type="text" defaultValue="BERTH-04" />
+                <FieldInput {...controlProps} type="text" placeholder={CALLSIGN_PLACEHOLDER} />
               )}
             </FormField>
           </Spec>
@@ -194,7 +291,65 @@ export function InputSections() {
                   max={4}
                   step={1}
                   value={score}
+                  placeholder={SCORE_PLACEHOLDER}
                   onChange={(event) => setScore(event.target.value)}
+                />
+              )}
+            </FormField>
+          </Spec>
+        </div>
+        <div className="spec-row spec-row--fields">
+          <Spec tag=".form-section · titled cluster">
+            <FormSection legend="Agent and Harness">
+              <FormField id="demoSectionAgent" label="Agent" layout="stack">
+                {(controlProps) => (
+                  <FieldInput
+                    {...controlProps}
+                    type="text"
+                    defaultValue="EXAMINER-CORE"
+                    placeholder="EXAMINER-CORE"
+                  />
+                )}
+              </FormField>
+            </FormSection>
+          </Spec>
+        </div>
+        <div className="spec-row spec-row--field-stacks">
+          <Spec tag=".field-stack · FormField layout=stack · label over slot">
+            <FormField id="demoStackTitle" layout="stack" label="Campaign title">
+              {(controlProps) => (
+                <FieldInput
+                  {...controlProps}
+                  width="wide"
+                  defaultValue="Structural Audit Q3"
+                  placeholder={CAMPAIGN_TITLE_PLACEHOLDER}
+                />
+              )}
+            </FormField>
+          </Spec>
+          <Spec tag=".field-stack · .field-input.is-frozen · etch after activation">
+            <FormField id="demoStackTitleFrozen" layout="stack" label="Campaign title">
+              {(controlProps) => (
+                <FieldInput
+                  {...controlProps}
+                  width="wide"
+                  value="Accessibility Standards Review"
+                  placeholder={CAMPAIGN_TITLE_PLACEHOLDER}
+                  frozen
+                />
+              )}
+            </FormField>
+          </Spec>
+          <Spec tag=".field-stack · .select-shell--field">
+            <FormField id="demoStackHarness" layout="stack" label="Harness" labelAssociatesControl={false}>
+              {(controlProps, { labelId }) => (
+                <DropdownSelect
+                  id={controlProps.id}
+                  labelId={labelId}
+                  describedBy={controlProps["aria-describedby"]}
+                  value={harness}
+                  options={harnesses.slice(0, 3)}
+                  onChange={setHarness}
                 />
               )}
             </FormField>
@@ -206,13 +361,14 @@ export function InputSections() {
               id="demoLimit"
               label="Session limit"
               hint={MM_SS_HINT}
-              error={invalid ? mmSsError("Session limit", "60:00") : undefined}
+              error={invalid ? mmSsError("Session limit") : undefined}
               className="form-demo-row"
             >
               {(controlProps) => (
                 <FieldInput
                   {...controlProps}
                   value={limit}
+                  placeholder={MM_SS_PLACEHOLDER}
                   onChange={(event) => setLimit(event.target.value)}
                 />
               )}
@@ -225,17 +381,21 @@ export function InputSections() {
               hint="Until the next attempt window opens."
               className="form-demo-row"
             >
-              {(controlProps) => <FieldInput {...controlProps} value="24H" disabled />}
+              {(controlProps) => (
+                <FieldInput {...controlProps} value="24H" placeholder={COOLDOWN_PLACEHOLDER} disabled />
+              )}
             </FormField>
           </Spec>
           <Spec tag=".field-input.is-frozen · control etch — sealed records use readout, not this slot">
             <FormField id="demoFrozen" label="Session limit" className="form-demo-row">
-              {(controlProps) => <FieldInput {...controlProps} value="60:00" frozen />}
+              {(controlProps) => (
+                <FieldInput {...controlProps} value="60:00" placeholder={MM_SS_PLACEHOLDER} frozen />
+              )}
             </FormField>
           </Spec>
           <Spec tag=".field-number.is-frozen · stepper withdrawn">
             <FormField id="demoFrozenNumber" label="Committed score" className="form-demo-row">
-              {(controlProps) => <FieldNumber {...controlProps} value={3} frozen />}
+              {(controlProps) => <FieldNumber {...controlProps} value={3} placeholder={SCORE_PLACEHOLDER} frozen />}
             </FormField>
           </Spec>
           <Spec tag=".select-shell.is-frozen · chevron withdrawn">
@@ -261,13 +421,14 @@ export function InputSections() {
                 id="demoPairLimit"
                 label="Session limit"
                 hint={MM_SS_HINT}
-                error={pairLimitInvalid ? mmSsError("Session limit", "60:00") : undefined}
+                error={pairLimitInvalid ? mmSsError("Session limit") : undefined}
                 layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
                     {...controlProps}
                     value={pairLimit}
+                    placeholder={MM_SS_PLACEHOLDER}
                     onChange={(event) => setPairLimit(event.target.value)}
                   />
                 )}
@@ -276,13 +437,14 @@ export function InputSections() {
                 id="demoPairWarning"
                 label="Time warning at"
                 hint={MM_SS_HINT}
-                error={pairWarningInvalid ? mmSsError("Time warning", "10:00") : undefined}
+                error={pairWarningInvalid ? mmSsError("Time warning", MM_SS_WARNING_PLACEHOLDER) : undefined}
                 layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
                     {...controlProps}
                     value={pairWarning}
+                    placeholder={MM_SS_WARNING_PLACEHOLDER}
                     onChange={(event) => setPairWarning(event.target.value)}
                   />
                 )}
@@ -303,6 +465,7 @@ export function InputSections() {
                     max={4}
                     step={1}
                     defaultValue={3}
+                    placeholder={SCORE_PLACEHOLDER}
                   />
                 )}
               </FormField>
@@ -311,6 +474,7 @@ export function InputSections() {
                   <FieldTextarea
                     {...controlProps}
                     rows={4}
+                    placeholder={ADJUSTED_RATIONALE_PLACEHOLDER}
                     defaultValue="Identifies fencing and lease expiry as primary safety mechanisms."
                   />
                 )}
@@ -322,6 +486,7 @@ export function InputSections() {
                   {...controlProps}
                   resize="vertical"
                   rows={4}
+                  placeholder={ADJUSTED_RATIONALE_PLACEHOLDER}
                   defaultValue="Identifies fencing and lease expiry as primary safety mechanisms."
                 />
               )}
@@ -394,7 +559,11 @@ export function InputSections() {
             <Breaker id="demoBreaker" checked={warnings} onChange={setWarnings}>Time warnings</Breaker>
           </Spec>
         </div>
-        <Spec wide tag=".composer · the commit key shares the slot's right edge"><form className="composer" onSubmit={(event) => event.preventDefault()}><label className="visually-hidden" htmlFor="demoComposer">Compose reply</label><textarea id="demoComposer" rows={1} placeholder="Compose reply — Attempt 1, Session 07" /><Key type="submit" variant="transmit">Transmit</Key></form></Spec>
+        <Spec wide tag=".composer · the commit key shares the slot's right edge"><form className="composer" onSubmit={(event) => event.preventDefault()}><label className="visually-hidden" htmlFor="demoComposer">Compose reply</label><textarea id="demoComposer" rows={1} placeholder={COMPOSER_PLACEHOLDER} /><Key type="submit" variant="transmit">Transmit</Key></form></Spec>
+      </GallerySection>
+
+      <GallerySection id="file" title="File intake" note="Native file input plus a dashed empty bay. Drag-and-drop may seat files but is never the only method — Choose file / Choose files stays the keyboard path. Empty uses a dashed hairline (absence). A seated selection or a live drop uses a solid bezel. Single mode replaces; multiple appends. Rows show the document glyph, filename, type/size, and Remove. Do not treat local selection as an accepted Submission version.">
+        <FileIntakeSpecimens />
       </GallerySection>
 
       <GallerySection id="datetime" title="Date & time" note="Field-slot triggers with authored calendar and chrono plates — not native browser pickers. The trigger shrinks to the mark; the plate keeps its own instrument width. Selected day is a rectangular teal inset bezel; today is a circular teal ring on the numeral. Time wheels keep option-menu hairline and teal-glass hover, but selected is the inset bezel — the 7×1px tick stays on menus and nav. Session mark uses HH/MM; Sync mark opts into HH/MM/SS via withSeconds. Amber still owns invalid; frozen etches the committed mark.">
@@ -534,7 +703,7 @@ export function InputSections() {
 
       <DemoDialog open={dialog === "narrow"} onClose={() => setDialog(null)} id="deckDialogNarrow" width="narrow" title="Discard Reply" titleId="deckDialogNarrowTitle" commit="Discard"><p>Your unsent reply will be removed. Unsent text is not part of the examination record.</p></DemoDialog>
       <DemoDialog open={dialog === "default"} onClose={() => setDialog(null)} id="deckDialog" title="Confirm Release" titleId="deckDialogTitle" commit="Release result"><p>Release makes the Result visible to the participant after audited transition. This action is recorded with reviewer identity, timestamp, and evaluation revision.</p><dl className="dialog-readout"><div><dt>Candidate</dt><dd>CND-8842-19</dd></div><div><dt>Review decision</dt><dd>Approve unchanged</dd></div></dl></DemoDialog>
-      <DemoDialog open={dialog === "wide"} onClose={() => setDialog(null)} id="deckDialogWide" width="wide" title="Record Accommodation" titleId="deckDialogWideTitle" commit="Record accommodation"><p>Timing accommodations are enrollment-scoped and recorded with administrator identity. Other participants never see this adjustment.</p><FormField id="dlgExtension" label="Time extension" layout="stack">{(controlProps) => <FieldInput {...controlProps} defaultValue="15:00" />}</FormField></DemoDialog>
+      <DemoDialog open={dialog === "wide"} onClose={() => setDialog(null)} id="deckDialogWide" width="wide" title="Record Accommodation" titleId="deckDialogWideTitle" commit="Record accommodation"><p>Timing accommodations are enrollment-scoped and recorded with administrator identity. Other participants never see this adjustment.</p><FormField id="dlgExtension" label="Time extension" layout="stack">{(controlProps) => <FieldInput {...controlProps} placeholder={ACCOMMODATION_VALUE_PLACEHOLDER} />}</FormField></DemoDialog>
     </>
   );
 }

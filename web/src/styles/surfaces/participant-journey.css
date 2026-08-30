@@ -13,7 +13,7 @@ html[data-surface="participant-journey"] {
 }
 
 .microlabel, .readout dt, .assignment-meta, .phase-short,
-.protocol-value, .status-item dt, .version-meta, .demo-note, .action-note,
+.protocol-value, .status-item dt, .demo-note, .action-note,
 .session-readout dt {
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -194,8 +194,8 @@ html[data-surface="participant-journey"] {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 16px;
+  gap: var(--operate-bay-gap);
+  padding-bottom: var(--form-group-gap);
   border-bottom: 1px solid var(--hairline-dim);
   flex-shrink: 0;
 }
@@ -233,7 +233,7 @@ html[data-surface="participant-journey"] {
 }
 
 .status-item dt {
-  font-size: 0.58rem;
+  font-size: var(--microlabel-font-size);
   color: var(--label-dim);
   margin-bottom: 4px;
 }
@@ -243,6 +243,8 @@ html[data-surface="participant-journey"] {
   letter-spacing: 0.08em;
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
+  max-width: 32ch;
+  white-space: nowrap;
 }
 
 /* record-state node comes from the shared component family sheets; seat it in the readout */
@@ -251,63 +253,14 @@ html[data-surface="participant-journey"] {
   vertical-align: 1px;
 }
 
-/* ═══ Version list ═══════════════════════════════════════════════ */
-
-.version-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--hairline-dim);
-}
-
-.version-row {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  grid-template-rows: auto auto;
-  gap: 2px 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--hairline-dim);
-}
-
-.version-doc {
-  grid-row: span 2;
-  align-self: center;
-  display: flex;
-}
-/* .doc-glyph and its variants come from the shared component family sheets */
-
-.version-row:last-child { border-bottom: none; }
-
-.version-tag {
-  grid-row: span 2;
-  align-self: center;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  color: var(--label-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.version-name {
-  font-size: 0.86rem;
-  color: var(--text);
-}
-
-.version-meta {
-  font-size: 0.58rem;
-  color: var(--label-dim);
-}
-
-.version-row--current {
-  background: rgba(60, 192, 191, 0.05);
-}
-
-.version-row--current .version-tag { color: var(--teal); }
+/* ═══ Instrument plate ═══════════════════════════════════════════════ */
 
 .instrument-plate {
   padding: 14px 16px;
   border: 1px solid var(--hairline);
   margin-top: 8px;
   background: rgba(2, 9, 14, 0.35);
+  width: min(100%, var(--content-width-structured));
 }
 
 .instrument-plate--dim { border-color: var(--hairline-dim); opacity: 0.92; }
@@ -354,7 +307,7 @@ html[data-surface="participant-journey"] {
 .session-readout > div:last-child { border-right: none; }
 
 .session-readout dt {
-  font-size: 0.58rem;
+  font-size: var(--microlabel-font-size);
   color: var(--label-dim);
   margin-bottom: 4px;
 }

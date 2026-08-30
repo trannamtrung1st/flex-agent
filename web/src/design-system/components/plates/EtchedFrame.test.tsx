@@ -1,5 +1,8 @@
-import { render } from "@testing-library/react";
-import { EtchedFrame, PlateFoot } from "./EtchedFrame";
+import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { EmptyPlate, EtchedFrame, PlateFoot } from "./EtchedFrame";
 
 describe("EtchedFrame", () => {
   it("defaults to padded inset", () => {
@@ -72,7 +75,62 @@ describe("EtchedFrame", () => {
       </PlateFoot>,
     );
 
-    expect(container.querySelector("footer.plate-foot")).toHaveTextContent("Configure");
+    const foot = container.querySelector("footer.plate-foot");
+    expect(foot).toHaveTextContent("Configure");
+    expect(foot).toHaveAttribute("data-arrangement", "end");
+    expect(foot).toHaveAttribute("data-flow-justify", "end");
+    expect(foot).toHaveClass("composition-inline");
+  });
+
+  it("maps start, center, and split arrangements onto Inline justify", () => {
+    const { rerender, container } = render(
+      <PlateFoot arrangement="start">
+        <button type="button">Continue</button>
+      </PlateFoot>,
+    );
+    expect(container.querySelector("footer.plate-foot")).toHaveAttribute("data-arrangement", "start");
+    expect(container.querySelector("footer.plate-foot")).toHaveAttribute("data-flow-justify", "start");
+
+    rerender(
+      <PlateFoot arrangement="center">
+        <button type="button">Sign in</button>
+      </PlateFoot>,
+    );
+    expect(container.querySelector("footer.plate-foot")).toHaveAttribute("data-arrangement", "center");
+    expect(container.querySelector("footer.plate-foot")).toHaveAttribute("data-flow-justify", "center");
+
+    rerender(
+      <PlateFoot arrangement="split" secondary={<button type="button">Cancel</button>} primary={<button type="button">Save</button>} />,
+    );
+    const split = container.querySelector("footer.plate-foot");
+    expect(split).toHaveAttribute("data-arrangement", "split");
+    expect(split).toHaveAttribute("data-flow-justify", "between");
+    const slots = container.querySelectorAll(".plate-foot-slot");
+    expect(slots[0]).toHaveClass("plate-foot-slot--secondary");
+    expect(slots[0]).toHaveTextContent("Cancel");
+    expect(slots[1]).toHaveClass("plate-foot-slot--primary");
+    expect(slots[1]).toHaveTextContent("Save");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(cancel.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps a split primary at the trailing slot when secondary is omitted", () => {
+    const { container } = render(
+      <PlateFoot arrangement="split" primary={<button type="button">Open</button>} />,
+    );
+    const foot = container.querySelector("footer.plate-foot");
+    expect(foot?.querySelector(".plate-foot-slot--secondary")).toBeEmptyDOMElement();
+    expect(foot?.querySelector(".plate-foot-slot--primary")).toHaveTextContent("Open");
+  });
+
+  it("does not keep a className hatch for leading feet", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const platesCss = readFileSync(join(here, "../../../styles/components/plates.css"), "utf8");
+    expect(platesCss).not.toMatch(/plate-foot--start/);
+    expect(platesCss).toMatch(
+      /\.plate-foot\[data-arrangement="split"\] \.plate-foot-slot--primary \{[^}]*margin-inline-start:\s*auto/,
+    );
   });
 
   it("clips half-beads on the inner pane and scrolls payload separately", () => {
@@ -90,5 +148,12 @@ describe("EtchedFrame", () => {
     expect(scroll).toHaveTextContent("Specimen");
     expect(scroll?.querySelector(".frame-node")).toBeNull();
     expect(scroll?.querySelector(".frame-tick")).toBeNull();
+  });
+});
+
+describe("EmptyPlate", () => {
+  it("marks in-frame absence as an inset well", () => {
+    render(<EmptyPlate inset label="No current assignments" note="There is no assigned work." />);
+    expect(screen.getByText("No current assignments").closest(".empty-plate")).toHaveClass("empty-plate--inset");
   });
 });

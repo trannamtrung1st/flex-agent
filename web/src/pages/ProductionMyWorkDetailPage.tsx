@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -15,29 +15,37 @@ import {
 } from "../api/production-submission";
 import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import {
+  ACCOMMODATION_CONSEQUENCE_COPY,
+  ELIGIBILITY_COPY,
+  wordsFromCode,
+} from "../lib/enrollment-presentation";
+import {
   Alert,
-  BackKey,
   CeremonyDialog,
+  CompactId,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
+  FieldFile,
   FieldTextarea,
   FormField,
+  DIRECT_TEXT_PLACEHOLDER,
+  GuidedTaskFoot,
   Inline,
+  InstantReadout,
   Key,
-  OperateArea,
-  ReadoutGrid,
-  ReadoutGridField,
-  ReadoutGridRow,
+  ReadoutList,
   Stack,
   StateReadout,
-  WaitPanel,
+  WaitPlate,
   WorkWell,
   WorkWellHead,
   WorkWellSection,
 } from "../design-system";
-import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import { AssignmentSpine, type AssignmentStationView } from "../components/work/AssignmentSpine";
+import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
+import { SubmissionVersionList } from "../components/work/SubmissionVersionList";
 import type {
   CompleteIntakeItemCommandV2,
   SubmissionMaterialCategoryV2,
@@ -62,43 +70,81 @@ function isReleasedRecord(status: string): boolean {
   return /releas|seal/i.test(status);
 }
 
-function AttachmentField({
-  id,
-  disabled,
-  describedBy,
-  invalid,
-  onFiles,
+function assignmentPhaseCopy(
+  view: AssignmentStationView,
+  pending: boolean,
+  permitted: SubmissionPermittedActionV2[],
+  intakeOpen: boolean,
+): string {
+  if (pending) return "Working…";
+  if (view === "attempt") return "Not available here";
+  if (permitted.includes("begin_intake")) return "Begin intake";
+  if (intakeOpen && permitted.includes("finalize_intake")) return "Submit version";
+  if (intakeOpen) return "Intake receiving";
+  return "Submission";
+}
+
+function formatByteLimit(bytes: number): string {
+  if (bytes >= 1_048_576 && bytes % 1_048_576 === 0) {
+    const megabytes = bytes / 1_048_576;
+    return megabytes === 1 ? "1 MB" : `${megabytes} MB`;
+  }
+  if (bytes >= 1024 && bytes % 1024 === 0) {
+    return `${bytes / 1024} KB`;
+  }
+  return `${bytes.toLocaleString("en-US")} bytes`;
+}
+
+function formatItemCount(count: number): string {
+  return count === 1 ? "1 item" : `${count.toLocaleString("en-US")} items`;
+}
+
+function intakeItemLabel(category: string, filename?: string | null): string {
+  if (filename) return filename;
+  if (category === "direct_text") return "Direct text";
+  if (category === "text_markdown_attachment") return "Markdown attachment";
+  if (category === "text_plain_attachment") return "Text attachment";
+  return "Material";
+}
+
+function AssignmentHeading({
+  title,
+  meta,
+  phase,
+  record,
+  released,
 }: {
-  id: string;
-  disabled: boolean;
-  describedBy?: string;
-  invalid?: true;
-  onFiles: (files: File[]) => void;
+  title: string;
+  meta?: string;
+  phase: string;
+  record: string;
+  released: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="assignment-file">
-      <input
-        ref={inputRef}
-        id={id}
-        className="visually-hidden"
-        type="file"
-        accept=".txt,.md,text/plain,text/markdown"
-        multiple
-        disabled={disabled}
-        aria-invalid={invalid}
-        aria-describedby={describedBy}
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          event.target.value = "";
-          if (files.length > 0) onFiles(files);
-        }}
-      />
-      <span className="field-input field-input--wide assignment-file-name">UTF-8 .txt or .md</span>
-      <Key variant="quiet" disabled={disabled} onClick={() => inputRef.current?.click()}>
-        Choose files
-      </Key>
-    </div>
+    <header className="assignment-head">
+      <div className="assignment-ident">
+        <h1 className="assignment-title">{title}</h1>
+        {meta ? <p className="assignment-meta">{meta}</p> : null}
+      </div>
+      <dl className="status-readout" aria-label="Assignment status">
+        <div className="status-item">
+          <dt>Phase</dt>
+          <dd>{phase}</dd>
+        </div>
+        <div className="status-item">
+          <dt>Record</dt>
+          <dd>
+            <StateReadout
+              variant={released ? "sealed" : "rest"}
+              solid={released}
+              label={record}
+              className="assignment-record"
+              labelClassName="assignment-record-label"
+            />
+          </dd>
+        </div>
+      </dl>
+    </header>
   );
 }
 
@@ -117,6 +163,7 @@ export function ProductionMyWorkDetailPage() {
   const [pending, setPending] = useState(false);
   const [directText, setDirectText] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [view, setView] = useState<AssignmentStationView>("submission");
 
   const reload = useCallback(async () => {
     const [work, timingResult, submissionResult] = await Promise.all([
@@ -165,111 +212,251 @@ export function ProductionMyWorkDetailPage() {
 
   if (error && !assignment) {
     return (
-      <CeremonyArea label="Assignment unavailable" title="Assignment unavailable" danger>
-        <CeremonyEmpty note={error}>
-          <Key variant="open" to="/my-work">Return to My work</Key>
-        </CeremonyEmpty>
-      </CeremonyArea>
+      <AssignmentStationLayout
+        instruments={null}
+        heading={(
+          <AssignmentHeading
+            title="Assignment unavailable"
+            phase="Unavailable"
+            record="Unavailable"
+            released={false}
+          />
+        )}
+        actions={(
+          <GuidedTaskFoot arrangement="end">
+            <Key variant="quiet" to="/my-work">Return to My work</Key>
+          </GuidedTaskFoot>
+        )}
+      >
+        <WorkWell live={false} label="Assignment unavailable">
+          <WorkWellSection>
+            <p>{error}</p>
+          </WorkWellSection>
+        </WorkWell>
+      </AssignmentStationLayout>
     );
   }
 
   if (!assignment) {
     return (
-      <CeremonyArea label="Assignment" title="Assignment">
-        <WaitPanel label="Loading assignment…" />
-      </CeremonyArea>
+      <AssignmentStationLayout
+        instruments={null}
+        heading={<AssignmentHeading title="Assignment" phase="Loading" record="—" released={false} />}
+      >
+        <WorkWell live={false} label="Assignment">
+          <WorkWellSection>
+            <WaitPlate inset label="Loading assignment…" />
+          </WorkWellSection>
+        </WorkWell>
+      </AssignmentStationLayout>
     );
   }
 
   const zone = timing?.effective?.time_zone_id ?? assignment.time_zone_id ?? "UTC";
   const deadline = assignment.deadline_utc;
   const formattedDeadline = deadline ? formatCampaignInstant(deadline, zone) : null;
-  const eligibility = timing?.effective?.eligibility_state;
+  const eligibility = wordsFromCode(timing?.effective?.eligibility_state, ELIGIBILITY_COPY);
   const released = isReleasedRecord(assignment.status);
-  const consequence = timing?.participant_consequence_code && timing.participant_consequence_code !== "none"
-    ? timing.participant_consequence_code
-    : "None";
+  const consequence = wordsFromCode(
+    timing?.participant_consequence_code && timing.participant_consequence_code !== "none"
+      ? timing.participant_consequence_code
+      : "none",
+    ACCOMMODATION_CONSEQUENCE_COPY,
+    "None",
+  );
+  const title = assignment.task_title ?? assignment.activity_title ?? "Assignment";
+  const meta = assignment.activity_title && assignment.activity_title !== title
+    ? assignment.activity_title
+    : undefined;
+  const recordMark = (
+    <StateReadout
+      variant={released ? "sealed" : "rest"}
+      solid={released}
+      label={assignment.status}
+      className="assignment-record"
+      labelClassName="assignment-record-label"
+    />
+  );
+
+  const versions = [...(submission?.version_history ?? [])].sort((a, b) => b.version_number - a.version_number);
+
+  const submissionActions = view === "submission" && (
+    permitted.includes("begin_intake")
+    || permitted.includes("cancel_intake")
+    || permitted.includes("finalize_intake")
+  ) ? (() => {
+    const beginKey = permitted.includes("begin_intake") ? (
+      <Key
+        variant="begin"
+        disabled={pending}
+        onClick={() => {
+          void runMutation(() => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()));
+        }}
+      >
+        Begin intake
+      </Key>
+    ) : null;
+    const cancelKey = intake && permitted.includes("cancel_intake") ? (
+      <Key
+        variant="quiet"
+        disabled={pending}
+        onClick={() => {
+          void runMutation(() =>
+            submissionClient.cancelIntake(enrollmentId, intake.intake_id, {
+              schema_version: "v2",
+              expected_revision: intake.revision,
+              idempotency_key: createSubmissionIdempotencyKey(),
+            }),
+          );
+        }}
+      >
+        Cancel intake
+      </Key>
+    ) : null;
+    const submitKey = intake && permitted.includes("finalize_intake") ? (
+      <Key variant="transmit" disabled={pending} onClick={() => setConfirmOpen(true)}>
+        Submit version
+      </Key>
+    ) : null;
+
+    if (cancelKey && submitKey) {
+      return <GuidedTaskFoot arrangement="split" secondary={cancelKey} primary={submitKey} />;
+    }
+
+    return (
+      <GuidedTaskFoot arrangement="end">
+        {beginKey}
+        {cancelKey}
+        {submitKey}
+      </GuidedTaskFoot>
+    );
+  })() : undefined;
 
   return (
-    <OperateArea
-      className="workspace-area work-plane assignment-station-plane"
-      frameClassName="destination-board assignment-station-board"
-      frameInset="flush"
-      label="Assignment"
-      title={assignment.activity_title ?? assignment.task_title ?? "Assignment"}
-      description="Overview, Task and timing, Submission intake, accepted versions, and Attempt readiness. The browser is not acceptance or Attempt-start authority."
-      back={<BackKey to="/my-work" label="My work" />}
-      headExtra={
-        permitted.includes("begin_intake") ? (
-          <Key
-            variant="quiet"
-            disabled={pending}
-            onClick={() => {
-              void runMutation(() => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()));
-            }}
-          >
-            Begin intake
-          </Key>
-        ) : undefined
-      }
-      context={(
-        <ReadoutGrid label="Assignment identity" columns={4} className="assignment-instruments">
-          <ReadoutGridRow label="Identity">
-            <ReadoutGridField term="Enrollment">{assignment.enrollment_id}</ReadoutGridField>
-            <ReadoutGridField term="Campaign">{assignment.activity_title ?? "—"}</ReadoutGridField>
-            <ReadoutGridField term="Task">{assignment.task_title ?? "—"}</ReadoutGridField>
-            <ReadoutGridField term="Record">
-              <StateReadout
-                variant={released ? "sealed" : "rest"}
-                solid={released}
-                label={assignment.status}
-                className="assignment-record"
-                labelClassName="assignment-record-label"
-              />
-            </ReadoutGridField>
-          </ReadoutGridRow>
-          <ReadoutGridRow label="Timing">
-            <ReadoutGridField term="Deadline" span={2}>
-              {formattedDeadline ? campaignDeadlineCopy(formattedDeadline) : "No exclusive cutoff"}
-            </ReadoutGridField>
-            <ReadoutGridField term="Eligibility">{eligibility ?? "—"}</ReadoutGridField>
-            <ReadoutGridField term="Accommodation">{consequence}</ReadoutGridField>
-          </ReadoutGridRow>
-        </ReadoutGrid>
+    <AssignmentStationLayout
+      instruments={(
+        <>
+          <ReadoutList
+            rows={[
+              { term: "Enrollment", value: <CompactId tabbable value={assignment.enrollment_id} /> },
+              { term: "Campaign", value: assignment.activity_title ?? "—" },
+              { term: "Task", value: assignment.task_title ?? "—" },
+              {
+                term: "Deadline",
+                value: formattedDeadline ? campaignDeadlineCopy(formattedDeadline) : "No exclusive cutoff",
+              },
+              { term: "Record", value: recordMark },
+            ]}
+          />
+          <AssignmentSpine view={view} onSelect={setView} />
+        </>
+      )}
+      heading={(
+        <AssignmentHeading
+          title={title}
+          meta={meta || undefined}
+          phase={assignmentPhaseCopy(view, pending, permitted, Boolean(intake))}
+          record={assignment.status}
+          released={released}
+        />
+      )}
+      actions={submissionActions}
+      overlays={(
+        <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
+          <DialogPlate>
+            <DialogPlateHead title="Submit this version?" titleId={confirmId} />
+            <DialogPlateBody>
+              <p>
+                Submit version accepts one immutable Submission version. Earlier accepted versions remain inspectable.
+                Local drafts that were not added to this intake are not included.
+              </p>
+            </DialogPlateBody>
+            <DialogPlateFooter
+              arrangement="split"
+              secondary={<Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>}
+              primary={
+              <Key
+                variant="transmit"
+                disabled={pending || !intake}
+                onClick={() => {
+                  if (!intake) return;
+                  void runMutation(() =>
+                    submissionClient.finalizeIntake(enrollmentId, intake.intake_id, {
+                      schema_version: "v2",
+                      expected_revision: intake.revision,
+                      idempotency_key: createSubmissionIdempotencyKey(),
+                    }),
+                  ).then(() => setConfirmOpen(false));
+                }}
+              >
+                Submit version
+              </Key>
+              }
+            />
+          </DialogPlate>
+        </CeremonyDialog>
       )}
     >
-      <div className="assignment-station">
-        {error ? <Alert variant="danger" title="Action did not complete">{error}</Alert> : null}
-
+      {view === "attempt" ? (
+        <WorkWell
+          live={false}
+          label="Attempt"
+          head={<WorkWellHead title="Attempt" ident="Separate committed server command" />}
+        >
+          <WorkWellSection>
+            <Alert variant="info" title="Start Attempt is not available from this SPA">
+              Attempt start remains a separate committed server command. No production Attempt-start HTTP contract is exposed to this application yet, so this surface will not invent a ready Session.
+            </Alert>
+          </WorkWellSection>
+        </WorkWell>
+      ) : (
         <WorkWell
           live={false}
           label="Submission"
           head={<WorkWellHead title="Submission" ident="Intake · versioned preservation" />}
         >
           <WorkWellSection>
-            {submission?.intake_available === false ? (
-              <Alert variant="warning" title="Intake unavailable">
-                {submission.unavailable_reason ?? "Submission intake is not available for this assignment."}
-              </Alert>
-            ) : null}
-            {submission?.requirements ? (
+            <Stack gap="4">
+              {error ? <Alert variant="danger" title="Action did not complete">{error}</Alert> : null}
+              {submission?.intake_available === false ? (
+                <Alert variant="warning" title="Intake unavailable">
+                  {submission.unavailable_reason ?? "Submission intake is not available for this assignment."}
+                </Alert>
+              ) : null}
+              {submission?.requirements ? (
+                <p>
+                  Direct text up to {formatByteLimit(submission.requirements.max_direct_text_bytes)}.
+                  At most {submission.requirements.max_attachment_count} UTF-8 .txt or .md attachments.
+                </p>
+              ) : null}
+              {intake ? (
+                <p>
+                  Intake {intake.status}, revision {intake.revision}.
+                  {intake.items.length > 0
+                    ? ` ${formatItemCount(intake.items.length)} received locally until the server accepts a version.`
+                    : " No items yet."}
+                </p>
+              ) : (
+                <p>No open intake. Direct text and attachments stay local until you begin intake and submit a version.</p>
+              )}
               <p>
-                Direct text up to {submission.requirements.max_direct_text_bytes} bytes.
-                At most {submission.requirements.max_attachment_count} UTF-8 .txt or .md attachments.
+                Eligibility: {eligibility}. Accommodation: {consequence}.
               </p>
-            ) : null}
-            {intake ? (
-              <p>
-                Intake {intake.status}, revision {intake.revision}.
-                {intake.items.length > 0 ? ` ${intake.items.length} item(s) received locally until the server accepts a version.` : " No items yet."}
-              </p>
-            ) : (
-              <p>No open intake. Direct text and attachments stay local until you begin intake and submit a version.</p>
-            )}
+              {intake && intake.items.length > 0 ? (
+                <ul className="intake-item-list" aria-label="Received intake items">
+                  {intake.items.map((item) => (
+                    <li className="intake-item-row" key={item.item_id}>
+                      <span>{intakeItemLabel(item.category, item.filename)}</span>
+                      <span>{formatByteLimit(item.byte_count)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Stack>
           </WorkWellSection>
           {intake && permitted.includes("complete_item") ? (
             <WorkWellSection>
-              <Stack gap="3">
+              <Stack gap="4">
                 <FormField id={textId} label="Direct text" layout="stack">
                   {(control) => (
                     <FieldTextarea
@@ -277,6 +464,7 @@ export function ProductionMyWorkDetailPage() {
                       rows={8}
                       resize="vertical"
                       value={directText}
+                      placeholder={DIRECT_TEXT_PLACEHOLDER}
                       disabled={pending}
                       onChange={(event) => setDirectText(event.target.value)}
                     />
@@ -303,14 +491,20 @@ export function ProductionMyWorkDetailPage() {
                     Add direct text
                   </Key>
                 </Inline>
-                <FormField id={filesId} label="Attachments (.txt or .md)" layout="stack">
-                  {(control) => (
-                    <AttachmentField
+                <FormField id={filesId} label="Attachments (.txt or .md)" layout="stack" labelAssociatesControl={false}>
+                  {(control, meta) => (
+                    <FieldFile
                       id={control.id}
+                      labelledBy={meta.labelId}
+                      mode="multiple"
+                      accept=".txt,.md,text/plain,text/markdown"
+                      hint="UTF-8 .txt or .md"
+                      files={[]}
+                      maxFiles={submission?.requirements?.max_attachment_count}
                       disabled={pending}
                       describedBy={control["aria-describedby"]}
                       invalid={control["aria-invalid"]}
-                      onFiles={(files) => {
+                      onFilesChange={(files) => {
                         void (async () => {
                           let revision = intake.revision;
                           const intakeId = intake.intake_id;
@@ -343,101 +537,29 @@ export function ProductionMyWorkDetailPage() {
               </Stack>
             </WorkWellSection>
           ) : null}
-          {intake && (permitted.includes("cancel_intake") || permitted.includes("finalize_intake")) ? (
-            <WorkWellSection>
-              <Inline gap="2">
-                {permitted.includes("cancel_intake") ? (
-                  <Key
-                    variant="quiet"
-                    disabled={pending}
-                    onClick={() => {
-                      void runMutation(() =>
-                        submissionClient.cancelIntake(enrollmentId, intake.intake_id, {
-                          schema_version: "v2",
-                          expected_revision: intake.revision,
-                          idempotency_key: createSubmissionIdempotencyKey(),
-                        }),
-                      );
-                    }}
-                  >
-                    Cancel intake
-                  </Key>
-                ) : null}
-                {permitted.includes("finalize_intake") ? (
-                  <Key variant="transmit" disabled={pending} onClick={() => setConfirmOpen(true)}>
-                    Submit version
-                  </Key>
-                ) : null}
-              </Inline>
-            </WorkWellSection>
-          ) : null}
-        </WorkWell>
-
-        <WorkWell
-          live={false}
-          label="Accepted versions"
-          head={<WorkWellHead title="Accepted versions" ident="Immutable once accepted" />}
-        >
           <WorkWellSection>
-            {submission && submission.version_history.length > 0 ? (
-              <ol reversed>
-                {[...submission.version_history].sort((a, b) => b.version_number - a.version_number).map((version) => (
-                  <li key={version.version_id}>
-                    Accepted version {version.version_number} remains immutable.
-                    {" "}
-                    {version.item_count} item(s), accepted {version.accepted_at_utc}.
-                  </li>
-                ))}
-              </ol>
+            {versions.length > 0 ? (
+              <SubmissionVersionList
+                reversed
+                label="Accepted submission versions"
+                rows={versions.map((version) => ({
+                  key: version.version_id,
+                  versionNumber: version.version_number,
+                  name: `Accepted version ${version.version_number} remains immutable.`,
+                  meta: (
+                    <>
+                      <span>{formatItemCount(version.item_count)}</span>
+                      <InstantReadout value={version.accepted_at_utc} timeZone={zone} />
+                    </>
+                  ),
+                }))}
+              />
             ) : (
               <p>No accepted Submission version yet.</p>
             )}
           </WorkWellSection>
         </WorkWell>
-
-        <WorkWell
-          live={false}
-          label="Attempt"
-          head={<WorkWellHead title="Attempt" ident="Separate committed server command" />}
-        >
-          <WorkWellSection>
-            <Alert variant="info" title="Start Attempt is not available from this SPA">
-              Attempt start remains a separate committed server command. No production Attempt-start HTTP contract is exposed to this application yet, so this surface will not invent a ready Session.
-            </Alert>
-          </WorkWellSection>
-        </WorkWell>
-      </div>
-
-      <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
-        <DialogPlate>
-          <DialogPlateHead title="Submit this version?" titleId={confirmId} />
-          <DialogPlateBody>
-            <p>
-              Submit version accepts one immutable Submission version. Earlier accepted versions remain inspectable.
-              Local drafts that were not added to this intake are not included.
-            </p>
-          </DialogPlateBody>
-          <DialogPlateFooter>
-            <Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>
-            <Key
-              variant="transmit"
-              disabled={pending || !intake}
-              onClick={() => {
-                if (!intake) return;
-                void runMutation(() =>
-                  submissionClient.finalizeIntake(enrollmentId, intake.intake_id, {
-                    schema_version: "v2",
-                    expected_revision: intake.revision,
-                    idempotency_key: createSubmissionIdempotencyKey(),
-                  }),
-                ).then(() => setConfirmOpen(false));
-              }}
-            >
-              Submit version
-            </Key>
-          </DialogPlateFooter>
-        </DialogPlate>
-      </CeremonyDialog>
-    </OperateArea>
+      )}
+    </AssignmentStationLayout>
   );
 }

@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "scripts": {
     "test": "playwright test",
-    "test:canonical": "playwright test --project=canonical",
-    "test:candidate": "playwright test --project=candidate-non-Production"
+    "test:canonical": "FLEXAGENT_ROOT=../../.. playwright test --project=canonical",
+    "test:candidate": "FLEXAGENT_ROOT=../../.. playwright test --project=candidate-non-Production"
   },
   "devDependencies": {
     "@playwright/test": "1.55.1"

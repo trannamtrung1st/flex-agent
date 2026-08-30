@@ -144,6 +144,7 @@ export function CampaignsArea() {
       >
         <div className="campaigns-unavailable">
           <EmptyPlate
+            inset
             label="Campaign not found"
             note="This campaign is not available. Return to the registry and open a listed campaign."
           >
@@ -199,7 +200,7 @@ export function CampaignsArea() {
             </ReadoutGridRow>
           </ReadoutGrid>
           {campaign.frozen ? (
-            <PlateFoot className="plate-foot--start">
+            <PlateFoot arrangement="start">
               <p className="frozen-line">Configuration frozen at activation</p>
             </PlateFoot>
           ) : (

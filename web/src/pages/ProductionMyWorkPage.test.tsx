@@ -49,7 +49,7 @@ describe("ProductionMyWorkPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("presents each assignment as a readout plate with an Open assignment key", async () => {
+  it("presents each assignment as a readout plate with an Open key", async () => {
     stubSession((url) => {
       if (url.includes("/v1/assessment/my-work")) {
         return jsonResponse({
@@ -78,12 +78,19 @@ describe("ProductionMyWorkPage", () => {
     const plate = await screen.findByRole("article", { name: "Campaign A" });
     expect(plate).toHaveClass("assignment-plate");
     expect(plate).not.toHaveAttribute("aria-live");
-    expect(plate.closest(".frame-cut")).toHaveClass("destination-board", "assignment-board", "frame-cut--flush");
-    expect(screen.getByRole("link", { name: "Open assignment" })).toHaveAttribute("href", "/my-work/enr-1");
+    expect(plate.closest(".frame-cut")).toBeNull();
+    expect(screen.getByRole("region", { name: "My work" }).querySelector(".frame-cut")).toBeNull();
+    expect(screen.getByRole("link", { name: "Open Campaign A" })).toHaveAttribute("href", "/my-work/enr-1");
+    expect(screen.getByRole("link", { name: "Open Campaign A" }).closest("footer")).toHaveAttribute("data-arrangement", "end");
     expect(plate).toHaveTextContent("Case study");
     expect(plate).toHaveTextContent("active");
     expect(screen.getByRole("heading", { name: "Current assignments" })).toBeInTheDocument();
-    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays--hug");
+    expect(screen.getByRole("region", { name: "My work" })).not.toHaveClass("assignment-board--hug");
+    expect(screen.getByRole("region", { name: "My work" }).querySelector(":scope > .operate-scroll")).toContainElement(
+      document.querySelector(".assignment-bays"),
+    );
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays", "plate-bays--hug");
+    expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--dense");
   });
 
   it("shows a readable UTC deadline when the campaign zone cannot be converted", async () => {
@@ -117,7 +124,7 @@ describe("ProductionMyWorkPage", () => {
     expect(plate).not.toHaveTextContent("2026-09-30T17:00:00Z");
   });
 
-  it("uses a dense bay when more than one assignment is present", async () => {
+  it("keeps hug plate geometry when more than one assignment is present", async () => {
     stubSession((url) => {
       if (url.includes("/v1/assessment/my-work")) {
         return jsonResponse({
@@ -153,11 +160,13 @@ describe("ProductionMyWorkPage", () => {
     renderPage();
 
     await screen.findByRole("article", { name: "Campaign A" });
-    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays--dense");
-    expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--hug");
+    expect(screen.getByRole("article", { name: "Campaign B" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "My work" })).not.toHaveClass("assignment-board--hug");
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays", "plate-bays--hug");
+    expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--dense");
   });
 
-  it("centers an empty-board plate when there is no assigned work", async () => {
+  it("seats an inset empty plate in the operate well when there is no assigned work", async () => {
     stubSession((url) => {
       if (url.includes("/v1/assessment/my-work")) {
         return jsonResponse({ schema_version: "v1", items: [], has_more: false });
@@ -168,7 +177,13 @@ describe("ProductionMyWorkPage", () => {
     renderPage();
 
     expect(await screen.findByText("No current assignments")).toBeInTheDocument();
-    expect(document.querySelector(".assignment-board-empty")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Open assignment" })).not.toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "My work" });
+    const empty = document.querySelector(".empty-plate");
+    expect(empty).toHaveClass("empty-plate--inset");
+    expect(empty?.closest(".frame-cut")).toBe(region.querySelector(".frame-cut"));
+    expect(empty?.closest(".frame-cut")).not.toHaveClass("frame-cut--flush");
+    expect(region).toHaveClass("assignment-board--hug");
+    expect(document.querySelector(".assignment-board-empty")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Open / })).not.toBeInTheDocument();
   });
 });

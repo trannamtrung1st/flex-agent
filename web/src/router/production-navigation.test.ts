@@ -1,4 +1,4 @@
-import { isProductionDestinationOpen, shouldHideProductionBreadcrumbs } from "./production-navigation";
+import { isProductionDestinationOpen, productionDestinationUnavailableCopy, shouldHideProductionBreadcrumbs } from "./production-navigation";
 
 describe("shouldHideProductionBreadcrumbs", () => {
   const participantNav = [
@@ -31,5 +31,28 @@ describe("shouldHideProductionBreadcrumbs", () => {
   it("treats Session as open when My work is available", () => {
     expect(isProductionDestinationOpen(participantNav, "sessions")).toBe(true);
     expect(isProductionDestinationOpen(administratorNav, "sessions")).toBe(false);
+  });
+});
+
+describe("productionDestinationUnavailableCopy", () => {
+  it("uses consistent grammar for each guarded destination", () => {
+    expect(productionDestinationUnavailableCopy("activities")).toBe(
+      "Activities are not available for the current authorized relationship.",
+    );
+    expect(productionDestinationUnavailableCopy("my-work")).toBe(
+      "My work is not available for the current authorized relationship.",
+    );
+    expect(productionDestinationUnavailableCopy("review")).toBe(
+      "Review work is not available for the current authorized relationship.",
+    );
+    expect(productionDestinationUnavailableCopy("release")).toBe(
+      "Release work is not available for the current authorized relationship.",
+    );
+    expect(productionDestinationUnavailableCopy("results")).toBe(
+      "Results are not available for the current authorized relationship.",
+    );
+    expect(productionDestinationUnavailableCopy("sessions")).toBe(
+      "Sessions are not available for the current authorized relationship.",
+    );
   });
 });

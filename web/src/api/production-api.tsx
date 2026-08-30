@@ -6,6 +6,7 @@ import {
   isKnownPreLogoutRejection,
   SignOutUnconfirmedCopy,
 } from "./production-logout";
+import { productionLoginReturnPath } from "./signin-completion";
 import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export { ProductionApiError } from "./production-api-error";
@@ -17,6 +18,7 @@ export interface ProductionShellContextV1 {
   actor_id: string;
   organization_id: string;
   relationship: string;
+  display_name?: string | null;
   navigation: Array<{ destination_id: string; is_available: boolean }>;
   permitted_actions: string[];
 }
@@ -191,8 +193,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       fetchJson,
       authContextEpoch,
       login: () => {
-        const path = `${window.location.pathname}${window.location.search}`;
-        const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("://") ? path : "/";
+        const safe = productionLoginReturnPath(window.location.pathname, window.location.search);
         window.location.assign(`/auth/login?return_path=${encodeURIComponent(safe)}`);
       },
       logout: async () => {

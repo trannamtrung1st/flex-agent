@@ -51,11 +51,18 @@ is only its provider adapter.
 
 ## Compose
 
-The canonical Development/Testing browser profile is one documented command:
+The canonical Development/Testing browser profile **starts** with one documented
+command:
 
 ```bash
 pnpm compose:up
 ```
+
+That command regenerates synthetic secrets and reseeds data. If
+`pnpm compose:status` already reports `session-endpoint:ok` at
+`http://localhost:18080`, attach to that origin. Do not run `compose:up` over a
+healthy stack. Interactive attach procedure:
+[Attach to a running local origin](../../contributing/development-harness.md#attach-to-a-running-local-origin).
 
 Root `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile.sh`.
 Use `compose:down`, `compose:reset`, `compose:status`, `compose:validate`,
@@ -91,10 +98,10 @@ Required case IDs:
 | --- | --- |
 | `OIDC-E2E-01` | Canonical PKCE login |
 | `OIDC-E2E-02` | Opaque cookie and protected read (`Secure` follows request scheme) |
-| `OIDC-E2E-03` | Local logout |
+| `OIDC-E2E-03` | Local logout with RP-initiated `id_token_hint` handoff |
 | `OIDC-E2E-04` | Provider-forced logout through the real API |
-| `OIDC-E2E-05A` | Unbound identity fail-closed |
-| `OIDC-E2E-05B` | Zero/ambiguous Organization fail-closed |
+| `OIDC-E2E-05A` | Unbound identity fail-closed with SPA recovery and provider logout |
+| `OIDC-E2E-05B` | Zero/ambiguous Organization fail-closed with SPA recovery |
 | `OIDC-E2E-06` | Public route allowlist |
 | `OIDC-E2E-07` | Wrapper negatives and injected-failure cleanup |
 | `OIDC-CANDIDATE-01` | Wave 8.1 candidate/non-Production auth shell |
@@ -124,17 +131,27 @@ canonical browser-visible origin is `http://localhost:18080`; it must provide:
   relationship records, and Development/Testing source descriptors needed for
   the approved journey;
 - Playwright access through the real OIDC redirect, opaque application session,
-  authorization kernel, Assessment API, and PostgreSQL state; and
+  authorization kernel, Assessment API, and PostgreSQL state;
+- Authorization requests `openid profile` so IdentityAccess can capture
+  `given_name` and `family_name` (else `preferred_username`) from the
+  validated ID token and project a seated `display_name` on the Assessment
+  shell for operator chrome. That label is not authorization evidence; and
 - RP-initiated logout: Development/Testing may return the HTTP loopback
   `EndSessionEndpoint` (`http://localhost:18080/realms/flex-agent/protocol/openid-connect/logout`)
-  with `client_id` and a `post_logout_redirect_uri` derived from the configured
-  `RedirectUri` origin. Production continues to require HTTPS end-session
-  URLs. The realm registers post-logout redirects for `http://localhost:18080/`
-  and `http://localhost:5274/`. Provider ID tokens are not retained
-  (`STACK-DEC-21`); Keycloak may show a logout confirmation before returning
-  to the SPA sign-in gate.
+  with `client_id`, `id_token_hint`, and a `post_logout_redirect_uri` derived from
+  the configured `RedirectUri` origin. Production continues to require HTTPS
+  end-session URLs. The realm registers post-logout redirects for
+  `http://localhost:18080/` and `http://localhost:5274/`, plus the same origins
+  with `?signin=denied` so identity/Organization fail-closed can return to the
+  SPA recovery gate. The API stores an encrypted provider ID token ciphertext
+  on the live application session (`STACK-DEC-21`) and supplies it as
+  `id_token_hint` when local logout completes so Keycloak 26 skips the
+  pre-logout confirmation and redirects back to the SPA automatically.
 
-The profile must fail closed when the binding, one-Organization resolution,
+The candidate dev overlay (`pnpm compose:candidate`) switches the API
+`RedirectUri` to `http://localhost:5274/auth/callback`. Recreate the API with
+the canonical profile (`pnpm compose:reset` or equivalent) before canonical
+`:18080` sign-in or Playwright acceptance.
 accepted MFA evidence, grant, descriptor, route, or dependency is missing. It
 must not use `/browser`, provider roles, browser-supplied scope, or a relaxed
 Production authentication policy as authority. Test credentials remain
@@ -163,8 +180,8 @@ Logout contract:
 
 `pnpm verify:oidc` is the required live evidence command. It covers signed
 logout-token compatibility, rendered Compose semantics, NGINX allowlist,
-browser PKCE, opaque PostgreSQL-backed sessions, local logout, provider-forced
-logout through the real API, unbound and ambiguous-Organization fail-closed
+browser PKCE, opaque PostgreSQL-backed sessions, frictionless local logout through
+`id_token_hint`, provider-forced logout through the real API, unbound and
 cases, and the named candidate/non-Production Wave 8.1 shell. Full `AC-OPS-4`
 remains `Partial` until real MFA, key rotation, clock skew, account
 disablement, provider outage, and multi-instance callback/session cases pass.

@@ -16,9 +16,11 @@
   --teal: #146261;
   --teal-glow: rgba(26, 122, 121, 0.2);
   --danger: #c43e4b;
+  --danger-bright: #a9323e;
+  --danger-glow: rgba(169, 50, 62, 0.22);
   --danger-soft: #fdecef;
   --danger-strong: #a9313d;
-  --fg-danger: #a9323e;
+  --fg-danger: var(--danger-bright);
   --success: #1f7a49;
   --panel-sheen: linear-gradient(115deg, rgba(255, 255, 255, 0.62), transparent 38%);
   --panel-depth: linear-gradient(200deg, rgba(212, 226, 230, 0.7), rgba(227, 236, 240, 0.28));
@@ -26,15 +28,8 @@
   --select-trigger-bg-hover: rgba(70, 110, 116, 0.12);
 }
 
-[data-theme="light"] .command-strip {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(228, 240, 242, 0.18));
-}
-
-[data-theme="light"] .gangway {
-  background: linear-gradient(180deg, rgba(212, 226, 230, 0.58), rgba(228, 240, 242, 0.22));
-}
-
-[data-theme="light"] .empty-plate:not(.empty-plate--inset) {
+[data-theme="light"] .empty-plate:not(.empty-plate--inset),
+[data-theme="light"] .wait-plate:not(.wait-plate--inset) {
   background: var(--panel-sheen), rgba(227, 236, 240, 0.72);
 }
 
@@ -73,12 +68,19 @@
     --amber: Highlight;
     --amber-bright: Highlight;
     --teal: LinkText;
+    --danger: Mark;
+    --danger-bright: Mark;
+    --danger-glow: transparent;
   }
 
   .brand-mark,
   .strip-brand-core,
   .rail-brand-core,
-  .agent-name-core {
+  .agent-name-core,
+  .operate-title,
+  .type-placard--system,
+  .type-placard--attention,
+  .type-placard--danger {
     text-shadow: none;
   }
 

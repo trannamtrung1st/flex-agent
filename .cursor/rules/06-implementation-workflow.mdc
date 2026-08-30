@@ -29,6 +29,7 @@ One implementation task normally has one state file. Do not create separate plan
 - Keep the active task file current as steps, discoveries, blockers, and verification change.
 - Compose applicable role skills; this workflow does not replace them.
 - Follow specification-driven TDD for behavior changes.
+- For UI verification, attach to a healthy local origin before starting Compose or Vite (Playwright MCP rule).
 - Record verification evidence; do not claim completion from checklist marks alone.
 - Reconcile the plan against actual changes before finishing.
 - Mark the task completed and keep its file after completion and external review for tracking.

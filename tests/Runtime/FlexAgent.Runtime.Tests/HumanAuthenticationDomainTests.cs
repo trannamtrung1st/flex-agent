@@ -223,6 +223,10 @@ public sealed class HumanAuthenticationDomainTests
         Assert.Equal("/work", normalized);
         Assert.True(SafeReturnPaths.TryNormalize(null, out var fallback));
         Assert.Equal("/", fallback);
+        Assert.True(SafeReturnPaths.TryNormalize("/?signin=denied", out var denied));
+        Assert.Equal("/", denied);
+        Assert.True(SafeReturnPaths.TryNormalize("/work?signin=denied&tab=setup", out var stripped));
+        Assert.Equal("/work?tab=setup", stripped);
     }
 
     private static ApplicationSessionRecord CreateSession(
@@ -237,6 +241,7 @@ public sealed class HumanAuthenticationDomainTests
             Identity,
             "abc",
             AuthenticationStrength.Empty,
+            null,
             null,
             new ApplicationSessionLifetime(createdAt, lastSeenAt, idleExpiresAt, absoluteExpiresAt),
             null,

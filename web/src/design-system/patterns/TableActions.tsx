@@ -490,16 +490,19 @@ export function ActionConfirmDialog({
             </p>
           ) : null}
         </DialogPlateBody>
-        <DialogPlateFooter>
-          <KeyGroup>
+        <DialogPlateFooter
+          arrangement="split"
+          secondary={
             <Key disabled={waiting} onClick={onCancel}>
               Cancel
             </Key>
+          }
+          primary={
             <Key variant="activate" waiting={waiting} disabled={waiting} onClick={onConfirm}>
               {confirmation.commitLabel}
             </Key>
-          </KeyGroup>
-        </DialogPlateFooter>
+          }
+        />
       </DialogPlate>
     </NativeDialog>
   );

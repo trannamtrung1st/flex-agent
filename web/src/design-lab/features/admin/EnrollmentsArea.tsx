@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DataTable } from "../../components/EnrollmentTable";
-import { EmptyPlate, Key, OperateArea } from "../../components";
+import { Key, OperateArea } from "../../components";
 import { EMPTY_SELECTION } from "../../../design-system/patterns/tableSelection";
 import { ADMIN_STAGES } from "../../data/fixtures/campaigns";
 import type { DataTableState } from "../../data/types";
@@ -42,12 +42,11 @@ export function EnrollmentsArea() {
         title="Enrollment Manifest"
         description="Selecting a campaign for the enrollment records."
         headClassName="wall-head"
-      >
-        <EmptyPlate
-          label="Campaign not available"
-          note="Select an authorized campaign before inspecting enrollments."
-        />
-      </OperateArea>
+        empty={{
+          label: "Campaign not available",
+          note: "Select an authorized campaign before inspecting enrollments.",
+        }}
+      />
     );
   }
 

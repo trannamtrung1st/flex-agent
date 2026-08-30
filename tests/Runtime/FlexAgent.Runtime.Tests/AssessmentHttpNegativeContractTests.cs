@@ -225,6 +225,7 @@ public sealed class AssessmentHttpNegativeContractTests
         Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
         Assert.Equal("v1", document.RootElement.GetProperty("schema_version").GetString());
         Assert.False(string.IsNullOrWhiteSpace(document.RootElement.GetProperty("organization_id").GetString()));
+        Assert.Equal("Demo Administrator", document.RootElement.GetProperty("display_name").GetString());
         Assert.Equal(HttpStatusCode.NotFound, guessed.StatusCode);
         Assert.DoesNotContain("title", await guessed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
@@ -556,6 +557,9 @@ public sealed class AssessmentHttpNegativeContractTests
             ["iat"] = now.ToUnixTimeSeconds(),
             ["nbf"] = now.AddMinutes(-1).ToUnixTimeSeconds(),
             ["exp"] = now.AddMinutes(5).ToUnixTimeSeconds(),
+            ["given_name"] = "Demo",
+            ["family_name"] = "Administrator",
+            ["preferred_username"] = "demo.admin",
         });
         var encodedHeader = Encode(Encoding.UTF8.GetBytes(header));
         var encodedPayload = Encode(Encoding.UTF8.GetBytes(payload));

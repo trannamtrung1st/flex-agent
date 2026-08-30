@@ -157,6 +157,7 @@
 .multiselect-search input::placeholder {
   color: var(--label-dim);
   text-transform: uppercase;
+  opacity: 1;
 }
 
 .multiselect-search input:focus {

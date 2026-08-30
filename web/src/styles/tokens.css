@@ -19,6 +19,9 @@
   --amber-glow:    rgba(226, 163, 60, 0.18);
   --teal:          #3cc0bf;
   --teal-glow:     rgba(60, 192, 191, 0.14);
+  --danger:        #f05c58;
+  --danger-bright: #ff7468;
+  --danger-glow:   rgba(240, 92, 88, 0.32);
 
   --font-plaque: "Michroma", "Arial Narrow", sans-serif;
   --font-mono: "Sometype Mono", ui-monospace, monospace;
@@ -57,6 +60,13 @@
      docks scrollports and rail-brand to the bulkhead hairline (guided-task / live-session). */
   --instrument-rail-dock-inline: 18px;
 
+  /* Mono microlabel — readout keys, field labels, section labels (typography floor) */
+  --microlabel-font-size: 0.62rem;
+  /* In-page/form rungs: control (label↔slot), group (legend↔fields), bay (operate strata / titled blocks). */
+  --field-label-gap: var(--space-2-5);
+  --form-group-gap: var(--space-4);
+  --operate-bay-gap: var(--space-6);
+
   /* Readout grid — aligned instrument fields (Campaign Record, Policies, …) */
   --readout-grid-pad-block-start: 10px;
   --readout-grid-pad-block-end: 12px;
@@ -69,9 +79,9 @@
   /* Foot block rhythm matches frame top inset so plate head, action gap, and frame floor read equal. */
   --plate-foot-pad-block: var(--frame-inset-block-start);
 
-  --panel-sheen: linear-gradient(115deg, rgba(215, 227, 234, 0.045), transparent 34%);
-  --panel-depth: linear-gradient(200deg, rgba(2, 9, 14, 0.58), rgba(5, 14, 19, 0.24));
-  --panel-inset: inset 0 1px 0 rgba(246, 252, 254, 0.05), inset 0 -18px 34px rgba(2, 9, 14, 0.5);
+  --panel-sheen: linear-gradient(115deg, rgba(215, 227, 234, 0.09), transparent 42%);
+  --panel-depth: linear-gradient(200deg, rgba(2, 9, 14, 0.62), rgba(5, 14, 19, 0.2));
+  --panel-inset: inset 0 1px 0 rgba(246, 252, 254, 0.1), inset 0 -22px 40px rgba(2, 9, 14, 0.58);
 
   /* Select popover width — defaults for .select-shell--*; override per shell */
   --select-popover-offset-x-field: 0;
@@ -114,6 +124,7 @@
   --key-large-padding-block: 12px;
   --key-large-padding-inline: 24px;
   --key-glyph-size: 11px;
+  --key-back-padding-block: 8px;
   --key-quiet-padding-block: var(--key-padding-block);
   --key-quiet-padding-inline: var(--key-padding-inline);
 }

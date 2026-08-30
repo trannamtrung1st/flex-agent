@@ -15,6 +15,8 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser.compose.yaml")));
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "nginx", "authenticated-browser.conf")));
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser", "seed.sql")));
+        Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser", "seed-demo-work.sql")));
+        Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser.demo-work.compose.yaml")));
         Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "keycloak-contract.compose.yaml")));
         Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "nginx", "keycloak-contract.conf")));
         Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser", "secrets", "oidc-client-secret")));
@@ -96,7 +98,7 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("http://localhost:18080/auth/callback", redirects);
         Assert.Contains("http://localhost:5274/auth/callback", redirects);
         Assert.Equal(
-            "http://localhost:18080/##http://localhost:5274/",
+            "http://localhost:18080/##http://localhost:5274/##http://localhost:18080/?signin=denied##http://localhost:5274/?signin=denied",
             client.GetProperty("attributes").GetProperty("post.logout.redirect.uris").GetString());
         Assert.Equal("http://api:8080", client.GetProperty("adminUrl").GetString());
         Assert.Equal(
@@ -148,6 +150,42 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
+    public void Demo_work_seed_inserts_campaigns_and_enrollments_only_in_demo_work_fixture()
+    {
+        var demoWork = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "deploy",
+            "compose",
+            "authenticated-browser",
+            "seed-demo-work.sql"));
+
+        Assert.Contains("INSERT INTO assessment_activities", demoWork);
+        Assert.Contains("INSERT INTO submissions_enrollments", demoWork);
+        Assert.Contains("Q3 Safety Compliance", demoWork);
+        Assert.Contains("'suspended'", demoWork);
+        Assert.Contains("'revoked'", demoWork);
+        Assert.Contains("New Hire Policy Acknowledgment", demoWork);
+        Assert.Contains(DemoWorkSeedFixtureTests.ActivatedBaselineDigest, demoWork);
+        Assert.DoesNotContain("/browser", demoWork);
+    }
+
+    [Fact]
+    public void Profile_script_honors_demo_work_toggle_and_overlay()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "authenticated-browser-profile.sh"));
+
+        Assert.Contains("FLEXAGENT_SEED_DEMO_WORK", script);
+        Assert.Contains("authenticated-browser.demo-work.compose.yaml", script);
+        Assert.Contains("seed-demo-work.sql", script);
+        Assert.Contains("--demo-work", script);
+        Assert.Contains("demo_work_enabled", script);
+    }
+
+    [Fact]
     public void Script_requires_docker_and_validates_the_rendered_file_set()
     {
         var script = File.ReadAllText(Path.Combine(
@@ -166,6 +204,19 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("render-oidc-realm.py", script);
         Assert.Contains("config --format json", script);
         Assert.DoesNotContain("read -p", script);
+    }
+
+    [Fact]
+    public void Demo_work_overlay_is_development_only_and_not_production()
+    {
+        var overlay = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "deploy",
+            "compose",
+            "authenticated-browser.demo-work.compose.yaml"));
+        Assert.Contains("seed-demo-work.sql", overlay);
+        Assert.Contains("Synthetic data only", overlay);
+        Assert.DoesNotContain("Production", overlay);
     }
 
     [Fact]

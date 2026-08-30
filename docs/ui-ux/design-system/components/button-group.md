@@ -5,6 +5,11 @@ Labeled sibling-key clusters use `KeyGroup`: wrapping `Inline` with gap `2.5`
 `size`, not a shared min-height on the cluster. Wrapping children keep content
 size; do not stretch grouped keys to fill the row.
 
+Plate and dialog action rails use [`PlateFoot` arrangement](cards.md#plate-foot),
+not a second grouping primitive. `KeyGroup` may sit inside a foot slot;
+`justify` on `KeyGroup` is for in-slot clustering (for example table toolbars),
+not for choosing the plate’s leading/trailing/center rail.
+
 Gallery: `key-group`. Dialog, ceremony, and decision feet may constrain the
 group; they do not invent a second grouping primitive.
 

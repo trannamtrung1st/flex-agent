@@ -6,8 +6,10 @@ ownership.
 
 ## Status and authority
 
-**Approved — 2026-08-26; amended 2026-08-28** for the single-SPA reset in
-[ADR-021](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md).
+**Approved — 2026-08-26; amended 2026-08-30** for sign-in fail-closed SPA recovery,
+the single-SPA reset in
+[ADR-021](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md),
+and production clone-from-existing visual composition.
 [ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
 is superseded for dual-build production topology; its design-lab isolation
 rules remain as restated by ADR-021 `FE-RESET-2`.
@@ -60,13 +62,21 @@ browser harness):
 Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions/{id}/events`, and `/browser`
 to the API. Document loads of `/sessions/:sessionId` stay on the SPA.
 Do not treat `/browser/*` synthetic harness routes as production truth.
+Human login is a document navigation through `/auth/login` and
+`/auth/callback`. Callback failures must redirect back into the SPA recovery
+gate rather than rendering API JSON as a document. Identity/Organization
+fail-closed also starts provider logout with `id_token_hint` so the next
+**Continue to sign in** is not bound to the refused account and Keycloak does
+not require a separate confirmation click.
 
 Styling follows design-system v1.0: primitive values in
 `web/src/styles/tokens.css`, semantic aliases in `semantic-aliases.css`, light
-remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names as visual authority; the design-lab Component Deck and
-promoted `web/src/design-system/` modules remain the shared specimen source for
-Shipboard primitives consumed by production pages. Lucide remains the general icon library
-(`DS-DEC-10`).
+remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names as visual
+authority. New production UI clones a matching existing production page and
+Component Deck specimen; the design-system module wins if they disagree.
+Isolated design-lab journeys remain composition donors only for shells whose
+approved family is not yet production-backed. Lucide remains the general icon
+library (`DS-DEC-10`).
 
 ## Layering
 
@@ -92,7 +102,7 @@ and design-lab routes must not import outer-chrome primitives (`CommandStrip`,
 width, and padding live in `web/src/design-system/components/layout/` and may
 be imported from the production design-system barrel. Production may use
 `management`, `guided-task`, and `live-session`. `reference` is design-lab
-only (`web/src/design-system/lab.ts`) and must not enter the candidate barrel.
+only (`web/src/design-system/lab.ts`) and must not enter the production barrel.
 Router hosts resolve the family from the route-layout manifest before rendering
 the matching layout.
 

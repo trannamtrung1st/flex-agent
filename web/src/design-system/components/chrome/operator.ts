@@ -1,4 +1,5 @@
 import type { To } from "react-router-dom";
+import type { Theme } from "../../../lib/theme";
 
 export type ShellMode = "management" | "guided-task" | "live-session" | "reference";
 
@@ -19,3 +20,27 @@ export type OperatorAction = {
   intent?: "default" | "signout";
   onSelect?: () => void;
 };
+
+export function operatorAccountActions(
+  theme: Theme,
+  toggleTheme: () => void,
+  onSignOut: () => void,
+  extras: OperatorAction[] = [],
+): OperatorAction[] {
+  return [
+    ...extras,
+    {
+      id: "theme",
+      label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+      state: "enabled",
+      onSelect: toggleTheme,
+    },
+    {
+      id: "signout",
+      label: "Sign out",
+      state: "enabled",
+      intent: "signout",
+      onSelect: onSignOut,
+    },
+  ];
+}

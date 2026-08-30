@@ -14,7 +14,9 @@ describe("ErrorSummary", () => {
         errors={[{ message: "Enter a Campaign title", href: "#campaign-title" }]}
       />,
     );
-    expect(screen.getByRole("link", { name: "Enter a Campaign title" })).toHaveAttribute("href", "#campaign-title");
+    const link = screen.getByRole("link", { name: "Enter a Campaign title" });
+    expect(link).toHaveAttribute("href", "#campaign-title");
+    expect(link).toHaveClass("text-link");
   });
 
   it("uses the attention advisory strip rather than a banner heading alone", () => {

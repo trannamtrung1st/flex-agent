@@ -77,6 +77,7 @@ public static partial class AssessmentEndpointExtensions
             actor_id = resolved.Actor.Actor.ActorId,
             organization_id = resolved.Actor.Organization.OrganizationId,
             relationship = resolved.Actor.Relationship,
+            display_name = resolved.SeatedDisplayName,
             navigation = new[]
             {
                 new { destination_id = "home", is_available = true },
@@ -154,6 +155,7 @@ public static partial class AssessmentEndpointExtensions
                 title = draft.Content.Title,
                 revision_number = draft.RevisionNumber,
                 has_activated_cohort = draft.HasActivatedCohort,
+                updated_at = draft.UpdatedAtUtc.ToString("O"),
             }),
             permitted_actions = HasAction(resolved, AssessmentAuthorizationActions.CreateActivity)
                 ? new[] { "create_assessment" }
@@ -623,7 +625,8 @@ public static partial class AssessmentEndpointExtensions
                 session.Strength,
                 Guid.CreateVersion7(),
                 "https"),
-            authorization);
+            authorization,
+            session.SeatedDisplayName);
     }
 
     private static async Task<BaselineDigestCheck> LoadActivatedDigestCheckAsync(
@@ -753,6 +756,7 @@ public static partial class AssessmentEndpointExtensions
 
     private sealed record ResolvedAssessmentActor(
         AssessmentActorContext Actor,
-        AssessmentActorAuthorization Authorization);
+        AssessmentActorAuthorization Authorization,
+        string? SeatedDisplayName);
 }
 

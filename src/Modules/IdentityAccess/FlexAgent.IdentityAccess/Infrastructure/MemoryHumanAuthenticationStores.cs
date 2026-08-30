@@ -393,6 +393,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore, IA
         current with
         {
             CredentialDigest = null,
+            ProviderIdTokenCiphertext = null,
             RotatedAt = rotated ? terminatedAt : current.RotatedAt,
             RevokedAt = rotated ? current.RevokedAt : terminatedAt,
             TerminalReason = terminalReason,

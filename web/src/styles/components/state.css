@@ -45,6 +45,13 @@
   gap: 8px;
 }
 
+.state-label {
+  font-size: inherit;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
 /* ═══ Wait mark, scan, skeleton, stage bars ══════════════════════
    Loading is an instrument, never a spinner. System voice = teal.
    Amber stays rationed to time / commit. Reduced-motion floor in
@@ -320,7 +327,7 @@ input:focus-visible + .ack-mark {
   gap: 2px;
 }
 
-.radio-group legend { margin-bottom: 8px; }
+.radio-group legend { margin-bottom: var(--field-label-gap); }
 
 /* ═══ Drawn glyphs ═══════════════════════════════════════════════ */
 

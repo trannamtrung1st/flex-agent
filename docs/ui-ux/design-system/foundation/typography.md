@@ -22,7 +22,9 @@ surfaces. Keep the CSS fallback stacks for unload or failure.
 - **Two voices.** Michroma names (brand, plate titles, key captions, bay heads).
   Sometype Mono speaks (transcript, readouts, inputs, navigation tokens, errors).
 - Placard and microlabel strings are uppercase with wide tracking. Sentence-case
-  body copy uses Sometype Mono and is not forced to uppercase.
+  body copy uses Sometype Mono and is not forced to uppercase. Work-well and
+  briefing section labels are teal microlabels; they do not take a leading
+  instrument tick.
 - Do not use a third family for headings.
 - Long-form content and transcripts prioritize readability: body 15px / 1.5–1.55,
   measure about 68–78ch, `fg-default` / `fg-strong`.
@@ -42,7 +44,7 @@ surfaces. Keep the CSS fallback stacks for unload or failure.
 | H1 / wall head | 0.78–1.15rem | 0.72–0.9rem | 400 | 1.2 | Placard |
 | H2 / plate title | 0.72rem | 0.68rem | 400 | 1.25 | Placard |
 | H3 | 0.68rem | 0.68rem | 400 | 1.3 | Placard or mono |
-| Section label | 0.62–0.68rem | 0.62rem | 400–500 | 1.4 | Mono microlabel |
+| Section label | 0.62–0.68rem | 0.62rem | 400–500 | 1.4 | Mono microlabel (no leading tick) |
 
 ## Body Scale
 
@@ -64,8 +66,9 @@ contrast, and line height instead.
 
 ## Links
 
-- Inline links: same font and size as surrounding text, `fg-brand`, underline
-  on hover or persistent underline in prose.
+- Inline links: same font and size as surrounding text, `fg-brand` (`.text-link`),
+  no underline. Hover and focus brighten to Bright Text; keyboard focus uses the
+  shared outline. A persistent underline collides with tracked microlabels.
 - Navigation links: no underline by default; current state uses a teal tick or
   underline bar plus `aria-current`. Never amber.
 - External links may include a small Lucide external-link icon.

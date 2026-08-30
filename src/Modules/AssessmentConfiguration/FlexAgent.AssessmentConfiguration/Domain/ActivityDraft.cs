@@ -8,7 +8,8 @@ public sealed record ActivityDraft(
     string Form,
     string ConfiguredType,
     AssessmentDraftContent Content,
-    bool HasActivatedCohort)
+    bool HasActivatedCohort,
+    DateTimeOffset UpdatedAtUtc)
 {
     public static AssessmentDecision<ActivityDraft> Create(
         Guid organizationId,
@@ -75,7 +76,8 @@ public sealed record ActivityDraft(
                 AssessmentActivityForms.Campaign,
                 AssessmentConfiguredTypes.Assessment,
                 content,
-                HasActivatedCohort: false));
+                HasActivatedCohort: false,
+                UpdatedAtUtc: DateTimeOffset.UtcNow));
     }
 
     public AssessmentDecision<ActivityDraft> Save(
@@ -128,12 +130,17 @@ public sealed record ActivityDraft(
                 RevisionId = Guid.CreateVersion7(),
                 RevisionNumber = RevisionNumber + 1,
                 Content = nextContent with { Title = nextContent.Title.Trim() },
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
             });
     }
 
     public AssessmentDecision<ActivityDraft> MarkActivatedCohort()
     {
-        return AssessmentDecision<ActivityDraft>.Ok(this with { HasActivatedCohort = true });
+        return AssessmentDecision<ActivityDraft>.Ok(this with
+        {
+            HasActivatedCohort = true,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
     }
 
     public AssessmentDecision<ActivityDraft> CreateSuccessorRevision()
@@ -150,6 +157,7 @@ public sealed record ActivityDraft(
                 RevisionId = Guid.CreateVersion7(),
                 RevisionNumber = 1,
                 HasActivatedCohort = false,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
             });
     }
 }

@@ -56,6 +56,8 @@ Shared tokens:
 
 Labeled sibling-key clusters use `KeyGroup`, which renders `Inline` (`gap="2.5"`, wrap, `role="group"`) plus `.key-group`. Height comes from `Key` `size`, not the cluster. Do not stretch grouped keys to a shared min-height.
 
+Plate action rails use `PlateFoot` (an `Inline` `footer` plus `.plate-foot`) with closed `arrangement` values `start` | `center` | `end` | `split`. See [plates](cards.md#plate-foot).
+
 `Grid.minItemWidth`: `compact` \| `control` \| `panel` \| `wide`. Columns use
 `repeat(auto-fit, minmax(min(100%, var(--grid-min-*)), 1fr))`.
 
@@ -76,7 +78,8 @@ arbitrary child margins to fake rhythm.
 
 Component Deck `composition-recipes` shows common inner slots (a `Container
 size="form"` column, a grouped list with trailing open keys). Those are
-specimens of the primitives above, not additional components.
+specimens of the primitives above, not additional components. Cloneable
+OperateArea forms with real fields live on `form-recipes`.
 
 ## Semantic examples
 
@@ -84,7 +87,12 @@ specimens of the primitives above, not additional components.
 <Stack as="section" gap="6" aria-labelledby="create-heading">
   <h2 id="create-heading">Create assessment Campaign</h2>
   <Container size="form">
-    <Stack as="form" gap="5">{/* fields */}</Stack>
+    <Stack as="form" gap="6">
+      <FormField layout="stack" id="title" label="Campaign title">{/* control */}</FormField>
+      <FormSection legend="Agent and Harness">
+        <Grid gap="4" minItemWidth="control">{/* fields */}</Grid>
+      </FormSection>
+    </Stack>
   </Container>
 </Stack>
 

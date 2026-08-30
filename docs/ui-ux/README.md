@@ -12,8 +12,9 @@ after the Shipboard production UX reset. Former versions at Git `eb9c398` are
 [retirement ledger](retired-authority.md).
 
 The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
-Terminal** visual authority. The design lab is isolated composition evidence
-and is not a production journey specification.
+Terminal** visual authority. New production UI clones a matching existing
+production page and Component Deck specimen. The design lab is isolated
+composition evidence and is not a production journey specification.
 
 Voice interaction, interruption, playback, TTS, and the proposed text
 Interaction Controller are **unavailable in P0** until a separate product

@@ -5,6 +5,7 @@ import {
   CeremonyDialog,
   DataTableShell,
   DemoPlate,
+  datatableColMin,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
@@ -12,6 +13,8 @@ import {
   EmptyPlate,
   FieldTextarea,
   FormField,
+  BOUNDED_REASON_PLACEHOLDER,
+  InstantReadout,
   Key,
   KeyGroup,
   CATALOG_ROUTE,
@@ -31,7 +34,6 @@ import { boundedReasonError, clearValidationErrorOnValid } from "../../design-sy
 import { loadReviewerState, persistReviewerState } from "../features/reviewer/storage";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
-import { formatViewerInstant } from "../../lib/format";
 import { maxWidthQuery } from "../../lib/breakpoints";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useSurface } from "../lib/useSurface";
@@ -307,6 +309,7 @@ export function ReviewerPage() {
                 <FieldTextarea
                   {...controlProps}
                   value={decisionReason}
+                  placeholder={BOUNDED_REASON_PLACEHOLDER}
                   onChange={(event) => {
                     const next = event.target.value;
                     setDecisionReason(next);
@@ -316,9 +319,10 @@ export function ReviewerPage() {
               )}
             </FormField>
           </DialogPlateBody>
-          <DialogPlateFooter>
-            <KeyGroup>
-              <Key onClick={() => setDecision(null)}>Cancel</Key>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={<Key onClick={() => setDecision(null)}>Cancel</Key>}
+            primary={
               <Key
               onClick={() => {
                 if (!session || !decision) return;
@@ -342,8 +346,8 @@ export function ReviewerPage() {
             >
               {decision === "reject" ? "Confirm reject" : "Confirm escalate"}
               </Key>
-            </KeyGroup>
-          </DialogPlateFooter>
+            }
+          />
         </DialogPlate>
       </CeremonyDialog>
       <Announcer message={message} />
@@ -364,27 +368,27 @@ export function ReviewerPage() {
               <DataTableShell
                 variant="bodyOnly"
                 className="queue-datatable"
+                scrollProps={{ tabIndex: 0, "aria-label": "Review queue rows, scrollable" }}
                 table={
                   <table className="datatable-table manifest" hidden={rows.length === 0}>
                     <caption className="visually-hidden">Sessions awaiting human review</caption>
                     <thead>
                       <tr>
-                        <th scope="col"><span className="col-head">Participant</span></th>
-                        <th scope="col"><span className="col-head">Campaign</span></th>
-                        <th scope="col"><span className="col-head">Assignment</span></th>
-                        <th scope="col"><span className="col-head">Received</span></th>
-                        <th scope="col"><span className="col-head">Confidence</span></th>
-                        <th scope="col"><span className="col-head">State</span></th>
+                        <th scope="col" {...datatableColMin("id")}><span className="col-head">Participant</span></th>
+                        <th scope="col" {...datatableColMin("label")}><span className="col-head">Campaign</span></th>
+                        <th scope="col" {...datatableColMin("label")}><span className="col-head">Assignment</span></th>
+                        <th scope="col" {...datatableColMin("instant")}><span className="col-head">Received</span></th>
+                        <th scope="col" {...datatableColMin("confidence")}><span className="col-head">Confidence</span></th>
+                        <th scope="col" {...datatableColMin("state")}><span className="col-head">State</span></th>
                         <th scope="col"><span className="visually-hidden">Action</span></th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((s) => {
                         const isHot = s.id === hotId && s.reviewStatus === "awaiting";
-                        const received = formatViewerInstant(s.received);
                         return (
                           <tr key={s.id} className={`datatable-row${isHot ? " is-hot" : ""}`}>
-                            <td className="col-candidate cell-id" data-label="Participant">
+                            <td className="col-candidate cell-id" data-label="Participant" {...datatableColMin("id")}>
                               <button
                                 type="button"
                                 className="datatable-id"
@@ -393,15 +397,13 @@ export function ReviewerPage() {
                                 {s.candidate}
                               </button>
                             </td>
-                            <td className="cell-content" data-label="Campaign">{s.campaign}</td>
-                            <td className="col-assignment cell-content" data-label="Assignment">{s.assignment}</td>
-                            <td className="col-received cell-content" data-label="Received">
-                              <time dateTime={received.datetime} title={received.title}>
-                                {received.label}
-                              </time>
+                            <td className="cell-content" data-label="Campaign" {...datatableColMin("label")}>{s.campaign}</td>
+                            <td className="col-assignment cell-content" data-label="Assignment" {...datatableColMin("label")}>{s.assignment}</td>
+                            <td className="col-received cell-content" data-label="Received" {...datatableColMin("instant")}>
+                              <InstantReadout value={s.received} />
                             </td>
-                            <td className="col-confidence cell-content" data-label="Confidence">{mean(s).toFixed(2)}</td>
-                            <td className="cell-content" data-label="State">
+                            <td className="col-confidence cell-content" data-label="Confidence" {...datatableColMin("confidence")}>{mean(s).toFixed(2)}</td>
+                            <td className="cell-content" data-label="State" {...datatableColMin("state")}>
                               <StateReadout
                                 variant={statusIndicatorVariant(s.reviewStatus)}
                                 solid={s.reviewStatus === "released" || s.reviewStatus === "escalated" || s.reviewStatus === "awaiting" || s.reviewStatus === "adjusted"}
@@ -429,6 +431,7 @@ export function ReviewerPage() {
                     <EmptyPlate
                       id="queueEmpty"
                       className="datatable-empty queue-empty-plate"
+                      inset
                       label="Queue clear"
                       note="No sessions are queued for review in this demo state."
                     />

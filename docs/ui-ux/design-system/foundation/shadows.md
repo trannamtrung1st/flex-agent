@@ -6,9 +6,9 @@ edge-light, and rare phosphor glow — not floating SaaS cards.
 | Token | Light | Dark | Usage |
 | --- | --- | --- | --- |
 | shadow-none | none | none | plates, tables, rails, transcript cards |
-| panel-sheen | low-opacity cool highlight | `linear-gradient(115deg, rgba(215,227,234,0.045), transparent 34%)` | plate illumination |
-| panel-depth | light inset wash | `linear-gradient(200deg, rgba(2,9,14,0.58), rgba(5,14,19,0.24))` | plate fill |
-| panel-inset | subtle inner edge | `inset 0 1px 0 rgba(246,252,254,0.05), inset 0 -18px 34px rgba(2,9,14,0.5)` | glass vignette |
+| panel-sheen | low-opacity cool highlight | `linear-gradient(115deg, rgba(215,227,234,0.09), transparent 42%)` | plate illumination |
+| panel-depth | light inset wash | `linear-gradient(200deg, rgba(2,9,14,0.62), rgba(5,14,19,0.2))` | plate fill |
+| panel-inset | subtle inner edge | `inset 0 1px 0 rgba(246,252,254,0.1), inset 0 -22px 40px rgba(2,9,14,0.58)` | glass vignette |
 | shadow-overlay | `0 14px 30px rgba(4,12,17,0.18)` | `0 14px 30px rgba(2,9,14,0.55)` | menus/dialogs seating over chrome — overlay umbra, not card lift |
 
 ## Emission
@@ -19,6 +19,8 @@ Teal/amber emission is allowed only for active system meaning.
 - `emission-selected`: very faint selected-context edge; approximately 10–16px.
 - `emission-live` / `emission-agent`: Agent Core and genuine live state.
 - `emission-attention`: timer digits, hot commit keys, validation bezels.
+- `emission-danger`: Access denied and failed-sign-in Michroma titles
+  (`.workspace-area--danger .operate-title`). Not for body copy or validation.
 
 Use emission colors from `colors.md` and keep opacity low. Structural chrome —
 hairlines, dividers, resting keys, readout text — never glows.

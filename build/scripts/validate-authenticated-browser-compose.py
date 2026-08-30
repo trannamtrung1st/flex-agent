@@ -22,6 +22,7 @@ REQUIRED_SERVICES = {
     "spa",
     "nginx",
 }
+DEMO_WORK_SERVICES = {"seed-demo-work"}
 IMAGE_SERVICES = {
     "postgres",
     "keycloak-db",
@@ -30,7 +31,7 @@ IMAGE_SERVICES = {
     "seed",
     "seaweedfs",
     "nginx",
-}
+} | DEMO_WORK_SERVICES
 CANONICAL_CALLBACK = "http://localhost:18080/auth/callback"
 CANDIDATE_CALLBACK = "http://localhost:5274/auth/callback"
 CANONICAL_BACKCHANNEL = "http://api:8080/auth/backchannel-logout"
@@ -100,17 +101,22 @@ def depends_condition(service: dict[str, Any], name: str) -> str | None:
     return "service_started"
 
 
-def validate_compose(config: dict[str, Any], mode: str) -> None:
+def validate_compose(config: dict[str, Any], mode: str, demo_work: bool) -> None:
     services = config.get("services") or {}
     names = set(services)
-    missing = REQUIRED_SERVICES - names
-    extra = names - REQUIRED_SERVICES
+    required = set(REQUIRED_SERVICES)
+    if demo_work:
+        required |= DEMO_WORK_SERVICES
+    missing = required - names
+    allowed_extra = DEMO_WORK_SERVICES if demo_work else set()
+    extra = names - required - allowed_extra
     if missing:
         fail(f"canonical profile missing services: {sorted(missing)}")
     if extra:
         fail(f"canonical profile has unexpected services: {sorted(extra)}")
 
-    for name in IMAGE_SERVICES:
+    image_services = IMAGE_SERVICES if demo_work else (IMAGE_SERVICES - DEMO_WORK_SERVICES)
+    for name in image_services:
         ref = image_ref(services[name])
         if not DIGEST.search(ref):
             fail(f"{name} image is not digest-pinned: {ref or '(empty)'}")
@@ -166,6 +172,14 @@ def validate_compose(config: dict[str, Any], mode: str) -> None:
     if depends_condition(services["nginx"], "api") != "service_healthy":
         fail("gateway must wait for API health before starting")
 
+    if demo_work:
+        if depends_condition(services["seed-demo-work"], "seed") != "service_completed_successfully":
+            fail("demo-work seed must wait for identity seed completion")
+        if depends_condition(services["api"], "seed-demo-work") != "service_completed_successfully":
+            fail("API must wait for demo-work seed before starting when enabled")
+    elif depends_condition(services["api"], "seed") != "service_completed_successfully":
+        fail("API must wait for identity seed before starting")
+
 
 def validate_nginx(nginx_text: str) -> None:
     required = (
@@ -206,7 +220,10 @@ def validate_realm(realm: dict[str, Any], generated: bool) -> None:
         fail("realm must require S256 PKCE")
     if attributes.get("backchannel.logout.url") != CANONICAL_BACKCHANNEL:
         fail("canonical realm back-channel must target the in-compose API")
-    if attributes.get("post.logout.redirect.uris") != "http://localhost:18080/##http://localhost:5274/":
+    if attributes.get("post.logout.redirect.uris") != (
+        "http://localhost:18080/##http://localhost:5274/"
+        "##http://localhost:18080/?signin=denied##http://localhost:5274/?signin=denied"
+    ):
         fail("realm must register loopback post-logout redirects for canonical and candidate origins")
     if "host.docker.internal" in json.dumps(client):
         fail("canonical realm must not use host.docker.internal")
@@ -234,11 +251,12 @@ def main() -> None:
     parser.add_argument("--nginx")
     parser.add_argument("--realm")
     parser.add_argument("--mode", choices=("canonical", "candidate"), default="canonical")
+    parser.add_argument("--demo-work", action="store_true")
     parser.add_argument("--generated-realm", action="store_true")
     args = parser.parse_args()
 
     if args.compose_json:
-        validate_compose(load_json(args.compose_json), args.mode)
+        validate_compose(load_json(args.compose_json), args.mode, args.demo_work)
     if args.nginx:
         validate_nginx(Path(args.nginx).read_text(encoding="utf-8"))
     if args.realm:

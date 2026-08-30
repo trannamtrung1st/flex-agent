@@ -9,7 +9,7 @@ import {
   DialogPlateFooter,
   DialogPlateHead,
   Key,
-  KeyGroup,
+  COMPOSER_PLACEHOLDER,
   ReadoutList,
   StageBars,
   TransmitChevron,
@@ -185,7 +185,7 @@ export function SessionPage() {
                 id="composerInput"
                 ref={inputRef}
                 rows={1}
-                placeholder="Compose reply — Attempt 1, Session 07"
+                placeholder={COMPOSER_PLACEHOLDER}
                 autoComplete="off"
                 spellCheck
                 disabled={state.complete}
@@ -357,11 +357,14 @@ export function SessionPage() {
               be able to add further replies.
             </p>
           </DialogPlateBody>
-          <DialogPlateFooter>
-            <KeyGroup>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={
               <Key id="confirmCancel" onClick={() => dispatch({ type: "open-confirm", open: false })}>
                 Remain in Session
               </Key>
+            }
+            primary={
               <Key
                 id="confirmSubmit"
                 variant="transmit"
@@ -373,8 +376,8 @@ export function SessionPage() {
                 <span>Submit Session</span>
                 <TransmitChevron />
               </Key>
-            </KeyGroup>
-          </DialogPlateFooter>
+            }
+          />
         </DialogPlate>
       </CeremonyDialog>
       <CeremonyDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} labelledBy="leaveTitle" id="leaveDialog">
@@ -386,14 +389,15 @@ export function SessionPage() {
               open. Production pause and resume are owned by the examination runtime and are not simulated here.
             </p>
           </DialogPlateBody>
-          <DialogPlateFooter>
-            <KeyGroup>
-              <Key onClick={() => setLeaveOpen(false)}>Remain in session</Key>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={<Key onClick={() => setLeaveOpen(false)}>Remain in session</Key>}
+            primary={
               <Key variant="quiet" to={`/participant-journey?demo=${assignmentDemo}`}>
                 Leave to assignment
               </Key>
-            </KeyGroup>
-          </DialogPlateFooter>
+            }
+          />
         </DialogPlate>
       </CeremonyDialog>
       <Announcer message={message} />

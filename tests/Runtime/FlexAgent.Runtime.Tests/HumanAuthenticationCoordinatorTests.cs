@@ -56,6 +56,40 @@ public sealed class HumanAuthenticationCoordinatorTests
     }
 
     [Fact]
+    public async Task Login_stores_seated_display_name_and_rotation_keeps_it()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login(seatedDisplayName: "Demo Participant"),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var seated = await harness.Coordinator.AuthenticateAsync(
+            login.RawCredential!,
+            false,
+            TestContext.Current.CancellationToken);
+        Assert.Equal("Demo Participant", seated!.SeatedDisplayName);
+
+        var rotated = await harness.Coordinator.RotateAsync(
+            login.ApplicationSessionId!.Value,
+            ApplicationSessionTerminalReasons.PrivilegeChange,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var afterRotate = await harness.Coordinator.AuthenticateAsync(
+            rotated.RawCredential!,
+            false,
+            TestContext.Current.CancellationToken);
+        Assert.Equal("Demo Participant", afterRotate!.SeatedDisplayName);
+    }
+
+    [Fact]
     public async Task Concurrent_sessions_rotate_and_revoke_individually()
     {
         var harness = CreateHarness();
@@ -94,7 +128,7 @@ public sealed class HumanAuthenticationCoordinatorTests
         Assert.Null(await harness.Coordinator.AuthenticateAsync(rotated.RawCredential!, false, TestContext.Current.CancellationToken));
         Assert.NotNull(await harness.Coordinator.AuthenticateAsync(second.RawCredential!, false, TestContext.Current.CancellationToken));
 
-        Assert.True(await harness.Coordinator.LogoutAsync(second.RawCredential!, Guid.NewGuid(), TestContext.Current.CancellationToken));
+        Assert.True((await harness.Coordinator.LogoutAsync(second.RawCredential!, Guid.NewGuid(), TestContext.Current.CancellationToken)).Succeeded);
         Assert.Null(await harness.Coordinator.AuthenticateAsync(second.RawCredential!, false, TestContext.Current.CancellationToken));
     }
 
@@ -358,10 +392,80 @@ public sealed class HumanAuthenticationCoordinatorTests
         Assert.Equal(HumanAuthenticationReasonCodes.ReboundIdentity, rebound);
     }
 
+    [Fact]
+    public async Task Logout_returns_the_encrypted_provider_id_token_hint()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+
+        const string providerIdToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.sig";
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login(providerIdToken: providerIdToken),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        Assert.True(login.Succeeded);
+
+        var logout = await harness.Coordinator.LogoutAsync(
+            login.RawCredential!,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        Assert.True(logout.Succeeded);
+        Assert.Equal(providerIdToken, logout.IdTokenHint);
+        Assert.All(harness.Sessions.Snapshot, session => Assert.Null(session.ProviderIdTokenCiphertext));
+    }
+
+    [Fact]
+    public async Task Rotation_preserves_provider_id_token_hint_for_logout()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+
+        const string providerIdToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJyb3RhdGUifQ.sig";
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login(providerIdToken: providerIdToken),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        Assert.True(login.Succeeded);
+
+        var rotated = await harness.Coordinator.RotateAsync(
+            login.ApplicationSessionId!.Value,
+            ApplicationSessionTerminalReasons.PrivilegeChange,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        Assert.True(rotated.Succeeded);
+
+        var logout = await harness.Coordinator.LogoutAsync(
+            rotated.RawCredential!,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        Assert.True(logout.Succeeded);
+        Assert.Equal(providerIdToken, logout.IdTokenHint);
+    }
+
     private static ValidatedHumanLogin Login(
         string providerSessionId = "sid-1",
-        DateTimeOffset? authenticatedAt = null) =>
-        new(Identity, new AuthenticationStrength("acr:mfa", ["mfa"]), providerSessionId, authenticatedAt ?? DateTimeOffset.UtcNow);
+        DateTimeOffset? authenticatedAt = null,
+        string? providerIdToken = null,
+        string? seatedDisplayName = null) =>
+        new(
+            Identity,
+            new AuthenticationStrength("acr:mfa", ["mfa"]),
+            providerSessionId,
+            authenticatedAt ?? DateTimeOffset.UtcNow,
+            providerIdToken,
+            seatedDisplayName);
 
     private static Harness CreateHarness()
     {
@@ -373,6 +477,7 @@ public sealed class HumanAuthenticationCoordinatorTests
             sessions,
             audit,
             new HmacLookupDigestCalculator("test-lookup-key-32-bytes-minimum!"u8.ToArray()),
+            new AesGcmPayloadProtector("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"u8.ToArray()),
             new SystemDatabaseClock(TimeProvider.System),
             new HumanAuthenticationOptions { Issuer = Identity.Issuer });
         return new Harness(coordinator, bindings, sessions, audit);

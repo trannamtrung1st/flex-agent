@@ -8,6 +8,7 @@ import {
   DropdownSelect,
   FieldNumber,
   FormField,
+  SCORE_PLACEHOLDER,
   Gangway,
   Key,
   KeyGroup,
@@ -18,6 +19,7 @@ import {
   type CommandStripNavItem,
   type GangwayGroup,
 } from "../../../components";
+import { useTheme } from "../../../../lib/useTheme";
 import { PanelTabs } from "../PanelTabs";
 import { GallerySection, Spec } from "./GallerySection";
 
@@ -56,6 +58,7 @@ export function NavigationSections() {
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState<"leading" | "trailing" | "form" | null>(null);
   const [footerState, setFooterState] = useState("Populated roster");
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <>
@@ -68,7 +71,7 @@ export function NavigationSections() {
             <CommandStrip
               nav={stripRoleNav}
               profile={PARTICIPANT_IDENTITY}
-              actions={labAccountActions(() => undefined)}
+              actions={labAccountActions(theme, toggleTheme, () => undefined)}
             />
           </div>
         </Spec>
@@ -92,7 +95,7 @@ export function NavigationSections() {
             </nav>
           </Spec>
         </div>
-        <Spec wide tag="OperateHead · BackKey · shared page heading and visible return control">
+        <Spec wide tag="OperateHead · BackKey · return key trails the copy cluster">
           <OperateHead
             title="Campaign Record"
             description="Configuration, activation state, and enrollment context."
@@ -117,12 +120,24 @@ export function NavigationSections() {
         </Spec>
       </GallerySection>
 
-      <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Management-layout breadcrumb slot. Home is always linked; the current page is plain text with aria-current.">
-        <Spec wide tag=".breadcrumb-nav">
+      <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Shared in-bay trail (BreadcrumbNav). Home plus reachable destinations only — not a URL-segment dump, not a second gangway, and not the BackKey row. Ancestors stay linked; the current crumb is plain text with aria-current.">
+        <Spec wide tag="index · Home / current">
+          <BreadcrumbNav items={[{ label: "My work", current: true }]} />
+        </Spec>
+        <Spec wide tag="nested record · Activities / Setup">
           <BreadcrumbNav
             items={[
               { label: "Activities", href: "/activities" },
               { label: "Setup and readiness", current: true },
+            ]}
+          />
+        </Spec>
+        <Spec wide tag="nested child · Setup / Participants">
+          <BreadcrumbNav
+            items={[
+              { label: "Activities", href: "/activities" },
+              { label: "Setup and readiness", href: "/activities/act-1/setup" },
+              { label: "Participants", current: true },
             ]}
           />
         </Spec>
@@ -154,6 +169,7 @@ export function NavigationSections() {
               max={4}
               step={0.5}
               defaultValue="3.5"
+              placeholder={SCORE_PLACEHOLDER}
             />
           )}
         </FormField>

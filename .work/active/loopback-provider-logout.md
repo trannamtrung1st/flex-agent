@@ -34,7 +34,9 @@ synthetic actor. Production HTTPS-only end-session rules stay fail-closed.
 
 ## Out
 
-- Retaining provider ID tokens (`STACK-DEC-21`)
+- General provider token retention outside amended `STACK-DEC-21` (see
+  `sso-logout-id-token-hint` for the bounded encrypted ID-token ciphertext used
+  only as logout `id_token_hint`)
 - Client-selected role or Organization switching
 - Production HTTP end-session
 
@@ -49,8 +51,9 @@ synthetic actor. Production HTTPS-only end-session rules stay fail-closed.
 # Current state
 
 Completed. Local Sign out returns the Keycloak HTTP loopback end-session
-URL, the SPA follows it, Keycloak confirmation ends SSO, and a second login
-can bind a different synthetic actor.
+URL with `id_token_hint` when available; the SPA follows it, SSO ends without
+`#kc-logout` confirm, and a second login can bind a different synthetic actor.
+(See `sso-logout-id-token-hint` for the 2026-08-29 amendment.)
 
 # Decisions
 
@@ -60,7 +63,10 @@ can bind a different synthetic actor.
   origin (`/`), never from the browser.
 - Keycloak 26.7.0 rejects first-class `postLogoutRedirectUris`; the realm
   uses the client attribute `post.logout.redirect.uris` with `##`.
-- Keycloak logout confirmation without `id_token_hint` is accepted.
+- **Superseded 2026-08-29** (`sso-logout-id-token-hint`): logout confirmation
+  without `id_token_hint` is no longer accepted behavior. The API now stores an
+  encrypted provider ID token for RP-initiated logout and includes
+  `id_token_hint` on end-session URLs per amended `STACK-DEC-21`.
 
 # Findings / deviations
 
@@ -74,8 +80,8 @@ can bind a different synthetic actor.
 | HostOptions / logout HTTP tests | passed | 27 tests across EndSession, Runtime, Profile |
 | SPA logout next-location tests | passed | `vitest` 16/16 (`production-logout` + `production-routes`) |
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed |
-| Live Sign out (no SSO rebind) | passed | Administrator Sign out → Keycloak confirm → login form → participant Home. Screenshots `.playwright-mcp/page-2026-08-28T16-21-30-628Z.png`, `16-21-51-659Z.png`, `16-22-11-938Z.png`, `16-22-33-793Z.png` |
-| Confirmation pass 2026-08-28 | passed | Session remains anonymous on `http://localhost:5274/` (`Continue to sign in`). Narrow Sign out still present. `#kc-logout` confirmed. Validator pins `post.logout.redirect.uris`. Focused tests 27 .NET + 16 Vitest + compose python. |
+| Live Sign out (no SSO rebind) | passed (2026-08-28; confirm superseded 2026-08-29) | Administrator Sign out → login form → participant Home. Pre-`id_token_hint` flow used Keycloak confirm. Post-`id_token_hint`: direct **Sign in required** — see `sso-logout-id-token-hint` |
+| Confirmation pass 2026-08-28 | superseded 2026-08-29 | `#kc-logout` was expected before `id_token_hint`; frictionless logout is now required per `STACK-DEC-21` amendment |
 | `pnpm verify:oidc` full matrix | not run this task | OIDC-E2E-03/CANDIDATE-01 updated; live MCP proved the candidate path |
 
 # Blockers

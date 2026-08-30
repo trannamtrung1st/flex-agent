@@ -82,7 +82,9 @@ pnpm verify:design-lab
 bash build/scripts/verify-web.sh
 ```
 
-Run the SPA locally (`http://localhost:5274/`):
+Run the SPA locally (`http://localhost:5274/`). Vite uses `strictPort` on `5274`,
+so a collision fails instead of moving to another port. Probe that origin before
+starting; if it is already serving this SPA, attach.
 
 ```bash
 cd web && pnpm dev
@@ -91,6 +93,8 @@ cd web && pnpm dev
 ### OIDC / authenticated browser
 
 Canonical Development/Testing origin is `http://localhost:18080` ([STACK-DEC-27](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)). Contract, case IDs, and residuals: [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md).
+
+Before `compose:up` or starting Vite, [attach to a running local origin](development-harness.md#attach-to-a-running-local-origin). `pnpm compose:status` is the `:18080` probe. The commands below start a **new** stack; `compose:up` is not idempotent.
 
 ```bash
 pnpm compose:validate
@@ -105,8 +109,8 @@ The `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile
 | Command | Purpose |
 | --- | --- |
 | `pnpm compose:validate` | Validate the rendered Compose contract without starting services |
-| `pnpm compose:up` | Start the stack (fresh synthetic data and OIDC secrets) and wait for `http://localhost:18080` |
-| `pnpm compose:status` | Show Compose service status and probe the session endpoint |
+| `pnpm compose:up` | Start a **fresh** stack (new synthetic data and OIDC secrets) and wait for `http://localhost:18080`. Do not run this over a healthy attachable stack |
+| `pnpm compose:status` | Attach probe: Compose service status and `/auth/session` (`session-endpoint:ok` when healthy) |
 | `pnpm compose:down` | Tear down services and generated secret material |
 | `pnpm compose:reset` | `compose:down` then `compose:up` |
 | `pnpm compose:candidate` | Start with the candidate dev overlay for `web/` on port 5274 |
@@ -115,7 +119,13 @@ The profile stores PostgreSQL, Keycloak, and blob data in container `tmpfs` only
 Each `compose:up` regenerates synthetic OIDC secrets and reseeds the stack; use
 `compose:down` when finished. Do not rely on data surviving container restarts.
 
-`pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against the shipped `web/` SPA image, then the named non-Production overlay plus Vite on `http://localhost:5274`, and always tears down Compose.
+By default the profile also seeds demo Activities, Enrollment, and one
+`demo.participant` My work assignment through
+`deploy/compose/authenticated-browser/seed-demo-work.sql`. Set
+`FLEXAGENT_SEED_DEMO_WORK=0` before `compose:up` to keep identity-only fixtures.
+Production deployments do not run these compose seed services.
+
+`pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against the shipped `web/` SPA image, then the named non-Production overlay plus Vite on `http://localhost:5274`, and always tears down Compose. Do not run it while you intend to keep a live `:18080` stack for interactive work.
 
 SPA against that overlay:
 
@@ -133,11 +143,23 @@ VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- 
 
 The overlay sets `RedirectUri` to `http://localhost:5274/auth/callback`. Do not start candidate Vite on another port against this overlay.
 
+When you finish candidate UI or OIDC work, return the API to the canonical
+callback before testing or developing on `http://localhost:18080`:
+
+```bash
+pnpm compose:reset   # or pnpm compose:up when a fresh reseed is acceptable
+```
+
+Leaving the candidate overlay active while using the canonical gateway breaks
+sign-in on `:18080` (**Sign-in could not be completed**).
+
 Synthetic administrator username `demo.admin` is in
 `deploy/compose/keycloak/flex-agent-realm.json`. Do not copy fixture passwords
 into task records, screenshots, or Production configuration.
 
-Isolated design lab (`http://127.0.0.1:5275/design-lab/surfaces`):
+Isolated design lab (`http://localhost:5275/design-lab/surfaces`, or
+`http://127.0.0.1:5275` when started with `--host 127.0.0.1`). Probe both
+loopback forms before starting.
 
 ```bash
 cd web && pnpm dev:design-lab --host 127.0.0.1

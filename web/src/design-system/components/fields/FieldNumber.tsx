@@ -2,6 +2,7 @@ import { forwardRef, useRef, type InputHTMLAttributes, type Ref } from "react";
 import { cx } from "../../../lib/cx";
 import { ChevronGlyph } from "../glyphs";
 import { FieldInput, type FieldWidth } from "./FieldControls";
+import { SCORE_PLACEHOLDER } from "./fieldFormat";
 import { stepNumberFieldValue, toFiniteNumber } from "./numberFieldValue";
 
 export type FieldNumberProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
@@ -29,7 +30,18 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 }
 
 export const FieldNumber = forwardRef<HTMLInputElement, FieldNumberProps>(function FieldNumber(
-  { width = "standard", invalid, frozen, className, disabled, onChange, stepperLabel, size, ...props },
+  {
+    width = "standard",
+    invalid,
+    frozen,
+    className,
+    disabled,
+    onChange,
+    stepperLabel,
+    size,
+    placeholder = SCORE_PLACEHOLDER,
+    ...props
+  },
   ref,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +78,7 @@ export const FieldNumber = forwardRef<HTMLInputElement, FieldNumberProps>(functi
         }}
         type="number"
         size={size ?? 4}
+        placeholder={placeholder}
         invalid={invalid}
         frozen={frozen}
         disabled={disabled}

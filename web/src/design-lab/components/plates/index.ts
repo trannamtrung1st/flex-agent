@@ -1,5 +1,9 @@
 export { DemoPlate } from "./DemoPlate";
 export {
+  CeremonyArea,
+  CeremonyEmpty,
+  CeremonyUnavailable,
+  CeremonyWait,
   EmptyPlate,
   EtchedFrame,
   OperateArea,

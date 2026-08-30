@@ -7,7 +7,7 @@
 > Do not treat this file as a token sheet or component spec.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `3d3cf6d01618819657a77ad5ebd87000a3aa8f2bdd3ecbeb304ff8a9cbb3b598`
+Content fingerprint: `9da4e23c6bf03e3ae1c790d0ca285e4b075251e72bbbfd759c23998150f19d77`
 
 ## Canonical sources
 
@@ -20,12 +20,17 @@ Content fingerprint: `3d3cf6d01618819657a77ad5ebd87000a3aa8f2bdd3ecbeb304ff8a9cb
 - `docs/ui-ux/design-system/foundation/radius.md`
 - `docs/ui-ux/design-system/foundation/shadows.md`
 - `docs/ui-ux/design-system/foundation/motion.md`
+- `docs/ui-ux/design-system/foundation/borders.md`
 - `docs/ui-ux/design-system/components/sidebars.md`
 - `docs/ui-ux/design-system/components/layouts.md`
 - `docs/ui-ux/design-system/components/layout-primitives.md`
 - `docs/ui-ux/design-system/components/cards.md`
 - `docs/ui-ux/design-system/components/buttons.md`
 - `docs/ui-ux/design-system/components/alerts.md`
+- `docs/ui-ux/design-system/components/lists.md`
+- `docs/ui-ux/design-system/components/tables.md`
+- `docs/ui-ux/design-system/components/inputs.md`
+- `docs/ui-ux/design-system/product/empty-loading.md`
 
 ## Projection
 
@@ -33,7 +38,11 @@ Content fingerprint: `3d3cf6d01618819657a77ad5ebd87000a3aa8f2bdd3ecbeb304ff8a9cb
 
 Read those modules (and the implementation guide's module index) before generating
 or restyling UI. Approved design-system v1.0 is Shipboard Terminal. Do not treat
-v0.1 Deep-Space styling as the target look for the frontend rebuild.
+v0.1 Deep-Space styling as the target look.
 
-Accessibility, semantic HTML, keyboard operation, and non-color state communication
-remain repository requirements even when visual identity is Shipboard Terminal.
+New production UI clones a matching existing production page and Component Deck
+specimen. Isolated design-lab journeys are composition evidence for shells
+whose approved family is not yet production-backed, not production routes.
+Accessibility, semantic HTML, keyboard operation, and non-color state
+communication remain repository requirements even when visual identity is
+Shipboard Terminal.

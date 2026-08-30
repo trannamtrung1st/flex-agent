@@ -578,7 +578,7 @@ html[data-surface="participant-session"] {
 }
 .briefing-ident { font-size: 0.66rem; color: var(--label); }
 
-.briefing-sec { margin-bottom: 22px; }
+.briefing-sec { margin-bottom: var(--operate-bay-gap); }
 .briefing-sec h2 {
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -586,14 +586,14 @@ html[data-surface="participant-session"] {
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--teal);
-  margin-bottom: 9px;
+  margin-bottom: var(--field-label-gap);
 }
 .briefing-sec p, .briefing-sec li { font-size: 0.88rem; color: var(--text); max-width: 68ch; }
 .briefing-sec em { color: var(--text-bright); font-style: normal; }
 .briefing-sec strong { color: var(--amber-bright); font-weight: 600; }
 .briefing-sec ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.briefing-sec li { padding-left: 18px; position: relative; }
-.briefing-sec li::before {
+.briefing-sec ul li { padding-left: 18px; position: relative; }
+.briefing-sec ul li::before {
   content: ""; position: absolute; left: 0; top: 0.62em;
   width: 7px; height: 1px; background: var(--teal);
 }
@@ -604,8 +604,8 @@ html[data-surface="participant-session"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 26px;
+  gap: var(--form-group-gap);
+  margin-top: var(--operate-bay-gap);
   padding-top: 20px;
   border-top: 1px solid var(--hairline-dim);
 }

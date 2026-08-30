@@ -32,7 +32,7 @@ export function WorkWell({
     >
       {head}
       <div className="work-well__body">{children}</div>
-      {foot ? <PlateFoot className="plate-foot--start work-well__foot">{foot}</PlateFoot> : null}
+      {foot ? <PlateFoot className="work-well__foot" arrangement="start">{foot}</PlateFoot> : null}
     </Stack>
   );
 }
@@ -41,7 +41,7 @@ export function WorkWellHead({
   title,
   ident,
   children,
-  gap = "2",
+  gap = "2.5",
 }: {
   title?: string;
   ident?: string;

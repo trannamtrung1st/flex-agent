@@ -484,18 +484,57 @@ Legacy production code and screenshots are implementation evidence or temporary
 legacy behavior only; they never outrank canonical UX, the approved Design
 System, or approved Design Lab reference flows.
 
+## Pre-build UI pattern adoption
+
+Every new or meaningfully changed page and component must complete a pattern
+classification before production implementation begins:
+
+1. Trace the surface to its approved product scope, requirements, actor,
+   permissions, and UI/UX behavior. Then classify its page archetype or layout
+   family, component and product patterns, density, and required interaction,
+   responsive, accessibility, security, and lifecycle states through the
+   Design System implementation guide and Design Lab catalog.
+2. When an approved category fits, reuse its production-safe Design System
+   implementation and treat the closest approved Design Lab specimen or flow
+   as the composition donor. Adapt content, data, and feature-specific behavior
+   without duplicating CSS, forking an almost-identical component, or treating
+   prototype fixtures as product authority.
+3. When no approved category fits, record the concrete gap and why composition
+   of existing patterns is insufficient. Invoke explicit `$impeccable shape`
+   for bounded exploration before implementation. Its output is a proposal,
+   not authority, and must be reconciled with product, requirements, UI/UX,
+   accessibility, security/privacy, architecture, and release scope.
+4. Approve and establish a genuinely reusable new pattern in the Design
+   System contract, production-safe component library, and Design Lab specimen
+   catalog before a production page consumes it. Keep genuinely
+   feature-specific behavior in its narrower approved UI/UX specification.
+5. Record the classification, selected donor/modules or approved new-pattern
+   decision, adaptations, applicable states, and verification evidence in the
+   implementation task.
+
+The governing pre-build sequence is:
+
+> Classify -> reuse and adapt an approved Design System/Lab pattern -> or shape
+> a bounded new proposal with `$impeccable shape` -> approve and establish the
+> reusable pattern -> build the production surface
+
 Future feature delivery must:
 
 1. confirm the feature against current product scope and approved requirements;
-2. map it into the application IA and established UX patterns;
-3. extend the UX baseline only for a genuinely new shared interaction pattern;
-4. validate representative wireframe/Design Lab behavior when appropriate;
-5. directly update canonical specs when intended behavior changes;
-6. implement one production vertical slice with specification-driven TDD;
-7. validate architecture, security/privacy, isolation, Design System, UX,
+2. classify every new or changed page/component and record its selected Design
+   System modules, Design Lab donor, states, and adaptations;
+3. reuse and adapt an approved category before proposing a new one;
+4. when no category fits, shape a bounded proposal with explicit
+   `$impeccable shape`, approve it, and establish any reusable addition in the
+   Design System/library/Lab before production use;
+5. map the result into the application IA and validate representative
+   wireframe/Design Lab behavior;
+6. directly update canonical specs when intended behavior changes;
+7. implement one production vertical slice with specification-driven TDD;
+8. validate architecture, security/privacy, isolation, Design System, UX,
    accessibility, browser states, contracts, and regression tests;
-8. update `docs/current-state.md` and current specs directly; and
-9. remove the completed task from the active surface only after durable truth
+9. update `docs/current-state.md` and current specs directly; and
+10. remove the completed task from the active surface only after durable truth
    and evidence are promoted and the applicable review/acceptance gate passes.
 
 # Product runtime invariants that must survive
@@ -638,6 +677,11 @@ No historical source has been deleted.
 - [ ] Preserve role routing, stable requirements, open-question controls,
   specification-driven TDD, security/privacy, independent review, Playwright,
   auditability, and verification requirements.
+- [ ] Encode the pre-build UI pattern-adoption rule in applicable UI/UX,
+  frontend, reviewer, tester, implementation-workflow, contributor, and task
+  guidance: classify first; reuse and adapt approved Design System/Lab patterns;
+  use explicit `$impeccable shape` only for a documented gap; approve and
+  establish reusable additions before production use.
 - [ ] Update indexes, `scripts/check_docs.py`, Impeccable adapters/generator
   tests, docs CI/lint scope, toolchain metadata, and path-sensitive
   architecture/build tests.
@@ -819,6 +863,7 @@ complete. At activation, rerun discovery against that exact post-review state.
 | Current-state audit | pending | Module/endpoint/migration/schema/route/test inventory agrees with `docs/current-state.md`; intended, implemented, temporary legacy, approved planned, gap, and default-off behavior are explicit |
 | Work hygiene | pending | `.work/active/` contains only in-progress or explicitly planned tasks; no completed/blocked/cancelled/superseded files or duplicate proposal resources |
 | Skill/rule parity | pending | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
+| UI pattern-adoption governance | pending | Applicable guidance requires a recorded pre-build classification; sampled UI tasks select approved Design System modules and Design Lab donors or document, shape, approve, and establish a genuine new reusable pattern before production use |
 | Focused script tests | pending | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'`, docs-validator tests added by the reset, and frontend-isolation script tests pass |
 | Frontend verification | pending | `pnpm verify:web` passes; Design Lab/production isolation and approved reference specimens remain intact |
 | .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` (or current equivalents) pass |
@@ -852,6 +897,10 @@ post-review UI/Design Lab artifacts must nevertheless remain green.
   authority is clear and approved.
 - [ ] Feature delivery follows UX architecture and approved patterns before
   production vertical slices.
+- [ ] Every new or meaningfully changed page/component is classified before
+  implementation; existing Design System/Lab patterns are reused and adapted,
+  while genuine gaps follow the bounded Impeccable proposal, approval, and
+  shared-pattern establishment path.
 - [ ] Important rationale survives as current constraints/invariants; runtime
   product auditability and immutable compatibility artifacts are preserved.
 - [ ] Historical decision, retirement, change-record, phase-diary, placeholder,

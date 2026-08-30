@@ -37,7 +37,7 @@ export function ErrorSummary({
           const href = itemHref(error);
           return (
             <li key={`${href ?? ""}:${message}`}>
-              {href ? <a href={href}>{message}</a> : message}
+              {href ? <a className="text-link" href={href}>{message}</a> : message}
             </li>
           );
         })}

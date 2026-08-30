@@ -34,9 +34,10 @@ Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/`
 For every UI role, the shared [design system](../ui-ux/design-system/README.md)
 provides the status/authority boundary and
 [implementation guide](../ui-ux/design-system/implementation-guide.md) used to
-select relevant foundations, components, and product patterns. The equivalent
-Cursor and Codex role skills point to the same source so visual rules do not
-drift between harnesses.
+select relevant foundations, components, and product patterns. New production
+UI clones a matching existing production page and Component Deck specimen.
+The equivalent Cursor and Codex role skills point to the same source so visual
+rules do not drift between harnesses.
 
 Workflow skills cover delivery processes that compose roles:
 
@@ -70,7 +71,46 @@ Development/Testing browser profile in the
 [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md#authenticated-browser-profile).
 That profile exercises the real `/auth` and product API boundary, opaque
 application sessions, application-owned authorization, and PostgreSQL state.
-Start that profile with one documented command:
+
+### Attach to a running local origin
+
+Probe the origin the work needs, then attach when it is healthy. Do not start a
+second listener on the same port. Do not run `pnpm compose:up` over a healthy
+stack: that command regenerates secrets, reseeds data, and renews volumes.
+
+A busy port is not proof the process is Flex Agent or the right profile.
+On this workspace, Vite often listens on IPv6 `localhost` (`::1`) only, while
+Compose publishes `:18080` on IPv4 `127.0.0.1`. Probe `http://localhost:<port>`
+and `http://127.0.0.1:<port>` before concluding an origin is down or starting
+another listener.
+
+| Work | Origin | Attach probe |
+| --- | --- | --- |
+| Authenticated product (canonical SPA + API) | `http://localhost:18080` | `pnpm compose:status` — Compose services up and `session-endpoint:ok`. `/realms/flex-agent` also answers |
+| Candidate UI against the live API | `http://localhost:5274` | HTTP success on that origin **and** Compose `:18080` healthy. Candidate OIDC also needs the candidate overlay (`RedirectUri` for `:5274`) and Vite `VITE_DEV_API_PROXY=http://127.0.0.1:18080` |
+
+**Return to canonical after candidate work.** `pnpm compose:candidate` leaves the
+API on `HumanAuthentication__RedirectUri=http://localhost:5274/auth/callback`.
+Canonical sign-in and Playwright on `:18080` then fail with **Sign-in could not
+be completed** until the API is recreated with the canonical profile
+(`pnpm compose:reset`, or `pnpm compose:up` when a fresh stack is acceptable,
+or `docker compose … up -d --force-recreate api` without the candidate overlay).
+
+**Canonical OIDC Playwright origins.** Browser tests must use
+`http://localhost:18080` so correlation cookies match the configured callback.
+The Playwright `request` fixture uses `apiUrl()` (IPv4 `127.0.0.1`) because
+Compose nginx publishes `:18080` on `127.0.0.1` only.
+| Isolated design lab | `http://localhost:5275` | HTTP success on `/design-lab/` (also try `http://127.0.0.1:5275` if the process was started with `--host 127.0.0.1`) |
+
+1. Choose the origin from the table. Record which origin screenshots used.
+2. If the probe succeeds, navigate Playwright MCP to that origin. Do not start Compose or another Vite.
+3. If the port is busy but the probe fails (wrong app, session down, overlay or proxy mismatch), report the blocker. Do not `compose:up`, `compose:reset`, or `compose:down` unless the user asked to reset the stack.
+4. If nothing is listening, start only the documented command for that origin. Never pick a fallback port: candidate OIDC is bound to `5274`.
+5. Prefer Vite `:5274` for source-level UI evidence when the Compose SPA image may lag `web/` source. Prefer `:18080` for canonical gateway and OIDC evidence.
+6. `pnpm verify:oidc` always starts its own Compose lifecycle and tears it down. Do not reuse a live stack for that gate, and do not run it while you intend to keep `:18080` for interactive work.
+
+When `:18080` is down and authenticated product evidence is required, start the
+profile with:
 
 ```bash
 pnpm compose:up
@@ -128,7 +168,9 @@ Defaults:
 
 ## UI evidence standard
 
-UI/UX designers, frontend developers, frontend reviewers, and testers must use the live app when it is runnable. For every changed journey they should:
+UI/UX designers, frontend developers, frontend reviewers, and testers must
+attach to the matching local origin when it is healthy, or start it only when
+that origin is down. For every changed journey they should:
 
 1. Reach each applicable state through real interactions.
 2. Use accessibility snapshots to inspect names, roles, focus order, and structure.

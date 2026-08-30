@@ -8,12 +8,18 @@ import {
   DialogPlateFooter,
   DialogPlateHead,
   DropdownSelect,
+  EllipsisKey,
   FieldInput,
   FormField,
+  FormSection,
   Grid,
   Key,
   KeyGroup,
+  COOLDOWN_PLACEHOLDER,
+  MAX_ATTEMPTS_PLACEHOLDER,
   MM_SS_HINT,
+  MM_SS_PLACEHOLDER,
+  MM_SS_WARNING_PLACEHOLDER,
   Stack,
 } from "../../components";
 import type { Campaign } from "../../data/types";
@@ -59,7 +65,7 @@ export function CampaignConfigDialog({
           onSubmit={(event) => event.preventDefault()}
           noValidate
         >
-          <DialogPlate className={`ceremony-plate${campaign.frozen ? " is-frozen" : ""}`}>
+          <DialogPlate width="wide" className={`ceremony-plate${campaign.frozen ? " is-frozen" : ""}`}>
             <DialogPlateHead
               title="Campaign Configuration"
               titleId="configTitle"
@@ -72,76 +78,100 @@ export function CampaignConfigDialog({
             </span>
             </DialogPlateHead>
             <DialogPlateBody className="ceremony-body">
-            <Stack gap="5">
-            <Stack gap="4" className="ceremony-selects">
-              <FormField id="harnessSelect" label="Harness" layout="stack" labelAssociatesControl={false}>
-                {(controlProps, { labelId }) => (
-                  <DropdownSelect
-                    id={controlProps.id}
-                    labelId={labelId}
-                    describedBy={controlProps["aria-describedby"]}
-                    value={harness}
-                    frozen={campaign.frozen}
-                    options={["GOVERNED-EXAM-01", "GOVERNED-EXAM-02", "GOVERNED-AUDIT-01"]}
-                    onChange={(v) => form.setValue("harness", v)}
-                  />
-                )}
-              </FormField>
-              <FormField id="agentSelect" label="Agent identity" layout="stack" labelAssociatesControl={false}>
-                {(controlProps, { labelId }) => (
-                  <DropdownSelect
-                    id={controlProps.id}
-                    labelId={labelId}
-                    describedBy={controlProps["aria-describedby"]}
-                    value={agent}
-                    frozen={campaign.frozen}
-                    options={["EXAMINER-CORE", "EXAMINER-STRUCT", "EXAMINER-OPS"]}
-                    onChange={(v) => form.setValue("agent", v)}
-                  />
-                )}
-              </FormField>
-            </Stack>
-            <span className="form-divider" aria-hidden="true" />
-            <Grid gap="4" minItemWidth="control" className="ceremony-config-grid">
-              <FormField
-                id="sessionLimit"
-                label="Session limit"
-                hint={campaign.frozen ? undefined : MM_SS_HINT}
-                error={form.formState.errors.sessionLimit?.message}
-                layout="stack"
-              >
-                {(controlProps) => (
-                  <FieldInput {...form.register("sessionLimit")} {...controlProps} frozen={campaign.frozen} />
-                )}
-              </FormField>
-              <FormField
-                id="timeWarning"
-                label="Time warning at"
-                hint={campaign.frozen ? undefined : MM_SS_HINT}
-                error={form.formState.errors.timeWarning?.message}
-                layout="stack"
-              >
-                {(controlProps) => (
-                  <FieldInput {...form.register("timeWarning")} {...controlProps} frozen={campaign.frozen} />
-                )}
-              </FormField>
-              <FormField
-                id="maxAttempts"
-                label="Max attempts"
-                error={form.formState.errors.maxAttempts?.message}
-                layout="stack"
-              >
-                {(controlProps) => (
-                  <FieldInput {...form.register("maxAttempts")} {...controlProps} width="narrow" frozen={campaign.frozen} />
-                )}
-              </FormField>
-              <FormField id="cooldown" label="Cooldown" layout="stack">
-                {(controlProps) => (
-                  <FieldInput {...form.register("cooldown")} {...controlProps} width="narrow" frozen={campaign.frozen} />
-                )}
-              </FormField>
-            </Grid>
-            <span className="form-divider" aria-hidden="true" />
+            <Stack gap="6">
+            <FormSection legend="Agent and Harness">
+              <Grid gap="4" minItemWidth="control">
+                <FormField id="harnessSelect" label="Harness" layout="stack" labelAssociatesControl={false}>
+                  {(controlProps, { labelId }) => (
+                    <DropdownSelect
+                      id={controlProps.id}
+                      labelId={labelId}
+                      describedBy={controlProps["aria-describedby"]}
+                      value={harness}
+                      frozen={campaign.frozen}
+                      options={["GOVERNED-EXAM-01", "GOVERNED-EXAM-02", "GOVERNED-AUDIT-01"]}
+                      onChange={(v) => form.setValue("harness", v)}
+                    />
+                  )}
+                </FormField>
+                <FormField id="agentSelect" label="Agent identity" layout="stack" labelAssociatesControl={false}>
+                  {(controlProps, { labelId }) => (
+                    <DropdownSelect
+                      id={controlProps.id}
+                      labelId={labelId}
+                      describedBy={controlProps["aria-describedby"]}
+                      value={agent}
+                      frozen={campaign.frozen}
+                      options={["EXAMINER-CORE", "EXAMINER-STRUCT", "EXAMINER-OPS"]}
+                      onChange={(v) => form.setValue("agent", v)}
+                    />
+                  )}
+                </FormField>
+              </Grid>
+            </FormSection>
+            <FormSection legend="Timing and attempts">
+              <Grid gap="4" minItemWidth="control" className="ceremony-config-grid">
+                <FormField
+                  id="sessionLimit"
+                  label="Session limit"
+                  hint={campaign.frozen ? undefined : MM_SS_HINT}
+                  error={form.formState.errors.sessionLimit?.message}
+                  layout="stack"
+                >
+                  {(controlProps) => (
+                    <FieldInput
+                      {...form.register("sessionLimit")}
+                      {...controlProps}
+                      placeholder={MM_SS_PLACEHOLDER}
+                      frozen={campaign.frozen}
+                    />
+                  )}
+                </FormField>
+                <FormField
+                  id="timeWarning"
+                  label="Time warning at"
+                  hint={campaign.frozen ? undefined : MM_SS_HINT}
+                  error={form.formState.errors.timeWarning?.message}
+                  layout="stack"
+                >
+                  {(controlProps) => (
+                    <FieldInput
+                      {...form.register("timeWarning")}
+                      {...controlProps}
+                      placeholder={MM_SS_WARNING_PLACEHOLDER}
+                      frozen={campaign.frozen}
+                    />
+                  )}
+                </FormField>
+                <FormField
+                  id="maxAttempts"
+                  label="Max attempts"
+                  error={form.formState.errors.maxAttempts?.message}
+                  layout="stack"
+                >
+                  {(controlProps) => (
+                    <FieldInput
+                      {...form.register("maxAttempts")}
+                      {...controlProps}
+                      width="narrow"
+                      placeholder={MAX_ATTEMPTS_PLACEHOLDER}
+                      frozen={campaign.frozen}
+                    />
+                  )}
+                </FormField>
+                <FormField id="cooldown" label="Cooldown" layout="stack">
+                  {(controlProps) => (
+                    <FieldInput
+                      {...form.register("cooldown")}
+                      {...controlProps}
+                      width="narrow"
+                      placeholder={COOLDOWN_PLACEHOLDER}
+                      frozen={campaign.frozen}
+                    />
+                  )}
+                </FormField>
+              </Grid>
+            </FormSection>
             {campaign.frozen ? <p className="frozen-line">Configuration frozen at activation</p> : null}
             {readinessCopy ? <p className="ceremony-note" role="status">{readinessCopy}</p> : null}
             <p className="ceremony-note">
@@ -165,10 +195,9 @@ export function CampaignConfigDialog({
                     Cancel
                   </Key>
                   {!campaign.frozen ? (
-                    <Key
+                    <EllipsisKey
                       id="saveDraftKey"
                       type="button"
-                      truncate
                       onClick={() => {
                         void form.handleSubmit((values) => {
                           onSaveDraft(values);
@@ -178,23 +207,22 @@ export function CampaignConfigDialog({
                       }}
                     >
                       Save draft
-                    </Key>
+                    </EllipsisKey>
                   ) : null}
                 </KeyGroup>
               )}
               {campaign.frozen ? (
                 <KeyGroup className="ceremony-foot-row" aria-label="Activation status">
-                  <Key id="activateKey" variant="activate" type="button" truncate disabled>
+                  <EllipsisKey id="activateKey" variant="activate" type="button" disabled>
                     Activated
-                  </Key>
+                  </EllipsisKey>
                 </KeyGroup>
               ) : confirming ? (
                 <KeyGroup className="ceremony-foot-row" aria-label="Activation commit">
-                  <Key
+                  <EllipsisKey
                     id="activateKey"
                     variant="activate"
                     type="button"
-                    truncate
                     onClick={() => {
                       void form.handleSubmit((values) => {
                         onActivate(values);
@@ -203,14 +231,13 @@ export function CampaignConfigDialog({
                     }}
                   >
                     Activate campaign
-                  </Key>
+                  </EllipsisKey>
                 </KeyGroup>
               ) : (
                 <KeyGroup className="ceremony-foot-row" aria-label="Readiness and activation">
-                  <Key
+                  <EllipsisKey
                     id="readinessKey"
                     type="button"
-                    truncate
                     onClick={() => {
                       void form.handleSubmit(
                         (values) => {
@@ -226,18 +253,17 @@ export function CampaignConfigDialog({
                     }}
                   >
                     Check readiness
-                  </Key>
-                  <Key
+                  </EllipsisKey>
+                  <EllipsisKey
                     id="activateKey"
                     variant="activate"
                     type="button"
-                    truncate
                     disabled={readiness !== "ready"}
                     disabledReason={readiness !== "ready" ? "Check readiness before activation" : undefined}
                     onClick={() => setConfirming(true)}
                   >
                     Confirm activation
-                  </Key>
+                  </EllipsisKey>
                 </KeyGroup>
               )}
             </Stack>

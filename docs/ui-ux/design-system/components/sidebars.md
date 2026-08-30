@@ -9,7 +9,8 @@ Navigation is never amber.
 Participant Assignment and Session left rails are **instrument bulkheads**,
 not inset plates: 260px on Assignment Station, 232px on Examination Console.
 On desktop they flush to the hull; at ≤1080px (assignment) or ≤1180px
-(session) they stack as an instrument band. The examiner plate remains inset.
+(session) they stack as an instrument band. Rail `--instrument-bulkhead-fill`
+is `transparent` so the hull shows through; the examiner plate remains inset.
 
 - Destinations exist only when traced to approved scope and a server-provided
   permission (`PC-09`, `PC-10`).
@@ -27,10 +28,16 @@ On desktop they flush to the hull; at ≤1080px (assignment) or ≤1180px
 ## Breadcrumbs
 
 `BreadcrumbNav` is an in-bay trail (`nav` / `aria-label="Breadcrumb"`), not a
-second gangway. Home plus slash-separated items; the current crumb uses
-`aria-current="page"` and is not a link. Production maps route crumbs in
-`web/src/components/shell/`; the design lab and shared library import the
-presentational primitive. Gallery: `breadcrumbs`.
+second gangway. Home plus slash-separated **reachable destinations**. Ancestor
+crumbs are `.text-link` (phosphor color, no underline). The current crumb uses
+`aria-current="page"` and is not a link. Nested-record `BackKey` belongs in
+`OperateHead` beside the copy cluster (trailing at desktop; own leading row at compact widths),
+not beside this trail. Production maps crumbs in `web/src/components/shell/`
+from canonical routes, not from every URL segment: locator ids and collection
+wrappers without a page (`Activity`, `Cohorts`, `Cohort`) are not crumbs.
+Activity and cohort context stays in the URL and in-page chrome (`IA-MVP-2`).
+The design lab and shared library import the presentational primitive. Gallery:
+`breadcrumbs`.
 
 ## Index rail
 

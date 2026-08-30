@@ -9,26 +9,31 @@ import {
   type EnrollmentCandidateV1,
   type EnrollmentSummaryV1,
 } from "../api/production-enrollment";
-import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import { enrollmentRecordVariant, enrollmentStatusCopy } from "../lib/enrollment-presentation";
 import { cx } from "../lib/cx";
 import {
   Alert,
   BackKey,
+  CompactId,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  datatableColMin,
   EmptyPlate,
+  InstantReadout,
   Key,
+  KeyGroup,
   OperateArea,
   SortableHeader,
   StateReadout,
   ToolbarReadout,
   ToolbarSearch,
-  WaitPanel,
+  SEARCH_NAME_OR_ID_PLACEHOLDER,
   useTableController,
 } from "../design-system";
 
-type EnrollmentSortKey = "participant" | "status";
+type EnrollmentSortKey = "participant" | "enrollment" | "status" | "assigned" | "updated" | "revision";
 
 export function ProductionEnrollmentPage() {
   const { activityId = "", cohortId = "" } = useParams();
@@ -104,18 +109,19 @@ export function ProductionEnrollmentPage() {
 
   if (error && enrollments === null) {
     return (
-      <CeremonyArea label="Participants unavailable" title="Participants unavailable" danger>
-        <CeremonyEmpty note={error}>
-          <Key variant="open" to={`/activities/${activityId}/setup`}>Return to setup</Key>
-        </CeremonyEmpty>
-      </CeremonyArea>
+      <CeremonyUnavailable
+        title="Participants unavailable"
+        note={error}
+        danger
+        recovery={{ label: "Return to setup", to: `/activities/${activityId}/setup` }}
+      />
     );
   }
 
   if (enrollments === null) {
     return (
       <CeremonyArea label="Participants" title="Participants">
-        <WaitPanel label="Loading Participants…" />
+        <CeremonyWait label="Loading Participants…" />
       </CeremonyArea>
     );
   }
@@ -126,7 +132,6 @@ export function ProductionEnrollmentPage() {
         "workspace-area",
         "work-plane",
         "registry-wall",
-        enrollments.length === 0 && "registry-wall--empty",
         enrollments.length > 0 && enrollments.length <= 4 && "registry-wall--hug",
       )}
       frameClassName="datatable-frame registry-frame"
@@ -177,12 +182,28 @@ function EnrollmentRegistry({
   const match = useCallback(
     (row: EnrollmentSummaryV1) => {
       if (!query) return true;
-      return row.display_label.toLowerCase().includes(query) || row.status.toLowerCase().includes(query);
+      return row.display_label.toLowerCase().includes(query)
+        || row.status.toLowerCase().includes(query)
+        || row.enrollment_id.toLowerCase().includes(query)
+        || row.participant_actor_id.toLowerCase().includes(query);
     },
     [query],
   );
   const getSortValue = useCallback((row: EnrollmentSummaryV1, key: EnrollmentSortKey) => {
-    return key === "status" ? row.status.toLowerCase() : row.display_label.toLowerCase();
+    switch (key) {
+      case "enrollment":
+        return row.enrollment_id.toLowerCase();
+      case "status":
+        return row.status.toLowerCase();
+      case "assigned":
+        return row.assigned_at;
+      case "updated":
+        return row.updated_at;
+      case "revision":
+        return String(row.revision).padStart(8, "0");
+      default:
+        return row.display_label.toLowerCase();
+    }
   }, []);
   const slice = useTableController({
     rows,
@@ -206,28 +227,30 @@ function EnrollmentRegistry({
     setPage(0);
   };
 
+  const assignAction = candidates.length > 0 ? (
+    <div className="datatable-actions" aria-label="Table actions">
+      <KeyGroup className="datatable-actions-keys" justify="end">
+        {candidates.map((candidate) => (
+          <Key
+            key={candidate.actor_id}
+            variant="quiet"
+            size="compact"
+            disabled={pending}
+            onClick={() => onAssign(candidate)}
+          >
+            Assign {candidate.display_label}
+          </Key>
+        ))}
+      </KeyGroup>
+    </div>
+  ) : undefined;
+
   return (
     <DataTableShell
       toolbar={
         <DataTableToolbar
           ariaLabel="Participant registry controls"
-          actions={
-            candidates.length > 0 ? (
-              <div className="registry-assign-keys">
-                {candidates.map((candidate) => (
-                  <Key
-                    key={candidate.actor_id}
-                    variant="quiet"
-                    size="compact"
-                    disabled={pending}
-                    onClick={() => onAssign(candidate)}
-                  >
-                    Assign {candidate.display_label}
-                  </Key>
-                ))}
-              </div>
-            ) : undefined
-          }
+          actions={assignAction}
           readout={
             <ToolbarReadout
               label="Showing"
@@ -238,8 +261,8 @@ function EnrollmentRegistry({
           search={
             <ToolbarSearch
               id="enrollmentSearchInput"
-              label="Search participant or status"
-              placeholder="SEARCH NAME"
+              label="Search participant, enrollment, or status"
+              placeholder={SEARCH_NAME_OR_ID_PLACEHOLDER}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
@@ -251,35 +274,53 @@ function EnrollmentRegistry({
       }
       scrollProps={{ tabIndex: 0, "aria-label": "Participant rows, scrollable" }}
       table={
-        <table className="datatable-table datatable-table--fit" hidden={slice.total === 0}>
+        <table className="datatable-table" hidden={slice.total === 0}>
           <caption className="visually-hidden">Participants</caption>
           <thead>
             <tr>
-              <SortableHeader sortKey="participant" sorts={sorts} onSort={handleSort} label="Participant" />
-              <SortableHeader sortKey="status" sorts={sorts} onSort={handleSort} label="Record" />
+              <SortableHeader sortKey="participant" sorts={sorts} onSort={handleSort} label="Participant" colMin="id" />
+              <SortableHeader sortKey="enrollment" sorts={sorts} onSort={handleSort} label="Enrollment" colMin="compactId" />
+              <SortableHeader sortKey="status" sorts={sorts} onSort={handleSort} label="Record" colMin="state" />
+              <SortableHeader sortKey="assigned" sorts={sorts} onSort={handleSort} label="Assigned" colMin="instant" />
+              <SortableHeader sortKey="updated" sorts={sorts} onSort={handleSort} label="Updated" colMin="instant" />
+              <SortableHeader sortKey="revision" sorts={sorts} onSort={handleSort} label="Rev" colMin="rev" />
             </tr>
           </thead>
           <tbody>
-            {slice.pageRows.map((row) => (
-              <tr key={row.enrollment_id} className="datatable-row">
-                <td className="cell-id">
-                  <Link
-                    className="datatable-id"
-                    to={`/activities/${activityId}/cohorts/${cohortId}/enrollments/${row.enrollment_id}`}
-                  >
-                    {row.display_label}
-                  </Link>
-                </td>
-                <td className="cell-content">
-                  <StateReadout
-                    variant="rest"
-                    label={row.status}
-                    className="state-cell"
-                    labelClassName="state-label"
-                  />
-                </td>
-              </tr>
-            ))}
+            {slice.pageRows.map((row) => {
+              const record = enrollmentRecordVariant(row.status);
+              return (
+                <tr key={row.enrollment_id} className="datatable-row">
+                  <td className="cell-id" {...datatableColMin("id")}>
+                    <Link
+                      className="datatable-id"
+                      to={`/activities/${activityId}/cohorts/${cohortId}/enrollments/${row.enrollment_id}`}
+                    >
+                      {row.display_label}
+                    </Link>
+                  </td>
+                  <td className="cell-content" {...datatableColMin("compactId")}>
+                    <CompactId value={row.enrollment_id} />
+                  </td>
+                  <td className="cell-state" {...datatableColMin("state")}>
+                    <StateReadout
+                      variant={record.variant}
+                      solid={record.solid}
+                      label={enrollmentStatusCopy(row.status)}
+                      className="state-cell"
+                      labelClassName="state-label"
+                    />
+                  </td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.assigned_at} />
+                  </td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.updated_at} />
+                  </td>
+                  <td className="cell-content" {...datatableColMin("rev")}>{row.revision}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       }
@@ -287,9 +328,24 @@ function EnrollmentRegistry({
         slice.total === 0 ? (
           <EmptyPlate
             className="datatable-empty"
-            label="No Participants assigned"
-            note={query ? "No loaded enrollments match this search." : "Assign an eligible Participant to this cohort."}
-          />
+            inset
+            label={query ? "No matching enrollments" : "No Participants assigned"}
+            note={query
+              ? "Nothing matches the current search. Clear the search to restore the registry."
+              : "Assign an eligible Participant to this cohort."}
+          >
+            {query ? (
+              <Key
+                size="compact"
+                onClick={() => {
+                  setSearch("");
+                  setPage(0);
+                }}
+              >
+                Clear search
+              </Key>
+            ) : null}
+          </EmptyPlate>
         ) : null
       }
       footer={

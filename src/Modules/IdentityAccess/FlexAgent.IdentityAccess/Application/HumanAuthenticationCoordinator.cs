@@ -8,6 +8,7 @@ public sealed class HumanAuthenticationCoordinator(
     IApplicationSessionStore sessions,
     IAuthenticationSecurityEventWriter audit,
     ILookupDigestCalculator digests,
+    ISymmetricPayloadProtector protector,
     IDatabaseClock clock,
     HumanAuthenticationOptions options) : IHumanAuthenticationCoordinator
 {
@@ -112,7 +113,8 @@ public sealed class HumanAuthenticationCoordinator(
             session.ActorId,
             session.OrganizationId,
             session.Strength,
-            session.Identity);
+            session.Identity,
+            session.SeatedDisplayName);
     }
 
     public async Task<HumanAuthenticationResult> RotateAsync(
@@ -138,11 +140,13 @@ public sealed class HumanAuthenticationCoordinator(
             digests.Compute(rawCredential),
             current.Strength,
             current.ProviderSessionDigest,
+            current.ProviderIdTokenCiphertext,
             ApplicationSessionPolicy.CreateLifetime(now, options.Inactivity, options.AbsoluteLifetime),
             null,
             null,
             current.ApplicationSessionId,
-            null);
+            null,
+            current.SeatedDisplayName);
         if (!await sessions.TryRotateAsync(
                 current.ApplicationSessionId,
                 now,
@@ -170,7 +174,7 @@ public sealed class HumanAuthenticationCoordinator(
             rawCredential);
     }
 
-    public async Task<bool> LogoutAsync(
+    public async Task<ApplicationLogoutResult> LogoutAsync(
         string rawCredential,
         Guid correlationId,
         CancellationToken cancellationToken = default)
@@ -181,9 +185,10 @@ public sealed class HumanAuthenticationCoordinator(
             .ConfigureAwait(false);
         if (session is null)
         {
-            return false;
+            return ApplicationLogoutResult.NotFound();
         }
 
+        var idTokenHint = TryUnprotectProviderIdToken(session.ProviderIdTokenCiphertext);
         await sessions.TerminateLiveAsync(
             session.ApplicationSessionId,
             now,
@@ -200,7 +205,7 @@ public sealed class HumanAuthenticationCoordinator(
             session.OrganizationId,
             session.ApplicationSessionId,
             cancellationToken).ConfigureAwait(false);
-        return true;
+        return ApplicationLogoutResult.Completed(idTokenHint);
     }
 
     public async Task<int> ApplyProviderForcedLogoutAsync(
@@ -351,11 +356,13 @@ public sealed class HumanAuthenticationCoordinator(
             digests.Compute(rawCredential),
             login.Strength,
             providerSessionDigest,
+            ProtectProviderIdToken(login.ProviderIdToken),
             ApplicationSessionPolicy.CreateLifetime(now, options.Inactivity, options.AbsoluteLifetime),
             null,
             null,
             predecessorSessionId,
-            null);
+            null,
+            login.SeatedDisplayName);
         if (!await sessions.TryInsertLiveSessionAsync(session, login.AuthenticatedAt, cancellationToken)
                 .ConfigureAwait(false))
         {
@@ -367,6 +374,26 @@ public sealed class HumanAuthenticationCoordinator(
             actorId,
             organizationId,
             rawCredential);
+    }
+
+    private byte[]? ProtectProviderIdToken(string? providerIdToken) =>
+        string.IsNullOrWhiteSpace(providerIdToken) ? null : protector.Protect(providerIdToken);
+
+    private string? TryUnprotectProviderIdToken(byte[]? ciphertext)
+    {
+        if (ciphertext is null || ciphertext.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return protector.Unprotect(ciphertext);
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
     }
 
     private Task WriteAsync(

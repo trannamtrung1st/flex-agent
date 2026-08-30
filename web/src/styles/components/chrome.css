@@ -6,7 +6,11 @@
   align-items: stretch;
   min-height: 48px;
   border-bottom: 1px solid var(--hairline-dim);
-  background: linear-gradient(180deg, rgba(2, 9, 14, 0.6), rgba(2, 9, 14, 0.25));
+  background: transparent;
+}
+
+.command-strip:has(.strip-profile-key[aria-expanded="true"]) {
+  z-index: 90;
 }
 
 .strip-brand {
@@ -233,15 +237,25 @@
   border-left: 1px solid var(--hairline-dim);
   background: transparent;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--label);
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-height: 44px;
   transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.strip-profile-copy {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.strip-profile-id {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
 }
 
 .strip-profile-key:hover, .strip-profile-key:focus-visible { color: var(--teal); }
@@ -276,7 +290,7 @@
 
 /* The profile menu uses the shared popover material while preserving its
    identity head and the deeper hull umbra required over strip chrome. */
-.strip-profile-menu.popover-surface {
+.strip-profile-menu.popover-surface.menu-surface {
   box-shadow: var(--panel-inset), 0 14px 30px rgba(2, 9, 14, 0.55);
 }
 
@@ -300,10 +314,9 @@
 .strip-profile-full {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-bright);
-  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .strip-profile-item--signout { border-top: none; }
@@ -332,9 +345,13 @@
   background: var(--teal-glow);
 }
 
-.strip-profile--rail .strip-profile-id {
+.strip-profile--rail .strip-profile-copy {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.strip-profile--rail .strip-profile-id {
+  max-width: none;
 }
 
 .strip-profile--rail .strip-profile-key .chevron-glyph {
@@ -350,6 +367,10 @@
 .strip-brand--origin .brand-mark,
 .strip-brand--origin .strip-brand-core {
   padding: 11px 22px;
+}
+
+.strip-brand--origin:has(.strip-mode) .brand-mark,
+.strip-brand--origin:has(.strip-mode) .strip-brand-core {
   border-right: 1px solid var(--hairline-dim);
 }
 
@@ -515,7 +536,7 @@
   gap: 16px;
   padding: 10px 22px 12px;
   border-top: 1px solid var(--hairline-dim);
-  background: linear-gradient(180deg, rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.55));
+  background: transparent;
 }
 
 .console-foot-actions {

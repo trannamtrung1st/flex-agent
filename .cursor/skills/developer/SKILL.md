@@ -23,7 +23,7 @@ Do not copy or dilute specialist instructions here. If a requirement conflicts a
 3. Follow red-green-refactor on each changed surface. Run the smallest useful failing test before implementing its behavior; do not claim a red phase without observed failure.
 4. Implement the minimum vertical slice, keeping domain rules on the server and rendering authoritative state clearly in the client.
 5. Verify focused backend and frontend tests, then the integrated user journey and proportionate regression coverage.
-6. For UI-affecting work, complete the frontend skill's accessibility snapshot and desktop/narrow screenshot evaluation in the live app.
+6. For UI-affecting work, attach to the matching local origin first (`docs/contributing/development-harness.md`, Attach to a running local origin), then complete the frontend skill's accessibility snapshot and desktop/narrow screenshot evaluation.
 
 ## Coordination checks
 

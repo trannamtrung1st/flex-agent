@@ -46,9 +46,10 @@ queues, and other operational dashboards authorized by the current release.
 
 - row vertical padding: 8–12px
 - table cells: 7–12px vertical
-- form groups: 16–24px
+- control (stacked label ↔ slot): `--field-label-gap` / 10px
+- form groups (legend ↔ fields, sibling fields): `--form-group-gap` / 16px
 - panel padding: 16–24px
-- major section gap: 24–32px
+- major section / bay (operate strata, titled blocks): `--operate-bay-gap` / 24px
 - readout row padding: 9–12px
 
 ## Rules

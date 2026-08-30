@@ -135,6 +135,7 @@ internal static class HumanAuthenticationComposition
                 sp.GetRequiredService<IApplicationSessionStore>(),
                 sp.GetRequiredService<IAuthenticationSecurityEventWriter>(),
                 sp.GetRequiredService<ILookupDigestCalculator>(),
+                sp.GetRequiredService<ISymmetricPayloadProtector>(),
                 sp.GetRequiredService<IDatabaseClock>(),
                 options.SessionOptions));
         services.AddHttpClient("oidc-jwks", client =>

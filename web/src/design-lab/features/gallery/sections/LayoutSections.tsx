@@ -1,32 +1,115 @@
 import type { ReactNode } from "react";
 import {
   BackKey,
+  BreadcrumbNav,
+  CeremonyArea,
+  CeremonyUnavailable,
+  CeremonyWait,
+  EllipsisKey,
+  FieldInput,
+  FormField,
+  CAMPAIGN_TITLE_PLACEHOLDER,
   GuidedTaskLayout,
+  KeyGroup,
   LayoutAssignment,
   LiveSessionLayout,
   ManagementLayout,
   OperateArea,
+  PlateFoot,
   ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
   ReadoutList,
   SplitBay,
+  Stack,
+  StateReadout,
   type ManagementNavigation,
 } from "../../../../design-system";
 import { ReferenceLayout } from "../../../../design-system/lab";
 import { GallerySection, Spec } from "./GallerySection";
+import { LayoutSlot } from "./LayoutSlot";
 
-function LayoutSlot({
-  label,
-  variant = "bay",
+function SetupRecordSpec({
+  titleId,
+  ready,
 }: {
-  label: string;
-  variant?: "bay" | "rail" | "heading" | "foot" | "examiner";
+  titleId: string;
+  ready: boolean;
 }) {
   return (
-    <div className={`layout-slot layout-slot--${variant}`}>
-      <span className="layout-slot__name">{label}</span>
-    </div>
+    <OperateArea
+      className="workspace-area work-plane record-plane record-plane--setup"
+      frameClassName="record-frame"
+      label="Setup and readiness"
+      title="Setup and readiness"
+      description={
+        ready
+          ? "Activate this cohort. The browser is not activation authority."
+          : "Check readiness on revision 1, then activate this cohort."
+      }
+      back={<BackKey label="Activities" onClick={() => undefined} />}
+    >
+      <Stack gap="none" className="setup-ceremony">
+        <ReadoutGrid label="Setup tracks" columns={4} className="assignment-instruments">
+          <ReadoutGridRow label="Local through cohort">
+            <ReadoutGridField term="Local">
+              <StateReadout variant="rest" label="Seated" />
+            </ReadoutGridField>
+            <ReadoutGridField term="Draft">
+              <StateReadout variant="rest" label="Revision 1" />
+            </ReadoutGridField>
+            <ReadoutGridField term="Readiness">
+              <StateReadout
+                variant={ready ? "sealed" : "dim"}
+                solid={ready}
+                label={ready ? "Ready" : "Not checked"}
+                className={ready ? undefined : "setup-track-now"}
+              />
+            </ReadoutGridField>
+            <ReadoutGridField term="Cohort">
+              <StateReadout
+                variant={ready ? "live" : "rest"}
+                label="Unactivated"
+                className={ready ? "setup-track-now" : undefined}
+              />
+            </ReadoutGridField>
+          </ReadoutGridRow>
+        </ReadoutGrid>
+        <Stack gap="4" className="create-ceremony__scroll">
+          <FormField id={titleId} layout="stack" label="Campaign title">
+            {(control) => (
+              <FieldInput
+                {...control}
+                defaultValue="Accessibility Standards Review"
+                placeholder={CAMPAIGN_TITLE_PLACEHOLDER}
+                width="wide"
+              />
+            )}
+          </FormField>
+          <p className="setup-ceremony__memory">Stable — new long-term learning disabled</p>
+        </Stack>
+        <PlateFoot
+          className="setup-ceremony__foot"
+          arrangement={ready ? "split" : "start"}
+          secondary={
+            ready ? (
+              <KeyGroup aria-label="Draft actions">
+                <EllipsisKey variant="quiet" type="button">Save draft</EllipsisKey>
+                <EllipsisKey variant="quiet" type="button">Check readiness</EllipsisKey>
+              </KeyGroup>
+            ) : undefined
+          }
+          primary={ready ? <EllipsisKey variant="activate" type="button">Activate cohort</EllipsisKey> : undefined}
+        >
+          {ready ? null : (
+            <KeyGroup aria-label="Draft actions">
+              <EllipsisKey variant="quiet" type="button">Save draft</EllipsisKey>
+              <EllipsisKey variant="quiet" type="button">Check readiness</EllipsisKey>
+            </KeyGroup>
+          )}
+        </PlateFoot>
+      </Stack>
+    </OperateArea>
   );
 }
 
@@ -61,12 +144,14 @@ function ManagementPageSpec({
   bulkheadId,
   currentLabel = "Campaigns",
   contain,
+  breadcrumbs,
   children,
 }: {
   tag: string;
   bulkheadId: string;
   currentLabel?: string;
   contain?: boolean;
+  breadcrumbs?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -78,6 +163,7 @@ function ManagementPageSpec({
             contain={contain}
             commandStrip={{ homeTo: "/shared/gallery", homeLabel: "Channel index", brandSuffix: "Specimen" }}
             navigation={managementNav(currentLabel, bulkheadId)}
+            breadcrumbs={breadcrumbs}
             footerNote="Quiet footer"
           >
             {children}
@@ -116,9 +202,11 @@ export function LayoutSections() {
       <GallerySection
         id="layout-management-index"
         title="Management index"
-        note="Console list or registry. OperateArea supplies the page title and description. Omit BackKey — the gangway (or command-strip home) is the return path."
+        note="Console list or registry. OperateArea supplies the page title and description. Omit BackKey — the gangway (or command-strip home) is the return path. Etch lists and tables; destination, assignment, and Status Bay plate grids set framed={false}."
       >
-        <ManagementPageSpec tag="OperateArea · title · description · registry body · no back" bulkheadId="layoutSpecIndexNav">
+        <ManagementPageSpec tag="OperateArea · title · description · registry body · no back" bulkheadId="layoutSpecIndexNav" breadcrumbs={
+          <BreadcrumbNav homeHref="/shared/gallery" items={[{ label: "Campaigns", current: true }]} />
+        }>
           <OperateArea
             className="workspace-area"
             label="Campaign registry"
@@ -138,11 +226,20 @@ export function LayoutSections() {
       <GallerySection
         id="layout-management-record"
         title="Management record"
-        note="Nested record under a console index. BackKey returns to that index. Keep the same OperateArea title/description/body stack; do not invent a second page head."
+        note="Nested record under a console index. BackKey returns to that index and trails the copy cluster (title + description) at desktop widths. Keep the same OperateArea title/description/body stack; do not invent a second page head or put Back on the breadcrumb trail. Stacked records (ReadoutGrid + WorkWells) set framed={false}; do not wrap already-sectioned body — or the readout grid alone — in an etched grouping box. The grid is a rule band."
       >
-        <ManagementPageSpec tag="OperateArea · BackKey · title · description · record body" bulkheadId="layoutSpecRecordNav">
+        <ManagementPageSpec tag="OperateArea · BackKey · title · description · record body" bulkheadId="layoutSpecRecordNav" breadcrumbs={
+          <BreadcrumbNav
+            homeHref="/shared/gallery"
+            items={[
+              { label: "Campaigns", href: "/shared/gallery#layout-management-index" },
+              { label: "Campaign record", current: true },
+            ]}
+          />
+        }>
           <OperateArea
             className="workspace-area"
+            framed={false}
             label="Campaign configuration"
             title="Campaign Record"
             description="Configuration and activation for CAMP-2204 / Shoreline Operations."
@@ -162,11 +259,34 @@ export function LayoutSections() {
         </ManagementPageSpec>
       </GallerySection>
       <GallerySection
+        id="layout-management-setup"
+        title="Management setup"
+        note="Production Setup and readiness is this nested record: ReadoutGrid tracks on the etched ceremony plate, campaign title in the same well, and unarmed keys omitted. The Campaign Configuration dialog remains the keys and disabledReason specimen, not this station."
+      >
+        <ManagementPageSpec
+          tag="OperateArea · ReadoutGrid tracks · Save and Check · Activate omitted"
+          bulkheadId="layoutSpecSetupDraftNav"
+          breadcrumbs={
+            <BreadcrumbNav
+              homeHref="/shared/gallery"
+              items={[
+                { label: "Activities", href: "/shared/gallery#layout-management-index" },
+                { label: "Setup and readiness", current: true },
+              ]}
+            />
+          }
+        >
+          <SetupRecordSpec titleId="lab-setup-title-draft" ready={false} />
+        </ManagementPageSpec>
+      </GallerySection>
+      <GallerySection
         id="layout-management-empty"
         title="Management empty"
         note="Same OperateArea head as the index. Absence lives in the empty plate inside the etched frame, not as a replacement for the page title."
       >
-        <ManagementPageSpec tag="OperateArea · title · description · empty plate · no back" bulkheadId="layoutSpecEmptyNav">
+        <ManagementPageSpec tag="OperateArea · title · description · empty plate · no back" bulkheadId="layoutSpecEmptyNav" breadcrumbs={
+          <BreadcrumbNav homeHref="/shared/gallery" items={[{ label: "Campaigns", current: true }]} />
+        }>
           <OperateArea
             className="workspace-area"
             label="Campaign registry"
@@ -180,6 +300,44 @@ export function LayoutSections() {
         </ManagementPageSpec>
       </GallerySection>
       <GallerySection
+        id="layout-management-ceremony"
+        title="Management ceremony"
+        note="Unavailable and recovery planes use CeremonyUnavailable: a hug column that sizes to the inset empty well (hugMeasure auto), with the operate-head inset by the frame cut so the title shares the visible top edge. Pass danger for Access denied / failed-sign-in titles (fault phosphor, not teal). Recovery is a quiet key centered in the well, never the amber Open-session skin. Pin sm/md/lg only when a dialog-width well is required. Do not stretch this well across the main landmark on desktop."
+      >
+        <div className="spec-row spec-row--layout-contain">
+          <ManagementPageSpec tag="CeremonyUnavailable · hug · quiet recovery" bulkheadId="layoutSpecCeremonyNav">
+            <CeremonyUnavailable
+              title="This destination is not available"
+              note="The current authorized relationship cannot use this locator."
+              recovery={{ label: "Return to Home", to: "/shared/gallery" }}
+            />
+          </ManagementPageSpec>
+          <ManagementPageSpec tag="CeremonyUnavailable · danger · --fg-danger" bulkheadId="layoutSpecCeremonyDangerNav">
+            <CeremonyUnavailable
+              title="Access denied"
+              note="My work is not available for the current authorized relationship."
+              danger
+              recovery={{ label: "Return to Home", to: "/shared/gallery" }}
+            />
+          </ManagementPageSpec>
+        </div>
+      </GallerySection>
+      <GallerySection
+        id="layout-management-loading"
+        title="Management loading"
+        note="Protected page-level wait uses CeremonyWait: inset wait-plate (wait-mark, label, scan-track) inside the hug etched well. Do not drop an inline WaitPanel into this frame."
+      >
+        <ManagementPageSpec tag="CeremonyArea · hug column · inset wait-plate" bulkheadId="layoutSpecLoadingNav">
+          <CeremonyArea
+            label="Establishing session"
+            title="Establishing session"
+            description="Confirming the production application session for this organization."
+          >
+            <CeremonyWait label="Establishing session context…" />
+          </CeremonyArea>
+        </ManagementPageSpec>
+      </GallerySection>
+      <GallerySection
         id="layout-management-split"
         title="Management split"
         note="Full-bleed ledger: plaque OperateHead (back, centered title, session) above SplitBay start/main/end, decision foot as a sibling. Pass contain={false}. Live-session remains the examination shell; this variant stays inside management chrome."
@@ -188,9 +346,18 @@ export function LayoutSections() {
           contain={false}
           tag='contain={false} · plaque head · SplitBay'
           bulkheadId="layoutSpecSplitNav"
+          breadcrumbs={
+            <BreadcrumbNav
+              homeHref="/shared/gallery"
+              items={[
+                { label: "Review work", href: "/shared/gallery#layout-management-split" },
+                { label: "Evaluation record", current: true },
+              ]}
+            />
+          }
         >
           <OperateArea
-            className="workspace-area"
+            className="workspace-area record-view"
             label="Evaluation record"
             title="Evaluation Record"
             description="Inspect transcript evidence beside criterion evaluations."

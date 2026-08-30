@@ -3,6 +3,8 @@ import {
   ActionMenuGlyph,
   Advisory,
   Alert,
+  CeremonyArea,
+  CeremonyWait,
   EmptyPlate,
   ErrorSummary,
   IconButton,
@@ -11,6 +13,7 @@ import {
   ToastDock,
   TooltipHost,
   WaitPanel,
+  WaitPlate,
   type ToastNotice,
 } from "../../../components";
 import { GallerySection, Spec } from "./GallerySection";
@@ -33,7 +36,7 @@ export function FeedbackSections({
         </div>
       </GallerySection>
 
-      <GallerySection id="tooltip" title="Tooltip" note="Shared TooltipHost wraps interactive controls so plaques receive hover and focus-visible even when the inner control is disabled. Disabled reasons also use persistent aria-describedby text.">
+      <GallerySection id="tooltip" title="Tooltip" note="Shared TooltipHost wraps interactive controls so plaques receive hover and focus-visible even when the inner control is disabled. Move onto the plaque to select and copy its text. Disabled reasons also use persistent aria-describedby text.">
         <div className="spec-row">
           <Spec tag="enabled · hover / :focus-visible"><TooltipHost tip="Frozen at cohort activation"><Key ariaLabel="Harness snapshot">Harness snapshot</Key></TooltipHost></Spec>
           <Spec tag="disabled · aria-describedby + host hover"><Key disabled ariaLabel="Configure campaign" disabledReason="Configuration frozen at activation">Configure campaign</Key></Spec>
@@ -78,16 +81,26 @@ export function FeedbackSections({
         </div>
         <Spec wide tag=".scan-track · .scan-fill · --scan · .scan-readout"><div className="scan-demo"><div className="scan-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={62} aria-label="Export progress"><span className="scan-fill" style={{ "--scan": 0.62 } as CSSProperties} /></div><span className="scan-readout">62%</span></div></Spec>
         <Spec wide tag=".stage-bars · .is-done teal · .is-now amber (attention)"><div className="stage-demo"><p className="stage-line">Stage — Examination <span className="stage-count">3 of 5</span></p><StageBars stage={3} total={5} /></div></Spec>
+        <Spec wide tag=".wait-plate · wait-mark · scan-track"><WaitPlate label="Retrieving manifest" note="The registry is still arriving. This plate will not invent campaign rows." /></Spec>
         <Spec wide tag=".skel-stack · .skel-line · --skel-w"><div className="skel-stack" aria-hidden="true"><span className="skel-line" /><span className="skel-line" style={{ "--skel-w": "78%" } as CSSProperties} /><span className="skel-line" style={{ "--skel-w": "54%" } as CSSProperties} /></div></Spec>
         <div className="spec-row">
           <Spec tag="click to occupy the key for 2.2s"><Key id="waitDemoKey" waiting={waiting} disabled={waiting} onClick={() => { setWaiting(true); window.setTimeout(() => { setWaiting(false); pushToast({ label: "Manifest", copy: "Enrollments seated. Table is ready." }); }, 2200); }}>{waiting ? "Retrieving" : "Retrieve manifest"}</Key></Spec>
           <Spec tag=".key--transmit.is-waiting · teal occupation"><Key variant="transmit" waiting disabled>Transmit</Key></Spec>
+          <Spec tag=".key--open.is-waiting · teal occupation"><Key variant="open" waiting disabled>Open session</Key></Spec>
         </div>
       </GallerySection>
 
-      <GallerySection id="wait-panel" title="Wait panel" note="Inline protected-loading status: wait-mark plus polite live region text.">
+      <GallerySection id="wait-panel" title="Wait panel" note="Inline protected-loading status for occupied keys and toolbars: wait-mark plus polite live region text. Page-level wait uses CeremonyWait inside CeremonyArea, not a stretched etched well.">
         <Spec tag=".loading-panel · role=status"><WaitPanel label="Loading activities…" /></Spec>
-        <Spec tag=".loading-panel · announceOnly"><WaitPanel label="Establishing session context…" announceOnly /></Spec>
+        <Spec wide tag="CeremonyWait · hug column · inset wait-plate">
+          <CeremonyArea
+            label="Establishing session"
+            title="Establishing session"
+            description="Confirming the production application session for this organization."
+          >
+            <CeremonyWait label="Establishing session context…" />
+          </CeremonyArea>
+        </Spec>
       </GallerySection>
       <ToastDock toasts={toasts} />
     </>

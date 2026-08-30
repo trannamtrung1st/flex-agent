@@ -82,27 +82,28 @@
 
 /* Reserved key foot inside etched frames; block rhythm matches --frame-inset-block-start. */
 .plate-foot {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
   padding-block-start: var(--plate-foot-pad-block);
   padding-block-end: 0;
 }
 
-.plate-foot--start {
-  justify-content: flex-start;
+.plate-foot[data-arrangement="split"] .plate-foot-slot--primary {
+  margin-inline-start: auto;
 }
 
 /* ═══ Guided-task work well (shell slot plate) ═══════════════════ */
 
-.layout-guided__main > .work-well {
+.layout-guided__main .work-well {
   flex: 1 1 auto;
   width: 100%;
   max-width: none;
   min-height: 0;
   box-sizing: border-box;
+}
+
+.layout-guided__main .work-well .work-well__body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .work-well {
@@ -116,7 +117,7 @@
   padding:
     var(--frame-inset-block-start)
     var(--frame-inset-inline)
-    18px;
+    var(--frame-inset-block-end);
   border-bottom: 1px solid var(--hairline-dim);
 }
 
@@ -141,8 +142,7 @@
 .work-well__body {
   flex: 0 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
   padding:
     var(--frame-inset-block-start)
     var(--frame-inset-inline)
@@ -155,7 +155,7 @@
 }
 
 .work-well__section {
-  margin-bottom: 22px;
+  margin-bottom: var(--form-group-gap);
 }
 
 .work-well__section:last-child {
@@ -169,24 +169,13 @@
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--teal);
-  margin-bottom: 9px;
+  margin-bottom: var(--field-label-gap);
 }
 
-.work-well__section h3::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 1px;
-  background: var(--teal);
-  margin-right: 9px;
-  vertical-align: 0.22em;
-}
-
-.work-well__section p,
-.work-well__section li {
+.work-well__section p {
   font-size: 0.9rem;
   color: var(--text);
-  max-width: 68ch;
+  max-width: var(--content-width-prose);
 }
 
 .work-well__section em {
@@ -199,26 +188,63 @@
   font-weight: 600;
 }
 
-.work-well__section ul {
+.work-well__section > ul:not(.intake-item-list),
+.work-well__section > ol {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
 }
 
-.work-well__section li {
-  padding-left: 18px;
+.work-well__section > ol {
+  counter-reset: work-well-ol;
+}
+
+.work-well__section > ul:not(.intake-item-list) > li {
+  font-size: 0.9rem;
+  color: var(--text);
+  max-width: var(--content-width-prose);
+  padding-inline-start: 18px;
   position: relative;
 }
 
-.work-well__section li::before {
+.work-well__section > ol > li {
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr);
+  align-items: start;
+  font-size: 0.9rem;
+  color: var(--text);
+  max-width: var(--content-width-prose);
+  counter-increment: work-well-ol;
+  font-variant-numeric: tabular-nums;
+}
+
+.work-well__section > ul:not(.intake-item-list) > li::before {
   content: "";
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 0.62em;
   width: 7px;
   height: 1px;
   background: var(--teal);
+}
+
+.work-well__section > ol > li::before {
+  content: counter(work-well-ol) ".";
+  grid-column: 1;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+}
+
+.work-well__section > ol > li[data-sequence]::before {
+  content: attr(data-sequence) ".";
+}
+
+.work-well__section > ol > li > * {
+  grid-column: 2;
+  min-width: 0;
 }
 
 .work-well__hint {
@@ -318,7 +344,7 @@
 }
 
 @media (max-width: 1080px) /* bp.pageScroll */ {
-  .plate-foot .key {
+  .plate-foot:not(.assignment-plate-keys) .key {
     width: 100%;
     justify-content: center;
   }
@@ -392,6 +418,12 @@
 }
 .frame-node--tr { top: 15%; }
 .frame-node--br { bottom: 15%; }
+
+/* Hug plaques are too short for 15% side beads; they read as broken
+   hairline bites. Keep beads on fill wells and board frames. */
+.operate-column--hug .frame-in > .frame-node {
+  display: none;
+}
 
 /* ═══ Empty-state plate ══════════════════════════════════════════ */
 
@@ -469,6 +501,145 @@
   max-width: 48ch;
 }
 
+.empty-plate--inset .key {
+  justify-self: start;
+}
+
+/* Hug operate column: title + etched frame share one measure. Head
+   inline pad equals the frame cut so the title sits on the visible
+   top edge, not the clipped bounding box. Default auto is max-content.
+   Named measures reuse dialog rungs (412 / 520 / 680). */
+.operate-column--hug {
+  --cut: 18px;
+  --operate-hug-w: max-content;
+  --operate-column-max: 36rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--operate-bay-gap);
+  box-sizing: border-box;
+  width: var(--operate-hug-w);
+  max-width: min(100%, var(--operate-column-max));
+  min-width: 0;
+}
+
+.operate-column--hug[data-hug-measure="auto"] {
+  --operate-hug-w: max-content;
+  --operate-column-max: 36rem;
+}
+
+.operate-column--hug[data-hug-measure="sm"] {
+  --operate-hug-w: min(100%, 412px);
+  --operate-column-max: 412px;
+}
+
+.operate-column--hug[data-hug-measure="md"] {
+  --operate-hug-w: min(100%, 520px);
+  --operate-column-max: 520px;
+}
+
+.operate-column--hug[data-hug-measure="lg"] {
+  --operate-hug-w: min(100%, 680px);
+  --operate-column-max: 680px;
+}
+
+.operate-column--hug > .operate-head {
+  flex: 0 0 auto;
+  align-self: stretch;
+  contain: inline-size;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding-inline: var(--cut);
+  box-sizing: border-box;
+}
+
+.operate-column--hug > .operate-head .operate-title,
+.operate-column--hug > .operate-head .page-desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  max-width: none;
+}
+
+.workspace-area .operate-column--hug > .operate-head .operate-head-copy .operate-title,
+.workspace-area .operate-column--hug > .operate-head .operate-head-copy .page-desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  max-width: none;
+}
+
+.operate-column--hug > .frame-cut {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  align-self: stretch;
+}
+
+.operate-column--hug[data-hug-measure="auto"] > .frame-cut {
+  width: max-content;
+  max-width: 100%;
+}
+
+.operate-column--hug:is([data-hug-measure="sm"], [data-hug-measure="md"], [data-hug-measure="lg"]) > .frame-cut {
+  width: 100%;
+}
+
+.operate-column--hug .empty-plate--inset,
+.operate-column--hug .wait-plate--inset,
+.operate-column--hug .ceremony-empty,
+.operate-column--hug .ceremony-wait {
+  width: max-content;
+  max-width: 100%;
+}
+
+.operate-column--hug:is([data-hug-measure="sm"], [data-hug-measure="md"], [data-hug-measure="lg"]) .empty-plate--inset,
+.operate-column--hug:is([data-hug-measure="sm"], [data-hug-measure="md"], [data-hug-measure="lg"]) .wait-plate--inset,
+.operate-column--hug:is([data-hug-measure="sm"], [data-hug-measure="md"], [data-hug-measure="lg"]) .ceremony-empty,
+.operate-column--hug:is([data-hug-measure="sm"], [data-hug-measure="md"], [data-hug-measure="lg"]) .ceremony-wait {
+  width: 100%;
+  max-width: none;
+}
+
+.operate-column--hug[data-hug-measure="auto"] .empty-plate--inset {
+  font-size: 0.82rem;
+  grid-template-columns: 7px minmax(0, 48ch);
+}
+
+.operate-column--hug[data-hug-measure="auto"] .wait-plate--inset {
+  font-size: 0.82rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+@media (min-width: 721px) /* above bp.compact */ {
+  .operate-column--hug[data-hug-measure="auto"] .wait-plate--inset .wait-plate-label {
+    white-space: nowrap;
+  }
+}
+
+/* Wait wells keep a definite 36rem cap so a short status label cannot
+   collapse the etched frame. Empty wells hug the note track instead. */
+.operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) {
+  --operate-hug-w: min(100%, var(--operate-column-max));
+}
+
+.operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) > .frame-cut {
+  width: 100%;
+}
+
+.operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) .wait-plate--inset,
+.operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) .ceremony-wait {
+  width: 100%;
+  max-width: none;
+}
+
+.operate-column--hug .empty-plate-note,
+.operate-column--hug .wait-plate-note {
+  max-width: min(48ch, 100%);
+}
+
 /* ═══ Advisory (banner strip) ════════════════════════════════════ */
 
 /* a full-width hairline-bounded strip for standing notices; system
@@ -494,7 +665,7 @@
 
 .advisory-label {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--teal);

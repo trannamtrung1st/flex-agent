@@ -239,22 +239,18 @@ function Well({
         </WorkWellSection>
         <WorkWellSection>
           <h3>Preserved versions</h3>
-          <ol className="version-list">
-            <li className="version-row version-row--current">
-              <span className="version-doc" aria-hidden="true">
-                <DocGlyph variant="doc-glyph--current" />
-              </span>
-              <span className="version-tag">v2</span>
-              <span className="version-name">inventory-order-mgmt-case-study.pdf</span>
-              <span className="version-meta">Synthetic · 248 KB · preserved</span>
+          <ol reversed aria-label="Preserved submission versions">
+            <li data-sequence="2" value={2}>
+              <Stack gap="2">
+                <span>inventory-order-mgmt-case-study.pdf</span>
+                <span>Synthetic · 248 KB · preserved</span>
+              </Stack>
             </li>
-            <li className="version-row">
-              <span className="version-doc" aria-hidden="true">
-                <DocGlyph />
-              </span>
-              <span className="version-tag">v1</span>
-              <span className="version-name">inventory-order-mgmt-draft.pdf</span>
-              <span className="version-meta">Synthetic · 231 KB · superseded</span>
+            <li data-sequence="1" value={1}>
+              <Stack gap="2">
+                <span>inventory-order-mgmt-draft.pdf</span>
+                <span>Synthetic · 231 KB · superseded</span>
+              </Stack>
             </li>
           </ol>
         </WorkWellSection>
@@ -374,15 +370,6 @@ function Well({
         </p>
       </WorkWellSection>
     </WorkWell>
-  );
-}
-
-function DocGlyph({ variant }: { variant?: string }) {
-  return (
-    <svg className={`doc-glyph${variant ? ` ${variant}` : ""}`} viewBox="0 0 12 14">
-      <path d="M1 .5h6.5L11 4v9.5H1z" />
-      <path d="M7.5 .5V4H11" />
-    </svg>
   );
 }
 

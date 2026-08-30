@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Announcer, EtchedFrame, Key } from "../components";
+import { Announcer, EtchedFrame, Key, LabThemeToggle } from "../components";
 import { CATALOG_ROUTE, SURFACE_COUNT, SURFACE_GROUPS } from "../data/fixtures/surfaces";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { prefersReducedMotion } from "../../lib/format";
@@ -24,9 +24,9 @@ export function SurfacesPage() {
       commandStrip={{
         homeTo: CATALOG_ROUTE,
         homeLabel: "Channel index",
-        origin: true,
         brandSuffix: "Channel Index",
         readout: `${SURFACE_COUNT} CHANNELS`,
+        identLeading: <LabThemeToggle />,
       }}
       mainLabel="Prototype Surfaces"
       mainClassName="index-board"

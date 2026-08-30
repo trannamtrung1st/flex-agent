@@ -11,6 +11,7 @@
 @import "./components/state.css";
 @import "./components/readouts.css";
 @import "./components/fields.css";
+@import "./components/file-field.css";
 @import "./components/menus.css";
 @import "./components/temporal.css";
 @import "./components/searchable.css";

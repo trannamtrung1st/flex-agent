@@ -1,5 +1,9 @@
 import type { ChangeEventHandler, ReactNode } from "react";
 
+export const SEARCH_ID_PLACEHOLDER = "SEARCH ID";
+export const SEARCH_NAME_OR_ID_PLACEHOLDER = "SEARCH NAME OR ID";
+export const SEARCH_TITLE_OR_ID_PLACEHOLDER = "SEARCH TITLE OR ID";
+
 export function DataTableToolbar({
   ariaLabel,
   actions,

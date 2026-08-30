@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { MM_SS_PATTERN, mmSsError } from "../../components";
+import { MM_SS_PATTERN, MM_SS_WARNING_PLACEHOLDER, mmSsError } from "../../components";
 
 export const campaignSchema = z
   .object({
     harness: z.string(),
     agent: z.string(),
-    sessionLimit: z.string().regex(MM_SS_PATTERN, mmSsError("Session limit", "60:00")),
-    timeWarning: z.string().regex(MM_SS_PATTERN, mmSsError("Time warning", "10:00")),
+    sessionLimit: z.string().regex(MM_SS_PATTERN, mmSsError("Session limit")),
+    timeWarning: z.string().regex(MM_SS_PATTERN, mmSsError("Time warning", MM_SS_WARNING_PLACEHOLDER)),
     maxAttempts: z.string().regex(/^\d{1,2}$/, "Max attempts must be a whole number of at least 1."),
     cooldown: z.string(),
   })

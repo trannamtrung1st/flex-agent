@@ -10,7 +10,7 @@
 | **Version** | 1.0 |
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
-| **Last amended** | 2026-08-28 |
+| **Last amended** | 2026-08-30 |
 | **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of retired v0.3 at Git `eb9c398`. Not an in-place continuation of retired page composition. |
 | **Audience** | Product, design, engineering, security/privacy, QA, and implementation reviewers |
 | **Governs** | Platform-level Activity information architecture; end-to-end assessment Campaign journey for P0; capability-scoped navigation; cross-surface state handoffs; and shared interaction principles |
@@ -246,8 +246,8 @@ exact participant-facing Result. Only then can the Participant view it.
 ### `JRN-MVP-1` — Configure and activate assessment Campaign
 
 1. The Activity administrator opens **Activities** and starts a new assessment
-   Campaign. The create flow identifies `Campaign` as the Activity form and
-   `Assessment` as the configured type/use case.
+   Campaign on `/activities/new`. The create flow identifies `Campaign` as the
+   Activity form and `Assessment` as the configured type/use case.
 2. The interface creates or loads a server-owned draft and presents only
    permitted existing Agent/Harness sources and assessment parameters.
 3. The administrator saves, leaves, and resumes the draft. The page labels
@@ -561,9 +561,11 @@ revealing inaccessible work.
 
 Within an assessment or assigned case, breadcrumbs and section navigation must
 preserve the authorized Activity/cohort/Participant or Review-case context.
-Labels may include permitted human-readable names; opaque identifiers are
-secondary. Returning from an Evidence source must restore the exact case,
-criterion, and prior reading position when authorization remains current.
+Breadcrumbs list reachable destinations from the canonical routes below;
+locator segments without a page are not trail steps. Labels may include
+permitted human-readable names; opaque identifiers are secondary. Returning
+from an Evidence source must restore the exact case, criterion, and prior
+reading position when authorization remains current.
 
 ### `IA-MVP-3` — Deep links and authorization change
 
@@ -584,6 +586,7 @@ redirects from deleted UIs. A path is a locator, not proof of access
 | --- | --- | --- | --- |
 | `/` | Authenticated home / unauthenticated gate | `management` | Shared shell; `IA-MVP-1` |
 | `/activities` | Activity administration | `management` | `JRN-MVP-1` |
+| `/activities/new` | Activity administration create | `management` | `JRN-MVP-1` |
 | `/activities/:activityId/setup` | Activity administration | `management` | `JRN-MVP-1` |
 | `/activities/:activityId/cohorts/:cohortId/enrollments` | Activity administration | `management` | `JRN-MVP-2` |
 | `/activities/:activityId/cohorts/:cohortId/enrollments/:enrollmentId` | Activity administration | `management` | `JRN-MVP-2` |
@@ -594,6 +597,7 @@ redirects from deleted UIs. A path is a locator, not proof of access
 | `/review/:reviewId` | Assigned Review case | `guided-task` | `JRN-MVP-5`, `JRN-MVP-6` |
 | `/release` | Explicit Release authority | `management` | `JRN-MVP-7` |
 | `/release/:resultId` | Exact Result preview and confirmation | `guided-task` | `JRN-MVP-7` |
+| `/results` | Participant Result discovery | `management` | `JRN-MVP-7` |
 | `/results/:resultId` | Participant own Result after visibility | `management` | `JRN-MVP-7` |
 
 P1 **Agents** and **Harnesses** destinations remain planned modules with no
@@ -602,7 +606,10 @@ when both are present (`PROP-UX-2`).
 
 If a server contract for a route is not yet implemented, the production UI
 must present the owning safe unavailable or pending state and must not invent
-lifecycle truth from fixtures.
+lifecycle truth from fixtures. Until that contract exists, production may keep
+the locator on `management` so the ceremony is not a fake `live-session` or
+review station. The approved family in this table remains the target when the
+host contract is implemented.
 
 ### `IA-MVP-4` — Narrow viewport behavior
 
@@ -624,6 +631,7 @@ representation rather than horizontal clipping as the only access path.
 | Success | Name the exact committed outcome and next permitted action; do not generalize success to a later stage such as Evaluation or Release |
 | Validation error | Preserve safe input, summarize the problem, link to the affected field/category, move focus appropriately, and provide correction guidance |
 | Authorization denied/lost | Remove protected content and prohibited controls, avoid resource-existence disclosure, and state the safe next action |
+| Sign-in fail-closed | Return to the unauthenticated gate with a non-disclosing **Sign-in could not be completed** state and **Continue to sign in**; do not expose reason codes, create an application session, or leave the operator on a raw callback document |
 | Dependency failure | Use a bounded user-facing category, distinguish retryable from administrator-action states, and avoid exposing internals |
 | Conflict/stale state | Preserve the user's local work when safe, show the current authoritative state, and require deliberate reconciliation before a new mutation |
 | Offline/reconnecting | State that connection is unavailable without implying workflow or timer pause; restore and reconcile authoritative state after reauthentication |
@@ -683,6 +691,13 @@ normative for implementation and verification.
 
 ## Security and privacy UX controls
 
+- When the identity provider authenticates a person but Flex Agent refuses
+  the identity or Organization context, the production gate must show
+  **Sign-in could not be completed**, keep **Continue to sign in** as the next
+  action, and must not render callback JSON or machine reason codes. The
+  provider session must end so the next sign-in can choose another account.
+  Recovery copy must not distinguish unknown, disabled, zero-Organization, or
+  ambiguous-Organization causes.
 - Server authorization is required for every page query, source open, preview,
   download, mutation, and real-time reconnection. Client-side hiding only
   reduces confusion and disclosure risk.

@@ -52,12 +52,14 @@ export function DataTableShell({
     .filter(Boolean)
     .join(" ");
   const resolvedScrollClassName = ["datatable-scroll", scrollClassName].filter(Boolean).join(" ");
+  const labelled = Boolean(restScrollProps["aria-label"] || restScrollProps["aria-labelledby"]);
 
   return (
     <div className={rootClassName}>
       {toolbar}
       <div
         {...restScrollProps}
+        role={restScrollProps.role ?? (labelled ? "region" : undefined)}
         ref={(node) => {
           scrollRef.current = node;
           assignRef(scrollPropsRef, node);

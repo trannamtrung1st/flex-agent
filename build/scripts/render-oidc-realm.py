@@ -33,7 +33,10 @@ def main() -> None:
     client["attributes"]["backchannel.logout.url"] = args.backchannel_url
     client["attributes"]["backchannel.logout.session.required"] = "false"
     client["attributes"]["pkce.code.challenge.method"] = "S256"
-    client["attributes"]["post.logout.redirect.uris"] = "http://localhost:18080/##http://localhost:5274/"
+    client["attributes"]["post.logout.redirect.uris"] = (
+        "http://localhost:18080/##http://localhost:5274/"
+        "##http://localhost:18080/?signin=denied##http://localhost:5274/?signin=denied"
+    )
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

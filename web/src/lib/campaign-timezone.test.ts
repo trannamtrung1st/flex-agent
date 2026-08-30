@@ -31,4 +31,19 @@ describe("formatCampaignInstant", () => {
     expect(campaignDeadlineCopy(formatted)).not.toMatch(/conversion unavailable/i);
     expect(campaignDeadlineCopy(formatted)).not.toContain("2026-09-01T12:00:00Z");
   });
+
+  it("converts a named campaign zone without falling back to UTC", () => {
+    const formatted = formatCampaignInstant("2026-09-12T23:00:00Z", "America/Chicago");
+    expect(formatted.conversionAvailable).toBe(true);
+    expect(formatted.localDisplay).toMatch(/12 Sept 2026/i);
+    expect(formatted.localDisplay).toMatch(/18:00/);
+    expect(campaignDeadlineCopy(formatted)).not.toMatch(/conversion unavailable/i);
+    expect(campaignDeadlineCopy(formatted)).not.toContain("2026-09-12T23:00:00Z");
+  });
+
+  it("uses the shared absence mark when no readable UTC instant exists", () => {
+    expect(campaignDeadlineCopy(formatCampaignInstant("", "UTC"))).toBe("—");
+    expect(campaignDeadlineCopy(formatCampaignInstant("not-a-time", "UTC"))).toBe("—");
+    expect(campaignDeadlineCopy(formatCampaignInstant("not-a-time", "UTC"))).not.toMatch(/undefined/i);
+  });
 });

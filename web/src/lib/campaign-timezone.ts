@@ -1,3 +1,5 @@
+import { ABSENT_INSTANT_MARK } from "./format";
+
 export interface FormattedCampaignInstant {
   exactUtc: string;
   zoneLabel: string;
@@ -41,7 +43,11 @@ function utcDisplayOf(exactUtc: string): string | null {
 }
 
 export function formatCampaignInstant(utcInstant: string, timeZoneId: string): FormattedCampaignInstant {
-  const exactUtc = utcInstant.endsWith("Z") ? utcInstant : `${utcInstant}Z`;
+  const raw = typeof utcInstant === "string" ? utcInstant.trim() : "";
+  if (!raw) {
+    return { exactUtc: "", zoneLabel: timeZoneId, localDisplay: null, utcDisplay: null, conversionAvailable: false };
+  }
+  const exactUtc = raw.endsWith("Z") ? raw : `${raw}Z`;
   const zoneLabel = timeZoneId;
   const utcDisplay = utcDisplayOf(exactUtc);
   if (isUtcAlias(timeZoneId)) {
@@ -56,11 +62,12 @@ export function formatCampaignInstant(utcInstant: string, timeZoneId: string): F
       return { exactUtc, zoneLabel, localDisplay: null, utcDisplay, conversionAvailable: false };
     }
 
+    // dateStyle/timeStyle cannot be combined with timeZoneName in ICU; the zone is
+    // already named by the campaign record, so local clock copy is enough here.
     const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: timeZoneId,
       dateStyle: "medium",
       timeStyle: "short",
-      timeZoneName: "short",
     });
     const resolvedZone = formatter.resolvedOptions().timeZone;
     if (!zonesAgree(timeZoneId, resolvedZone)) {
@@ -80,5 +87,5 @@ export function campaignDeadlineCopy(formatted: FormattedCampaignInstant): strin
   if (formatted.utcDisplay) {
     return `${formatted.utcDisplay} (${formatted.zoneLabel} conversion unavailable)`;
   }
-  return formatted.exactUtc;
+  return ABSENT_INSTANT_MARK;
 }

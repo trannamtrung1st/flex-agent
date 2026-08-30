@@ -15,8 +15,10 @@ Brand and semantic status colors are separate systems:
 - Green means **success/healthy/approved** as an outcome, always with a text
   label and instrument mark. It is not a brand or navigation color.
 - Red/danger means **failed, rejected when rejection is an outcome, blocking
-  disconnect, or destructive consequence**. It is not a brand color and does
-  not decorate validation (validation uses amber).
+  disconnect, Access denied, or destructive consequence**. Dark `danger` is
+  **fault phosphor** (`#F05C58` / placard `#FF7468`): an ember lamp next to
+  amber, not a pink consumer error. It is not a brand color and does not
+  decorate validation (validation uses amber).
 - Violet is not part of the Shipboard identity. Do not introduce it as a
   co-equal primary.
 
@@ -89,8 +91,8 @@ teal family; live meaning still requires a text/structure cue (`PC-12`).
 | warning-soft | #F8EEDC | rgba(226, 163, 60, 0.18) |
 | warning | #9A6A12 | #E2A33C |
 | danger-soft | #FDECEF | #321015 |
-| danger | #C43E4B | #FF6675 |
-| danger-strong | #A9313D | #FF8290 |
+| danger | #C43E4B | #F05C58 |
+| danger-strong | #A9313D | #FF7468 |
 | info-soft | #D7F1F1 | rgba(60, 192, 191, 0.14) |
 | info | #146261 | #3CC0BF |
 
@@ -113,7 +115,7 @@ Warning tokens alias the amber attention family. Info tokens alias teal.
 | fg-attention | #7A540E | #E2A33C |
 | fg-success | #1A6D40 | #68DB98 |
 | fg-warning | #7A540E | #EDC890 |
-| fg-danger | #A9323E | #FF8290 |
+| fg-danger | #A9323E | #FF7468 |
 | fg-info | #146261 | #5FD0CF |
 
 ## Border / Signal Tokens
@@ -137,11 +139,14 @@ Warning tokens alias the amber attention family. Info tokens alias teal.
 Hairline structure is always 1px in `border-default` or `border-subtle`.
 
 Dark primitives and light remaps are the CSS custom properties in
-`web/src/styles/tokens.css` and `web/src/styles/adaptations.css`. Semantic
-aliases (`--canvas`, `--brand-primary`, `--fg-default`, and the rest) live in
-`semantic-aliases.css`. Do not reintroduce a `--fa-*` prefix unless the token
-implementation is renamed as a whole. Light `--teal-glow` follows
-`emission-focus` (`rgba(26, 122, 121, 0.2)`), not light `brand-softer`.
+`web/src/styles/tokens.css` and `web/src/styles/adaptations.css`. Primitive
+names (`--ground`, `--teal`, `--amber`, `--danger`) remain the dark-theme
+source values. Semantic aliases (`--canvas`, `--brand-primary`, `--fg-default`,
+`--fg-danger`, and the rest) live in `semantic-aliases.css`. Do not reintroduce
+a `--fa-*` prefix unless the token implementation is renamed as a whole. Light
+`--teal-glow` follows `emission-focus` (`rgba(26, 122, 121, 0.2)`), not light
+`brand-softer`. Denied ceremony titles use `--fg-danger` plus `--danger-glow`;
+do not leave the resting teal placard halo on a danger title.
 
 ## Emission Tokens
 
@@ -154,12 +159,18 @@ Emission is phosphor glow on emitters, not a general shadow style.
 | emission-live | rgba(26,122,121,.16) | rgba(60,192,191,.30) | genuine live Agent |
 | emission-agent | rgba(26,122,121,.12) | rgba(60,192,191,.20) | Agent Core |
 | emission-attention | rgba(154,106,18,.16) | rgba(226,163,60,.18) | timer, hot key, validation |
+| emission-danger | rgba(169,50,62,.22) | rgba(240,92,88,.32) | denied / failed backlit placards |
 
 Light mode relies primarily on borders and surface state; keep glow lower.
 
 ## Semantic Usage Rules
 
 - Application canvas: `canvas`.
+- Command strip, gangway, console foot, management drawer bar, and instrument
+  bulkhead rails: no extra fill — the hull (`canvas` / `--ground` gradient on
+  `body`) shows through. Sticky Component Deck chrome uses `surface-primary`
+  (`--ground-deep`) only, matching `html` and the top of the hull. Overlay
+  bulkhead *drawers* stay opaque so they occlude the page.
 - Primary work surface / smoked plate fill: `surface-primary` over canvas with
   documented sheen/depth/inset stacks from [shadows](shadows.md).
 - Selected context: `surface-selected` + `border-selected` + a tick, rail, or

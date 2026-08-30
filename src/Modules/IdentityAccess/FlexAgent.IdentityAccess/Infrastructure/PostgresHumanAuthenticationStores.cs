@@ -233,6 +233,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                         credential_digest,
                         authentication_strength,
                         provider_session_digest,
+                        provider_id_token_ciphertext,
+                        seated_display_name,
                         created_at,
                         last_seen_at,
                         idle_expires_at,
@@ -250,6 +252,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                         @CredentialDigest,
                         @AuthenticationStrength,
                         @ProviderSessionDigest,
+                        @ProviderIdTokenCiphertext,
+                        @SeatedDisplayName,
                         @CreatedAt,
                         @LastSeenAt,
                         @IdleExpiresAt,
@@ -402,6 +406,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 """
                 UPDATE application_sessions
                 SET credential_digest = NULL,
+                    provider_id_token_ciphertext = NULL,
                     rotated_at = CASE WHEN @Rotated THEN @TerminatedAt ELSE rotated_at END,
                     revoked_at = CASE WHEN @Rotated THEN revoked_at ELSE @TerminatedAt END,
                     terminal_reason = @TerminalReason
@@ -457,6 +462,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 """
                 UPDATE application_sessions
                 SET credential_digest = NULL,
+                    provider_id_token_ciphertext = NULL,
                     rotated_at = @TerminatedAt,
                     terminal_reason = @TerminalReason
                 WHERE application_session_id = @PredecessorSessionId
@@ -491,6 +497,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                         credential_digest,
                         authentication_strength,
                         provider_session_digest,
+                        provider_id_token_ciphertext,
+                        seated_display_name,
                         created_at,
                         last_seen_at,
                         idle_expires_at,
@@ -508,6 +516,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                         @CredentialDigest,
                         @AuthenticationStrength,
                         @ProviderSessionDigest,
+                        @ProviderIdTokenCiphertext,
+                        @SeatedDisplayName,
                         @CreatedAt,
                         @LastSeenAt,
                         @IdleExpiresAt,
@@ -587,6 +597,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 """
                 UPDATE application_sessions
                 SET credential_digest = NULL,
+                    provider_id_token_ciphertext = NULL,
                     revoked_at = @RevokedAt,
                     terminal_reason = @TerminalReason
                 WHERE issuer = @Issuer
@@ -702,6 +713,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                     """
                     UPDATE application_sessions
                     SET credential_digest = NULL,
+                        provider_id_token_ciphertext = NULL,
                         revoked_at = @RevokedAt,
                         terminal_reason = @TerminalReason
                     WHERE issuer = @Issuer
@@ -862,6 +874,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 """
                 UPDATE application_sessions
                 SET credential_digest = NULL,
+                    provider_id_token_ciphertext = NULL,
                     revoked_at = @RevokedAt,
                     terminal_reason = @TerminalReason
                 WHERE provider_session_digest = @ProviderSessionDigest
@@ -892,6 +905,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
             session.CredentialDigest,
             AuthenticationStrength = AuthenticationStrengthCodec.Encode(session.Strength),
             session.ProviderSessionDigest,
+            session.ProviderIdTokenCiphertext,
+            session.SeatedDisplayName,
             session.Lifetime.CreatedAt,
             session.Lifetime.LastSeenAt,
             session.Lifetime.IdleExpiresAt,
@@ -912,6 +927,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         public string? CredentialDigest { get; init; }
         public string AuthenticationStrength { get; init; } = string.Empty;
         public string? ProviderSessionDigest { get; init; }
+        public byte[]? ProviderIdTokenCiphertext { get; init; }
+        public string? SeatedDisplayName { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime LastSeenAt { get; init; }
         public DateTime IdleExpiresAt { get; init; }
@@ -931,6 +948,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 CredentialDigest,
                 AuthenticationStrengthCodec.Decode(AuthenticationStrength),
                 ProviderSessionDigest,
+                ProviderIdTokenCiphertext,
                 new ApplicationSessionLifetime(
                     PostgresUtcTime.ToUtcOffset(CreatedAt),
                     PostgresUtcTime.ToUtcOffset(LastSeenAt),
@@ -939,7 +957,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 RevokedAt is { } revoked ? PostgresUtcTime.ToUtcOffset(revoked) : null,
                 RotatedAt is { } rotated ? PostgresUtcTime.ToUtcOffset(rotated) : null,
                 PredecessorSessionId,
-                TerminalReason);
+                TerminalReason,
+                SeatedDisplayName);
     }
 }
 

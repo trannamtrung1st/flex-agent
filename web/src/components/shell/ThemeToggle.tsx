@@ -1,4 +1,4 @@
-import { useTheme, type Theme } from "../../hooks/useTheme";
+import { useTheme, type Theme } from "../../lib/useTheme";
 import { ThemeToggle as PresentationalThemeToggle } from "../../design-system";
 
 export function ThemeToggle({

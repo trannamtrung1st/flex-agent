@@ -4,6 +4,62 @@
   max-width: 100%;
 }
 
+/* Inset wait occupies an etched well: same grid as empty-plate--inset,
+   wait-mark instead of a dim state-node, scan-track spanning the copy. */
+.wait-plate--inset {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 12px;
+  align-items: start;
+  justify-items: stretch;
+  text-align: left;
+  width: 100%;
+  max-width: none;
+  padding: 6px 0 10px;
+  margin: 0;
+  border: none;
+  clip-path: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wait-plate--inset .wait-mark {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0.12em 0 0;
+}
+
+.wait-plate--inset > :not(.wait-mark) {
+  grid-column: 2;
+}
+
+.wait-plate--inset .wait-plate-label {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--label);
+  animation: wait-copy-pulse 1.4s ease-in-out infinite;
+}
+
+.wait-plate--inset .wait-plate-note {
+  text-align: left;
+  max-width: none;
+  margin: 0;
+}
+
+.wait-plate--inset .scan-track {
+  max-width: none;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-plate--inset .wait-plate-label {
+    animation: none;
+  }
+}
+
 .workspace-alert-body {
   padding: 10px 18px 12px;
   font-size: 0.82rem;
@@ -11,8 +67,10 @@
   color: var(--text);
 }
 
-.error-summary a {
+.error-summary a,
+.error-summary a:visited {
   color: var(--teal);
+  text-decoration: none;
 }
 
 .error-summary a:hover,

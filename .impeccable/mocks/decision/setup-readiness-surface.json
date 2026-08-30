@@ -1,0 +1,110 @@
+{
+  "title": "Choose the Setup and readiness station",
+  "question": "Shipboard Terminal stays. The roll seated a wide ceremony plate inside the management record, not a dialog and not the current sparse well. Lock a composition, steer, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Ceremony on record",
+      "kicker": "THE ROLL",
+      "lineage": "Lab campaign-configuration ceremony plate, seated in the management OperateArea",
+      "thesis": "Setup is one wide ceremony plate filling the record frame, with the next permitted action signed at monument scale.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["smoked-glass plate", "notched clip", "etched well", "instrument chase marks", "Michroma + Sometype Mono"],
+      "viewport": "Command strip and gangway stay. Operate head holds Setup and readiness plus a monument next-action sentence. A wide notched ceremony plate fills the record: four-track chase for local, draft, readiness, and cohort; campaign title; split foot with only permitted keys, Activate cohort amber when armed.",
+      "risk": "Reads as a modal parked on a page if the plate floats instead of filling the record frame.",
+      "raised": [
+        {
+          "from": "airport wayfinding",
+          "raise": "Unavailable keys drop off the plate; only the next permitted action is signed."
+        },
+        {
+          "from": "drum-machine step row",
+          "raise": "A chase mark on the four tracks always says which step is armed."
+        },
+        {
+          "from": "orienteering overlay",
+          "raise": "Readiness rides over configuration and never edits the form terrain."
+        },
+        {
+          "from": "alphabet storm",
+          "raise": "The next-action sentence is the monumental object of the station, not muted description."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "split-ledger",
+      "label": "Split ledger",
+      "lineage": "Reviewer plaque head and split bay, adapted to Campaign setup",
+      "thesis": "Configuration and status are facing pages of one ledger, so the next permitted action never hides below the form.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["plaque head", "split bay", "etched columns", "instrument marks", "Michroma + Sometype Mono"],
+      "viewport": "Plaque Operate head with back, title, and Draft or Activated seal. Start column holds the four tracks and the one signed next action. Main column holds campaign title and inherited readouts. Sibling foot holds Save draft, Check readiness, and Activate cohort.",
+      "case": "Holds when blockers must sit beside the field the administrator will correct.",
+      "risk": "Too much reviewer-console grammar for a one-field draft; the split can feel empty until later sections exist.",
+      "comp": ".impeccable/mocks/decision/split-ledger.webp"
+    },
+    {
+      "id": "in-flow",
+      "label": "In-flow now axis",
+      "lineage": "UI-ACT-DEC-1 in-flow status summary on a nested management record",
+      "thesis": "The station is a single now-axis: what is true, then the field, then the one signed next action.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["now plaque", "etched well", "instrument marks", "notched clip", "Michroma + Sometype Mono"],
+      "viewport": "Operate head, then a now-plaque stating the current track and the next permitted sentence, then one configuration well, then blockers only when present, then a foot that omits unavailable keys.",
+      "case": "Strongest for what do I do next without a second column.",
+      "risk": "Without the now-plaque it collapses back into the current sparse well.",
+      "comp": ".impeccable/mocks/decision/in-flow.webp"
+    },
+    {
+      "id": "challenger-wayfinding",
+      "label": "Decision band",
+      "verdict": "declined",
+      "lineage": "Airport junction signing, fused as a sticky next-action band",
+      "thesis": "Each viewport shows only the next permitted destination; closed routes drop off.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["sticky sign band", "pictogram-scale next action"],
+      "viewport": "A phosphor band under the title carries one next action and a walk-time of consequence.",
+      "case": "Loses as a whole station: it is a band, not a record. Clarity of the next action was kept.",
+      "kept": "Unavailable keys drop off; only the next permitted action is signed.",
+      "risk": "Turns the page into a corridor sign and hides configuration.",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding-hero.webp"
+    },
+    {
+      "id": "challenger-step-row",
+      "label": "Four-track chase",
+      "verdict": "declined",
+      "lineage": "Drum-machine step row, fused as local/draft/readiness/cohort",
+      "thesis": "The four state tracks are one unbroken step row; a chase mark is now.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["step keys", "chase light", "tempo readout"],
+      "viewport": "A sixteen-slot row reduced to four armed tracks above the title field.",
+      "case": "Loses as a whole station: a step row is not a nested record. The now-mark was kept.",
+      "kept": "A chase mark on the four tracks always says which step is armed.",
+      "risk": "Reads as a sequencer toy on an admin fairness task.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-drum-machine-step-row-hero.webp"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Course overlay",
+      "verdict": "declined",
+      "lineage": "Orienteering course purple over fixed terrain",
+      "thesis": "Configuration is the terrain; readiness is an overlay that never edits it.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["terrain plate", "course overlay"],
+      "viewport": "A map-like config well with a readiness course drawn over it.",
+      "case": "Loses on audience: administrators are not orienteers. Overlay discipline was kept.",
+      "kept": "Readiness rides over configuration and never edits the form terrain.",
+      "risk": "A map metaphor on a one-field form.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "steer": true
+}

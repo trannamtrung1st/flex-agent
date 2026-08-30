@@ -1,5 +1,6 @@
 import { Container, EllipsisKey, Grid, Inline, Inset, Key, KeyGroup, SplitBay, Stack } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
+import { LayoutSlot } from "./LayoutSlot";
 
 function Tile({ label }: { label: string }) {
   return <div className="composition-demo-tile">{label}</div>;
@@ -10,9 +11,9 @@ export function LayoutPrimitiveSections() {
     <>
       <GallerySection id="composition-stack" title="Stack" note="Vertical groups with even spacing between siblings.">
         <Spec wide tag="nested groups">
-          <Stack gap="4">
+          <Stack gap="6">
             <Tile label="Heading block" />
-            <Stack gap="2">
+            <Stack gap="4">
               <Tile label="Field" />
               <Tile label="Field" />
             </Stack>
@@ -89,22 +90,22 @@ export function LayoutPrimitiveSections() {
         <Spec wide tag="start · main · end">
           <div className="composition-split-demo">
             <SplitBay
-              start={<Tile label="Start rail" />}
-              end={<Tile label="End rail" />}
+              start={<LayoutSlot label="Start rail" variant="rail" />}
+              end={<LayoutSlot label="End rail" variant="rail" />}
             >
-              <Tile label="Main column" />
+              <LayoutSlot label="Main column" />
             </SplitBay>
           </div>
         </Spec>
         <Spec wide tag="head · foot spanning main + end">
           <div className="composition-split-demo composition-split-demo--ledger">
             <SplitBay
-              start={<Tile label="Start rail" />}
-              end={<Tile label="End rail" />}
-              head={<Tile label="Plaque head" />}
-              foot={<Tile label="Decision foot" />}
+              start={<LayoutSlot label="Start rail" variant="rail" />}
+              end={<LayoutSlot label="End rail" variant="rail" />}
+              head={<LayoutSlot label="Plaque head" variant="heading" />}
+              foot={<LayoutSlot label="Decision foot" variant="foot" />}
             >
-              <Tile label="Main column" />
+              <LayoutSlot label="Main column" />
             </SplitBay>
           </div>
         </Spec>
@@ -135,7 +136,7 @@ export function LayoutPrimitiveSections() {
       <GallerySection id="composition-recipes" title="Composition recipes" note="Common inner slots: a form column, and a grouped list with trailing opens.">
         <Spec wide tag="form slot">
           <Container size="form">
-            <Stack gap="5">
+            <Stack gap="6">
               <Inline gap="3" justify="between" wrap={false}>
                 <span>Campaign draft</span>
                 <KeyGroup aria-label="Recipe actions">
@@ -144,7 +145,7 @@ export function LayoutPrimitiveSections() {
                 </KeyGroup>
               </Inline>
               <Inset space="4">
-                <Grid gap="3" minItemWidth="control">
+                <Grid gap="4" minItemWidth="control">
                   <Tile label="Title field" />
                   <Tile label="Source set" />
                 </Grid>

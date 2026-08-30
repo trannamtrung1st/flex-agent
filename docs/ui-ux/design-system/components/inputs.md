@@ -8,13 +8,32 @@ form owners (ADR-019). Server validation still wins.
 
 - Padding: 10px 14px
 - Type: 0.78–0.82rem, tabular numerals where values are numeric or temporal
-- Placeholder: `fg-subtle`
+- Placeholder: `fg-subtle`, `opacity: 1`. Placeholders are format examples
+  (for example `60:00`), never a substitute for the persistent label. Empty
+  editable text and textarea slots must supply one when an example exists.
 - Focus: whole slot bezel warms to teal at about 0.6 alpha; caret may be amber
 - Invalid: amber bezel, Amber Glow, error line in Amber Bright led by a
   warning-triangle mark. Helper text stays `fg-subtle` and never uses the
   triangle.
-- Frozen: etch the value on the glass; withdraw chevrons; not a plate skin
-  (`PC-05`)
+- Frozen: etch the value on the glass; withdraw chevrons and slot padding;
+  not a plate skin (`PC-05`). The value sits `--field-label-gap` (`--space-2-5`)
+  under the persistent label. Tighter than `--form-group-gap`; looser than a
+  readout `dt`/`dd` pair.
+
+## Form section
+
+Titled field clusters use `FormSection` (`fieldset.form-section` plus `legend`).
+The legend is an H2 / plate title (0.72rem placard, `--text-bright`), not a
+field microlabel. Group gap is
+`legend { margin-block-end: var(--form-group-gap) }` because fieldset legends
+often do not participate in flex `gap`. Sibling sections and the operate bay
+use `--operate-bay-gap`. Do not give the legend a 4px local margin or `--label`
+microlabel type.
+
+Cloneable page and dialog compositions live on Component Deck `form-recipes`
+(OperateArea, ErrorSummary, stacked fields, FormSection + Grid, pair rows,
+ReadoutGrid identity with frozen FormFields beside live inputs, DialogPlate,
+PlateFoot). `form` remains the parts catalog.
 
 ## Number fields
 
@@ -47,9 +66,33 @@ validation, and **named Campaign timezone with UTC fallback** (`PC-11`,
 Closed marks use `YYYY-MM-DD` and 24h `HH:MM` (optional seconds). Selected day
 and wheel values use teal inset bezels, not amber.
 
+## File intake
+
+`FieldFile` is the shared Shipboard control for seating local files before a
+feature-specific submit or intake action.
+
+- Modes: `single` (replace the seated file) and `multiple` (append unique files)
+- Always expose a keyboard-operable **Choose file** / **Choose files** key that
+  opens a native `input[type=file]`. Drag-and-drop may supplement it and is
+  never the only method.
+- Empty bay: 1px dashed `border-default` on `surface-inset` fill (absence)
+- Drag-active or seated: solid bezel; drag-active warms to teal
+- Invalid: amber bezel and Amber Glow, same as text slots
+- Selected rows: document glyph, full filename (truncate with `title`),
+  type/size microlabel, **Remove**
+- Do not imply that local selection equals an accepted Submission version
+
+Width follows the structured content measure. Pair with `FormField`
+`layout="stack"` and `labelAssociatesControl={false}` so the group is named by
+the field label.
+
 ## Rules
 
-- Associate label, hint, and error with the control.
+- Associate label, hint, and error with the control. Keep the label visible;
+  put the example in `placeholder`. Stacked labels (`FormField` `layout="stack"`,
+  `.field-stack`) use `--field-label-gap` (control rung); do not add local
+  margin between the microlabel and the slot. Titled clusters use `FormSection`
+  (`--form-group-gap`), not a second field-label margin.
 - Pair rows stack at ≤720px without letting a long error drop the neighbor.
 - Width tokens: narrow, standard, wide/full.
 - Use `FieldNumber` when the value is a steppable number; keep text (including

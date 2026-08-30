@@ -1,4 +1,18 @@
 export const DESIGN_LAB_CAMPAIGN_TIME_ZONE = "America/Chicago";
+export const ABSENT_INSTANT_MARK = "—";
+export const ABSENT_INSTANT_TITLE = "Not recorded";
+
+function absentInstant(): ViewerInstantDisplay {
+  return { datetime: "", label: ABSENT_INSTANT_MARK, title: ABSENT_INSTANT_TITLE };
+}
+
+export function parseUtcInstant(isoUtc?: string | null) {
+  if (typeof isoUtc !== "string") return null;
+  const raw = isoUtc.trim();
+  if (!raw || raw === "undefined" || raw === "null") return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export type ViewerInstantDisplay = {
   datetime: string;
@@ -37,13 +51,10 @@ function formatZonedClock(date: Date, timeZone: string) {
   }).format(date);
 }
 
-export function formatViewerInstant(isoUtc: string, timeZone?: string): ViewerInstantDisplay {
+export function formatViewerInstant(isoUtc?: string | null, timeZone?: string): ViewerInstantDisplay {
   const zone = resolveViewerTimeZone(timeZone);
-  const date = new Date(isoUtc);
-  if (Number.isNaN(date.getTime())) {
-    const fallback = `${isoUtc} (${zone} unavailable; UTC ${isoUtc})`;
-    return { datetime: isoUtc, label: fallback, title: fallback };
-  }
+  const date = parseUtcInstant(isoUtc);
+  if (!date) return absentInstant();
   const datetime = date.toISOString();
   try {
     const clock = formatZonedClock(date, zone);
@@ -54,37 +65,17 @@ export function formatViewerInstant(isoUtc: string, timeZone?: string): ViewerIn
       title: `${clock} ${zone} · UTC ${datetime}`,
     };
   } catch {
-    const fallback = `${datetime} (${zone} unavailable; UTC ${datetime})`;
-    return { datetime, label: fallback, title: fallback };
+    const utcClock = formatZonedClock(date, "UTC");
+    return {
+      datetime,
+      label: `${utcClock} UTC`,
+      title: `${utcClock} UTC · ${zone} conversion unavailable`,
+    };
   }
 }
 
 export function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-export function formatNamedCampaignInstant(
-  isoUtc: string,
-  timeZone = DESIGN_LAB_CAMPAIGN_TIME_ZONE,
-) {
-  const date = new Date(isoUtc);
-  const utc = Number.isNaN(date.getTime()) ? isoUtc : date.toISOString().replace(".000Z", "Z");
-  if (Number.isNaN(date.getTime())) {
-    return `${isoUtc} (${timeZone} unavailable; UTC ${isoUtc})`;
-  }
-  try {
-    const zoned = new Intl.DateTimeFormat("en-GB", {
-      timeZone,
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date);
-    return `${zoned} ${timeZone} (${utc})`;
-  } catch {
-    return `${utc} (${timeZone} unavailable; UTC ${utc})`;
-  }
 }
 
 export function pad(n: number, width = 2) {

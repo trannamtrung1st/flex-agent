@@ -1350,7 +1350,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<bool> LogoutAsync(
+        public Task<ApplicationLogoutResult> LogoutAsync(
             string rawCredential,
             Guid correlationId,
             CancellationToken cancellationToken) =>

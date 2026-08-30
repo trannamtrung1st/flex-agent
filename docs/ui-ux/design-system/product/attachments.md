@@ -34,11 +34,13 @@ authoritative intake outcome before another finalization is offered.
 
 ## Drop Zone
 
-- border: 1px dashed border-strong
-- radius: md
-- background: surface-inset
-- drag-active: surface-selected + border-selected
+- border: 1px dashed `border-default` while empty (absence); solid hairline once
+  files are seated or a drop is active
+- radius: none (Shipboard rectangles; do not restore v0.1 `md` rounding)
+- background: surface-inset (`rgba(2, 9, 14, 0.55)` on dark field fill)
+- drag-active: teal bezel + teal-glow inset
 - always provide a keyboard-operable file picker; drag-and-drop is never the only input method
+- implementation: shared `FieldFile` (`mode="single" | "multiple"`)
 
 ## Rules
 

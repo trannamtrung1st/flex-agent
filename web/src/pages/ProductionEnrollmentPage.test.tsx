@@ -82,16 +82,126 @@ describe("ProductionEnrollmentPage", () => {
     renderPage();
 
     const link = await screen.findByRole("link", { name: "Pat Participant" });
+    expect(link).toHaveClass("datatable-id");
     expect(link).toHaveAttribute("href", "/activities/act-1/cohorts/coh-1/enrollments/enr-1");
-    expect(screen.getByRole("table", { name: "Participants" })).toHaveClass("datatable-table--fit");
+    expect(screen.getByRole("table", { name: "Participants" })).toHaveClass("datatable-table");
+    expect(screen.getByRole("columnheader", { name: "Enrollment" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Assigned" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Updated" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Rev" })).toBeInTheDocument();
+    expect(screen.getByText("enr…1")).toBeInTheDocument();
+    fireEvent.mouseEnter(screen.getByText("enr…1").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("enr-1");
+    expect(link.closest("tr")?.children.item(5)).toHaveTextContent("1");
     expect(link.closest(".work-plane")).toHaveClass("registry-wall--hug");
-    expect(screen.getByRole("searchbox", { name: "Search participant or status" })).toHaveAttribute(
+    expect(screen.getByRole("searchbox", { name: "Search participant, enrollment, or status" })).toHaveAttribute(
       "placeholder",
-      "SEARCH NAME",
+      "SEARCH NAME OR ID",
     );
     expect(link.closest(".frame-cut")).toHaveClass("datatable-frame", "frame-cut--flush");
     expect(screen.getByRole("link", { name: "Setup" })).toHaveAttribute("href", "/activities/act-1/setup");
     expect(screen.getByRole("button", { name: "Assign Casey Candidate" })).toBeInTheDocument();
+  });
+
+  it("filters assigned Participants by enrollment id and status", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [
+            {
+              enrollment_id: "enr-active",
+              participant_actor_id: "p-1",
+              display_label: "Pat Participant",
+              status: "active",
+              revision: 1,
+              assigned_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
+              visibility: "administrator",
+              permitted_actions: [],
+            },
+            {
+              enrollment_id: "enr-suspended",
+              participant_actor_id: "p-2",
+              display_label: "Sam Suspended",
+              status: "suspended",
+              revision: 2,
+              assigned_at: "2026-08-02T00:00:00Z",
+              updated_at: "2026-08-02T00:00:00Z",
+              visibility: "administrator",
+              permitted_actions: [],
+            },
+          ],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await screen.findByRole("link", { name: "Pat Participant" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search participant, enrollment, or status" }), {
+      target: { value: "enr-suspended" },
+    });
+    expect(screen.queryByRole("link", { name: "Pat Participant" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Sam Suspended" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search participant, enrollment, or status" }), {
+      target: { value: "suspended" },
+    });
+    expect(screen.queryByRole("link", { name: "Pat Participant" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Sam Suspended" })).toBeInTheDocument();
+  });
+
+  it("sorts assigned Participants by record status", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [
+            {
+              enrollment_id: "enr-z",
+              participant_actor_id: "p-2",
+              display_label: "Zoe Zulu",
+              status: "suspended",
+              revision: 1,
+              assigned_at: "2026-08-02T00:00:00Z",
+              updated_at: "2026-08-02T00:00:00Z",
+              visibility: "administrator",
+              permitted_actions: [],
+            },
+            {
+              enrollment_id: "enr-a",
+              participant_actor_id: "p-1",
+              display_label: "Alex Alpha",
+              status: "active",
+              revision: 1,
+              assigned_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
+              visibility: "administrator",
+              permitted_actions: [],
+            },
+          ],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await screen.findByRole("link", { name: "Zoe Zulu" });
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("Alex Alpha");
+    expect(rows[1]).toHaveTextContent("Zoe Zulu");
   });
 
   it("keeps assign actions when the cohort has no Participants yet", async () => {
@@ -108,8 +218,48 @@ describe("ProductionEnrollmentPage", () => {
     renderPage();
 
     expect(await screen.findByText("No Participants assigned")).toBeInTheDocument();
-    expect(document.querySelector(".datatable-empty")).toBeTruthy();
+    expect(document.querySelector(".datatable-empty")).toHaveClass("datatable-empty", "empty-plate--inset");
+    expect(document.querySelector(".registry-wall--empty")).toBeNull();
     expect(screen.getByRole("button", { name: "Assign Casey Candidate" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Assign Casey Candidate" }).closest(".datatable-actions")).not.toBeNull();
+    expect(document.querySelector(".datatable-empty")?.querySelector(".key")).toBeNull();
+  });
+
+  it("seats a Clear search key in the empty plate when no enrollments match the query", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [{
+            enrollment_id: "enr-1",
+            participant_actor_id: "p-1",
+            display_label: "Pat Participant",
+            status: "active",
+            revision: 1,
+            assigned_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+            visibility: "administrator",
+            permitted_actions: [],
+          }],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await screen.findByRole("link", { name: "Pat Participant" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search participant, enrollment, or status" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(await screen.findByText("No matching enrollments")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear search" }).closest(".datatable-empty")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(await screen.findByRole("link", { name: "Pat Participant" })).toBeInTheDocument();
   });
 
   it("keeps assigned Participants when assignable options fail", async () => {

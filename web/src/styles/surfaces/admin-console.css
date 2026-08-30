@@ -36,11 +36,6 @@ body {
 
 .campaigns-wall .col-action { text-align: right; white-space: nowrap; }
 
-.campaigns-wall .state-label {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
 .campaigns-unavailable {
   display: flex;
   justify-content: center;
@@ -145,7 +140,7 @@ body {
 }
 
 .campaigns-readout-field dt {
-  font-size: 0.56rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--teal);
@@ -251,7 +246,7 @@ body {
 }
 
 .ceremony-plate {
-  width: min(620px, calc(100vw - 48px));
+  width: min(var(--dialog-w, 680px), calc(100vw - 48px));
   max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
@@ -467,6 +462,10 @@ body {
 
 @media (max-width: 720px) /* bp.compact */ {
   .ceremony-plate { padding: 26px 22px 24px; }
+
+  .ceremony-foot-row.key-group {
+    grid-template-columns: 1fr;
+  }
 
   .ceremony-foot-row .key {
     font-size: var(--key-compact-font-size);

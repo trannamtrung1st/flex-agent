@@ -1,5 +1,5 @@
-export { ActionMenuGlyph, ChevronGlyph, OperatorGlyph, TransmitChevron } from "../../design-system/components/glyphs";
-export { Alert, ErrorSummary, WaitPanel, type ErrorSummaryItem } from "../../design-system/components/feedback";
+export { ActionMenuGlyph, ChevronGlyph, DocumentGlyph, OperatorGlyph, TransmitChevron } from "../../design-system/components/glyphs";
+export { Alert, ErrorSummary, WaitPanel, WaitPlate, type ErrorSummaryItem } from "../../design-system/components/feedback";
 export {
   BackKey,
   EllipsisKey,
@@ -11,6 +11,7 @@ export {
   type KeySize,
   type KeyVariant,
   type Theme,
+  type TooltipTone,
 } from "../../design-system/components/keys";
 export {
   ADMINISTRATOR_HOME,
@@ -33,6 +34,7 @@ export {
   RailBrand,
   StripBrand,
   labAccountActions,
+  LabThemeToggle,
   usePrototypeSignOut,
   type CommandStripNavItem,
   type OperatorAction,
@@ -54,7 +56,21 @@ export {
   type CeremonyDialogVariant,
   type ToastNotice,
 } from "./overlays";
-export { DemoPlate, EmptyPlate, EtchedFrame, OperateArea, PlateFoot, PlateStatusMark, WorkWell, WorkWellHead, WorkWellSection } from "./plates";
+export {
+  CeremonyArea,
+  CeremonyEmpty,
+  CeremonyUnavailable,
+  CeremonyWait,
+  DemoPlate,
+  EmptyPlate,
+  EtchedFrame,
+  OperateArea,
+  PlateFoot,
+  PlateStatusMark,
+  WorkWell,
+  WorkWellHead,
+  WorkWellSection,
+} from "./plates";
 export {
   Container,
   Grid,
@@ -81,13 +97,28 @@ export {
 export {
   Breaker,
   ControlLine,
+  FieldFile,
   FieldInput,
   FieldNumber,
   FieldTextarea,
   FormField,
+  FormSection,
   RadioGroup,
+  ACCOMMODATION_VALUE_PLACEHOLDER,
+  ADJUSTED_RATIONALE_PLACEHOLDER,
+  BOUNDED_REASON_PLACEHOLDER,
+  CALLSIGN_PLACEHOLDER,
+  CAMPAIGN_TITLE_PLACEHOLDER,
+  COMPOSER_PLACEHOLDER,
+  COOLDOWN_PLACEHOLDER,
+  DIRECT_TEXT_PLACEHOLDER,
+  MAX_ATTEMPTS_PLACEHOLDER,
+  MM_SS_EXTENSION_PLACEHOLDER,
   MM_SS_HINT,
   MM_SS_PATTERN,
+  MM_SS_PLACEHOLDER,
+  MM_SS_WARNING_PLACEHOLDER,
+  SCORE_PLACEHOLDER,
   mmSsError,
 } from "../../design-system/components/fields";
 export {
@@ -127,14 +158,19 @@ export {
   type DropdownMenuPlacement,
   type DropdownMenuTriggerBind,
 } from "../../design-system/components/menu";
-export { DatePicker, DateTimePicker, TimePicker } from "../../design-system/components/temporal";
+export { DatePicker, DateTimePicker, InstantReadout, TimePicker } from "../../design-system/components/temporal";
 export {
+  CompactId,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  datatableColMin,
   SortableHeader,
   ToolbarReadout,
   ToolbarSearch,
+  SEARCH_ID_PLACEHOLDER,
+  SEARCH_NAME_OR_ID_PLACEHOLDER,
+  SEARCH_TITLE_OR_ID_PLACEHOLDER,
   pageRows,
   sortAndFilterRows,
   useDatatableDetailGutter,

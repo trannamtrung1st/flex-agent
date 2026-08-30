@@ -4,8 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT}/deploy/compose/authenticated-browser.compose.yaml"
 CANDIDATE_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.candidate-dev.compose.yaml"
+DEMO_WORK_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.demo-work.compose.yaml"
+DEMO_WORK_SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed-demo-work.sql"
 NGINX_FILE="${ROOT}/deploy/compose/nginx/authenticated-browser.conf"
 SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed.sql"
+SEED_DEMO_WORK="${FLEXAGENT_SEED_DEMO_WORK:-1}"
 REALM_TEMPLATE="${ROOT}/deploy/compose/keycloak/flex-agent-realm.json"
 GENERATED_DIR="${ROOT}/deploy/compose/authenticated-browser/.generated"
 ORIGIN="http://localhost:18080"
@@ -16,6 +19,7 @@ OVERLAYS=()
 
 usage() {
   echo "Usage: $0 [--overlay candidate] [--mode canonical|candidate] [--project-name NAME] [up|down|reset|status|validate|seed]"
+  echo "Set FLEXAGENT_SEED_DEMO_WORK=0 to skip demo-work list fixtures (default: 1)."
 }
 
 require_docker() {
@@ -32,6 +36,10 @@ require_docker() {
 compose_files() {
   echo -f
   echo "${COMPOSE_FILE}"
+  if demo_work_enabled; then
+    echo -f
+    echo "${DEMO_WORK_OVERLAY}"
+  fi
   local overlay
   for overlay in "${OVERLAYS[@]+"${OVERLAYS[@]}"}"; do
     echo -f
@@ -39,6 +47,10 @@ compose_files() {
   done
   echo --project-name
   echo "${PROJECT_NAME}"
+}
+
+demo_work_enabled() {
+  [[ "${SEED_DEMO_WORK}" == "1" ]]
 }
 
 run_compose() {
@@ -75,6 +87,10 @@ validate() {
     echo "authenticated browser profile files are missing" >&2
     exit 1
   fi
+  if demo_work_enabled && [[ ! -f "${DEMO_WORK_OVERLAY}" || ! -f "${DEMO_WORK_SEED_FILE}" ]]; then
+    echo "demo-work seed files are missing" >&2
+    exit 1
+  fi
   if grep -q '5432:5432' "${COMPOSE_FILE}"; then
     echo "host database port publication is not permitted" >&2
     exit 1
@@ -88,12 +104,11 @@ validate() {
     exit 1
   fi
   ensure_generated_fixtures
-  run_compose config --format json | python3 "${ROOT}/build/scripts/validate-authenticated-browser-compose.py" \
-    --compose-json - \
-    --nginx "${NGINX_FILE}" \
-    --realm "${GENERATED_DIR}/flex-agent-realm.json" \
-    --mode "${MODE}" \
-    --generated-realm
+  local validate_args=(--compose-json - --nginx "${NGINX_FILE}" --realm "${GENERATED_DIR}/flex-agent-realm.json" --mode "${MODE}" --generated-realm)
+  if demo_work_enabled; then
+    validate_args+=(--demo-work)
+  fi
+  run_compose config --format json | python3 "${ROOT}/build/scripts/validate-authenticated-browser-compose.py" "${validate_args[@]}"
 }
 
 wait_ready() {
@@ -114,6 +129,10 @@ wait_ready() {
 seed() {
   run_compose exec -T postgres \
     psql -U flexagent -d flexagent -v ON_ERROR_STOP=1 -f /seed/seed.sql
+  if demo_work_enabled; then
+    run_compose exec -T postgres \
+      psql -U flexagent -d flexagent -v ON_ERROR_STOP=1 -f /seed/seed-demo-work.sql
+  fi
 }
 
 status() {

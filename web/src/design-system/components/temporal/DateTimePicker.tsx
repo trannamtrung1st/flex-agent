@@ -174,6 +174,7 @@ export function DateTimePicker({
       openPanel();
     } else if (event.key === "Escape" && open) {
       event.preventDefault();
+      event.stopPropagation();
       close(true);
     }
   };
@@ -204,6 +205,7 @@ export function DateTimePicker({
       setView((current) => addMonths(current.year, current.month, 1));
     } else if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       close(true);
     }
   };
@@ -217,6 +219,7 @@ export function DateTimePicker({
       commitTime(shiftTime(effectiveTime, field, 1, timeStepOptions));
     } else if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       close(true);
     }
   };

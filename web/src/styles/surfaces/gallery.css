@@ -25,7 +25,7 @@ header.page-strip {
   left: 0;
   right: 0;
   z-index: 40;
-  background: linear-gradient(180deg, var(--ground-deep) 0%, rgba(7, 20, 27, 0.97) 100%);
+  background: var(--ground-deep);
 }
 
 /* ═══ Deck rail (grid in layouts.css) ════════════════════════════ */
@@ -212,6 +212,10 @@ header.page-strip {
 
 .spec--wide { width: 100%; }
 
+#pane .work-well__body {
+  overflow: visible;
+}
+
 .spec-tag {
   font-size: 0.6rem;
   letter-spacing: 0.1em;
@@ -264,11 +268,60 @@ header.page-strip {
 }
 
 .type-placard {
+  display: block;
   font-family: var(--font-plaque);
   text-transform: uppercase;
   font-size: 0.92rem;
   letter-spacing: 0.24em;
   color: var(--text-bright);
+}
+
+.type-placard--system {
+  color: var(--teal);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--teal) 35%, transparent);
+}
+
+.type-placard--attention {
+  color: var(--amber);
+  text-shadow: 0 0 10px var(--amber-glow);
+}
+
+.type-placard--danger {
+  color: var(--fg-danger);
+  text-shadow: 0 0 10px var(--danger-glow);
+}
+
+.type-placard--success {
+  color: var(--success);
+}
+
+#colors .chip-row {
+  margin-bottom: 8px;
+}
+
+#colors .spec-row--voices {
+  align-items: flex-start;
+  margin-top: 18px;
+}
+
+#colors .spec-row--voices .spec[data-flow-gap="2.5"] {
+  --flow-gap: var(--space-5);
+}
+
+#colors .spec-row--voices .spec-tag {
+  padding-top: 4px;
+  max-width: 22rem;
+}
+
+#colors .spec-row--voices > .spec {
+  flex: 1 1 16rem;
+  min-width: 16rem;
+}
+
+#colors .type-placard {
+  line-height: 1.75;
+  padding-block: 12px 18px;
+  padding-inline-end: 0.28em;
 }
 
 .type-display {
@@ -287,7 +340,7 @@ header.page-strip {
 .type-microlabel {
   font-family: var(--font-mono);
   text-transform: uppercase;
-  font-size: 0.6rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.14em;
   color: var(--label-dim);
 }
@@ -417,8 +470,7 @@ header.page-strip {
 
 .type-inline-link {
   color: var(--fg-brand);
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
+  text-decoration: none;
 }
 
 .type-inline-link .icon-sm {
@@ -542,19 +594,19 @@ header.page-strip {
 }
 
 .datatable-demo .datatable {
-  /* height follows the rows on the page; this token is the only cap */
-  --datatable-max-height: 640px;
   min-width: 0;
+}
+
+.datatable-demo .datatable-scroll {
+  flex: none;
+  min-height: auto;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior: auto;
 }
 
 .datatable-demo .datatable-foot {
   overflow: visible;
-}
-
-@media (max-width: 720px) /* bp.compact */ {
-  .datatable-demo .datatable {
-    --datatable-max-height: 72dvh;
-  }
 }
 
 /* ═══ Form demos ═════════════════════════════════════════════════ */
@@ -585,6 +637,7 @@ header.page-strip {
 }
 
 #form .spec-row,
+#file .spec-row,
 #datetime .spec-row {
   align-items: flex-start;
   gap: 28px 40px;
@@ -592,14 +645,39 @@ header.page-strip {
 }
 
 #form .spec-row > .spec,
+#file .spec-row > .spec,
 #datetime .spec-row > .spec {
   flex: 1 1 14rem;
   min-width: min(100%, 14rem);
 }
 
 #form .spec-row > .spec:has(.form-demo-row),
+#file .spec-row > .spec:has(.form-demo-row),
 #datetime .spec-row > .spec:has(.form-demo-row) {
   align-items: stretch;
+}
+
+#form .spec-row--field-stacks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  align-items: start;
+  gap: 28px 40px;
+}
+
+#form .spec-row--field-stacks > .spec {
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+#form .spec-row--field-stacks .field-stack {
+  width: 100%;
+}
+
+#form .spec-row--field-stacks .field-input--wide,
+#form .spec-row--field-stacks .select-shell--field {
+  width: 100%;
+  max-width: 100%;
 }
 
 #form .spec-row--selects {
@@ -617,7 +695,7 @@ header.page-strip {
 
 #form .spec-row--selects .form-demo-row {
   grid-template-columns: minmax(0, 1fr);
-  row-gap: 8px;
+  row-gap: var(--field-label-gap);
   align-items: start;
 }
 
@@ -699,7 +777,7 @@ header.page-strip {
   grid-template-columns: 148px minmax(0, 1fr);
   align-items: center;
   column-gap: 20px;
-  row-gap: 6px;
+  row-gap: var(--field-label-gap);
   width: 100%;
   min-width: 0;
   padding: 9px 0;
@@ -802,6 +880,66 @@ header.page-strip {
   max-width: 100%;
   padding: 0;
 }
+
+#form-recipes .form-recipe {
+  min-width: 0;
+}
+
+#form-recipes .form-recipe.setup-ceremony,
+#form-recipes .form-recipe .setup-ceremony {
+  flex: none;
+  min-height: 0;
+}
+
+#form-recipes .form-recipe > .operate-scroll {
+  flex: none;
+  overflow: visible;
+  min-height: 0;
+}
+
+#form-recipes .form-recipe .assignment-instruments {
+  min-width: 0;
+}
+
+#form-recipes .form-recipe .form-row--pair {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+}
+
+#form-recipes .form-recipe-dialog-well {
+  background: rgba(2, 9, 14, 0.82);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  justify-content: center;
+}
+
+#form-recipes .form-recipe-dialog {
+  width: min(680px, 100%);
+}
+
+#form-recipes .form-recipe-dialog .dialog-plate {
+  margin: 0;
+  max-height: none;
+}
+
+[data-theme="light"] #form-recipes .form-recipe-dialog-well {
+  --text: #e6eef2;
+  --text-bright: #f8fcfe;
+  --label: #a8c4ca;
+  --label-dim: #88a8b0;
+  --hairline: rgba(110, 154, 156, 0.52);
+  --amber: #e2a33c;
+  --amber-bright: #edc890;
+  --teal: #3cc0bf;
+}
+
+[data-theme="light"] #form-recipes .form-recipe-dialog .field-input,
+[data-theme="light"] #form-recipes .form-recipe-dialog .field-textarea {
+  background: rgba(2, 9, 14, 0.55);
+  color: var(--text-bright);
+}
+
 .searchable-select-spec .spec-tag { max-width: 366px; }
 .searchable-select-spec:has(.searchable-select-key[aria-expanded="true"]) .spec-tag { visibility: hidden; }
 
@@ -1152,9 +1290,9 @@ header.page-strip {
 
 .spec-row--layout-contain {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 28px 40px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .spec-row--layout-contain > .spec {
@@ -1164,7 +1302,7 @@ header.page-strip {
 }
 
 .spec-row--layout-contain .layout-spec {
-  height: min(32rem, 64dvh);
+  height: auto;
 }
 
 @media (max-width: 1100px) {
@@ -1173,26 +1311,35 @@ header.page-strip {
   }
 }
 
-.spec:has(> .layout-spec) {
+.spec:has(> .layout-spec),
+.spec:has(> .composition-split-demo) {
   align-items: stretch;
   width: 100%;
   max-width: none;
 }
 
-.layout-spec {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 100%;
+.layout-spec,
+.composition-split-demo {
   box-sizing: border-box;
-  height: min(38rem, 72dvh);
-  min-height: 22rem;
+  width: 100%;
   position: relative;
-  overflow: hidden;
   border: 1px solid var(--hairline);
   background:
     linear-gradient(180deg, rgba(14, 28, 36, 0.55), rgba(4, 16, 24, 0.92)),
     var(--ground-deep);
+}
+
+.composition-split-demo {
+  overflow: hidden;
+}
+
+.layout-spec {
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 .layout-spec .skip-link {
@@ -1201,11 +1348,53 @@ header.page-strip {
 
 .layout-spec [data-layout] {
   box-sizing: border-box;
-  flex: 1 1 auto;
+  flex: none;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  max-height: 100%;
+  max-height: none;
+}
+
+.layout-spec .layout-management,
+.layout-spec .layout-guided,
+.layout-spec .layout-session,
+.layout-spec .layout-reference {
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
+
+.layout-spec .layout-management__main,
+.layout-spec .layout-guided__main,
+.layout-spec .layout-session__main,
+.layout-spec .layout-guided .phase-rail,
+.layout-spec .layout-session .rail {
+  overflow: visible;
+  flex: none;
+  min-height: auto;
+  height: auto;
+}
+
+.layout-spec .operate-scroll,
+.layout-spec .workspace-area,
+.layout-spec .phase-rail-scroll,
+.layout-spec .rail-scroll,
+.layout-spec .work-well__body,
+.layout-spec .bay-plates,
+.layout-spec .create-ceremony__scroll,
+.layout-spec .datatable-scroll,
+.layout-spec .gangway-body {
+  flex: none;
+  min-height: auto;
+  overflow-x: clip;
+  overflow-y: clip;
+  overscroll-behavior: auto;
+}
+
+.layout-spec .datatable-scroll {
+  overflow-x: auto;
+  overflow-y: clip;
 }
 
 .layout-spec [data-layout="guided-task"] .phase-rail-scroll > .layout-slot,
@@ -1213,9 +1402,8 @@ header.page-strip {
 .layout-spec [data-layout="live-session"] .rail-scroll > .layout-slot,
 .layout-spec [data-layout="live-session"] .layout-session__main > .layout-slot,
 .layout-spec [data-layout="live-session"] .agent-panel > .layout-slot {
-  flex: 1 1 auto;
+  flex: none;
   align-self: stretch;
-  min-height: 0;
   height: auto;
 }
 
@@ -1258,8 +1446,8 @@ header.page-strip {
 }
 
 .layout-spec .workspace-area {
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: clip;
+  overflow-y: clip;
 }
 
 .layout-spec .workspace-area .operate-head {
@@ -1278,6 +1466,7 @@ header.page-strip {
 
 .composition-split-demo {
   display: flex;
+  flex-direction: column;
   min-height: 14rem;
 }
 
@@ -1286,7 +1475,16 @@ header.page-strip {
 }
 
 .composition-split-demo .composition-split {
+  --split-start: min(11rem, 30%);
+  --split-end: min(14rem, 34%);
+  flex: 1 1 auto;
   width: 100%;
+  min-height: 0;
+}
+
+.composition-split-demo .composition-split .layout-slot {
+  height: 100%;
+  min-height: 8rem;
 }
 
 .composition-demo-tile {
@@ -1304,7 +1502,8 @@ header.page-strip {
 
 @media (forced-colors: active) {
   .layout-spec,
-  .layout-slot {
+  .layout-slot,
+  .composition-split-demo {
     border-color: CanvasText;
   }
 }

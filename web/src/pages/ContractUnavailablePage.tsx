@@ -1,5 +1,4 @@
-import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
-import { Key } from "../design-system";
+import { CeremonyUnavailable } from "../design-system";
 
 export function ContractUnavailablePage({
   title,
@@ -11,10 +10,10 @@ export function ContractUnavailablePage({
   homeTo?: string;
 }) {
   return (
-    <CeremonyArea label={title} title={title}>
-      <CeremonyEmpty note={note}>
-        <Key variant="open" to={homeTo}>Return to Home</Key>
-      </CeremonyEmpty>
-    </CeremonyArea>
+    <CeremonyUnavailable
+      title={title}
+      note={note}
+      recovery={{ label: "Return to Home", to: homeTo }}
+    />
   );
 }

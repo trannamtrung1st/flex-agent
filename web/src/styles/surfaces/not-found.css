@@ -9,6 +9,7 @@ html[data-surface="not-found"] .board {
   align-items: center;
   justify-content: center;
 }
-html[data-surface="not-found"] .board-empty {
-  width: min(42rem, calc(100% - 48px));
+html[data-surface="not-found"] .work-plane--ceremony {
+  width: 100%;
+  flex: 1 1 auto;
 }

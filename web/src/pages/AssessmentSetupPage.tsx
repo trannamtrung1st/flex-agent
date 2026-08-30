@@ -1,33 +1,24 @@
-import { useEffect, useId, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { useBlocker, useBeforeUnload, useParams, type BlockerFunction } from "react-router-dom";
 import {
   type AssessmentSetupView,
   isAssessmentAccessLoss,
 } from "../api/production-assessment";
 import {
-  Alert,
   BackKey,
   CeremonyDialog,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
-  ErrorSummary,
-  FieldInput,
-  FormField,
-  Inline,
   Key,
   OperateArea,
-  ReadoutGrid,
-  ReadoutGridField,
-  ReadoutGridRow,
-  StateReadout,
-  WaitPanel,
-  WorkWell,
-  WorkWellHead,
-  WorkWellSection,
 } from "../design-system";
-import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import { SetupCeremonyStation } from "../features/assessment/SetupCeremonyStation";
+import { SetupUnsavedLeaveDialog } from "../features/assessment/SetupUnsavedLeaveDialog";
+import { isSetupTitleDirty, setupNextAction } from "../features/assessment/setupStation";
 
 export interface AssessmentSetupPageProps {
   loadSetup: (activityId: string) => Promise<AssessmentSetupView>;
@@ -45,6 +36,7 @@ export function AssessmentSetupPage({
   const { activityId = "" } = useParams();
   const titleId = useId();
   const confirmId = useId();
+  const leaveId = useId();
   const [view, setView] = useState<AssessmentSetupView | null>(null);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -72,189 +64,196 @@ export function AssessmentSetupPage({
     };
   }, [activityId, loadSetup]);
 
-  const canSave = view?.permitted_actions.includes("save_draft") === true && !view.has_activated_cohort;
-  const canReady = view?.permitted_actions.includes("check_readiness") === true && !view.has_activated_cohort;
-  const canActivate = view?.permitted_actions.includes("activate_cohort") === true && !view.has_activated_cohort;
+  const dirty = view ? isSetupTitleDirty(view, title) : false;
+  const canSave = Boolean(view?.permitted_actions.includes("save_draft") && !view?.has_activated_cohort);
+  const allowNavigationRef = useRef(false);
 
-  const blockers = useMemo(
-    () => (view?.issues ?? []).filter((issue) => issue.severity === "blocker"),
-    [view],
+  useEffect(() => {
+    allowNavigationRef.current = false;
+  }, [activityId]);
+
+  const shouldBlockNavigation = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) =>
+      !allowNavigationRef.current
+      && dirty
+      && currentLocation.pathname !== nextLocation.pathname,
+    [dirty],
   );
+  const blocker = useBlocker(shouldBlockNavigation);
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+
+  useBeforeUnload(
+    useCallback((event) => {
+      if (!dirty || allowNavigationRef.current) return;
+      event.preventDefault();
+      // Chromium still requires this IDL setter for the leave prompt.
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- BeforeUnloadEvent.returnValue
+      event.returnValue = "";
+    }, [dirty]),
+  );
+
+  const saveDraftNow = useCallback(async (): Promise<boolean> => {
+    if (!view) return false;
+    setPending("save");
+    try {
+      const next = await saveDraft(activityId, title, view.revision_number);
+      flushSync(() => {
+        setView(next);
+        setTitle(next.title);
+        setError(null);
+      });
+      return true;
+    } catch (caught: unknown) {
+      if (isAssessmentAccessLoss(caught)) throw caught;
+      setError("This draft could not be saved. Reconcile before retrying.");
+      return false;
+    } finally {
+      setPending(null);
+    }
+  }, [activityId, saveDraft, title, view]);
+
+  const stayOnPage = useCallback(() => {
+    allowNavigationRef.current = false;
+    const current = blockerRef.current;
+    if (current.state === "blocked") {
+      current.reset();
+    }
+  }, []);
+
+  const proceedBlockedNavigation = useCallback(() => {
+    queueMicrotask(() => {
+      const current = blockerRef.current;
+      if (current.state === "blocked") {
+        current.proceed();
+      }
+    });
+  }, []);
+
+  const leaveWithoutSaving = useCallback(() => {
+    if (!view) return;
+    allowNavigationRef.current = true;
+    flushSync(() => {
+      setTitle(view.title);
+    });
+    proceedBlockedNavigation();
+  }, [proceedBlockedNavigation, view]);
+
+  const saveAndLeave = useCallback(() => {
+    void saveDraftNow().then((saved) => {
+      const current = blockerRef.current;
+      if (saved) {
+        allowNavigationRef.current = true;
+        proceedBlockedNavigation();
+        return;
+      }
+      allowNavigationRef.current = false;
+      if (current.state === "blocked") {
+        current.reset();
+      }
+    });
+  }, [proceedBlockedNavigation, saveDraftNow]);
 
   if (pending === "load" && !view) {
     return (
       <CeremonyArea label="Setup" title="Setup and readiness">
-        <WaitPanel label="Loading setup…" />
+        <CeremonyWait label="Loading setup…" />
       </CeremonyArea>
     );
   }
 
   if (!view) {
     return (
-      <CeremonyArea label="Setup unavailable" title="Setup unavailable" danger>
-        <CeremonyEmpty note={error ?? "Setup is not available."}>
-          <Key variant="open" to="/activities">Return to Activities</Key>
-        </CeremonyEmpty>
-      </CeremonyArea>
+      <CeremonyUnavailable
+        title="Setup unavailable"
+        note={error ?? "Setup is not available."}
+        danger
+        recovery={{ label: "Return to Activities", to: "/activities" }}
+      />
     );
   }
 
+  const busy = pending !== null;
+  const nextAction = setupNextAction(view, title, pending);
+
   return (
     <OperateArea
-      className="workspace-area work-plane"
+      className="workspace-area work-plane record-plane record-plane--setup"
       frameClassName="record-frame"
       label="Setup and readiness"
       title={view.has_activated_cohort ? "Activated cohort" : "Setup and readiness"}
-      description={view.has_activated_cohort
-        ? "This cohort baseline is immutable. Assignment uses the authorized Participants destination."
-        : "Save a draft, check readiness, then deliberately activate one cohort. The browser is not activation authority."}
+      description={nextAction}
       back={<BackKey to="/activities" label="Activities" />}
-      context={(
-        <ReadoutGrid label="Campaign identity" columns={4} className="assignment-instruments">
-          <ReadoutGridRow label="Identity">
-            <ReadoutGridField term="Campaign">{view.title}</ReadoutGridField>
-            <ReadoutGridField term="Revision">{String(view.revision_number)}</ReadoutGridField>
-            <ReadoutGridField term="Memory">{view.memory_mode}</ReadoutGridField>
-            <ReadoutGridField term="Record">
-              <StateReadout
-                variant={view.has_activated_cohort ? "sealed" : "rest"}
-                solid={view.has_activated_cohort}
-                label={view.has_activated_cohort ? "Activated" : "Draft"}
-                className="assignment-record"
-                labelClassName="assignment-record-label"
-              />
-            </ReadoutGridField>
-          </ReadoutGridRow>
-        </ReadoutGrid>
-      )}
     >
-      <div className="assignment-station">
-        {error ? (
-          <ErrorSummary headingId={`${titleId}-summary`} title="Correct these items" errors={[error]} />
-        ) : null}
-        {view.has_activated_cohort ? (
-          <Alert variant="success" title="Cohort activated">
-            <p>Baseline {view.baseline_digest ?? "recorded"}. Verification {view.verification_status ?? "pending"}.</p>
-            {view.cohort_id ? (
-              <Key variant="open" to={`/activities/${view.activity_id}/cohorts/${view.cohort_id}/enrollments`}>
-                Assign Participants
-              </Key>
-            ) : null}
-          </Alert>
-        ) : null}
-        <WorkWell
-          live={false}
-          label="Configuration"
-          head={<WorkWellHead title="Configuration" ident="Draft title remains local until the server accepts it." />}
-          foot={
-            <Inline gap="2">
-              {canSave ? (
-                <Key
-                  variant="quiet"
-                  disabled={pending !== null}
-                  onClick={() => {
-                    setPending("save");
-                    void saveDraft(activityId, title, view.revision_number)
-                      .then((next) => {
-                        setView(next);
-                        setTitle(next.title);
-                        setError(null);
-                      })
-                      .catch((caught: unknown) => {
-                        if (isAssessmentAccessLoss(caught)) throw caught;
-                        setError("This draft could not be saved. Reconcile before retrying.");
-                      })
-                      .finally(() => setPending(null));
-                  }}
-                >
-                  Save draft
-                </Key>
-              ) : null}
-              {canReady ? (
-                <Key
-                  variant="quiet"
-                  disabled={pending !== null}
-                  onClick={() => {
-                    setPending("ready");
-                    void checkReadiness(activityId)
-                      .then((next) => {
-                        setView(next);
-                        setError(null);
-                      })
-                      .catch((caught: unknown) => {
-                        if (isAssessmentAccessLoss(caught)) throw caught;
-                        setError("Readiness could not be checked.");
-                      })
-                      .finally(() => setPending(null));
-                  }}
-                >
-                  Check readiness
-                </Key>
-              ) : null}
-              {canActivate ? (
-                <Key variant="transmit" disabled={pending !== null} onClick={() => setConfirmOpen(true)}>
-                  Activate cohort
-                </Key>
-              ) : null}
-            </Inline>
-          }
-        >
-          <WorkWellSection>
-            <FormField id={titleId} layout="stack" label="Campaign title">
-              {(control) => (
-                <FieldInput
-                  {...control}
-                  value={title}
-                  width="wide"
-                  disabled={!canSave || pending !== null}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-              )}
-            </FormField>
-            {blockers.length > 0 ? (
-              <Alert variant="warning" title="Readiness blockers">
-                <ul>
-                  {blockers.map((issue) => (
-                    <li key={`${issue.category}-${issue.reason_code}`}>{issue.recovery_hint}</li>
-                  ))}
-                </ul>
-              </Alert>
-            ) : null}
-          </WorkWellSection>
-        </WorkWell>
-      </div>
+      <SetupCeremonyStation
+        view={view}
+        title={title}
+        pending={pending}
+        error={error}
+        titleId={titleId}
+        onTitleChange={setTitle}
+        onSave={() => {
+          void saveDraftNow();
+        }}
+        onCheck={() => {
+          setPending("ready");
+          void checkReadiness(activityId)
+            .then((next) => {
+              setView(next);
+              setError(null);
+            })
+            .catch((caught: unknown) => {
+              if (isAssessmentAccessLoss(caught)) throw caught;
+              setError("Readiness could not be checked.");
+            })
+            .finally(() => setPending(null));
+        }}
+        onRequestActivate={() => setConfirmOpen(true)}
+      />
       <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
         <DialogPlate>
           <DialogPlateHead title="Activate this cohort?" titleId={confirmId} />
           <DialogPlateBody>
             <p>Activation freezes the baseline. This cannot be undone from the browser.</p>
           </DialogPlateBody>
-          <DialogPlateFooter>
-            <Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>
-            <Key
-              variant="transmit"
-              disabled={pending !== null}
-              onClick={() => {
-                setPending("activate");
-                void activateCohort(activityId, view)
-                  .then((next) => {
-                    setView(next);
-                    setConfirmOpen(false);
-                    setError(null);
-                  })
-                  .catch((caught: unknown) => {
-                    if (isAssessmentAccessLoss(caught)) throw caught;
-                    setError("Activation did not complete. Reconcile before retrying.");
-                    setConfirmOpen(false);
-                  })
-                  .finally(() => setPending(null));
-              }}
-            >
-              Activate cohort
-            </Key>
-          </DialogPlateFooter>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={<Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>}
+            primary={
+              <Key
+                variant="activate"
+                disabled={busy}
+                onClick={() => {
+                  setPending("activate");
+                  void activateCohort(activityId, view)
+                    .then((next) => {
+                      setView(next);
+                      setConfirmOpen(false);
+                      setError(null);
+                    })
+                    .catch((caught: unknown) => {
+                      if (isAssessmentAccessLoss(caught)) throw caught;
+                      setError("Activation did not complete. Reconcile before retrying.");
+                      setConfirmOpen(false);
+                    })
+                    .finally(() => setPending(null));
+                }}
+              >
+                Activate cohort
+              </Key>
+            }
+          />
         </DialogPlate>
       </CeremonyDialog>
+      <SetupUnsavedLeaveDialog
+        open={blocker.state === "blocked"}
+        busy={busy}
+        canSave={canSave}
+        titleId={leaveId}
+        onClose={stayOnPage}
+        onSaveAndLeave={saveAndLeave}
+        onLeaveWithoutSaving={leaveWithoutSaving}
+      />
     </OperateArea>
   );
 }

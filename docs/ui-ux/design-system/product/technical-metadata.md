@@ -36,4 +36,10 @@ Machine identifiers should offer copy affordance on hover/focus when useful. Cop
 
 ## Truncation
 
-Long identifiers may be center- or end-truncated visually, but full value must be available through copy or tooltip/detail view.
+Long identifiers may be center- or end-truncated visually, but full value must be
+available through copy or tooltip/detail view. Registry tables use `CompactId`
+for that: center-truncated display, value plaque on hover, and the full
+identifier in the accessible name. The value plaque stays open long enough to
+move onto it and select or copy the exact string. Dense registry tables omit
+per-cell tab stops; pass `tabbable` on standalone surfaces when focus-visible
+plaque is needed. Do not use a native `title` attribute for this pattern.

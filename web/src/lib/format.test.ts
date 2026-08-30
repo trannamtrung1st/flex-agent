@@ -29,11 +29,23 @@ describe("formatViewerInstant", () => {
     expect(formatted.title).toContain(resolved);
   });
 
-  it("keeps the UTC instant and zone identifier when the instant is invalid", () => {
+  it("uses the shared absence mark when the instant is missing, not the word undefined", () => {
+    for (const value of [undefined, null, "", "   "]) {
+      const formatted = formatViewerInstant(value as never, "Asia/Saigon");
+      expect(formatted.datetime).toBe("");
+      expect(formatted.label).toBe("—");
+      expect(formatted.title).toBe("Not recorded");
+      expect(formatted.label).not.toMatch(/undefined/i);
+      expect(formatted.title).not.toMatch(/undefined/i);
+    }
+  });
+
+  it("uses the shared absence mark when the instant cannot be read", () => {
     const formatted = formatViewerInstant("not-a-time", "America/Chicago");
-    expect(formatted.datetime).toBe("not-a-time");
-    expect(formatted.label).toMatch(/unavailable/i);
-    expect(formatted.label).toContain("America/Chicago");
-    expect(formatted.title).toContain("America/Chicago");
+    expect(formatted.datetime).toBe("");
+    expect(formatted.label).toBe("—");
+    expect(formatted.title).toBe("Not recorded");
+    expect(formatted.label).not.toMatch(/undefined/i);
+    expect(formatted.label).not.toContain("America/Chicago");
   });
 });

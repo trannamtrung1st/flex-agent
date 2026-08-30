@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import {
   APPROVED_LAYOUT_IDS,
   PRODUCTION_LAYOUT_IDS,
+  GuidedTaskFoot,
   GuidedTaskLayout,
   LayoutAssignment,
   LiveSessionLayout,
@@ -50,6 +51,8 @@ describe("shared layout library", () => {
     expect(well).toHaveAttribute("data-flow-inline", "5.5");
     expect(well).toHaveAttribute("data-flow-block", "4");
     expect(well).toHaveTextContent("Work bay");
+    expect(document.querySelector(".strip-brand")).toHaveClass("strip-brand--origin");
+    expect(document.querySelector(".strip-brand .strip-mode")).toHaveTextContent("Ops");
   });
 
   it("lets management skip the main content inset", () => {
@@ -61,6 +64,7 @@ describe("shared layout library", () => {
     const main = document.querySelector("#main-content");
     expect(main?.querySelector(".composition-inset")).toBeNull();
     expect(main).toHaveTextContent("Full bay");
+    expect(document.querySelector(".strip-brand")).not.toHaveClass("strip-brand--origin");
   });
 
   it("keeps guided-task rail brand outside the scroller", () => {
@@ -71,7 +75,7 @@ describe("shared layout library", () => {
         brandExtras={<span>Brand extra</span>}
         instruments={<p>Instrument body</p>}
         heading={<p>Heading</p>}
-        actions={<button type="button">Continue</button>}
+        actions={<GuidedTaskFoot arrangement="end"><button type="button">Continue</button></GuidedTaskFoot>}
       >
         <p>Well</p>
       </GuidedTaskLayout>,
@@ -86,6 +90,31 @@ describe("shared layout library", () => {
     expect(scroller?.textContent).not.toContain("Assignment Station");
     expect(document.querySelector("#main-content")).toBeTruthy();
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
+    expect(screen.getByRole("button", { name: "Continue" }).closest(".layout-guided__actions")).toHaveAttribute("data-arrangement", "end");
+  });
+
+  it("renders guided-task split feet with secondary and primary slots", () => {
+    wrap(
+      <GuidedTaskLayout
+        railLabel="Assignment phases"
+        brandSuffix="Assignment Station"
+        instruments={<p>Instrument body</p>}
+        heading={<p>Heading</p>}
+        actions={(
+          <GuidedTaskFoot
+            arrangement="split"
+            secondary={<button type="button">Cancel</button>}
+            primary={<button type="button">Save</button>}
+          />
+        )}
+      >
+        <p>Well</p>
+      </GuidedTaskLayout>,
+    );
+    const foot = document.querySelector(".layout-guided__actions");
+    expect(foot).toHaveAttribute("data-arrangement", "split");
+    expect(foot?.querySelector(".plate-foot-slot--secondary")).toHaveTextContent("Cancel");
+    expect(foot?.querySelector(".plate-foot-slot--primary")).toHaveTextContent("Save");
   });
 
   it("can wrap a guided-task well in the content inset", () => {

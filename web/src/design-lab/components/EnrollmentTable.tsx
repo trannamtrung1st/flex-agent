@@ -8,13 +8,16 @@ import {
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  datatableColMin,
   SortableHeader,
   ToolbarReadout,
   ToolbarSearch,
+  SEARCH_ID_PLACEHOLDER,
   useDatatableDetailGutter,
   useTableController,
 } from "../../design-system/components/datatable";
-import { formatDeadline, pad } from "../../lib/format";
+import { InstantReadout } from "../../design-system/components/temporal";
+import { pad } from "../../lib/format";
 import type { DataTableState, EnrollmentRow, SortKey } from "../data/types";
 import { enrollmentMatches, enrollmentQueryKey, enrollmentSortValue, matchingEnrollmentIds, sortAndFilter } from "./tableLogic";
 import { EMPTY_SELECTION, isSelected, isSelectionEmpty, normalizeSelection, toggleRow } from "../../design-system/patterns/tableSelection";
@@ -26,6 +29,14 @@ const SORT_LABELS: Record<SortKey, string> = {
   stage: "Stage",
   deadline: "Deadline",
   result: "Result",
+};
+
+const ENROLLMENT_COL_MIN: Record<SortKey, "id" | "label" | "stage" | "instant" | "result"> = {
+  id: "id",
+  campaign: "label",
+  stage: "stage",
+  deadline: "instant",
+  result: "result",
 };
 
 function enrollmentDetailId(rowId: string) {
@@ -148,7 +159,7 @@ export function DataTable({
             <ToolbarSearch
               id="searchInput"
               label="Search participant ID"
-              placeholder="SEARCH ID"
+              placeholder={SEARCH_ID_PLACEHOLDER}
               value={state.search}
               onChange={(event) => {
                 const { value } = event.target;
@@ -213,13 +224,14 @@ export function DataTable({
                   sorts={state.sorts}
                   onSort={handleSort}
                   label={SORT_LABELS[key] === "ID" ? "Participant ID" : SORT_LABELS[key]}
+                  colMin={ENROLLMENT_COL_MIN[key]}
                 />
               ))}
-              <th scope="col" className="col-state">
+              <th scope="col" className="col-state" {...datatableColMin("state")}>
                 Session state
               </th>
-              <SortableHeader sortKey="deadline" sorts={state.sorts} onSort={handleSort} label="Deadline" />
-              <SortableHeader sortKey="result" sorts={state.sorts} onSort={handleSort} label="Result" />
+              <SortableHeader sortKey="deadline" sorts={state.sorts} onSort={handleSort} label="Deadline" colMin="instant" />
+              <SortableHeader sortKey="result" sorts={state.sorts} onSort={handleSort} label="Result" colMin="result" />
             </tr>
           </thead>
           <tbody ref={tbodyRef}>
@@ -267,6 +279,7 @@ export function DataTable({
           <EmptyPlate
             id="manifestEmpty"
             className="datatable-empty"
+            inset
             label="No matching enrollments"
             note="Nothing in this campaign matches the current filter or search. Clear the search or set the stage filter back to all stages."
           >
@@ -360,7 +373,7 @@ function PlainRow({
           onChange={onSelect}
         />
       </td>
-      <td className="cell-id">
+      <td className="cell-id" {...datatableColMin("id")}>
         <div className="datatable-id-cell">
           <IconButton
             className={`command-menu-trigger command-menu-trigger--icon${expanded ? " is-open" : ""}`}
@@ -380,11 +393,13 @@ function PlainRow({
           </button>
         </div>
       </td>
-      <td className="cell-content">{row.campaign}</td>
-      <td className="cell-content">{row.stage}</td>
-      <td className="cell-state">{recordResultMark(row.result)}</td>
-      <td className="cell-content">{formatDeadline(row.deadline)}</td>
-      <td className="cell-result cell-content">{row.result}</td>
+      <td className="cell-content" {...datatableColMin("label")}>{row.campaign}</td>
+      <td className="cell-content" {...datatableColMin("stage")}>{row.stage}</td>
+      <td className="cell-state" {...datatableColMin("state")}>{recordResultMark(row.result)}</td>
+      <td className="cell-content" {...datatableColMin("instant")}>
+        <InstantReadout value={row.deadline} />
+      </td>
+      <td className="cell-result cell-content" {...datatableColMin("result")}>{row.result}</td>
     </tr>
   );
 }

@@ -71,4 +71,6 @@ Use the artifact that best resolves the design question:
 - Usability hypothesis, research plan, and findings
 - Design decision record with alternatives and rationale
 
-When a runnable UI exists, use the project Playwright MCP workflow: interact through accessibility snapshots, take desktop and narrow screenshots, and evaluate hierarchy, copy, spacing, alignment, overflow, focus, contrast clues, feedback, and polish. Store evidence only in `.playwright-mcp/`. Do not claim visual quality from source or design intent alone.
+When a runnable UI exists, attach first
+(`docs/contributing/development-harness.md`, Attach to a running local origin)
+then use the project Playwright MCP workflow: interact through accessibility snapshots, take desktop and narrow screenshots, and evaluate hierarchy, copy, spacing, alignment, overflow, focus, contrast clues, feedback, and polish. Store evidence only in `.playwright-mcp/`. Do not claim visual quality from source or design intent alone.

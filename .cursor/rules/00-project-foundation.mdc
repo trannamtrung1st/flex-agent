@@ -21,7 +21,8 @@ For UI work, read `docs/ui-ux/design-system/README.md` and the applicable
 modules selected by `docs/ui-ux/design-system/implementation-guide.md`. A
 narrower approved UI/UX specification governs feature-specific behavior. The
 design system governs shared presentation only after approval and never enables
-a deferred capability.
+a deferred capability. New production UI clones a matching existing production
+page and Component Deck specimen.
 
 A conflicting ADR triggers product or requirements review; it does not override product semantics. Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Every open question must include an **interim default** with brief rationale. That interim default is working guidance only and is not approved behavior until decided. Record consequential interim defaults as `Proposed` (`PROP-*` when formalizing in a feature spec).
 

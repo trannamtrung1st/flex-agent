@@ -1,4 +1,6 @@
 import type { OperatorAction, OperatorIdentity } from "../../../design-system/components/chrome/operator";
+import { operatorAccountActions } from "../../../design-system/components/chrome/operator";
+import type { Theme } from "../../../lib/theme";
 
 export type { OperatorAction, OperatorIdentity, OperatorRole, ShellMode } from "../../../design-system/components/chrome/operator";
 export { CATALOG_NAV, CATALOG_ROUTE } from "../../data/fixtures/surfaces";
@@ -28,8 +30,12 @@ export const REVIEWER_IDENTITY: OperatorIdentity = {
   home: REVIEWER_HOME,
 };
 
-export function labAccountActions(onSignOut: () => void): OperatorAction[] {
-  return [
+export function labAccountActions(
+  theme: Theme,
+  toggleTheme: () => void,
+  onSignOut: () => void,
+): OperatorAction[] {
+  return operatorAccountActions(theme, toggleTheme, onSignOut, [
     {
       id: "profile",
       label: "Profile",
@@ -42,12 +48,5 @@ export function labAccountActions(onSignOut: () => void): OperatorAction[] {
       state: "disabled",
       disabledReason: "Unavailable in this design lab.",
     },
-    {
-      id: "signout",
-      label: "Sign out",
-      state: "enabled",
-      intent: "signout",
-      onSelect: onSignOut,
-    },
-  ];
+  ]);
 }

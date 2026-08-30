@@ -5,8 +5,10 @@ import {
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  datatableColMin,
   DisclosureMenu,
   EmptyPlate,
+  InstantReadout,
   HeaderSelectionControl,
   Key,
   RowActionMenu,
@@ -16,6 +18,7 @@ import {
   TableSelectionBand,
   ToolbarReadout,
   ToolbarSearch,
+  SEARCH_TITLE_OR_ID_PLACEHOLDER,
   useTableController,
   type TableAction,
 } from "../../components";
@@ -25,7 +28,7 @@ import {
   normalizeSelection,
   toggleRow,
 } from "../../../design-system/patterns/tableSelection";
-import { formatDeadline, pad } from "../../../lib/format";
+import { pad } from "../../../lib/format";
 import type { Campaign } from "../../data/types";
 import type { CampaignRegistrySortKey, CampaignRegistryState, CampaignRegistryRow } from "../../data/types";
 import { campaignMatches, campaignQueryKey, campaignSortValue, matchingCampaignIds, sortAndFilterCampaigns } from "./campaignRegistryLogic";
@@ -36,6 +39,14 @@ const SORT_LABELS: Record<CampaignRegistrySortKey, string> = {
   enrollments: "Enrollments",
   deadline: "Cohort deadline",
   updated: "Updated",
+};
+
+const CAMPAIGN_COL_MIN: Record<CampaignRegistrySortKey, "id" | "state" | "count" | "instant"> = {
+  campaign: "id",
+  activation: "state",
+  enrollments: "count",
+  deadline: "instant",
+  updated: "instant",
 };
 
 const ACTIVATION_FILTER_OPTIONS = [
@@ -171,8 +182,8 @@ export function CampaignRegistry({
           search={
             <ToolbarSearch
               id="campaignSearchInput"
-              label="Search campaign ID or name"
-              placeholder="SEARCH ID OR NAME"
+              label="Search campaign title or ID"
+              placeholder={SEARCH_TITLE_OR_ID_PLACEHOLDER}
               value={state.search}
               onChange={(event) => {
                 const { value } = event.target;
@@ -234,9 +245,10 @@ export function CampaignRegistry({
                   sorts={state.sorts}
                   onSort={handleSort}
                   label={SORT_LABELS[key]}
+                  colMin={CAMPAIGN_COL_MIN[key]}
                 />
               ))}
-              <th scope="col" className="col-action"><span className="visually-hidden">Actions</span></th>
+              <th scope="col" className="col-action" {...datatableColMin("action")}><span className="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -254,7 +266,7 @@ export function CampaignRegistry({
                       onChange={(checked) => patch({ selection: toggleRow(selection, row.id, checked) })}
                     />
                   </td>
-                  <td className="cell-id">
+                  <td className="cell-id" {...datatableColMin("id")}>
                     <button
                       type="button"
                       className="datatable-id"
@@ -263,13 +275,17 @@ export function CampaignRegistry({
                       {row.id} / {row.name}
                     </button>
                   </td>
-                  <td className="cell-content">
+                  <td className="cell-content" {...datatableColMin("state")}>
                     <ActivationMark frozen={row.frozen} compact className="state-cell" labelClassName="state-label" />
                   </td>
-                  <td className="cell-content">{pad(row.enrollments, 2)}</td>
-                  <td className="cell-content">{row.deadline ? formatDeadline(row.deadline) : "—"}</td>
-                  <td className="cell-content">{formatDeadline(row.updatedAt)}</td>
-                  <td className="col-action">
+                  <td className="cell-content" {...datatableColMin("count")}>{pad(row.enrollments, 2)}</td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.deadline} />
+                  </td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.updatedAt} />
+                  </td>
+                  <td className="col-action" {...datatableColMin("action")}>
                     <RowActionMenu
                       open={openMenuId === row.id}
                       onOpenChange={(open) => setOpenMenuId(open ? row.id : null)}
@@ -294,6 +310,7 @@ export function CampaignRegistry({
           <EmptyPlate
             id="campaignRegistryEmpty"
             className="datatable-empty"
+            inset
             label="No matching campaigns"
             note="Nothing matches the current filter or search. Clear the search or set the activation filter back to all campaigns."
           >

@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { Navigate, createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter, useLocation } from "react-router-dom";
 import { ProtectedAuthSubtree, useProductionApi } from "../api/production-api";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
-import { AccessChangedScreen, CeremonyArea, CeremonyEmpty, SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "../components/shell/SessionChrome";
+import { AccessChangedScreen, CeremonyUnavailable, SessionLoadingScreen, SigningOutScreen } from "../components/shell/SessionChrome";
 import { ContractUnavailablePage } from "../pages/ContractUnavailablePage";
 import { UnknownDestinationPage } from "../pages/UnknownDestinationPage";
 import { ProductionActivitiesPage } from "../pages/ProductionActivitiesPage";
+import { ProductionCampaignCreatePage } from "../pages/ProductionCampaignCreatePage";
 import { ProductionAssessmentSetupRoute } from "../pages/ProductionAssessmentSetupRoute";
 import { ProductionAuthGatePage } from "../pages/ProductionAuthGatePage";
 import { ProductionEnrollmentDetailPage } from "../pages/ProductionEnrollmentDetailPage";
@@ -13,36 +14,62 @@ import { ProductionEnrollmentPage } from "../pages/ProductionEnrollmentPage";
 import { ProductionHomePage } from "../pages/ProductionHomePage";
 import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage";
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
-import { Key } from "../design-system";
-import { isProductionDestinationOpen } from "./production-navigation";
+import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
+import { GuidedTaskFoot, Key, WorkWell, WorkWellSection } from "../design-system";
+import { isProductionDestinationOpen, productionDestinationUnavailableCopy } from "./production-navigation";
+import { PRODUCTION_ROUTE_LAYOUTS } from "./production-route-layouts";
+import { layoutIdForPath } from "./route-layout-match";
 
 export { isProductionDestinationOpen };
 
 export function ProductionDestinationGuard({
   destinationId,
-  unavailableCopy,
   children,
 }: {
   destinationId: "activities" | "my-work" | "review" | "release" | "results" | "sessions";
-  unavailableCopy: string;
   children: ReactNode;
 }) {
   const { shell } = useProductionApi();
+  const location = useLocation();
   const available = isProductionDestinationOpen(shell?.navigation, destinationId);
   if (available) {
     return children;
   }
 
+  const note = productionDestinationUnavailableCopy(destinationId);
+  if (layoutIdForPath(location.pathname, PRODUCTION_ROUTE_LAYOUTS) === "guided-task") {
+    return (
+      <AssignmentStationLayout
+        instruments={null}
+        heading={(
+          <header className="assignment-head">
+            <div className="assignment-ident">
+              <h1 className="assignment-title">Access denied</h1>
+            </div>
+          </header>
+        )}
+        actions={(
+          <GuidedTaskFoot arrangement="end">
+            <Key variant="quiet" to="/">Return to Home</Key>
+          </GuidedTaskFoot>
+        )}
+      >
+        <WorkWell live={false} label="Access denied">
+          <WorkWellSection>
+            <p>{note}</p>
+          </WorkWellSection>
+        </WorkWell>
+      </AssignmentStationLayout>
+    );
+  }
+
   return (
-    <CeremonyArea
-      label="Access denied"
+    <CeremonyUnavailable
       title="Access denied"
+      note={note}
       danger
-    >
-      <CeremonyEmpty note={unavailableCopy}>
-        <Key variant="open" to="/">Return to Home</Key>
-      </CeremonyEmpty>
-    </CeremonyArea>
+      recovery={{ label: "Return to Home", to: "/" }}
+    />
   );
 }
 
@@ -55,13 +82,10 @@ function ProductionGate() {
 
   if (apiState === "signing-out") {
     return (
-      <SessionStatusScreen title="Signing out">
-        <CeremonyEmpty note={errorMessage ?? "Signing out…"} alert={Boolean(errorMessage)}>
-          {errorMessage ? (
-            <SignOutRetryKey onRetry={() => { void logout(); }} />
-          ) : null}
-        </CeremonyEmpty>
-      </SessionStatusScreen>
+      <SigningOutScreen
+        errorMessage={errorMessage}
+        onRetry={() => { void logout(); }}
+      />
     );
   }
 
@@ -90,8 +114,16 @@ export function createProductionRouter() {
       {
         path: "activities",
         element: (
-          <ProductionDestinationGuard destinationId="activities" unavailableCopy="Activities are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="activities">
             <ProductionActivitiesPage />
+          </ProductionDestinationGuard>
+        ),
+      },
+      {
+        path: "activities/new",
+        element: (
+          <ProductionDestinationGuard destinationId="activities">
+            <ProductionCampaignCreatePage />
           </ProductionDestinationGuard>
         ),
       },
@@ -99,7 +131,7 @@ export function createProductionRouter() {
       {
         path: "activities/:activityId/setup",
         element: (
-          <ProductionDestinationGuard destinationId="activities" unavailableCopy="Activities are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="activities">
             <ProductionAssessmentSetupRoute />
           </ProductionDestinationGuard>
         ),
@@ -107,7 +139,7 @@ export function createProductionRouter() {
       {
         path: "activities/:activityId/cohorts/:cohortId/enrollments",
         element: (
-          <ProductionDestinationGuard destinationId="activities" unavailableCopy="Activities are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="activities">
             <ProductionEnrollmentPage />
           </ProductionDestinationGuard>
         ),
@@ -115,7 +147,7 @@ export function createProductionRouter() {
       {
         path: "activities/:activityId/cohorts/:cohortId/enrollments/:enrollmentId",
         element: (
-          <ProductionDestinationGuard destinationId="activities" unavailableCopy="Activities are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="activities">
             <ProductionEnrollmentDetailPage />
           </ProductionDestinationGuard>
         ),
@@ -123,7 +155,7 @@ export function createProductionRouter() {
       {
         path: "my-work",
         element: (
-          <ProductionDestinationGuard destinationId="my-work" unavailableCopy="My work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="my-work">
             <ProductionMyWorkPage />
           </ProductionDestinationGuard>
         ),
@@ -131,7 +163,7 @@ export function createProductionRouter() {
       {
         path: "my-work/:enrollmentId",
         element: (
-          <ProductionDestinationGuard destinationId="my-work" unavailableCopy="My work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="my-work">
             <ProductionMyWorkDetailPage />
           </ProductionDestinationGuard>
         ),
@@ -139,7 +171,7 @@ export function createProductionRouter() {
       {
         path: "sessions/:sessionId",
         element: (
-          <ProductionDestinationGuard destinationId="sessions" unavailableCopy="Sessions are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="sessions">
             <ContractUnavailablePage
               title="Text Session"
               note="Session command and snapshot HTTP are not exposed to this SPA. The host maps SSE events only. The Session remains on the server."
@@ -150,7 +182,7 @@ export function createProductionRouter() {
       {
         path: "review",
         element: (
-          <ProductionDestinationGuard destinationId="review" unavailableCopy="Review work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="review">
             <ContractUnavailablePage
               title="Review work"
               note="Review-case APIs are not exposed to this SPA yet. Evaluation, Human revision, and Review decision remain distinct server objects."
@@ -161,7 +193,7 @@ export function createProductionRouter() {
       {
         path: "review/:reviewId",
         element: (
-          <ProductionDestinationGuard destinationId="review" unavailableCopy="Review work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="review">
             <ContractUnavailablePage
               title="Review case"
               note="This locator is not backed by a production Review API in the current contract set."
@@ -172,7 +204,7 @@ export function createProductionRouter() {
       {
         path: "release",
         element: (
-          <ProductionDestinationGuard destinationId="release" unavailableCopy="Release work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="release">
             <ContractUnavailablePage
               title="Release work"
               note="Release APIs are not exposed to this SPA yet. Release remains independent of Review approval."
@@ -183,7 +215,7 @@ export function createProductionRouter() {
       {
         path: "release/:resultId",
         element: (
-          <ProductionDestinationGuard destinationId="release" unavailableCopy="Release work is not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="release">
             <ContractUnavailablePage
               title="Release Result"
               note="This locator is not backed by a production Release API in the current contract set."
@@ -194,7 +226,7 @@ export function createProductionRouter() {
       {
         path: "results",
         element: (
-          <ProductionDestinationGuard destinationId="results" unavailableCopy="Results are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="results">
             <ContractUnavailablePage
               title="Results"
               note="Participant Result visibility is server-owned. This SPA has no Result list contract yet, so the destination stays unavailable rather than inventing scores."
@@ -205,7 +237,7 @@ export function createProductionRouter() {
       {
         path: "results/:resultId",
         element: (
-          <ProductionDestinationGuard destinationId="results" unavailableCopy="Results are not available for the current authorized relationship.">
+          <ProductionDestinationGuard destinationId="results">
             <ContractUnavailablePage
               title="Result"
               note="Participant Result visibility is server-owned. This SPA has no Result read contract yet, so the view stays unavailable rather than inventing a score."

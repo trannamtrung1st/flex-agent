@@ -34,7 +34,7 @@ export function StateReadout({
   labelClassName?: string;
 }) {
   return (
-    <span className={className}>
+    <span className={cx("state-cell", className)}>
       <StateIndicator variant={variant} solid={solid} />
       <span className={labelClassName}>{label}</span>
     </span>

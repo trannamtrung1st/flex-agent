@@ -131,6 +131,7 @@ describe("PC-01 and PC-02 reviewer decision", () => {
     expect(screen.getByRole("complementary", { name: "Criterion evaluations" })).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Sealed examination transcript" })).toBeInTheDocument();
     expect(document.querySelector(".record-view > .operate-head")).toHaveClass("operate-head--plaque");
+    expect(document.querySelector(".record-view > .operate-scroll")).toBeTruthy();
     expect(document.querySelector(".record-view .sealed-mark")?.closest(".operate-head-cluster")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Queue" }).closest(".operate-head")).toBeTruthy();
     expect(document.querySelector(".composition-split__head")).toBeNull();
@@ -156,6 +157,16 @@ describe("PC-05 and PC-06 campaign setup", () => {
     renderLab("/design-lab/admin-console/campaigns?campaign=CMP-0044");
     fireEvent.click(screen.getByRole("button", { name: "Configure campaign" }));
     const dialog = screen.getByRole("dialog", { name: /Campaign Configuration/i });
+    expect(dialog.querySelector(".dialog-plate--wide")).toBeTruthy();
+    expect(dialog.querySelector(".ceremony-plate")).toBeTruthy();
+    const ceremonyCss = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../styles/surfaces/admin-console.css"),
+      "utf8",
+    );
+    expect(ceremonyCss).toMatch(/\.ceremony-plate\s*\{[^}]*width:\s*min\(var\(--dialog-w, 680px\)/);
+    const compact = ceremonyCss.split("@media (max-width: 720px)")[1] ?? "";
+    expect(compact).toMatch(/\.ceremony-foot-row\.key-group/);
+    expect(compact).toMatch(/grid-template-columns:\s*1fr/);
     expect(within(dialog).getByRole("button", { name: "Save draft" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Check readiness" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /^Activate$/ })).not.toBeInTheDocument();
@@ -167,6 +178,14 @@ describe("PC-05 and PC-06 campaign setup", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /Confirm activation/ }));
     expect(within(dialog).getByRole("button", { name: "Activate campaign" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+  });
+
+  it("hides configure on frozen campaign records and keeps the frozen line in the plate foot", () => {
+    renderLab("/design-lab/admin-console/campaigns?campaign=CMP-0045");
+    expect(screen.queryByRole("button", { name: "Configure campaign" })).not.toBeInTheDocument();
+    const foot = screen.getByRole("main").querySelector(".plate-foot");
+    expect(foot).toBeTruthy();
+    expect(within(foot as HTMLElement).getByText("Configuration frozen at activation")).toBeInTheDocument();
   });
 
   it("shows a non-disclosing unavailable state for an invalid campaign id", () => {
@@ -227,7 +246,7 @@ describe("PC-08 session specimen", () => {
     expect(submitDialog.querySelector(".dialog-plate")).toBeTruthy();
     expect(submitDialog.querySelector(".dialog-plate--wide")).toBeTruthy();
     expect(submitDialog.querySelector(".dialog-plate--narrow")).toBeNull();
-    expect(submitDialog.querySelector(".dialog-foot")).toBeTruthy();
+    expect(submitDialog.querySelector(".dialog-foot")).toHaveAttribute("data-arrangement", "split");
     expect(within(submitDialog).getByRole("button", { name: "Remain in Session" })).toBeVisible();
     expect(within(submitDialog).getByRole("button", { name: "Submit Session" })).toBeVisible();
 
@@ -238,7 +257,7 @@ describe("PC-08 session specimen", () => {
     const leaveDialog = screen.getByRole("dialog", { name: "Leave session" });
     expect(leaveDialog.querySelector(".dialog-plate")).toBeTruthy();
     expect(leaveDialog.querySelector(".dialog-plate--wide")).toBeTruthy();
-    expect(leaveDialog.querySelector(".dialog-foot")).toBeTruthy();
+    expect(leaveDialog.querySelector(".dialog-foot")).toHaveAttribute("data-arrangement", "split");
     expect(within(leaveDialog).getByRole("button", { name: "Remain in session" })).toBeVisible();
     expect(within(leaveDialog).getByRole("link", { name: "Leave to assignment" })).toBeVisible();
   });

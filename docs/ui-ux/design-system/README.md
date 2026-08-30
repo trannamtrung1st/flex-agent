@@ -12,7 +12,7 @@ Flex Agent.
 | **Approvers** | Product Lead, UI/UX Lead |
 | **Version** | 1.0 |
 | **Effective date** | 2026-08-27 |
-| **Last reviewed** | 2026-08-28 |
+| **Last reviewed** | 2026-08-30 |
 | **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
 | **Related decisions** | `DS-DEC-3`–`DS-DEC-7` retained; `DS-DEC-1`, `DS-DEC-2`, `DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` added; `DS-PROP-1` superseded by `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |
@@ -26,7 +26,7 @@ modules under this directory inherit this metadata unless they declare
 narrower metadata.
 
 v0.1 Deep-Space styling is superseded for visual identity. Do not use it as
-the target look for the frontend rebuild.
+the target look for new UI.
 
 ## Authority and boundaries
 
@@ -109,20 +109,22 @@ These are design metaphors, not product terms or required microcopy.
 
 ## Visual evidence
 
-During the frontend rebuild, shared presentation is verified against the
-isolated design lab and the promoted library, not against candidate production
-pages.
+Shared presentation is verified against the modules, the Component Deck, and
+the promoted library. New production UI clones a matching existing production
+surface and Deck specimen rather than inventing chrome.
 
 | Source | Role |
 | --- | --- |
+| This directory (module files) | Contract for shared visual language and reusable patterns |
 | Component Deck (`/design-lab/shared/gallery`) | Specimen catalog for promoted primitives |
-| Design-lab journeys (admin, reviewer, participant home / assignment / session) | Composition donors for shells and product plates |
+| Production pages (`web/src/pages/`, production routes) | Current production composition of those primitives. Clone a matching existing page for a new production surface. |
+| Design-lab journeys (admin, reviewer, participant home / assignment / session) | Isolated composition donors for shells whose approved family is not yet production-backed. Synthetic. |
 | `web/src/design-system/` plus `web/src/styles/shared.css` | Production-safe implementations |
-| Candidate production pages (`web/src/pages/`, production routes) | **Not** visual authority until rebuilt. Do not copy their chrome, density, or polish. |
 
-Prototype and lab fixtures remain visual evidence only. They do not define
-routes, actor names, action availability, disclosure, or lifecycle (`PC-09`,
-`PC-10`, `PC-14`).
+When production and Deck disagree, the module wins, then reconcile the
+implementation. Lab fixtures do not define routes, actor names, action
+availability, disclosure, or lifecycle (`PC-09`, `PC-10`, `PC-14`). Do not
+copy design-lab chrome, fixtures, or product nouns into production.
 
 ## Approved shared decisions
 
@@ -166,7 +168,7 @@ agent instructions remain under `.agents/skills/` and `.cursor/skills/`. The
   framework-agnostic roles, not CSS classes or utility names.
 - Semantic roles such as `surface-primary` map to CSS custom properties in
   `web/src/styles/`. The current mapping is un-namespaced: primitive hull
-  tokens in `tokens.css` (`--ground`, `--teal`, `--amber`, `--notch`,
+  tokens in `tokens.css` (`--ground`, `--teal`, `--amber`, `--danger`, `--notch`,
   `--gangway-w`, `--ease-out`) plus semantic aliases in
   `semantic-aliases.css` (`--canvas`, `--surface-primary`, `--brand-primary`,
   `--font-display`). Light theme remaps the primitives in
@@ -177,7 +179,7 @@ agent instructions remain under `.agents/skills/` and `.cursor/skills/`. The
   not swap colors manually per theme.
 - A new token requires a distinct semantic role, both theme values where
   applicable, documented usage, and contrast/state verification.
-- Primitive names (`--ground`, `--teal`, `--amber`) remain the dark-theme
+- Primitive names (`--ground`, `--teal`, `--amber`, `--danger`) remain the dark-theme
   source values. Aliases bind them to the semantic roles in
   [colors](foundation/colors.md). Global `:focus-visible` and `--focus-outline`
   are 1px phosphor teal with 3px offset ([borders](foundation/borders.md)).

@@ -46,6 +46,20 @@ body {
   border-radius: 1px;
 }
 
+a {
+  text-decoration: none;
+}
+
+.text-link,
+.text-link:visited {
+  color: var(--fg-brand);
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  color: var(--text-bright);
+}
+
 .visually-hidden {
   position: absolute; width: 1px; height: 1px;
   clip-path: inset(50%); overflow: hidden; white-space: nowrap;

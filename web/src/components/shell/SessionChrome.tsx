@@ -1,57 +1,15 @@
 import type { ReactNode } from "react";
-import { Key, LayoutAssignment, ManagementLayout, OperateArea, WaitPanel, EmptyPlate } from "../../design-system";
-import { cx } from "../../lib/cx";
+import { CeremonyArea, CeremonyEmpty, CeremonyWait, Key, LayoutAssignment, ManagementLayout } from "../../design-system";
 import { ThemeToggle } from "./ThemeToggle";
 import { useProductionApi } from "../../api/production-api";
+
+export { CeremonyArea, CeremonyEmpty, CeremonyUnavailable, CeremonyWait } from "../../design-system";
 
 const statusStrip = {
   homeTo: "/",
   homeLabel: "Home",
-  origin: true,
   identLeading: <ThemeToggle />,
 } as const;
-
-export function CeremonyEmpty({
-  note,
-  children,
-  alert,
-}: {
-  note: string;
-  children?: ReactNode;
-  alert?: boolean;
-}) {
-  return (
-    <EmptyPlate className="ceremony-empty empty-plate--inset" note={note} noteRole={alert ? "alert" : undefined}>
-      {children}
-    </EmptyPlate>
-  );
-}
-
-export function CeremonyArea({
-  title,
-  description,
-  label,
-  danger,
-  children,
-}: {
-  title: string;
-  description?: string;
-  label: string;
-  danger?: boolean;
-  children?: ReactNode;
-}) {
-  return (
-    <OperateArea
-      className={cx("workspace-area", "work-plane", "work-plane--ceremony", danger && "workspace-area--danger")}
-      frameClassName="ceremony-frame"
-      label={label}
-      title={title}
-      description={description}
-    >
-      {children}
-    </OperateArea>
-  );
-}
 
 export function UnauthenticatedChrome({ children }: { children: ReactNode }) {
   return (
@@ -71,7 +29,7 @@ export function SessionLoadingScreen() {
         title="Establishing session"
         description="Confirming the production application session for this organization."
       >
-        <WaitPanel label="Establishing session context…" />
+        <CeremonyWait label="Establishing session context…" />
       </CeremonyArea>
     </UnauthenticatedChrome>
   );
@@ -113,5 +71,25 @@ export function SignOutRetryKey({ onRetry }: { onRetry: () => void }) {
     <Key variant="quiet" onClick={onRetry}>
       Try again
     </Key>
+  );
+}
+
+export function SigningOutScreen({
+  errorMessage,
+  onRetry,
+}: {
+  errorMessage?: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <SessionStatusScreen title="Signing out">
+      {errorMessage ? (
+        <CeremonyEmpty note={errorMessage} alert>
+          <SignOutRetryKey onRetry={onRetry} />
+        </CeremonyEmpty>
+      ) : (
+        <CeremonyWait label="Signing out…" />
+      )}
+    </SessionStatusScreen>
   );
 }

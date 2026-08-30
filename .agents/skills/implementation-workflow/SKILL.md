@@ -82,7 +82,7 @@ Update front-matter `status` and `updated` as work proceeds.
 
 - Run focused tests, then proportionate integration or regression checks.
 - Record commands, results, and artifact paths in the `# Verification` table.
-- For UI work, follow Playwright MCP verification when the app can run.
+- For UI work, attach to the matching local origin first (`docs/contributing/development-harness.md`, Attach to a running local origin), then follow Playwright MCP verification.
 - Do not claim completion without evidence.
 
 ### 7. Reconcile and promote

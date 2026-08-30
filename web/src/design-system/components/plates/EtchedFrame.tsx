@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { cx } from "../../../lib/cx";
+import { Inline } from "../layout/Inline";
+import type { LayoutJustify } from "../layout/types";
 import { StateIndicator } from "../state/StateIndicator";
 
 export type EtchedFrameTicks = "both" | "bottom";
@@ -48,6 +50,7 @@ export function EmptyPlate({
   noteRole,
   children,
   className,
+  inset,
 }: {
   id?: string;
   label?: string;
@@ -55,9 +58,10 @@ export function EmptyPlate({
   noteRole?: "alert" | "status";
   children?: ReactNode;
   className?: string;
+  inset?: boolean;
 }) {
   return (
-    <div id={id} className={cx("empty-plate", className)}>
+    <div id={id} className={cx("empty-plate", inset && "empty-plate--inset", className)}>
       <StateIndicator />
       {label ? <span className="empty-plate-label">{label}</span> : null}
       <p className="empty-plate-note" role={noteRole}>{note}</p>
@@ -66,6 +70,48 @@ export function EmptyPlate({
   );
 }
 
-export function PlateFoot({ children, className }: { children: ReactNode; className?: string }) {
-  return <footer className={cx("plate-foot", className)}>{children}</footer>;
+export type PlateFootArrangement = "start" | "center" | "end" | "split";
+
+const ARRANGEMENT_JUSTIFY: Record<PlateFootArrangement, LayoutJustify> = {
+  start: "start",
+  center: "center",
+  end: "end",
+  split: "between",
+};
+
+export function PlateFoot({
+  children,
+  className,
+  arrangement = "end",
+  secondary,
+  primary,
+}: {
+  children?: ReactNode;
+  className?: string;
+  arrangement?: PlateFootArrangement;
+  secondary?: ReactNode;
+  primary?: ReactNode;
+}) {
+  const cluster = arrangement === "split" ? (
+    <>
+      <div className="plate-foot-slot plate-foot-slot--secondary">{secondary}</div>
+      <div className="plate-foot-slot plate-foot-slot--primary">{primary ?? children}</div>
+    </>
+  ) : (
+    children
+  );
+
+  return (
+    <Inline
+      as="footer"
+      className={cx("plate-foot", className)}
+      gap="2"
+      align="center"
+      justify={ARRANGEMENT_JUSTIFY[arrangement]}
+      wrap
+      data-arrangement={arrangement}
+    >
+      {cluster}
+    </Inline>
+  );
 }

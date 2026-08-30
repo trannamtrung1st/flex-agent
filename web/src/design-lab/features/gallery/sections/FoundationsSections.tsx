@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import { ActionMenuGlyph, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup } from "../../../components";
-import { Inline, Stack } from "../../../../design-system";
+import { Inline, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
 
 function TypeRow({ role, children }: { role: string; children: ReactNode }) {
@@ -14,27 +14,61 @@ function TypeRow({ role, children }: { role: string; children: ReactNode }) {
 }
 
 const colors = [
-  ["ground", "#07141b"], ["ground-deep", "#041018"], ["ground-sheen", "#0e1c24"],
-  ["text", "#e6eef2"], ["text-bright", "#f8fcfe"], ["label", "#a8c4ca"],
-  ["label-dim", "#88a8b0"], ["hairline", "rgba(110,154,156,0.52)"],
-  ["hairline-dim", "rgba(110,154,156,0.28)"], ["teal", "#3cc0bf"],
-  ["teal-glow", "rgba(60,192,191,0.14)"], ["amber", "#e2a33c"],
-  ["amber-bright", "#edc890"], ["amber-glow", "rgba(226,163,60,0.18)"],
+  ["ground", "--ground", "#07141b"],
+  ["ground-deep", "--ground-deep", "#041018"],
+  ["ground-sheen", "--ground-sheen", "#0e1c24"],
+  ["text", "--text", "#e6eef2"],
+  ["text-bright", "--text-bright", "#f8fcfe"],
+  ["label", "--label", "#a8c4ca"],
+  ["label-dim", "--label-dim", "#88a8b0"],
+  ["hairline", "--hairline", "rgba(110,154,156,0.52)"],
+  ["hairline-dim", "--hairline-dim", "rgba(110,154,156,0.28)"],
+  ["teal", "--teal", "#3cc0bf"],
+  ["teal-glow", "--teal-glow", "rgba(60,192,191,0.14)"],
+  ["amber", "--amber", "#e2a33c"],
+  ["amber-bright", "--amber-bright", "#edc890"],
+  ["amber-glow", "--amber-glow", "rgba(226,163,60,0.18)"],
+  ["danger", "--danger", "#f05c58"],
+  ["danger-bright", "--danger-bright", "#ff7468"],
+  ["danger-glow", "--danger-glow", "rgba(240, 92, 88, 0.32)"],
+  ["success", "--success", "#53d28a"],
 ] as const;
 
 export function FoundationsSections() {
   return (
     <>
-      <GallerySection id="colors" title="Colors" note={<>Two structural teal voices, one rationed amber, nothing else. Tokens live in <span className="code">tokens.css</span>.</>}>
+      <GallerySection id="colors" title="Colors" note={<>Phosphor teal and rationed amber are system voices. Fault phosphor (<span className="code">danger</span>) is the outcome lamp for denied, failed, and blocking states — never field validation (that stays amber). Success is an outcome, not a brand. Chip swatches are the dark primitives from <span className="code">tokens.css</span> plus the dark <span className="code">--success</span> lamp from <span className="code">semantic-aliases.css</span>; voice placards follow the active theme.</>}>
         <ul className="chip-row">
-          {colors.map(([name, color]) => (
+          {colors.map(([name, token, value]) => (
             <Stack as="li" className="chip" gap="2" key={name}>
-              <span className="chip-swatch" style={{ background: color }} />
+              <span className="chip-swatch" style={{ background: value }} title={token} />
               <span className="chip-name">{name}</span>
-              <span className="chip-value">{color}</span>
+              <span className="chip-value">{value}</span>
             </Stack>
           ))}
         </ul>
+        <div className="spec-row spec-row--voices">
+          <Spec tag="placard · system · --teal">
+            <span className="type-placard type-placard--system">Campaign registry</span>
+          </Spec>
+          <Spec tag="placard · attention · --amber">
+            <span className="type-placard type-placard--attention">Confirm activation</span>
+          </Spec>
+          <Spec tag="placard · danger · --fg-danger">
+            <span className="type-placard type-placard--danger">Access denied</span>
+          </Spec>
+          <Spec tag="placard · success · --success">
+            <span className="type-placard type-placard--success">Approved</span>
+          </Spec>
+        </div>
+        <div className="spec-row spec-row--voices">
+          <Spec tag="ceremony · danger · failed sign-in">
+            <span className="type-placard type-placard--danger">Sign-in could not be completed</span>
+          </Spec>
+          <Spec tag="ceremony · danger · access changed">
+            <span className="type-placard type-placard--danger">Your access changed</span>
+          </Spec>
+        </div>
       </GallerySection>
 
       <GallerySection id="type" title="Type voices" note="Michroma placards name; Sometype Mono speaks. Every changing number is tabular.">
@@ -88,12 +122,12 @@ export function FoundationsSections() {
             <TypeRow role="Tokens"><p className="type-scale-technical">tok 1,204</p></TypeRow>
           </Stack>
         </Spec>
-        <Spec wide tag="links · fg-brand inline; nav current uses a teal tick">
+        <Spec wide tag="links · fg-brand color, no underline; nav current uses a teal tick">
           <Stack gap="5" className="type-ladder">
             <TypeRow role="Inline">
               <p className="type-scale-body">
                 Sessions run under a{" "}
-                <a className="type-inline-link" href="#typography">
+                <a className="type-inline-link text-link" href="#typography">
                   frozen configuration
                 </a>
                 .
@@ -110,7 +144,7 @@ export function FoundationsSections() {
               </Inline>
             </TypeRow>
             <TypeRow role="Icon">
-              <a className="type-inline-link" href="#typography">
+              <a className="type-inline-link text-link" href="#typography">
                 Source set catalog
                 <ExternalLink className="icon-sm" aria-hidden="true" focusable="false" />
               </a>
@@ -193,7 +227,7 @@ export function FoundationsSections() {
         </div>
       </GallerySection>
 
-      <GallerySection id="pane" title="Pane" note={<>The world's one surface: hairline bezel, sheen over dark glass, inset edge-light and vignette. Cut any corner with <span className="code">--cut-tl / --cut-tr / --cut-br / --cut-bl</span>; set the glass with <span className="code">--pane-fill</span>.</>}>
+      <GallerySection id="pane" title="Pane" note={<>The world's one surface: hairline bezel, sheen over dark glass, inset edge-light and vignette. Cut any corner with <span className="code">--cut-tl / --cut-tr / --cut-br / --cut-bl</span>; set the glass with <span className="code">--pane-fill</span>. Work-well and session-briefing section labels are teal microlabels with no leading tick; the 7×1px tick is the unordered-list bullet only.</>}>
         <div className="pane-grid">
           {[
             ["pane pane--tl pane-demo", "Top cut", ".pane .pane--tl"],
@@ -209,6 +243,30 @@ export function FoundationsSections() {
             <span className="protocol-label">Protocol</span>
             <span className="protocol-value">V7.3.1</span>
           </div>
+        </Spec>
+        <Spec wide tag="WorkWell · section label without tick · ul 7×1px bullets">
+          <EtchedFrame>
+            <WorkWell head={<WorkWellHead title="Assignment briefing" ident="Enrollment specimen · not a live record" />}>
+              <WorkWellSection>
+                <h3>What you are completing</h3>
+                <p>A text examination on a frozen cohort configuration. Section labels carry their own weight.</p>
+              </WorkWellSection>
+              <WorkWellSection>
+                <h3>Before you begin</h3>
+                <ul>
+                  <li>Complete required submission work before the timed examination.</li>
+                  <li>The examination is a governed conversation with an AI Agent.</li>
+                </ul>
+              </WorkWellSection>
+              <WorkWellSection>
+                <h3>Inspectable sequence</h3>
+                <ol>
+                  <li data-sequence="1">Absent → Active (Assigned)</li>
+                  <li data-sequence="2">Active → Suspended (Administrator action)</li>
+                </ol>
+              </WorkWellSection>
+            </WorkWell>
+          </EtchedFrame>
         </Spec>
       </GallerySection>
 

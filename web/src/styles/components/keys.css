@@ -107,6 +107,13 @@
 .key--quiet:hover, .key--quiet:focus-visible { color: var(--teal); border-color: var(--teal); }
 .key--quiet:active { background: var(--teal-glow); }
 .key--quiet:disabled { opacity: 0.4; cursor: not-allowed; }
+.key--quiet.key--danger { color: var(--fg-danger); }
+.key--quiet.key--danger:hover,
+.key--quiet.key--danger:focus-visible {
+  color: var(--fg-danger);
+  border-color: color-mix(in srgb, var(--fg-danger) 55%, var(--hairline));
+}
+.key--quiet.key--danger:active { background: color-mix(in srgb, var(--fg-danger) 12%, transparent); }
 a.key[aria-disabled="true"] {
   opacity: 0.4;
   cursor: not-allowed;
@@ -125,7 +132,9 @@ a.key[aria-disabled="true"] {
   padding: var(--key-large-padding-block) var(--key-large-padding-inline);
 }
 
-.key--back { padding: 8px 16px 8px 12px; }
+.key--back {
+  padding: var(--key-back-padding-block) 16px var(--key-back-padding-block) 12px;
+}
 
 .icon-button {
   position: relative;
@@ -166,17 +175,53 @@ a.key[aria-disabled="true"] {
   pointer-events: none;
 }
 
-/* — Hot key family: amber, notched leading edge — */
+/* — Hot key family: amber, notched leading edge —
+   Clipped-border: outer fill is the hairline; ::before is the 1px-inset
+   face. A rectangular border plus clip-path slices the leading stroke. */
 
 .key--transmit, .key--begin, .key--open, .key--activate, .key--inspect, .key--release {
-  clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 50%);
+  --key-cut: 14px;
+  --key-stroke: var(--amber);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.08), rgba(226, 163, 60, 0.02)), var(--ground-deep);
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border: 0;
+  background: var(--key-stroke);
+  clip-path: polygon(var(--key-cut) 0, 100% 0, 100% 100%, 0 100%, 0 50%);
   font-size: 0.75rem;
+}
+
+.key--transmit.key--truncate, .key--begin.key--truncate, .key--open.key--truncate,
+.key--activate.key--truncate, .key--inspect.key--truncate, .key--release.key--truncate {
+  overflow: hidden;
+}
+
+.key--transmit::before, .key--begin::before, .key--open::before,
+.key--activate::before, .key--inspect::before, .key--release::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--key-face);
+  clip-path: polygon(
+    calc(var(--key-cut) + 1px) 1px,
+    calc(100% - 1px) 1px,
+    calc(100% - 1px) calc(100% - 1px),
+    1px calc(100% - 1px),
+    1px 50%
+  );
+}
+
+.key--transmit > *, .key--begin > *, .key--open > *,
+.key--activate > *, .key--inspect > *, .key--release > * {
+  position: relative;
+  z-index: 1;
 }
 
 .key--transmit, .key--open, .key--inspect, .key--release {
   color: var(--amber);
-  border-color: var(--amber);
-  background: linear-gradient(180deg, rgba(226, 163, 60, 0.08), rgba(226, 163, 60, 0.02));
 }
 
 .key--transmit { padding: 10px 26px 10px 30px; }
@@ -189,7 +234,7 @@ a.key[aria-disabled="true"] {
 .key--inspect:hover, .key--inspect:focus-visible,
 .key--release:hover, .key--release:focus-visible {
   color: var(--amber-bright);
-  background: rgba(226, 163, 60, 0.16);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.16), rgba(226, 163, 60, 0.08)), var(--ground-deep);
   box-shadow: 0 0 18px var(--amber-glow);
 }
 
@@ -201,18 +246,30 @@ a.key[aria-disabled="true"] {
 .key--begin:focus-visible,
 .key--activate:focus-visible {
   clip-path: none;
+  border: 1px solid var(--key-stroke);
+  background: var(--key-face);
   outline: 2px solid var(--teal);
   outline-offset: 3px;
 }
 
+.key--transmit:focus-visible::before,
+.key--open:focus-visible::before,
+.key--inspect:focus-visible::before,
+.key--release:focus-visible::before,
+.key--begin:focus-visible::before,
+.key--activate:focus-visible::before {
+  content: none;
+}
+
 .key--transmit:active, .key--open:active,
-.key--inspect:active, .key--release:active { background: rgba(226, 163, 60, 0.26); }
+.key--inspect:active, .key--release:active {
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.26), rgba(226, 163, 60, 0.16)), var(--ground-deep);
+}
 
 .key--transmit:disabled, .key--inspect:disabled, .key--release:disabled {
   opacity: 0.38;
   cursor: not-allowed;
   box-shadow: none;
-  background: transparent;
 }
 
 /* waiting: system teal, not the disabled fade — the key is occupied, not dead */
@@ -246,58 +303,68 @@ a.key[aria-disabled="true"] {
 .key--activate.is-waiting,
 .key--activate.is-waiting:disabled {
   color: var(--teal);
-  border-color: var(--teal);
-  background: var(--teal-glow);
-  box-shadow: none;
+  --key-stroke: var(--teal);
+  --key-face: linear-gradient(180deg, rgba(60, 192, 191, 0.14), rgba(60, 192, 191, 0.05)), var(--ground-deep);
+  box-shadow: 0 0 14px var(--teal-glow);
 }
 
 /* pre-lit primary: the one already-armed key on a surface */
 .key--begin {
   color: var(--amber-bright);
-  border-color: var(--amber-bright);
-  background: linear-gradient(180deg, rgba(226, 163, 60, 0.38), rgba(226, 163, 60, 0.16));
+  --key-stroke: var(--amber-bright);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.38), rgba(226, 163, 60, 0.16)), var(--ground-deep);
   padding: 10px 26px 10px 30px;
   box-shadow: 0 0 20px var(--amber-glow);
 }
 
 .key--begin:hover, .key--begin:focus-visible {
   color: var(--amber-bright);
-  background: rgba(226, 163, 60, 0.48);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.48), rgba(226, 163, 60, 0.28)), var(--ground-deep);
   box-shadow: 0 0 26px rgba(226, 163, 60, 0.32);
 }
 
-.key--begin:active { background: rgba(226, 163, 60, 0.56); }
+.key--begin:active {
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.56), rgba(226, 163, 60, 0.36)), var(--ground-deep);
+}
 
 .key--begin:disabled {
   opacity: 0.78;
   cursor: not-allowed;
-  background: linear-gradient(180deg, rgba(226, 163, 60, 0.26), rgba(226, 163, 60, 0.1));
+  --key-stroke: var(--amber);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.26), rgba(226, 163, 60, 0.1)), var(--ground-deep);
   color: var(--amber-bright);
-  border-color: var(--amber);
   box-shadow: none;
 }
 
 /* ceremony hot key: double amber stroke over a pre-lit glow fill */
 .key--activate {
   color: var(--amber-bright);
-  border-color: var(--amber);
-  background: linear-gradient(180deg, rgba(226, 163, 60, 0.18), rgba(226, 163, 60, 0.06));
+  --key-stroke: var(--amber);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.18), rgba(226, 163, 60, 0.06)), var(--ground-deep);
   padding: 10px 30px 10px 34px;
+  box-shadow: 0 0 14px var(--amber-glow);
+}
+
+.key--activate::before {
   box-shadow:
     inset 0 0 0 1px rgba(226, 163, 60, 0.45),
-    inset 0 0 16px rgba(226, 163, 60, 0.22),
-    0 0 14px var(--amber-glow);
+    inset 0 0 16px rgba(226, 163, 60, 0.22);
 }
 
 .key--activate:hover, .key--activate:focus-visible {
   color: var(--amber-bright);
-  background: rgba(226, 163, 60, 0.28);
-  box-shadow:
-    inset 0 0 0 1px rgba(226, 163, 60, 0.6),
-    inset 0 0 18px rgba(226, 163, 60, 0.3),
-    0 0 22px var(--amber-glow);
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.28), rgba(226, 163, 60, 0.14)), var(--ground-deep);
+  box-shadow: 0 0 22px var(--amber-glow);
 }
 
-.key--activate:active { background: rgba(226, 163, 60, 0.36); }
-.key--activate:disabled { opacity: 0.38; cursor: not-allowed; background: transparent; box-shadow: none; }
+.key--activate:hover::before, .key--activate:focus-visible::before {
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 163, 60, 0.6),
+    inset 0 0 18px rgba(226, 163, 60, 0.3);
+}
+
+.key--activate:active {
+  --key-face: linear-gradient(180deg, rgba(226, 163, 60, 0.36), rgba(226, 163, 60, 0.2)), var(--ground-deep);
+}
+.key--activate:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; }
 

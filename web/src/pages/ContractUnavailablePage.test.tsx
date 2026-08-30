@@ -15,9 +15,11 @@ describe("ContractUnavailablePage", () => {
 
     expect(screen.getByRole("heading", { name: "Text Session" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Text Session" })).toHaveClass("work-plane--ceremony");
+    expect(document.querySelector(".operate-column--hug")).toBeTruthy();
     expect(screen.getByText(/not exposed to this SPA/i)).toBeInTheDocument();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /start session|begin attempt|open transcript/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return to Home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Return to Home" })).toHaveClass("key--quiet");
   });
 });

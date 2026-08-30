@@ -50,7 +50,7 @@ public sealed class PostgresAssessmentDraftStore(
     {
         const string activitySql = """
             SELECT organization_id, activity_id, form, configured_type, current_revision_id,
-                   current_revision_number, has_activated_cohort
+                   current_revision_number, has_activated_cohort, updated_at
             FROM assessment_activities
             WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
             """;
@@ -302,7 +302,7 @@ public sealed class PostgresAssessmentDraftStore(
         var activities = await connection.QueryAsync<ActivityRow>(
             """
             SELECT organization_id, activity_id, form, configured_type, current_revision_id,
-                   current_revision_number, has_activated_cohort
+                   current_revision_number, has_activated_cohort, updated_at
             FROM assessment_activities
             WHERE organization_id = @OrganizationId
             ORDER BY updated_at DESC
@@ -574,7 +574,8 @@ public sealed class PostgresAssessmentDraftStore(
             activity.Form,
             activity.ConfiguredType,
             content,
-            activity.HasActivatedCohort);
+            activity.HasActivatedCohort,
+            activity.UpdatedAt);
     }
 
     private sealed record ActivityRow(
@@ -584,7 +585,8 @@ public sealed class PostgresAssessmentDraftStore(
         string ConfiguredType,
         Guid CurrentRevisionId,
         long CurrentRevisionNumber,
-        bool HasActivatedCohort);
+        bool HasActivatedCohort,
+        DateTimeOffset UpdatedAt);
 
     private sealed record RevisionRow(Guid RevisionId, long RevisionNumber, string Title, string Content);
 

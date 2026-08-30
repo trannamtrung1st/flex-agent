@@ -63,7 +63,7 @@ public sealed class HumanAuthenticationRuntimeTests
         using var stolen = await victim.GetAsync(
             $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
             cancellationToken);
-        Assert.Equal(HttpStatusCode.BadRequest, stolen.StatusCode);
+        await AssertCallbackFailedToSpa(stolen, endProviderSession: false);
         var stolenCookies = stolen.Headers.TryGetValues("Set-Cookie", out var setCookies)
             ? string.Join('\n', setCookies)
             : string.Empty;
@@ -93,6 +93,7 @@ public sealed class HumanAuthenticationRuntimeTests
 
         using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        Assert.Equal("openid profile", query["scope"].ToString());
         tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
 
         using var callback = await client.GetAsync(
@@ -109,7 +110,7 @@ public sealed class HumanAuthenticationRuntimeTests
         using var replay = await client.GetAsync(
             $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
             cancellationToken);
-        Assert.Equal(HttpStatusCode.BadRequest, replay.StatusCode);
+        await AssertCallbackFailedToSpa(replay);
 
         client.DefaultRequestHeaders.Add("Cookie", cookie.Split(';', 2)[0]);
         using var session = await client.GetAsync("/auth/session", cancellationToken);
@@ -197,9 +198,11 @@ public sealed class HumanAuthenticationRuntimeTests
         Assert.Equal(HttpStatusCode.OK, loggedOut.StatusCode);
         Assert.Null(loggedOut.Headers.Location);
         Assert.True(document.RootElement.GetProperty("logged_out").GetBoolean());
+        var idToken = tokens.IdToken ?? string.Empty;
         Assert.Equal(
             endSession
                 + "?client_id=" + Uri.EscapeDataString(ClientId)
+                + "&id_token_hint=" + Uri.EscapeDataString(idToken)
                 + "&post_logout_redirect_uri=" + Uri.EscapeDataString("https://app.example/"),
             document.RootElement.GetProperty("end_session_url").GetString());
     }
@@ -226,9 +229,11 @@ public sealed class HumanAuthenticationRuntimeTests
         using var document = JsonDocument.Parse(body);
 
         Assert.Equal(HttpStatusCode.OK, loggedOut.StatusCode);
+        var idToken = tokens.IdToken ?? string.Empty;
         Assert.Equal(
             endSession
                 + "?client_id=" + Uri.EscapeDataString(ClientId)
+                + "&id_token_hint=" + Uri.EscapeDataString(idToken)
                 + "&post_logout_redirect_uri=" + Uri.EscapeDataString("https://app.example/"),
             document.RootElement.GetProperty("end_session_url").GetString());
     }
@@ -380,9 +385,112 @@ public sealed class HumanAuthenticationRuntimeTests
         using var callback = await client.GetAsync(
             $"/auth/callback?code=x&state={Uri.EscapeDataString(query["state"].ToString())}&organization_id={Guid.NewGuid():D}",
             TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.BadRequest, callback.StatusCode);
-        var body = await callback.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        Assert.Contains(HumanAuthenticationReasonCodes.ClientSuppliedOrganizationRejected, body, StringComparison.Ordinal);
+        await AssertCallbackFailedToSpa(callback, endProviderSession: false);
+    }
+
+    [Fact]
+    public async Task Callback_unknown_subject_redirects_to_provider_logout_without_reason_code()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(
+            rsa,
+            tokens,
+            endSessionEndpoint: "https://issuer.example/realms/flex/protocol/openid-connect/logout");
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString(), subject: "unbound-subject");
+
+        using var callback = await client.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        await AssertCallbackFailedToSpa(callback, endProviderSession: true);
+        var location = callback.Headers.Location?.ToString() ?? string.Empty;
+        Assert.Contains("post_logout_redirect_uri=", location, StringComparison.Ordinal);
+        Assert.Contains(Uri.EscapeDataString("https://app.example/?signin=denied"), location, StringComparison.Ordinal);
+        var cookies = callback.Headers.TryGetValues("Set-Cookie", out var setCookies)
+            ? string.Join('\n', setCookies)
+            : string.Empty;
+        Assert.DoesNotContain(HumanAuthenticationHostOptions.CookieName + "=", cookies, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Callback_zero_organization_redirects_to_provider_logout_without_reason_code()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(
+            rsa,
+            tokens,
+            endSessionEndpoint: "https://issuer.example/realms/flex/protocol/openid-connect/logout");
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory, organizationCount: 0);
+
+        using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
+
+        using var callback = await client.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        await AssertCallbackFailedToSpa(callback, endProviderSession: true);
+        var body = await callback.Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain(HumanAuthenticationReasonCodes.ZeroOrganizationContext, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("zero_organization", callback.Headers.Location?.ToString() ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Callback_ambiguous_organization_redirects_to_provider_logout_without_reason_code()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(
+            rsa,
+            tokens,
+            endSessionEndpoint: "https://issuer.example/realms/flex/protocol/openid-connect/logout");
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory, organizationCount: 2);
+
+        using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
+
+        using var callback = await client.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        await AssertCallbackFailedToSpa(callback, endProviderSession: true);
+        var body = await callback.Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain(HumanAuthenticationReasonCodes.AmbiguousOrganizationContext, body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Callback_disabled_identity_redirects_to_provider_logout_without_reason_code()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(
+            rsa,
+            tokens,
+            endSessionEndpoint: "https://issuer.example/realms/flex/protocol/openid-connect/logout");
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory, disableActor: true);
+
+        using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
+
+        using var callback = await client.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        await AssertCallbackFailedToSpa(callback, endProviderSession: true);
+        var body = await callback.Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain(HumanAuthenticationReasonCodes.DisabledIdentity, body, StringComparison.Ordinal);
     }
 
     private static async Task<string> LoginAsync(
@@ -405,22 +513,32 @@ public sealed class HumanAuthenticationRuntimeTests
     private static void SeedBinding(
         WebApplicationFactory<ApiProgram> factory,
         Guid? actorId = null,
-        Guid? organizationId = null)
+        Guid? organizationId = null,
+        int organizationCount = 1,
+        bool disableActor = false)
     {
         var bindings = factory.Services.GetRequiredService<MemoryHumanIdentityBindingStore>();
         actorId ??= Guid.NewGuid();
-        organizationId ??= Guid.NewGuid();
         bindings.RegisterActor(actorId.Value);
-        bindings.GrantOrganization(actorId.Value, organizationId.Value);
+        for (var index = 0; index < organizationCount; index++)
+        {
+            bindings.GrantOrganization(actorId.Value, organizationId ?? Guid.NewGuid());
+            organizationId = null;
+        }
+
         bindings.TryProvisionAsync(
                 new HumanIdentityBinding(
                     Guid.NewGuid(),
                     new ExactIssuerSubject(Issuer, Subject),
                     actorId.Value,
                     DateTimeOffset.UtcNow,
-                    null))
+                    disableActor ? DateTimeOffset.UtcNow : null))
             .GetAwaiter()
             .GetResult();
+        if (disableActor)
+        {
+            bindings.DisableActor(actorId.Value);
+        }
     }
 
     private static WebApplicationFactory<ApiProgram> CreateFactory(
@@ -499,7 +617,28 @@ public sealed class HumanAuthenticationRuntimeTests
         return $"{header}.{payload}.not-a-signature";
     }
 
-    private static string CreateIdToken(RSA rsa, string nonce)
+    private static async Task AssertCallbackFailedToSpa(
+        HttpResponseMessage callback,
+        bool endProviderSession = false)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        var location = callback.Headers.Location?.ToString() ?? string.Empty;
+        var body = await callback.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("authn.", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("unknown_subject", location, StringComparison.Ordinal);
+        if (endProviderSession)
+        {
+            Assert.Contains("/protocol/openid-connect/logout", location, StringComparison.Ordinal);
+            Assert.Contains("signin%3Ddenied", location, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("id_token_hint=", location, StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            Assert.Equal("/?signin=denied", location);
+        }
+    }
+
+    private static string CreateIdToken(RSA rsa, string nonce, string? subject = null)
     {
         var now = DateTimeOffset.UtcNow;
         var header = JsonSerializer.Serialize(new { alg = "RS256", typ = "JWT", kid = "test" });
@@ -507,7 +646,7 @@ public sealed class HumanAuthenticationRuntimeTests
         {
             ["iss"] = Issuer,
             ["aud"] = ClientId,
-            ["sub"] = Subject,
+            ["sub"] = subject ?? Subject,
             ["nonce"] = nonce,
             ["sid"] = "sid-1",
             ["acr"] = "acr:mfa",

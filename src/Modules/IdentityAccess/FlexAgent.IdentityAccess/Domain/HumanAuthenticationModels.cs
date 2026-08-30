@@ -109,11 +109,13 @@ public sealed record ApplicationSessionRecord(
     string? CredentialDigest,
     AuthenticationStrength Strength,
     string? ProviderSessionDigest,
+    byte[]? ProviderIdTokenCiphertext,
     ApplicationSessionLifetime Lifetime,
     DateTimeOffset? RevokedAt,
     DateTimeOffset? RotatedAt,
     Guid? PredecessorSessionId,
-    string? TerminalReason)
+    string? TerminalReason,
+    string? SeatedDisplayName = null)
 {
     public bool IsLive => RevokedAt is null && RotatedAt is null && CredentialDigest is not null;
 }
@@ -129,6 +131,13 @@ public sealed record HumanIdentityResolution(
 
     public static HumanIdentityResolution Deny(string reasonCode) =>
         new(false, reasonCode, null, null);
+}
+
+public static class SignInCompletionRecovery
+{
+    public const string QueryName = "signin";
+    public const string DeniedValue = "denied";
+    public const string DeniedPath = "/?signin=denied";
 }
 
 public static class SafeReturnPaths
@@ -158,8 +167,34 @@ public static class SafeReturnPaths
             return false;
         }
 
-        normalized = candidate;
+        normalized = StripDeniedCompletionQuery(candidate);
         return true;
+    }
+
+    private static string StripDeniedCompletionQuery(string candidate)
+    {
+        var hash = candidate.IndexOf('#');
+        var fragment = hash >= 0 ? candidate[hash..] : string.Empty;
+        var withoutFragment = hash >= 0 ? candidate[..hash] : candidate;
+        var queryIndex = withoutFragment.IndexOf('?');
+        if (queryIndex < 0)
+        {
+            return candidate;
+        }
+
+        var path = withoutFragment[..queryIndex];
+        var kept = withoutFragment[(queryIndex + 1)..]
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(part =>
+                !part.Equals(SignInCompletionRecovery.QueryName, StringComparison.Ordinal)
+                && !part.StartsWith(SignInCompletionRecovery.QueryName + "=", StringComparison.Ordinal))
+            .ToArray();
+        if (kept.Length == 0)
+        {
+            return path + fragment;
+        }
+
+        return path + "?" + string.Join('&', kept) + fragment;
     }
 }
 

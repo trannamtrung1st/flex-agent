@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { EmptyPlate, OperateArea } from "../../components";
+import { OperateArea } from "../../components";
 import { useAdminContext } from "./adminContext";
 import { CampaignContext } from "./CampaignContext";
 
@@ -31,12 +31,11 @@ export function SampleArea({
         title={title}
         description={description}
         headClassName="campaigns-head"
-      >
-        <EmptyPlate
-          label="Campaign not available"
-          note="This campaign is not available. Select an authorized campaign before inspecting this area."
-        />
-      </OperateArea>
+        empty={{
+          label: "Campaign not available",
+          note: "This campaign is not available. Select an authorized campaign before inspecting this area.",
+        }}
+      />
     );
   }
 

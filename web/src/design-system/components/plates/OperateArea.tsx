@@ -3,6 +3,8 @@ import { Advisory, OperateHead } from "../chrome/OperateHead";
 import { Stack } from "../layout/Stack";
 import { EmptyPlate, EtchedFrame, type EtchedFrameInset } from "./EtchedFrame";
 
+export type OperateHugMeasure = "auto" | "sm" | "md" | "lg";
+
 export function OperateArea({
   title,
   description,
@@ -24,6 +26,8 @@ export function OperateArea({
   framed = true,
   headed = true,
   headArrangement = "stack",
+  composition = "fill",
+  hugMeasure = "auto",
 }: {
   title?: string;
   description?: string;
@@ -45,13 +49,45 @@ export function OperateArea({
   children?: ReactNode;
   headed?: boolean;
   headArrangement?: "stack" | "plaque";
+  composition?: "fill" | "hug";
+  hugMeasure?: OperateHugMeasure;
 }) {
   const hasEmpty = Boolean(empty);
   const hasChildren = Boolean(children);
   const hasBody = hasChildren || hasEmpty;
+  const emptyPlate = empty ? (
+    <EmptyPlate
+      inset
+      className={empty.separated ? "empty-plate--separated" : undefined}
+      label={empty.label}
+      note={empty.note}
+    />
+  ) : null;
 
-  return (
-    <Stack as="section" className={className} aria-label={label} hidden={hidden}>
+  const body = hasBody ? (
+    framed ? (
+      <EtchedFrame className={frameClassName} inset={frameInset} revealing={revealing} sealing={sealing}>
+        {children}
+        {emptyPlate}
+      </EtchedFrame>
+    ) : (
+      <>
+        {children}
+        {emptyPlate}
+      </>
+    )
+  ) : null;
+
+  const rest = (
+    <>
+      {context}
+      {advisory ? <Advisory label={advisory.label} copy={advisory.copy} attention={advisory.attention} /> : null}
+      {body}
+    </>
+  );
+
+  const plane = (
+    <>
       {headed && title ? (
         <OperateHead
           className={headClassName}
@@ -63,33 +99,31 @@ export function OperateArea({
           headExtra={headExtra}
         />
       ) : null}
-      {context}
-      {advisory ? <Advisory label={advisory.label} copy={advisory.copy} attention={advisory.attention} /> : null}
-      {hasBody ? (
-        framed ? (
-          <EtchedFrame className={frameClassName} inset={frameInset} revealing={revealing} sealing={sealing}>
-            {children}
-            {empty ? (
-              <EmptyPlate
-                className={empty.separated ? "empty-plate--inset empty-plate--separated" : "empty-plate--inset"}
-                label={empty.label}
-                note={empty.note}
-              />
-            ) : null}
-          </EtchedFrame>
-        ) : (
-          <>
-            {children}
-            {empty ? (
-              <EmptyPlate
-                className={empty.separated ? "empty-plate--inset empty-plate--separated" : "empty-plate--inset"}
-                label={empty.label}
-                note={empty.note}
-              />
-            ) : null}
-          </>
-        )
-      ) : null}
+      {composition === "hug" ? rest : (
+        <>
+          {context}
+          {advisory ? <Advisory label={advisory.label} copy={advisory.copy} attention={advisory.attention} /> : null}
+          {hasBody ? <div className="operate-scroll">{body}</div> : null}
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <Stack
+      as="section"
+      className={className}
+      aria-label={label}
+      hidden={hidden}
+      gap={headArrangement === "plaque" || composition === "hug" ? "none" : "6"}
+    >
+      {composition === "hug" ? (
+        <div className="operate-column operate-column--hug" data-hug-measure={hugMeasure}>
+          {plane}
+        </div>
+      ) : (
+        plane
+      )}
     </Stack>
   );
 }

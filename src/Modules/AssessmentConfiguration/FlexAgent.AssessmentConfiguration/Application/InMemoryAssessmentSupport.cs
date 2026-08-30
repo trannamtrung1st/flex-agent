@@ -91,7 +91,13 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
             return Task.FromResult(false);
         }
 
-        _drafts[(organizationId, activityId)] = draft with { HasActivatedCohort = true };
+        var activated = draft.MarkActivatedCohort();
+        if (!activated.Succeeded || activated.Value is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        _drafts[(organizationId, activityId)] = activated.Value;
         LastWriteWasActivationMetadata = true;
         return Task.FromResult(true);
     }
@@ -117,7 +123,10 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
 
     public Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<ActivityDraft>>(
-            _drafts.Values.Where(draft => draft.OrganizationId == organizationId).ToArray());
+            _drafts.Values
+                .Where(draft => draft.OrganizationId == organizationId)
+                .OrderByDescending(draft => draft.UpdatedAtUtc)
+                .ToArray());
 
     public Task<AssessmentCohort?> FindCohortForActivityAsync(
         Guid organizationId,

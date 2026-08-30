@@ -64,7 +64,7 @@ export type ReviewSession = {
   candidate: string;
   campaign: string;
   assignment: string;
-  /** UTC instant (ISO 8601) for queue receipt; format with `formatViewerInstant`. */
+  /** UTC instant (ISO 8601) for queue receipt; render with `InstantReadout`. */
   received: string;
   receivedSort: number;
   sessionLabel: string;

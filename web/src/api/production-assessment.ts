@@ -43,6 +43,7 @@ export interface ProductionActivitySummary {
   title: string;
   revision_number: number;
   has_activated_cohort: boolean;
+  updated_at: string;
 }
 
 export interface ProductionActivityList {

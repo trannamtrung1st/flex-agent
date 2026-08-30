@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Key, LayoutAssignment, ManagementLayout, OperateArea } from "../design-system";
+import { CeremonyUnavailable, LayoutAssignment, ManagementLayout } from "../design-system";
+import { ThemeToggle } from "./shell/ThemeToggle";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -24,15 +25,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.hasError) {
       return (
         <LayoutAssignment id="management">
-          <ManagementLayout commandStrip={{ homeTo: "/", homeLabel: "Home", origin: true }}>
-            <OperateArea
-              className="workspace-area workspace-area--danger"
-              label="Something went wrong"
+          <ManagementLayout commandStrip={{ homeTo: "/", homeLabel: "Home", identLeading: <ThemeToggle /> }}>
+            <CeremonyUnavailable
+              danger
               title="Something went wrong"
-              description="Reload the page to continue. Work already stored on the server is unchanged."
-            >
-              <Key onClick={() => window.location.reload()}>Reload</Key>
-            </OperateArea>
+              note="Reload the page to continue. Work already stored on the server is unchanged."
+              recovery={{ label: "Reload", onClick: () => window.location.reload() }}
+            />
           </ManagementLayout>
         </LayoutAssignment>
       );

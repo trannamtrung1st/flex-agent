@@ -8,7 +8,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 20px;
-  padding: 9px 0;
+  padding: var(--field-label-gap) 0;
 }
 
 .form-row > .field-label { flex: 0 0 148px; }
@@ -34,7 +34,7 @@
   grid-template-columns: auto auto;
   align-items: center;
   column-gap: 16px;
-  row-gap: 8px;
+  row-gap: var(--field-label-gap);
   flex: 0 0 auto;
   min-width: 0;
   max-width: 100%;
@@ -50,11 +50,11 @@
 }
 
 @media (max-width: 720px) /* bp.compact */ {
-  .form-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .form-row { flex-direction: column; align-items: stretch; gap: var(--field-label-gap); }
   .form-row > .field-label { flex: none; }
   .form-row > .field-hint,
   .form-row > .field-error { padding-left: 0; }
-  .form-row--pair { flex-direction: column; gap: 14px; }
+  .form-row--pair { flex-direction: column; gap: var(--form-group-gap); }
   .field-pair {
     width: 100%;
     grid-template-columns: 1fr auto;
@@ -62,8 +62,9 @@
 }
 
 .field-label {
-  font-size: 0.62rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.16em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--label);
   white-space: nowrap;
@@ -73,7 +74,26 @@
   display: block;
   height: 1px;
   background: var(--hairline-dim);
-  margin: 12px 0;
+  margin: var(--form-group-gap) 0;
+}
+
+.form-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.form-section > legend {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  color: var(--text-bright);
+  float: none;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 var(--form-group-gap);
 }
 
 .field-input {
@@ -159,7 +179,7 @@
 }
 
 .field-number.is-frozen .field-input {
-  padding-left: 0;
+  padding: 0;
 }
 
 .field-number-steps {
@@ -214,7 +234,7 @@
 }
 
 .field-input:focus { outline: none; border-color: rgba(60, 192, 191, 0.6); }
-.field-input::placeholder { color: var(--label-dim); }
+.field-input::placeholder { color: var(--label-dim); opacity: 1; }
 
 /* validation speaks amber per the world's no-red doctrine */
 .field-input.is-invalid { border-color: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
@@ -246,7 +266,8 @@
   pointer-events: none;
   border-color: transparent;
   background: transparent;
-  padding-left: 0;
+  padding: 0;
+  min-height: 0;
   color: var(--text-bright);
 }
 
@@ -266,22 +287,23 @@
   transform: translateY(-1px);
 }
 
-/* compact stacked field group: label above control with an 8px
-   label gap and 12px group rhythm. Used in marginalia plates,
-   bulkheads, and anywhere a ceremony's horizontal .form-row is too
-   wide. Pair .field-stack with .field-label and .field-input or
-   .field-textarea; .field-input--narrow sizes compact numerics. */
+/* compact stacked field group: label above control with --field-label-gap
+   and --form-group-gap between sibling fields. Used in marginalia plates,
+   bulkheads, and anywhere a ceremony's horizontal .form-row is too wide.
+   Pair .field-stack with .field-label and .field-input or .field-textarea;
+   .field-input--narrow sizes compact numerics. Frozen slots withdraw padding
+   so the etched value sits on the same gap as the label. */
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--form-group-gap);
 }
 
 .field-stack {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--field-label-gap);
   min-width: 0;
 }
 
@@ -291,27 +313,20 @@
   align-self: flex-start;
   margin: 0;
   padding: 0;
-  margin-top: -4px;
   max-width: 100%;
 }
 
-/* stacked fields and unattached errors in narrow plates */
-.dialog-body > .field-stack,
-.ceremony-body > .field-stack,
-.bulkhead-body > .field-stack {
-  margin-top: 2px;
-}
-
+/* stacked fields after intro copy in narrow plates */
 .dialog-body > p:first-child + .field-stack,
 .ceremony-body > p:first-child + .field-stack,
 .bulkhead-body > p:first-child + .field-stack {
-  margin-top: 14px;
+  margin-top: var(--form-group-gap);
 }
 
 .dialog-body > .field-error,
 .ceremony-body > .field-error {
   align-self: flex-start;
-  margin: 10px 0 0;
+  margin: var(--field-label-gap) 0 0;
   padding: 0;
   max-width: 100%;
 }
@@ -349,7 +364,7 @@
 .field-textarea.is-frozen { resize: none; }
 
 .field-textarea:focus { outline: none; border-color: rgba(60, 192, 191, 0.6); }
-.field-textarea::placeholder { color: var(--label-dim); }
+.field-textarea::placeholder { color: var(--label-dim); opacity: 1; }
 .field-textarea.is-invalid { border-color: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
 
 /* ═══ Composer (bezeled textarea slot) ═══════════════════════════ */

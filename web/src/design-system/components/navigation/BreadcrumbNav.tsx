@@ -22,18 +22,24 @@ export function BreadcrumbNav({
     <nav className={cx("breadcrumb-nav", className)} aria-label="Breadcrumb">
       <ol className="breadcrumb-list">
         <li>
-          <Link to={homeHref}>{homeLabel}</Link>
+          <Link className="text-link" to={homeHref}>{homeLabel}</Link>
+          {items.length > 0 ? <span className="breadcrumb-separator" aria-hidden="true">/</span> : null}
         </li>
-        {items.map((item, index) => (
-          <li key={`${item.label}:${index}`}>
-            <span className="breadcrumb-separator" aria-hidden="true">/</span>
-            {item.current ? (
-              <span aria-current="page">{item.label}</span>
-            ) : (
-              <Link to={item.href ?? homeHref}>{item.label}</Link>
-            )}
-          </li>
-        ))}
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1;
+          return (
+            <li key={`${item.label}:${index}`}>
+              {item.current ? (
+                <span aria-current="page">{item.label}</span>
+              ) : item.href ? (
+                <Link className="text-link" to={item.href}>{item.label}</Link>
+              ) : (
+                <span>{item.label}</span>
+              )}
+              {!isLast ? <span className="breadcrumb-separator" aria-hidden="true">/</span> : null}
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );

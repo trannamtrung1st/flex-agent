@@ -29,8 +29,23 @@ Dense command surfaces need 4px granularity; do not force an 8px-only system.
 Inner composition consumes this ladder through `Stack`, `Inline`, `Grid`,
 `Container`, `Inset`, and `SplitBay` ([layout primitives](../components/layout-primitives.md)).
 CSS variables `--space-1` … `--space-24` live in `web/src/styles/tokens.css`.
-Do not invent off-ladder offsets in feature CSS when a primitive `gap` or
-`Inset` space will do.
+
+In-page and form rhythm uses three named rungs (workspace density). Do not
+invent off-ladder offsets in feature CSS when a primitive `gap`, `Inset`, or
+these tokens will do.
+
+| Rung | Token | Ladder | Use |
+| --- | --- | ---: | --- |
+| Control | `--field-label-gap` | 2.5 (10px) | Stacked field microlabel ↔ slot; radio-group legends. Readout `dt`/`dd` stays tighter. |
+| Group | `--form-group-gap` | 4 (16px) | Section legend ↔ field cluster; sibling fields; `.field-group`; in-well sections |
+| Bay | `--operate-bay-gap` | 6 (24px) | `OperateArea` strata (head / context / advisory / optional frame); titled blocks |
+
+`OperateArea` owns the bay gap between its strata ([cards](../components/cards.md)).
+Titled field clusters use `FormSection` ([inputs](../components/inputs.md)).
+The legend uses H2 / plate-title type, not `.field-label` microlabel type.
+Fieldset legends are unreliable flex items: group gap is
+`legend { margin-block-end: var(--form-group-gap) }`, not `Stack` gap alone.
+`gap="none"` is only for fused instrument groups (one plate, shared hairline).
 
 ## Application shells
 
@@ -48,7 +63,9 @@ in `web/src/design-system/patterns/layouts/` and are documented in
 3. **Live session** (`live-session`) — full-height instrument rail, inset
    transcript column, inset examiner/Agent plate.
 4. **Reference** (`reference`) — catalog index / Component Deck only (design
-   lab). Forbidden in the production entry graph.
+   lab). Forbidden in the production entry graph. The Component Deck catalog
+   column is a document scroller; nested family specimens hug and do not
+   inner-scroll. Product hulls and other lab Operate routes keep hull scroll.
 
 Inner feature composition (tables, Status Bays, reviewer record grid, gallery
 specimens) lives inside named slots and is not a fifth shell. Prefer the
@@ -66,8 +83,16 @@ to the main landmark unless the page reapplies the same hull token through
 
 A 48px min-height top chrome: wordmark, role-home tokens, operator disclosure.
 Current destination uses a 2px teal underline bar plus text, not color alone.
+The strip sits on the hull canvas (`transparent`); it is not a second umbra fill.
+A sticky Component Deck strip uses `surface-primary` / `--ground-deep` only so
+scrolling specimens do not show through. Console foot uses the same transparent
+hull rule (hairline only).
 
 ### Gangway and bulkhead
+
+Gangway fill is `transparent` so the hull shows through; the trailing hairline
+is the bulkhead, not a second umbra. Compact management drawer bars match.
+Overlay bulkhead *drawers* remain opaque plates over a scrim.
 
 - Expanded gangway: `--gangway-w` 232px default; the administrator shell sets
   248px.
@@ -90,15 +115,23 @@ work plane, not a second bulkhead.
 Short desktop viewports scroll instruments inside the rail (`.phase-rail-scroll`
 / `.rail-scroll`); brand and seated rail actions stay outside that scroller. Desktop shells use
 `height: 100dvh` with no min-height taller than the viewport, so a short window
-cannot grow past the hull while `body` overflow stays hidden. Narrow/drawer
+cannot grow past the hull while `body` overflow stays hidden. Management
+bays clip `main` and pin operate chrome; the work body inner-scrolls.
+Fill-remaining instruments still inner-scroll columns or the form well.
+Stacked management wells grow with that work body; they are not nested
+scrollports. Ceremony hug may overflow on `main`. Narrow/drawer
 widths stack the instrument band in the header and do not make that band
 viewport-sticky.
 
 ### Telemetry / readout
 
 Persistent operational state uses compact readout stacks and readout grids,
-not a dumping ground of every metric. Campaign timezone rules in governing
-specs win over decorative date formats (`PC-11`).
+not a dumping ground of every metric. A readout grid that names the same
+record as an etched well sits inside that well (fused instrument, group gap
+to the fields). Do not pin it as full-bleed OperateArea `context` above a
+narrower frame. On an unframed stacked nested record the readout is the first
+bay stratum in the operate body; do not wrap it in its own plaque. Campaign
+timezone rules in governing specs win over decorative date formats (`PC-11`).
 
 ## Standard Widths
 
@@ -113,7 +146,7 @@ specs win over decorative date formats (`PC-11`).
 | Examiner / inspector plate | 280–320px (session examiner column is 320px) |
 | Reading column | 68–78ch; ~680–800px |
 | Dialog narrow / default / wide | 412 / 520 / 680px |
-| Standard content max | fills shell; Campaign record hugs content (about 52rem min on desktop) |
+| Standard content max | fills shell; setup/create ceremony hugs the form column (52rem). Unframed stacked nested records fill the main landmark |
 | Full workspace | fills remaining width |
 
 ## Hull Panels, Not Card Stacks
@@ -123,7 +156,10 @@ or node. Avoid wrapping every toolbar, setting, paragraph, or metadata group in
 a floating rounded card.
 
 **Shared horizon.** Sibling plates in a row share divider and key-foot
-geometry so a lone plate does not balloon beside crowded neighbors.
+geometry so a lone plate does not balloon beside crowded neighbors. Home
+destination plates and My work assignment plates occupy viewport-sized slots
+(`auto-fill`); they do not grow to fill leftover tracks when the roster is
+sparse.
 
 ## Spatial Signature
 

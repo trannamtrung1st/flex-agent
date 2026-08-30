@@ -1,46 +1,24 @@
 import { Outlet, useLocation } from "react-router-dom";
 import {
   Alert,
-  Key,
   LayoutAssignment,
   ManagementLayout,
-  type OperatorIdentity,
-  type OperatorRole,
+  operatorAccountActions,
 } from "../../design-system";
-import { maxWidthQuery } from "../../lib/breakpoints";
 import { layoutIdForPath } from "../../router/route-layout-match";
 import { PRODUCTION_ROUTE_LAYOUTS } from "../../router/production-route-layouts";
 import { availableProductionDestinations, productionNavGroups, shouldHideProductionBreadcrumbs } from "../../router/production-navigation";
 import { requireProductionShellLayout } from "../../router/require-production-shell-layout";
-import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useProductionApi } from "../../api/production-api";
-import { AccessChangedScreen, CeremonyEmpty, SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "./SessionChrome";
+import { AccessChangedScreen, SessionLoadingScreen, SigningOutScreen } from "./SessionChrome";
 import { Breadcrumbs } from "./Breadcrumbs";
-import { ThemeToggle } from "./ThemeToggle";
-import { useTheme } from "../../hooks/useTheme";
-
-function operatorRole(relationship: string | undefined, destinationIds: string[]): OperatorRole {
-  const rel = relationship?.toLowerCase() ?? "";
-  if (rel.includes("review")) {
-    return "Reviewer";
-  }
-  if (rel.includes("admin")) {
-    return "Administrator";
-  }
-  if (rel.includes("participant")) {
-    return "Participant";
-  }
-  if (destinationIds.includes("activities")) {
-    return "Administrator";
-  }
-  return "Participant";
-}
+import { useTheme } from "../../lib/useTheme";
+import { productionOperatorIdentity } from "./production-operator";
 
 export function ProductionAppShell() {
   const { apiState, errorMessage, logout, shell } = useProductionApi();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
-  const isDrawerLayout = useMediaQuery(maxWidthQuery("adminDrawer"));
 
   if (apiState === "loading") {
     return <SessionLoadingScreen />;
@@ -48,13 +26,10 @@ export function ProductionAppShell() {
 
   if (apiState === "signing-out") {
     return (
-      <SessionStatusScreen title="Signing out">
-        <CeremonyEmpty note={errorMessage ?? "Signing out…"} alert={Boolean(errorMessage)}>
-          {errorMessage ? (
-            <SignOutRetryKey onRetry={() => { void logout(); }} />
-          ) : null}
-        </CeremonyEmpty>
-      </SessionStatusScreen>
+      <SigningOutScreen
+        errorMessage={errorMessage}
+        onRetry={() => { void logout(); }}
+      />
     );
   }
 
@@ -65,13 +40,7 @@ export function ProductionAppShell() {
   const destinations = availableProductionDestinations(shell?.navigation);
   const destinationIds = destinations.map((item) => item.id);
   const groups = productionNavGroups(destinations, location.pathname);
-  const role = operatorRole(shell?.relationship, destinationIds);
-  const identity: OperatorIdentity = {
-    shortId: "ORG",
-    fullId: "Organization",
-    role,
-    home: "/",
-  };
+  const identity = productionOperatorIdentity(shell?.relationship, destinationIds, shell?.display_name);
 
   const currentLabel = destinations.find((destination) => {
     if (destination.route === "/") {
@@ -85,6 +54,14 @@ export function ProductionAppShell() {
     location.pathname,
   );
 
+  if (assigned === "guided-task") {
+    return (
+      <LayoutAssignment id="guided-task">
+        <Outlet />
+      </LayoutAssignment>
+    );
+  }
+
   return (
     <LayoutAssignment id={assigned}>
       <ManagementLayout
@@ -92,28 +69,11 @@ export function ProductionAppShell() {
         commandStrip={{
           homeTo: "/",
           homeLabel: "Home",
-          origin: true,
-          readout: "Organization",
           profile: identity,
-          identLeading: (
-            <>
-              {!isDrawerLayout ? <ThemeToggle theme={theme} onToggle={toggleTheme} /> : null}
-              <Key variant="quiet" size="compact" onClick={() => { void logout(); }}>
-                Sign out
-              </Key>
-            </>
-          ),
-          actions: isDrawerLayout
-            ? [{
-                id: "theme",
-                label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
-                state: "enabled",
-                onSelect: toggleTheme,
-              }]
-            : [],
+          actions: operatorAccountActions(theme, toggleTheme, () => { void logout(); }),
         }}
         navigation={{
-          title: role,
+          title: identity.role,
           groups,
           currentLabel,
           ariaLabel: "Primary navigation",

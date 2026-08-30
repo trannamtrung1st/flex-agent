@@ -1,6 +1,9 @@
+export { CompactId } from "./CompactId";
+export { compactRegistryId } from "./compactRegistryId";
 export { DataTablePagination } from "./DataTablePagination";
 export { DataTableShell, type DataTableShellProps } from "./DataTableShell";
-export { DataTableToolbar, ToolbarReadout, ToolbarSearch } from "./DataTableToolbar";
+export { DataTableToolbar, ToolbarReadout, ToolbarSearch, SEARCH_ID_PLACEHOLDER, SEARCH_NAME_OR_ID_PLACEHOLDER, SEARCH_TITLE_OR_ID_PLACEHOLDER } from "./DataTableToolbar";
+export { DATATABLE_COL_MIN, datatableColMin, type DatatableColMin } from "./datatableColMin";
 export { SortableHeader, type SortDirection } from "./SortableHeader";
 export { useDatatableDetailGutter } from "./useDatatableDetailGutter";
 export { useDatatableStickyRail } from "./useDatatableStickyRail";

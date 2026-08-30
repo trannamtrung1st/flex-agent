@@ -5,6 +5,51 @@
   max-width: 100%;
 }
 
+.field-stack .select-shell--temporal,
+.dialog-body .select-shell--temporal {
+  width: 100%;
+}
+
+.field-stack .datetime-trigger,
+.dialog-body .datetime-trigger {
+  width: 100%;
+}
+
+/* In ceremony dialogs, seat an open picker in document flow so the plate
+   foot and picker foot (Now / Done) stay reachable via body scroll. */
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .datetime-popover.select-popover {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  --select-popover-width: 100%;
+  --select-popover-min-width: 0;
+  --select-popover-max-width: 100%;
+  max-height: min(22.5rem, calc(100dvh - 15rem));
+  overflow: hidden;
+}
+
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .datetime-popover--split {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .datetime-calendar,
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .datetime-clock {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .time-wheels {
+  --time-wheel-h: 148px;
+}
+
+.dialog-body .select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) .datetime-foot {
+  flex-shrink: 0;
+  border-top: 1px solid var(--hairline-dim);
+}
+
 .select-shell--field.select-shell--date {
   --select-popover-width: 17.5rem;
   --select-popover-min-width: 17.5rem;
@@ -46,9 +91,7 @@
   overflow: hidden;
   border-top: none;
   border-bottom: 1px solid var(--hairline);
-  box-shadow:
-    0 10px 28px rgba(2, 9, 14, 0.62),
-    inset 0 -18px 34px rgba(2, 9, 14, 0.45);
+  box-shadow: var(--panel-inset), 0 10px 28px rgba(2, 9, 14, 0.62);
 }
 
 .console-foot .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {

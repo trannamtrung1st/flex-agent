@@ -23,6 +23,19 @@ UI completion requires live-browser evidence, not code inspection.
 - Reuse approved shared tokens and patterns. A component or later-release
   product module cannot authorize a capability absent from the current scope
   and owning specification.
+- New production UI clones a matching existing production page and Component
+  Deck specimen, then verifies against the governing design-system module.
+  Isolated design-lab journeys are donors only for shells not yet
+  production-backed. Do not copy lab fixtures or invent chrome.
+- Inner page and form rhythm uses three design-system rungs: control
+  (`--field-label-gap`), group (`--form-group-gap`), and bay
+  (`--operate-bay-gap`). `OperateArea` owns bay strata (head / context /
+  advisory / optional frame). Omit the frame for stacked nested records and
+  plate grids; keep it for one seated instrument. Titled field clusters use
+  `FormSection`. Use `gap="none"` only for fused instrument groups. See
+  `docs/ui-ux/design-system/foundation/layout.md`,
+  `components/cards.md`, `components/inputs.md`, and
+  `components/layout-primitives.md`.
 
 ## Red-green-refactor
 
@@ -45,9 +58,12 @@ UI completion requires live-browser evidence, not code inspection.
 
 ## Mandatory Playwright MCP verification
 
-For UI-affecting work, use the project `playwright` MCP server:
+For UI-affecting work, use the project `playwright` MCP server. Attach first:
+probe the origin this work needs (`docs/contributing/development-harness.md`,
+Attach to a running local origin) and reuse it when healthy. Do not start a
+second listener or run `pnpm compose:up` over a healthy stack.
 
-1. Run the real app and reach every changed state.
+1. Reach every changed state on that origin.
 2. Use an accessibility snapshot for structure and interaction.
 3. Take screenshots at desktop and narrow widths, plus focus/dialog/error states.
 4. Evaluate hierarchy, copy, spacing, alignment, overflow, feedback, contrast clues, and polish.

@@ -77,9 +77,8 @@ export const Key = forwardRef<HTMLButtonElement, {
   const caption = isTextLabel(children) ? String(children) : undefined;
   const distinctTip = tooltip && caption && tooltip === caption ? undefined : tooltip;
   const truncateTip = truncate ? distinctTip ?? caption : undefined;
-  const plaque = disabled && disabledReason
-    ? disabledReason
-    : (truncateTip ?? distinctTip);
+  const reasonPlaque = Boolean(disabled && disabledReason);
+  const plaque = reasonPlaque ? disabledReason : (truncateTip ?? distinctTip);
 
   const reasonNode = disabled && disabledReason ? (
     <span id={reasonId} className="visually-hidden">
@@ -96,8 +95,8 @@ export const Key = forwardRef<HTMLButtonElement, {
     return (
       <TooltipHost
         tip={plaque}
-        tipOnlyWhenTruncated={truncate}
-        truncationRef={truncate ? labelRef : undefined}
+        tipOnlyWhenTruncated={truncate && !reasonPlaque}
+        truncationRef={truncate && !reasonPlaque ? labelRef : undefined}
       >
         <Link
           id={id}
@@ -126,8 +125,8 @@ export const Key = forwardRef<HTMLButtonElement, {
   return (
     <TooltipHost
       tip={plaque}
-      tipOnlyWhenTruncated={truncate}
-      truncationRef={truncate ? labelRef : undefined}
+      tipOnlyWhenTruncated={truncate && !reasonPlaque}
+      truncationRef={truncate && !reasonPlaque ? labelRef : undefined}
     >
       <button
         ref={ref}

@@ -5,6 +5,7 @@ import {
   scanStorageForProviderTokens,
   sessionProjection,
   signInThroughKeycloak,
+  signOutThroughProductionChrome,
   storageSnapshot,
   syntheticUsers,
 } from "../helpers/oidc";
@@ -30,8 +31,7 @@ test("OIDC-CANDIDATE-01 Wave 8.1 transition regression candidate/non-Production 
   await expect(page.getByRole("heading", { name: /Activities/i })).toBeVisible();
   await page.keyboard.press("Tab");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOutThroughProductionChrome(page);
   await finishRpInitiatedLogout(page);
   const session = await sessionProjection(page);
   expect(session.authenticated).toBe(false);

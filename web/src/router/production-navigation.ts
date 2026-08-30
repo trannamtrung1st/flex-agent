@@ -17,6 +17,23 @@ export type ProductionDestination = {
   group: "workspace" | "outcomes";
 };
 
+export type ProductionGuardedDestinationId =
+  | Exclude<ProductionDestinationId, "home">
+  | "sessions";
+
+const PRODUCTION_DESTINATION_UNAVAILABLE_COPY: Record<ProductionGuardedDestinationId, string> = {
+  activities: "Activities are not available for the current authorized relationship.",
+  "my-work": "My work is not available for the current authorized relationship.",
+  review: "Review work is not available for the current authorized relationship.",
+  release: "Release work is not available for the current authorized relationship.",
+  results: "Results are not available for the current authorized relationship.",
+  sessions: "Sessions are not available for the current authorized relationship.",
+};
+
+export function productionDestinationUnavailableCopy(destinationId: ProductionGuardedDestinationId): string {
+  return PRODUCTION_DESTINATION_UNAVAILABLE_COPY[destinationId];
+}
+
 export const PRODUCTION_DESTINATIONS: Record<ProductionDestinationId, ProductionDestination> = {
   home: { id: "home", label: "Home", route: "/", abbr: "HOM", group: "workspace" },
   activities: { id: "activities", label: "Activities", route: "/activities", abbr: "ACT", group: "workspace" },

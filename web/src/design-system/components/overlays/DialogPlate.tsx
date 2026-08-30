@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PlateFoot, type PlateFootArrangement } from "../plates/EtchedFrame";
 
 export type DialogPlateWidth = "narrow" | "default" | "wide";
 
@@ -58,9 +59,22 @@ export function DialogPlateBody({
 export function DialogPlateFooter({
   className = "dialog-foot",
   children,
+  arrangement = "end",
+  secondary,
+  primary,
 }: {
   className?: string;
-  children: ReactNode;
+  children?: ReactNode;
+  arrangement?: PlateFootArrangement;
+  secondary?: ReactNode;
+  primary?: ReactNode;
 }) {
-  return <footer className={className}>{children}</footer>;
+  if (/\bceremony-foot\b/.test(className)) {
+    return <footer className={className}>{children}</footer>;
+  }
+  return (
+    <PlateFoot className={className} arrangement={arrangement} secondary={secondary} primary={primary}>
+      {children}
+    </PlateFoot>
+  );
 }

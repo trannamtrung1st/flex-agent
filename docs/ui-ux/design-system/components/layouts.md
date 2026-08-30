@@ -22,7 +22,12 @@ Each family renders one root with `data-layout="<id>"`. Pages must not wrap
 content in a second layout root. Component Deck specimens may nest a second
 root inside a slot when demonstrating a family; wrap each specimen in
 `LayoutAssignment` for that family and set `nested` so the specimen does not
-emit a second skip link, `main`, or `#main-content`.
+emit a second skip link, `main`, or `#main-content`. Nested family specimens
+hug content: the catalog column (`body`) is the vertical wheel target. They
+must not inner-scroll. Product hulls and design-lab Operate routes keep the
+scroll ownership in this module. The optional management
+`breadcrumbs` slot is `BreadcrumbNav` (`.text-link` ancestors, no underline).
+Omit it on ceremony and guided-task / live-session families.
 
 ## Allowed vs forbidden
 
@@ -33,7 +38,9 @@ grid, width, and padding. Do not assemble a second `data-layout` root.
 
 Management `children` is one `OperateArea` (`className="workspace-area"`).
 That plate owns the page title (`h1`), optional description, optional
-`BackKey`, optional advisory/context, and the etched body or empty plate.
+`BackKey`, optional advisory/context, and the body: an etched well, an empty
+plate, or `framed={false}` content when the body is already a plate grid, a
+stacked nested record, or a split ledger.
 Pages do not assemble `OperateHead` plus `EtchedFrame` by hand, and they do
 not place a second heading stack above the operate area. Design-lab Home and
 Reviewer consoles use the same plate. The reviewer record is the split-ledger
@@ -66,10 +73,14 @@ size="form"`. Etched table plates stay inside that pad.
 
 | Variant | Title | Description | Back | Body |
 | --- | --- | --- | --- | --- |
-| Console index / registry | required | recommended | omit | etched list, table, or destinations |
-| Nested record | required | recommended | `BackKey` to the parent index | etched record |
+| Console index / registry | required | recommended | omit | etched list or table. Destination, assignment, and Status Bay **plate grids** use `framed={false}` so the plates are the only pane |
+| Nested stacked record | required | recommended | `BackKey` to the parent index, trailing beside the copy cluster (title + description); own leading row at compact widths. Not on the breadcrumb trail | `ReadoutGrid` + `WorkWell`s (Enrollment detail, Deck management-record): `framed={false}`. Hierarchy is title, readout rules, and well heads — not a grouping hairline |
+| Nested ceremony / setup-create | required | recommended | `BackKey` to the parent index, same trailing placement | one seated instrument: ceremony form with docked `PlateFoot`. Keep the etched well (`record-plane--setup`, 52rem form column). A readout fused to that well stays inside the clip |
+| Nested one-instrument record | required | recommended | `BackKey` to the parent index, same trailing placement as stacked records | filling table, empty/wait plate, or readout fused to a `PlateFoot` (lab Campaign record): keep the etched well |
 | Split ledger | required (`headArrangement="plaque"`) | recommended | `BackKey` in the plaque | `SplitBay` start/main/end plus sibling decision foot; `framed={false}` and layout `contain={false}` |
 | Empty index | required (same as the populated index) | recommended | omit | `empty` plate inside the frame |
+| Ceremony / unavailable | required | prefer the inset empty note | omit | `CeremonyUnavailable` hug column (default `hugMeasure="auto"`; same 36rem auto cap as loading so short notes do not collapse the well); inset empty well + quiet recovery key centered in the well. Title aligns to the chamfered top edge. Pin `sm`/`md`/`lg` only when the well must match a dialog rung. Full-width operate bays stay `composition="fill"` so titles keep wordmark alignment. Do not assemble `CeremonyArea` + `CeremonyEmpty` + `Key` by hand for this plane. |
+| Ceremony / loading | required | optional session copy | omit | `CeremonyArea` hug column (same `auto` cap as unavailable, 36rem so the well does not collapse to the status label); `CeremonyWait` inset wait-plate (wait-mark, label, scan-track). Do not drop an inline `WaitPanel` into the etched well. |
 
 Forbidden: a page or route module importing `CommandStrip`, `ConsoleFoot`,
 `Gangway`, `Bulkhead`, `AreaGroupList`, `RailBrand`, or `IndexRail` to compose
@@ -79,8 +90,17 @@ a shell; declaring reserved `.layout-*` structural selectors; selecting
 ## Responsive and a11y
 
 - Management gangway collapses; at ≤1080px (`adminDrawer` / `pageScroll`) the
-  layout owns a leading bulkhead. Short desktop keeps `100dvh` with inner
-  scroll, not a min-height taller than the viewport.
+  layout owns a leading bulkhead. Short desktop keeps `100dvh` with `body`
+  overflow hidden. Management `main` is clipped. Bay chrome stays seated
+  (breadcrumbs, `OperateHead` title and description, context, advisory). The
+  work body scrolls once: `.operate-scroll` for plate grids and stacked records.
+  Framed instruments grow with content. Filling registries scroll row overflow on
+  `.datatable-scroll`. Any operate pane that contains a filling table (review
+  queue, lab walls, production registries) is a flex column clipped so that
+  table is the wheel target; hug lists restore operate-scroll. Fill-remaining
+  instruments (split ledger, setup ceremony, Status Bays) clip `.operate-scroll`
+  and scroll inside columns or the form well. Ceremony hug may overflow on `main`
+  so a centered empty or wait well is not trapped.
 - Guided task stacks the instrument band at ≤1080px. Rail brand stays outside
   the rail scroller on desktop.
 - Live session stacks at ≤1180px and reflows with page scroll at ≤760px so
@@ -104,6 +124,19 @@ Family assignment is router-owned. Design-lab paths
 | `/participant-journey` | `guided-task` |
 | `/participant-session` | `live-session` |
 
-Production Home, Activities, and later admin setup use `management`. Candidate
-production pages are not visual specimens; copy shell composition from the lab
-donors and Component Deck, not from unpolished production routes.
+Approved target families live in the
+[Activity journey](../../activity-campaign-journey.md) canonical route table.
+Current production assignment (`web/src/router/production-route-layouts.ts`)
+matches those families where the host contract is implemented:
+
+| Path | Family |
+| --- | --- |
+| `/`, `/activities`, `/activities/new`, setup, Enrollment roster/detail, `/my-work` | `management` |
+| `/my-work/:enrollmentId` | `guided-task` |
+| `/sessions/:sessionId`, `/review`, `/review/:reviewId`, `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `live-session` for Session and `guided-task` for Review/Release records. |
+| unknown locator (`*`) | `management` |
+
+New production pages clone a matching existing production surface and Deck
+specimen. Isolated lab journeys remain donors for shells whose approved family
+is not yet production-backed (`live-session`, reviewer split ledger). Do not
+copy lab fixtures or invent a second chrome language.

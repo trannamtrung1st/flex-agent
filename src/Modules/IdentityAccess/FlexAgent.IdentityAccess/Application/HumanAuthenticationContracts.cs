@@ -6,7 +6,16 @@ public sealed record ValidatedHumanLogin(
     ExactIssuerSubject Identity,
     AuthenticationStrength Strength,
     string? ProviderSessionId,
-    DateTimeOffset AuthenticatedAt);
+    DateTimeOffset AuthenticatedAt,
+    string? ProviderIdToken = null,
+    string? SeatedDisplayName = null);
+
+public sealed record ApplicationLogoutResult(bool Succeeded, string? IdTokenHint)
+{
+    public static ApplicationLogoutResult NotFound() => new(false, null);
+
+    public static ApplicationLogoutResult Completed(string? idTokenHint) => new(true, idTokenHint);
+}
 
 public sealed record HumanAuthenticationResult(
     bool Succeeded,
@@ -32,7 +41,8 @@ public sealed record AuthenticatedApplicationSession(
     Guid ActorId,
     Guid OrganizationId,
     AuthenticationStrength Strength,
-    ExactIssuerSubject Identity);
+    ExactIssuerSubject Identity,
+    string? SeatedDisplayName = null);
 
 public sealed record OidcLoginTransaction(
     Guid TransactionId,
@@ -216,7 +226,7 @@ public interface IHumanAuthenticationCoordinator
         Guid correlationId,
         CancellationToken cancellationToken = default);
 
-    Task<bool> LogoutAsync(
+    Task<ApplicationLogoutResult> LogoutAsync(
         string rawCredential,
         Guid correlationId,
         CancellationToken cancellationToken = default);

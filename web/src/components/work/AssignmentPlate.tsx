@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cx } from "../../lib/cx";
-import { ReadoutList, type ReadoutListRow } from "../../design-system";
+import { PlateFoot, ReadoutList, type ReadoutListRow } from "../../design-system";
 
 export function AssignmentPlate({
   label,
@@ -20,9 +20,12 @@ export function AssignmentPlate({
     >
       <div className="assignment-plate-in">
         <ReadoutList className="assignment-plate-readout" rowClassName="assignment-plate-row" rows={rows} />
-        <div className={cx("assignment-plate-keys", !action && "assignment-plate-keys--empty")}>
+        <PlateFoot
+          className={cx("assignment-plate-keys", !action && "assignment-plate-keys--empty")}
+          arrangement="end"
+        >
           {action}
-        </div>
+        </PlateFoot>
       </div>
     </article>
   );

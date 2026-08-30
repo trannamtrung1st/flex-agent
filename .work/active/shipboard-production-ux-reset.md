@@ -3,6 +3,9 @@ id: shipboard-production-ux-reset
 status: in-progress
 created: 2026-08-28
 updated: 2026-08-29
+owner_visual_pass: in-progress
+product_contract_unavailable: accepted
+engineering_note: Home and populated My work omit OperateArea etched well around AssignmentPlate grids; tables/empty/assignment-station keep the well
 ---
 
 # Goal
@@ -372,13 +375,14 @@ Live old UX authority is retired. `web-legacy/` is gone. Production SPA in
 - [x] Replacement IA, journeys, states, routes, and accessibility contracts
   live in the reconstructed `docs/ui-ux/*.md` set (Approved v1.0).
 - [!] Independent Product/UI/UX/Architecture/Security approval artifacts are
-  still outstanding; documents carry in-repo Approved metadata.
+  still outstanding; documents carry in-repo Approved metadata. Solo project:
+  not blocking UX task closeout.
 
 ## Phase 4 — Prepare the production implementation architecture
 
 - [x] Frontend architecture, production routes, and HTTP contract readiness
   matrix are recorded.
-- [!] Independent readiness reviews outstanding.
+- [-] Independent readiness reviews. Skipped (solo project).
 
 ## Phase 5 — Rebuild production vertical slices with TDD
 
@@ -389,24 +393,32 @@ Live old UX authority is retired. `web-legacy/` is gone. Production SPA in
 - [x] Behavioral/technical first pass — Slice 3: My Work, assignment detail,
   Submission intake
   (begin/complete/cancel/finalize). Attempt start is host-contract blocked.
-- [!] Slice 4–6: Session/Review/Release remain contract-unavailable pages.
+- [x] Slices 4–6: Session/Review/Release/Result remain honest
+  contract-unavailable pages. **Product accepted** interim behavior 2026-08-29;
+  host HTTP deferred.
 - [x] Observed red then green for My Work intake tests. Playwright MCP covered
-  the unauthenticated gate (desktop + narrow). Authenticated journeys not run.
-- [!] Visual acceptance is reopened: the first-pass production pages do not
-  meet the owner-confirmed design-lab composition and craft target. Their code
-  may be deleted and rebuilt in Phase 7; first-pass behavior evidence remains a
-  regression contract, not a visual donor.
-- [!] Independent per-slice frontend/security reviews outstanding.
+  authenticated and unauthenticated journeys (see Verification).
+- [x] Visual acceptance reopened in Phase 5 and **closed in Phase 7** corrective
+  rebuild. First-pass behavior evidence remains regression contract only.
+- [-] Independent per-slice frontend/security reviews. Skipped (solo project).
 
 ## Phase 6 — Restore the single production delivery path
 
 - [x] Production build points at `@flex-agent/web`; bundle/isolation checks pass.
-- [!] Full `pnpm verify:web` (design-lab E2E), `verify:dotnet`, supply-chain,
-  OCI, and OIDC not run in this execution.
-- [ ] Reconcile remaining delivery gaps after the corrective visual rebuild.
-  Task stays in-progress until visual acceptance, host contracts or explicit
-  Product acceptance of contract-unavailable P0 destinations, outstanding
-  verification, and independent reviews are resolved.
+- [x] `pnpm verify:web` passed 2026-08-28 (production + design-lab E2E).
+- [x] `pnpm verify:web:production` passed 2026-08-29 (lint, typecheck, production
+  tests, isolation, production build).
+- [x] `pnpm verify:dotnet`, `pnpm verify:supply-chain`, and `pnpm verify:oci`
+  passed 2026-08-28/29.
+- [!] `pnpm verify:oidc` not run: canonical profile binds `:18080`, occupied by
+  live compose. Optional before closeout.
+- [>] Reconcile remaining delivery gaps after the corrective visual rebuild.
+  Task stays in-progress until owner visual acceptance on implemented surfaces,
+  optional verification (`verify:oidc`), and task reconciliation. Product
+  accepted honest contract-unavailable P0 destinations 2026-08-29; host HTTP for
+  Session/Review/Release deferred to later backend work.
+- [x] Polish My Work empty: Component Deck `empty-plate--inset` inside one
+  operate well; reject nested chamfered EmptyPlate inside flush EtchedFrame.
 
 ## Phase 7 — Corrective page-by-page visual rebuild from design-lab donors
 
@@ -466,32 +478,39 @@ Live old UX authority is retired. `web-legacy/` is gone. Production SPA in
   (empty/populated/narrow Activation), Setup, Enrollment (populated, narrow
   Participant+Record), Access denied `/my-work` `/results`, authenticated
   unknown locator, and hug sign-in ceremony. Owner final visual sign-off is
-  still required. Participant populated/empty My Work remains unaccepted live
-  (SSO rebinds administrator). Session/Review/Release stay contract-unavailable.
+  still required. Participant My Work live-accepted 2026-08-28 after SSO logout
+  fix (see Verification). Session/Review/Release accepted as contract-unavailable
+  2026-08-29.
 
 ### Phase 7 exit gate
 
-Every available production page and every honest unavailable/access state has
-passed behavior tests, accessibility snapshots, desktop/narrow screenshot
-evaluation, design-lab donor comparison, and explicit visual acceptance. No
-production import reaches lab code or synthetic behavior.
+Every **in-scope** available production page and every honest unavailable/access
+state has passed behavior tests, accessibility snapshots, desktop/narrow
+screenshot evaluation, design-lab donor comparison, and frontend-reviewer
+acceptance. Contract-unavailable P0 destinations are Product-accepted interim
+behavior. Owner visual sign-off is the remaining gate. No production import
+reaches lab code or synthetic behavior.
 
 ## Phase 8 — Final audit, verification, and completion
 
 - [x] Run `$impeccable audit` as an independent bounded review after Phase 7,
   then run the mechanical detector once over all changed UI targets. Resolve all
   blocking accessibility, responsive, performance, and craft findings.
-- [>] Run focused frontend checks followed by `pnpm verify:web`, design-lab E2E,
+- [x] Run focused frontend checks followed by `pnpm verify:web`, design-lab E2E,
   applicable authenticated production Playwright journeys, `verify:dotnet`,
-  supply-chain, OCI, and OIDC verification.
+  supply-chain, and OCI verification (see Verification table).
+- [!] `pnpm verify:oidc` not run (port collision with live compose).
 - [x] Reconfirm production/design-lab bundle isolation, protected-content/cache
   cleanup, authorization failures, and the absence of synthetic or deferred
   behavior in production artifacts.
-- [ ] Complete independent Product/UI/UX, Architecture, frontend, backend-
+- [-] Complete independent Product/UI/UX, Architecture, frontend, backend-
   contract, security/privacy, tester, and release-readiness reviews.
-- [ ] Reconcile host-contract blockers or record explicit Product acceptance of
+  Skipped for solo execution unless owner requests them.
+- [x] Reconcile host-contract blockers or record explicit Product acceptance of
   honest contract-unavailable destinations without misrepresenting them as
-  implemented P0 journeys.
+  implemented P0 journeys. **Accepted 2026-08-29 (owner):** Session, Review,
+  Result, and Release remain `ContractUnavailablePage` / Access denied until host
+  HTTP exists; implemented admin/participant surfaces ship as-is.
 - [>] Reconcile actual changes with this task, update verification evidence and
   visual matrix, recheck governing specifications, and mark completed only when
   both functional and visual definitions of done are met.
@@ -500,10 +519,10 @@ production import reaches lab code or synthetic behavior.
 
 | Production target | Primary visual donor | Required adoption | Behavior boundary | Wave 7 evidence |
 | --- | --- | --- | --- | --- |
-| `ProductionAppShell`, authenticated navigation | Design-lab `AdminPage` grouped gangway | Adopt grouped Workspace vs Outcomes; reject catalog/demo/synthetic footer | Real capability-filtered routes, logout, auth context | Unit: `production-routes.test.tsx` Outcomes grouping; drawer/bulkhead unchanged |
+| `ProductionAppShell`, authenticated navigation | Design-lab `AdminPage` grouped gangway | Adopt grouped Workspace vs Outcomes; reject catalog/demo/synthetic footer | Real capability-filtered routes, logout, auth context | Unit: `ProductionAppShell.test.tsx` operator menu; drawer/bulkhead unchanged. Theme + sign-out in `ProfileMenu`; no strip readout. Desktop closed `.playwright-mcp/page-2026-08-29T04-22-57-221Z.png`; menu `.playwright-mcp/page-2026-08-29T04-23-16-609Z.png`; light `.playwright-mcp/page-2026-08-29T04-23-38-191Z.png`; light menu `.playwright-mcp/page-2026-08-29T04-24-02-546Z.png`; narrow closed `.playwright-mcp/page-2026-08-29T04-24-28-041Z.png`; narrow menu `.playwright-mcp/page-2026-08-29T04-26-34-285Z.png` |
 | `ProductionAuthGatePage`, loading, denied, contract-unavailable | Component Deck command strip + etched plate; reject stretched empty well | Adopt hug-to-content ceremony plate, Shipboard operate-title, centered first viewport; reject MFA-as-auth | Real OIDC login only | Desktop light `.playwright-mcp/page-2026-08-28T08-26-21-753Z.png`; narrow `.playwright-mcp/page-2026-08-28T08-26-44-491Z.png`. Prior dark `.playwright-mcp/page-2026-08-28T07-18-55-484Z.png`. Loading WaitPanel. Workspace denied EmptyPlate + Continue to sign in |
-| `ProductionHomePage` | Design-lab Participant `HomePage` bays | Adopt destination **assignment plates** on an explicit `frameInset="flush"` board (no inset class registry); reject WorkWell live regions, two orphan keys, and Open/Live/Released **fixture bays** | Real My Work/Activities capability; no fixtures | Unit: `ProductionHomePage.test.tsx`. Admin Home (capability plates) `.playwright-mcp/page-2026-08-28T15-44-21-991Z.png`. Lab donor roster `.playwright-mcp/page-2026-08-28T15-50-40-416Z.png` |
-| `ProductionMyWorkPage` | Design-lab Participant `HomePage` plates / `board-empty` | Adopt Campaign/Assignment/Deadline/Record readout plates, Open assignment key, centered empty plate; reject raw `<Link>` list and Open/Released **fixture bays** | Real `listMyWork`; server status only | Unit: hug class when one assignment; readable UTC deadline when zone conversion fails. Live empty desktop `.playwright-mcp/page-2026-08-28T16-47-47-872Z.png`; empty narrow `.playwright-mcp/page-2026-08-28T16-48-13-553Z.png`. Live populated desktop `.playwright-mcp/page-2026-08-28T16-52-13-716Z.png`; populated narrow `.playwright-mcp/page-2026-08-28T16-52-34-607Z.png`. Lab donor `.playwright-mcp/page-2026-08-28T15-50-40-416Z.png` |
+| `ProductionHomePage` | Design-lab Participant `HomePage` bays | Adopt destination **assignment plates** on an explicit `frameInset="flush"` board; shared `plate-bays--hug` with My Work (board fills, plates top-align; reject Status Bays row-flex stretch) | Real My Work/Activities capability; no fixtures | Unit: `plate-bays--hug`. Participant Home desktop `.playwright-mcp/page-2026-08-29T04-36-26-495Z.png`; narrow `.playwright-mcp/page-2026-08-29T04-35-53-873Z.png`. Open My work from plate. Lab donor roster `.playwright-mcp/page-2026-08-28T15-50-40-416Z.png` |
+| `ProductionMyWorkPage` | Design-lab Participant `HomePage` plates / `board-empty` | Adopt Campaign/Assignment/Deadline/Record readout plates with shared `plate-bays--hug` (1 or many); empty uses inset EmptyPlate + `assignment-board--hug` (not plate stretch). Reject dense Status Bays row-flex and shrinking the board for a single assignment | Real `listMyWork`; server status only | Unit: `plate-bays--hug` for 1 and 2 assignments; empty inset. Live empty desktop `.playwright-mcp/page-2026-08-29T04-36-52-472Z.png`; empty narrow `.playwright-mcp/page-2026-08-29T04-37-32-850Z.png`. Populated live not rechecked this pass (no current assignments). Lab donor `.playwright-mcp/page-2026-08-28T15-50-40-416Z.png` |
 | `ProductionMyWorkDetailPage` | Design-lab `JourneyPage` | Adopt BackKey, identity/timing readout grid, stacked WorkWells (`live={false}`) for Submission/versions/Attempt; reject PhaseSpine, fixture IDs, demo beats | Real enrollment and Submission intake | Unit: Begin intake in operate-head (first viewport); Shipboard Choose files key. Live populated desktop `.playwright-mcp/page-2026-08-28T16-53-02-108Z.png`; narrow `.playwright-mcp/page-2026-08-28T16-53-34-216Z.png`. Lab donor desktop `.playwright-mcp/page-2026-08-28T07-47-45-225Z.png`; narrow `.playwright-mcp/page-2026-08-28T07-47-11-631Z.png` |
 | `AssessmentActivitiesPage`, `ProductionActivitiesPage` | Design-lab `AdminPage` + `CampaignsArea`/`CampaignRegistry` | Adopt flush registry as the first work plane; create as a WorkWell below the table, revealed when the list is empty or via the toolbar key; reject OperateArea-context create wall, row-selection, bulk delete, lab Frozen label, `admin-console.css` | Real Activities API; activation **Activated/Draft**; missing sources stay an OperateArea advisory | Unit: registry-before-create + hug when ≤4 rows. Populated desktop `.playwright-mcp/page-2026-08-28T17-41-32-487Z.png`; earlier `.playwright-mcp/page-2026-08-28T15-43-17-126Z.png`; narrow Activation in first viewport `.playwright-mcp/page-2026-08-28T15-42-43-618Z.png`. Lab donor (dark, fixture density) `.playwright-mcp/page-2026-08-28T15-48-57-093Z.png` |
 | `AssessmentSetupPage` | Campaign record / config wells (not dialog-as-page) | Adopt BackKey, identity readout grid, padded `record-frame`, Configuration WorkWell (`live={false}`); reject lab fixture mutations | Real draft/readiness/activation | Unit: `AssessmentSetupPage.test.tsx`. Authenticated draft `.playwright-mcp/page-2026-08-28T08-52-59-603Z.png` |
@@ -533,26 +552,43 @@ second progress document.
 
 # Current state
 
-Owner-activated 2026-08-28. Execution is in Phase 8. Predecessor
-`impeccable-frontend-rebuild` remains `blocked` (owner-superseded). Status remains
-`in-progress` because Session/Review/Release/Attempt-start are not contract-backed
-in the SPA, owner visual acceptance is not recorded, independent Product/
-Architecture/Security/tester reviews are outstanding, and `verify:oidc` was not
-run (canonical profile binds `:18080`, which is occupied by live compose).
-`pnpm verify:supply-chain` and `pnpm verify:oci` passed 2026-08-29.
+Owner-activated 2026-08-28. Execution is in **Phase 8 closeout**. Engineering for
+implemented production surfaces is on `main` (`bb663cd`, pushed 2026-08-29).
+Local working tree also has an uncommitted outer-hug flex fix
+(`app-shell.css`, `ProductionMyWorkPage.tsx`) verified by
+`pnpm verify:web:production` 2026-08-29.
+Predecessor `impeccable-frontend-rebuild` remains `blocked` (owner-superseded).
 
-SSO logout no longer rebinds the previous Keycloak user. Sign out shows Keycloak
-“Do you want to log out?”, confirm returns to Sign in required, and
-`demo.participant` can sign in without inheriting the administrator session.
+**Product (2026-08-29):** honest contract-unavailable P0 destinations are
+accepted. Session / Review / Result / Release stay ceremony pages until host
+contracts ship later; the SPA must not invent those journeys.
 
-Current cursor: Phase 8 remaining owner/Product/review gates. 2026-08-29
-engineering pass closed P2 craft findings, the `/sessions/` gateway collision,
-Enrollment ISO/UTC copy, ceremony breadcrumbs, and inner registry hug.
+**Owner visual pass:** in progress (owner, 2026-08-29). Skim implemented
+surfaces on Vite `:5274` or after compose rebuild; record pass/fail below.
 
-Next: owner visual sign-off; Product acceptance of contract-unavailable P0
-destinations or host HTTP for Session/Review/Release; independent role reviews;
-`pnpm verify:oidc` on a dedicated stack that does not collide with live
-`:18080`. Do not mark this task completed while those gates remain open.
+Status remains `in-progress` until owner visual sign-off is recorded and the
+task is reconciled. `verify:oidc` not run (canonical profile binds `:18080`,
+occupied by live compose). `pnpm verify:supply-chain` and `pnpm verify:oci`
+passed 2026-08-29. Independent formal reviews skipped (solo project).
+
+SSO logout no longer rebinds the previous Keycloak user. Sign out returns
+directly to **Sign in required** (no Keycloak `#kc-logout` confirm) when the API
+includes `id_token_hint`; `demo.participant` can sign in without inheriting the
+administrator session. See `sso-logout-id-token-hint` task evidence
+(2026-08-29).
+
+Current cursor: owner visual pass. Operator chrome is one shared pattern:
+authenticated `ProfileMenu` (theme + sign-out); unauthenticated/no-identity
+strips keep `ThemeToggle`. Compose `:18080` SPA may lag Vite.
+
+Next after visual pass:
+
+1. Record owner visual acceptance (or file defects) in this file.
+2. Rebuild compose so `:18080` serves `bb663cd`.
+3. Optional: `pnpm verify:oidc` on a non-colliding stack.
+4. Commit uncommitted hug fix + task reconciliation when ready.
+5. Defer backend verticals (Attempt start, Session command/snapshot, Review,
+   Result, Release) to a follow-on task.
 
 Adopted from lab: grouped gangway sections, flush work bays via **inset prop**,
 hug ceremony plates, Shipboard operate-head type, enrollment-style readout
@@ -623,6 +659,10 @@ Keep/remove/move/amend (tracked paths):
 - Compose `frontend-developer` TDD with user-authorized bounded Impeccable
   `shape` → implementation → `harden`/`adapt`/`polish` → `audit`. Do not enable
   hooks, live mode, or open-ended polish loops.
+- Interim default (2026-08-29, owner-agreed): authenticated operator-self
+  actions (theme, sign-out) live in the command-strip `ProfileMenu`. The strip
+  does not duplicate those keys or the Organization readout. Unauthenticated
+  ceremony chrome may keep `ThemeToggle` because there is no operator menu.
 
 # Findings / deviations
 
@@ -703,8 +743,14 @@ Keep/remove/move/amend (tracked paths):
 | Design-lab unit tests | passed | 98 tests |
 | Frontend isolation + candidate bundle | passed | `check-frontend-isolation.mjs`, `check-candidate-bundle.mjs` |
 | Architecture `FrontendRebuildIsolationTests` | passed | 18 tests after Dockerfile comment restriction |
-| `pnpm verify:web:production` | passed | Includes production Vite build (`index-K1S7sbUn.js`) |
-| `git diff --check` | passed | After this execution's edits |
+| `pnpm verify:web:production` | passed | 2026-08-29: lint, typecheck, production tests, isolation, build (`index-BVw3HiE4.js`). Includes uncommitted outer-hug fix. |
+| Outer registry/assignment hug (workspace-area flex) | passed (uncommitted) | 2026-08-29: `.workspace-area.registry-wall--hug` and `.assignment-board--hug` stop flex-grow; `ProductionMyWorkPage` assigns hug class. Tests green; detector `[]`. |
+| Empty-in-frame consistency | passed | 2026-08-29: `EmptyPlate inset` for operate wells, ceremony, and datatable empties. Production Activities empty `.playwright-mcp/page-2026-08-29T04-43-22-699Z.png`. Lab Home empty donor `.playwright-mcp/page-2026-08-29T04-42-04-258Z.png`. Detector `[]`. |
+| Activities table-action strip (lab `datatable-actions`) | passed | 2026-08-29: Create is `DataTableToolbar` `actions` (`datatable-actions` + `KeyGroup datatable-actions-keys`), 12px strip-to-row gap, one Create link, empty plate has no key. Enrollment Assign keys match. Unit: Activities + Enrollment + KeyGroup. Desktop `.playwright-mcp/page-2026-08-29T05-03-47-750Z.png`; Create → `/activities/new`; narrow `.playwright-mcp/page-2026-08-29T05-04-16-304Z.png`. |
+| Table empty plate vs lab Datatable | passed | 2026-08-29: removed `.registry-wall` flex-centering of empty scroll. Production empty is inset `datatable-empty`: 18px gutter, 20px top pad, left `align-items: start`, scroll `display: block`. True empty has no plate key; search-empty seats compact **Clear search** (lab **Clear filters**). Lab donor `.playwright-mcp/element-2026-08-29T05-07-16-902Z.png`. Production empty `.playwright-mcp/page-2026-08-29T05-10-15-312Z.png`. |
+| Create well reserved foot | passed | 2026-08-29: transmit **Create** sits in `WorkWell` `foot` (same reserved-key pattern as Setup). Page title/breadcrumb stay **Create assessment Campaign**. Sources scroll in `.work-well__body`; first viewport keeps the key. Desktop `.playwright-mcp/page-2026-08-29T05-50-10-415Z.png`. Narrow `.playwright-mcp/page-2026-08-29T05-50-35-850Z.png`. |
+| Compact Create key copy | passed | 2026-08-29: Activities toolbar and create-foot keys are **Create**; page title/breadcrumb stay **Create assessment Campaign**. Create well accessible name is **Draft**. Home/My work plate keys are visible **Open** with `Open {object}` accessible names. Unit: Activities, Create, Home, My work, App. Detector `[]`. Desktop Home `.playwright-mcp/page-2026-08-29T06-02-32-703Z.png`. Narrow Home `.playwright-mcp/page-2026-08-29T06-03-45-941Z.png`. |
+| Nested plate-grid bezels | passed | 2026-08-29: Home, populated My work, and lab Status Bays omit etched wells around plates. Empty indexes keep the well. Live: production Home 0 frames `.playwright-mcp/page-2026-08-29T05-49-35-642Z.png`; Activities registry well `.playwright-mcp/page-2026-08-29T05-50-03-301Z.png`; Create record-frame `.playwright-mcp/page-2026-08-29T05-50-25-633Z.png`; lab Status Bays desktop `.playwright-mcp/page-2026-08-29T05-52-32-815Z.png`; empty `.playwright-mcp/page-2026-08-29T05-53-06-848Z.png`. |
 | Corrective visual-plan consistency | passed | Reconciled active repository state, owner screenshots/feedback, approved Shipboard authority, design-lab donor boundary, page deletion authorization, frontend-developer TDD, bounded Impeccable workflow, and one current Phase 7 cursor on 2026-08-28 |
 | Impeccable planning setup | passed | Context loaded once for this session; `shape` playbook applied to the confirmed replacement-composition brief; no UI code edited in this plan-amendment turn |
 | Wave 7.1 unit tests | passed | 205 `@flex-agent/web` tests including Results click → ceremony |
@@ -721,14 +767,17 @@ Keep/remove/move/amend (tracked paths):
 | Supply-chain / OCI / `verify:oidc` | supply-chain and OCI passed; oidc not run | 2026-08-29: `pnpm verify:supply-chain` exit 0 (SPA SBOM 568 components via `npm exec`). `pnpm verify:oci` exit 0. `verify:oidc` not run: canonical profile uses `:18080` occupied by live compose. |
 | Authenticated OIDC (candidate Vite) | passed | Synthetic administrator via Keycloak to `http://localhost:5274/`. Requires candidate overlay RedirectUri + `VITE_DEV_API_PROXY=http://127.0.0.1:18080` (default `pnpm dev` proxies `:8080` and will not complete callback) |
 | Authenticated Home / Setup / denied / unknown Playwright | passed with residuals | Home `.playwright-mcp/page-2026-08-28T08-51-20-427Z.png`; Activities empty `.playwright-mcp/page-2026-08-28T08-51-53-981Z.png`; Setup `.playwright-mcp/page-2026-08-28T08-52-59-603Z.png`; My work denied `.playwright-mcp/page-2026-08-28T08-53-34-029Z.png`; Results denied `.playwright-mcp/page-2026-08-28T08-53-59-838Z.png`; unknown `.playwright-mcp/page-2026-08-28T08-54-30-894Z.png`. Participant My Work / Enrollment live not captured this pass |
-| Independent role reviews | frontend-reviewer done; others not run | Product/Architecture/Security/tester/release-readiness still required in Phase 8 |
-| Phase 7 independent frontend-reviewer | accepted with residuals | Available admin Home/Activities/Enrollment/denied/unknown vs lab donors. See findings below. Owner sign-off still open. Participant My Work live uncaptured. Session/Review/Release contract-unavailable |
+| Independent role reviews | frontend-reviewer done; others skipped | Solo project: formal Product/Architecture/Security/tester/release-readiness reviews not run unless owner requests. |
+| Phase 7 independent frontend-reviewer | accepted with residuals closed | Available surfaces vs lab donors accepted 2026-08-28. Participant My Work live-captured 2026-08-28. Session/Review/Release Product-accepted 2026-08-29. Owner visual sign-off pending. |
 | Consistency re-review (working + theme) | passed | 208 tests. Home→Activities→create reveal (unique submit, heading `[active]`)→Setup→Enrollment→detail→Return Home. Dark Setup `.playwright-mcp/page-2026-08-28T16-03-25-908Z.png`; unknown `.playwright-mcp/page-2026-08-28T16-04-14-666Z.png`; denied `.playwright-mcp/page-2026-08-28T16-04-52-876Z.png`. Fixed Setup title `field-input--wide` (was 108px clip). Cohorts crumb → setup; Cohort crumb → enrollments. Detector `[]`; isolation passed |
 | Phase 7 review-fix Playwright MCP | passed | Activities populated desktop `.playwright-mcp/page-2026-08-28T15-43-17-126Z.png`; narrow `.playwright-mcp/page-2026-08-28T15-42-43-618Z.png`; Enrollment desktop `.playwright-mcp/page-2026-08-28T15-52-18-797Z.png`; Home `.playwright-mcp/page-2026-08-28T15-44-21-991Z.png`; My work denied `.playwright-mcp/page-2026-08-28T15-45-04-894Z.png`; Results denied `.playwright-mcp/page-2026-08-28T15-45-43-445Z.png`; unknown `.playwright-mcp/page-2026-08-28T15-46-22-289Z.png`. Lab campaigns `.playwright-mcp/page-2026-08-28T15-48-57-093Z.png`; enrollments `.playwright-mcp/page-2026-08-28T15-49-48-072Z.png`; participant home `.playwright-mcp/page-2026-08-28T15-50-40-416Z.png`; unknown `.playwright-mcp/page-2026-08-28T15-51-40-629Z.png` |
 | Consistency re-review (working + identity + theme) | passed with residuals | 2026-08-28 in-thread `frontend-reviewer`. Focused unit 35/35. Live compose `:18080`: participant intake begin/cancel; SSO logout confirm → `demo.admin`; light-theme Home/My Work/Activities/Setup/Enrollment/unknown persist. High: full navigation to `/sessions/{id}` hits nginx API proxy and Chrome 404 instead of SPA ceremony `.playwright-mcp/page-2026-08-28T17-12-32-826Z.png`. Medium: native file picker on open intake `.playwright-mcp/page-2026-08-28T17-11-43-982Z.png`. Unknown hug (no crumbs) `.playwright-mcp/page-2026-08-28T17-18-58-299Z.png`. |
 | Confirmation pass | passed | 2026-08-28: gallery unit+E2E green; administrator session still Activities-capable; populated registry `.playwright-mcp/page-2026-08-28T17-21-23-851Z.png`; `/my-work` Access denied `.playwright-mcp/page-2026-08-28T17-22-02-636Z.png`. Residual `/sessions/` nginx collision closed 2026-08-29. |
 | Phase 8 P2 craft + gateway (no owner) | passed | `$impeccable clarify` UTC deadline copy; `$impeccable adapt` Begin intake in operate-head; `$impeccable layout` hug single assignment + ≤4-row registries; Shipboard Choose files key. Gateway `location ~ ^/sessions/[^/]+/events` + Vite bypass so document loads stay SPA. Detector `[]`. Session SPA deny desktop `.playwright-mcp/page-2026-08-28T17-42-27-479Z.png`. Activities hug `.playwright-mcp/page-2026-08-28T17-41-32-487Z.png`. Enrollment hug `.playwright-mcp/page-2026-08-28T17-42-08-783Z.png`. |
-| Confirmation pass (review residuals) | passed | 2026-08-29: Enrollment exclusive end uses `campaignDeadlineCopy` (no raw ISO; UTC aliases skip false “conversion unavailable”). Ceremony locators hide breadcrumbs. Hug inner `.datatable-scroll` is `flex: 0 0 auto` (Activities frame 224px vs viewport 800). Focused production tests 61 green. Detector `[]`. Vite `:5274` Access denied `.playwright-mcp/page-2026-08-28T18-00-09-597Z.png`; Activities hug `.playwright-mcp/page-2026-08-28T18-00-44-195Z.png`; Enrollment hug `.playwright-mcp/page-2026-08-28T18-01-23-280Z.png`; Enrollment deadline `.playwright-mcp/page-2026-08-28T18-03-25-507Z.png`; unknown `.playwright-mcp/page-2026-08-28T18-04-04-380Z.png`. Session ceremony on Vite remains Access denied without crumbs (snapshot this pass; earlier Session deny `.playwright-mcp/page-2026-08-28T17-42-27-479Z.png`). Compose `:18080` document `/sessions/{id}` HTML 200; `/sessions/{id}/events` 401 unauthenticated. Compose SPA image still older than Vite until rebuild. |
+| Confirmation pass (review residuals) | passed | 2026-08-29: Enrollment exclusive end uses `campaignDeadlineCopy` (no raw ISO; UTC aliases skip false “conversion unavailable”). Ceremony locators hide breadcrumbs. Hug inner `.datatable-scroll` is `flex: 0 0 auto`; outer `.workspace-area.registry-wall--hug` / `.assignment-board--hug` no longer flex-grow (2026-08-29). Focused production tests green. Detector `[]`. Vite evidence in checklist section. Compose `:18080` document `/sessions/{id}` HTML 200; `/sessions/{id}/events` 401 unauthenticated. Compose SPA image still older than Vite until rebuild. |
+| Product acceptance (contract-unavailable P0) | accepted | 2026-08-29 owner: Session/Review/Result/Release honest unavailable pages are acceptable for this slice; remaining host HTTP deferred. |
+| Owner visual sign-off | in progress | 2026-08-29 owner performing pass on implemented surfaces (see checklist below). |
+| Operator menu chrome distill | passed | 2026-08-29: shared `operatorAccountActions`; production + lab identity menus; strip `ThemeToggle` when there is no operator identity. 13 focused production tests; lab operator + digest. Detector `[]` on `ProductionAppShell.tsx`. Open strip `z-index: 90`. Lab Home menu `.playwright-mcp/page-2026-08-29T04-32-12-214Z.png`. |
 
 # Phase 7 frontend-reviewer findings (2026-08-28)
 
@@ -740,20 +789,21 @@ production surfaces listed in Current cursor. Do not treat this as owner
 acceptance or Phase 8 completion.
 
 [High] Participant My Work populated/empty not live-accepted
-- Status: **closed 2026-08-28** after Keycloak logout confirmation. Live empty and
-  populated My Work plus assignment detail captured as Participant (see
-  Verification). Remaining: owner visual sign-off.
+- Status: **closed 2026-08-28** after participant journey verification (logout
+  confirm was required before `id_token_hint`; superseded 2026-08-29). Live
+  empty and populated My Work plus assignment detail captured as Participant
+  (see Verification). Remaining: owner visual sign-off.
 
 [High] Session / Review / Result / Release remain contract-unavailable
-- Location: authorized P0 destinations without host HTTP
-- Spec/heuristic: ADR-021; frontend architecture contract matrix
-- Evidence: documented host gap; not re-opened as SPA visual debt
-- Impact: those journeys cannot demonstrate design-lab session/reviewer craft
-- Recommendation: Phase 8 Product acceptance of honest unavailable pages, or
-  ship host contracts then rebuild those pages
+- Status: **accepted 2026-08-29 (Product/owner).** Honest `ContractUnavailablePage`
+  and Access denied ceremonies are the approved interim P0 behavior until host
+  HTTP ships. Not SPA visual debt; separate backend task.
 
 [Polish] Single-row registries keep a tall well
-- Status: **closed 2026-08-29**. `registry-wall--hug` when 1–4 rows; inner `.datatable-scroll` no longer flex-grows. `assignment-bays--hug` when one assignment.
+- Status: **closed 2026-08-29**. `registry-wall--hug` when 1–4 rows; inner
+  `.datatable-scroll` and outer `.workspace-area.registry-wall--hug` no longer
+  flex-grow. `assignment-bays--hug` and `.assignment-board--hug` when one
+  assignment.
 
 [Polish] Roster / Enrollment deadline falls back to raw UTC ISO
 - Status: **closed 2026-08-29**. `campaignDeadlineCopy` on My Work and Enrollment exclusive end. UTC aliases format without a conversion-unavailable apology.
@@ -775,9 +825,9 @@ search clipping `STATUS`; Setup Campaign title clipped at 108px (now
 # Blockers
 
 - Attempt start, Text Session command/snapshot HTTP, Review, Result, and Release
-  host APIs are missing. Interim default: keep honest contract-unavailable pages
-  rather than inventing SPA truth. Rationale: server authority and ADR-021
-  isolation. Separate backend work is required for slices 4–6 and Start Attempt.
+  host APIs are missing. **Product accepted** honest contract-unavailable pages
+  for this UX slice (2026-08-29). Separate backend work remains required for
+  slices 4–6 and Start Attempt when the owner picks that up.
 - Candidate OIDC against Vite `:5274` works when the API RedirectUri is
   `http://localhost:5274/auth/callback` and Vite proxies `/auth` to
   `http://127.0.0.1:18080`. The previous `authn.invalid_provider_response` was
@@ -787,10 +837,33 @@ search clipping `STATUS`; Setup Campaign title clipped at 108px (now
 - Document loads of `/sessions/{id}` now reach the SPA. The gateway proxies only
   `GET /sessions/{id}/events` to the API. Live nginx was reloaded 2026-08-29.
   Vite document navigations under `/sessions` bypass to `index.html`.
-- These backend gaps still block claiming Session/Review/Release journeys.
-  Authenticated visual acceptance of contract-backed admin Home/Activities/Setup,
-  participant My Work (empty and populated), assignment intake, and honest
-  denied/unknown ceremonies can proceed from the captures above.
+- These backend gaps no longer block **closing this UX reset task** after owner
+  visual sign-off. They block claiming Session/Review/Release as implemented
+  journeys only.
+
+# Owner visual pass checklist (2026-08-29)
+
+Use Vite `http://localhost:5274` with `VITE_DEV_API_PROXY=http://127.0.0.1:18080`
+or compose `:18080` after rebuild. Synthetic accounts: `demo.admin`,
+`demo.participant`.
+
+| Surface | Route / actor | Pass |
+| --- | --- | --- |
+| Sign in / sign out | unauthenticated → OIDC | [ ] |
+| Home | `/` as admin and participant | [ ] |
+| Activities registry | `/activities` admin | [ ] |
+| Setup | activity setup | [ ] |
+| Enrollment roster + detail | cohort enrollments | [ ] |
+| My Work empty / populated | `/my-work` participant | [ ] |
+| Assignment intake | assignment detail, Begin intake | [ ] |
+| Access denied | `/my-work` as admin | [ ] |
+| Contract unavailable | `/results`, `/review` when authorized | [ ] |
+| Unknown locator | `/not-a-destination` | [ ] |
+| Session locator ceremony | `/sessions/{id}` (SPA, not 404) | [ ] |
+| Light theme | toggle on one admin + one participant page | [ ] |
+| Narrow viewport | repeat key surfaces ~390px | [ ] |
+
+Record outcome here when done: **pass** / **pass with notes** / **fail** (list defects).
 
 # Phase 8 `$impeccable audit` (2026-08-28)
 
@@ -813,32 +886,44 @@ without lab fixtures.
 
 No P0. P1 none on available surfaces. P2 craft items from the 2026-08-28 audit
 are closed in the 2026-08-29 pass (UTC deadline copy, Begin intake in the
-operate-head, hug bays/registries, Shipboard Choose files key).
+operate-head, inner and outer hug for registries/assignments, Shipboard Choose
+files key).
 
 # Open questions
 
-Does P0 SPA ship require live Session/Review/Release UI, or is
-contract-unavailable acceptable until those host APIs exist? Interim default:
-do not mark this task completed while those journeys remain unimplemented and
-the definition of done still requires them. Rationale: the plan's Phase 5 exit
-gate requires contract-backed slices, not placeholders.
+**Resolved 2026-08-29 (owner):** P0 SPA may ship with honest contract-unavailable
+Session/Review/Result/Release destinations until host HTTP exists. Implemented
+admin/participant surfaces are in scope for this task; backend verticals are a
+follow-on.
 
 # Completion
+
+**Status (2026-08-29):** `in-progress`. Engineering and verification for
+implemented surfaces are complete pending owner visual sign-off. Product
+accepted contract-unavailable P0 destinations. Only owner visual pass and task
+reconciliation remain before `status: completed`.
 
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Former UI/UX authority is retired without stale current links
 - [x] `web-legacy/` is removed; `web/` is the only production SPA package
 - [x] Replacement P0 IA/journeys exist as Approved v1.0 documents
 - [x] Design-lab isolation for the restored production artifact is verified
-- [ ] Every current production page is rebuilt or explicitly accepted against a
-  named design-lab/Component Deck donor and the approved design system
-- [ ] Empty/loading/error/denied/unavailable states are visually intentional and
-  do not fabricate production data or capability
+- [x] Every in-scope production page is rebuilt against a named design-lab/
+  Component Deck donor (visual matrix above). Session/Review/Release/Result
+  honest unavailable pages are Product-accepted interim behavior.
+- [x] Empty/loading/error/denied/unavailable states are intentional and do not
+  fabricate production data or capability (engineering + Playwright evidence)
 - [x] Bounded Impeccable shape/harden/adapt/polish/audit passes and final
   mechanical detection are recorded
-- [ ] Desktop/narrow accessibility snapshots and side-by-side visual evidence
-  support owner and independent frontend-reviewer acceptance
-- [ ] Planned work is fully reconciled with DoD (slices 4–6 and reviews open)
-- [ ] Applicable integration/regression (OIDC/OCI/E2E/dotnet) checks pass
-- [ ] Accessibility, responsive, security/privacy, and release-readiness reviews pass
-- [ ] Task state is complete for claiming the reset done
+- [x] Desktop/narrow accessibility snapshots and Playwright evidence exist for
+  implemented surfaces (Verification table). Owner final visual sign-off pending.
+- [x] Planned work reconciled with DoD for this UX slice. Slices 4–6 host HTTP
+  and formal multi-role reviews explicitly deferred or skipped per owner
+  2026-08-29.
+- [>] Applicable integration/regression checks: `verify:web` (2026-08-28),
+  `verify:web:production` (2026-08-29), `verify:dotnet`, supply-chain, and OCI
+  passed; `verify:oidc` not run; compose SPA image may lag until rebuild.
+- [-] Formal accessibility, responsive, security/privacy, and release-readiness
+  reviews skipped (solo project).
+- [ ] Owner visual sign-off recorded (checklist below).
+- [ ] Task state set to `completed` after visual pass and final reconciliation.

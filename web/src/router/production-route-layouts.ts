@@ -4,11 +4,12 @@ import { layoutIdForPath } from "./route-layout-match";
 export const PRODUCTION_ROUTE_LAYOUTS = {
   "/": "management",
   "/activities": "management",
+  "/activities/new": "management",
   "/activities/:activityId/setup": "management",
   "/activities/:activityId/cohorts/:cohortId/enrollments": "management",
   "/activities/:activityId/cohorts/:cohortId/enrollments/:enrollmentId": "management",
   "/my-work": "management",
-  "/my-work/:enrollmentId": "management",
+  "/my-work/:enrollmentId": "guided-task",
   "/sessions/:sessionId": "management",
   "/review": "management",
   "/review/:reviewId": "management",

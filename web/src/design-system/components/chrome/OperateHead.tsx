@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { cx } from "../../../lib/cx";
+import { Inline } from "../layout/Inline";
+import { Stack } from "../layout/Stack";
 
 export function Announcer({ message }: { message: string }) {
   return (
@@ -28,25 +30,40 @@ export function OperateHead({
 }) {
   const plaque = arrangement === "plaque";
   const Root = plaque ? "header" : "div";
+  const heading = (
+    <h1 className="operate-title" tabIndex={titleTabIndex}>
+      {title}
+    </h1>
+  );
+  const descriptionNode = description ? <p className="page-desc">{description}</p> : null;
+  const copy = plaque ? null : (
+    <Stack className="operate-head-copy" gap="2.5" align="start">
+      {heading}
+      {descriptionNode}
+    </Stack>
+  );
   return (
     <Root
       className={cx("operate-head", plaque && "operate-head--plaque", className)}
       data-head-arrange={plaque ? "plaque" : undefined}
     >
-      {back}
       {plaque ? (
-        <div className="operate-head-cluster">
-          <h1 className="operate-title" tabIndex={titleTabIndex}>
-            {title}
-          </h1>
-          {headExtra}
-        </div>
+        <>
+          {back}
+          <div className="operate-head-cluster">
+            {heading}
+            {headExtra}
+          </div>
+          {descriptionNode}
+        </>
+      ) : back ? (
+        <Inline className="operate-head-mast" gap="3" align="start" justify="between" wrap={false}>
+          {copy}
+          {back}
+        </Inline>
       ) : (
-        <h1 className="operate-title" tabIndex={titleTabIndex}>
-          {title}
-        </h1>
+        copy
       )}
-      {description ? <p className="page-desc">{description}</p> : null}
       {plaque ? null : headExtra}
     </Root>
   );

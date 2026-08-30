@@ -9,6 +9,10 @@ scrim when the incumbent surface must stay readable.
 680px. Tall bodies scroll inside; head and foot stay seated. Titles may lead
 with the amber warning triangle when the action is consequential.
 
+`DialogPlateFooter` uses the shared [`PlateFoot`](cards.md#plate-foot) rail
+(`arrangement` default `end`; `split` for Cancel + commit). Ceremony fill
+feet keep `className="ceremony-foot"` and do not use the plate-foot cluster.
+
 ## Bulkhead
 
 Leading or trailing smoked-glass drawer. Escape, scrim, and Close dismiss;

@@ -73,7 +73,7 @@ public sealed class HumanAuthenticationHostOptions
             AbsoluteLifetime = AbsoluteLifetime,
         };
 
-    public string? TryBrowserEndSessionUrl()
+    public string? TryBrowserEndSessionUrl(string? idTokenHint = null, bool signInDenied = false)
     {
         if (!IsAllowedBrowserEndpoint(EndSessionEndpoint))
         {
@@ -81,7 +81,12 @@ public sealed class HumanAuthenticationHostOptions
         }
 
         var query = "?client_id=" + Uri.EscapeDataString(ClientId);
-        if (TryPostLogoutRedirectUri(out var postLogoutRedirectUri))
+        if (!string.IsNullOrWhiteSpace(idTokenHint))
+        {
+            query += "&id_token_hint=" + Uri.EscapeDataString(idTokenHint);
+        }
+
+        if (TryPostLogoutRedirectUri(signInDenied, out var postLogoutRedirectUri))
         {
             query += "&post_logout_redirect_uri=" + Uri.EscapeDataString(postLogoutRedirectUri);
         }
@@ -89,7 +94,21 @@ public sealed class HumanAuthenticationHostOptions
         return EndSessionEndpoint + query;
     }
 
-    private bool TryPostLogoutRedirectUri(out string postLogoutRedirectUri)
+    public string CallbackFailureLocation(bool endProviderSession, string? idTokenHint = null)
+    {
+        if (endProviderSession)
+        {
+            var endSession = TryBrowserEndSessionUrl(idTokenHint, signInDenied: true);
+            if (endSession is not null)
+            {
+                return endSession;
+            }
+        }
+
+        return SignInCompletionRecovery.DeniedPath;
+    }
+
+    private bool TryPostLogoutRedirectUri(bool signInDenied, out string postLogoutRedirectUri)
     {
         postLogoutRedirectUri = string.Empty;
         if (!Uri.TryCreate(RedirectUri, UriKind.Absolute, out var redirect)
@@ -101,7 +120,9 @@ public sealed class HumanAuthenticationHostOptions
         postLogoutRedirectUri = new UriBuilder(redirect)
         {
             Path = "/",
-            Query = string.Empty,
+            Query = signInDenied
+                ? SignInCompletionRecovery.QueryName + "=" + SignInCompletionRecovery.DeniedValue
+                : string.Empty,
             Fragment = string.Empty,
         }.Uri.AbsoluteUri;
         return true;

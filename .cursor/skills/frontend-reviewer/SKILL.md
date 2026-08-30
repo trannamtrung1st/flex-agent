@@ -12,7 +12,10 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - Ground findings in requirement/AC IDs, the diff, tests, the status/authority
   rules in `docs/ui-ux/design-system/README.md`, and every applicable module.
 - Run focused tests when practical.
-- Review the live app with the project `playwright` MCP server when UI is available.
+- Review the live app with the project `playwright` MCP server. Attach first:
+  probe the origin this work needs (`docs/contributing/development-harness.md`,
+  Attach to a running local origin) and reuse it when healthy. Do not start a
+  second listener or run `pnpm compose:up` over a healthy stack.
 - Exercise applicable happy, loading, empty, validation, error/retry, pending, permission, and destructive states.
 - Use accessibility snapshots for structure and keyboard interaction.
 - Take desktop and narrow screenshots, including focus, dialog, and error states.

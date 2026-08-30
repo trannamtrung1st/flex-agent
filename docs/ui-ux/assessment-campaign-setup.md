@@ -161,9 +161,11 @@ Activities
     └── History (when separately authorized)
 ```
 
-The page breadcrumb and title preserve the authorized Activity and cohort
-context. Opening an Activity does not imply permission for every child or
-source.
+The page breadcrumb lists reachable destinations (Activities, Setup and
+readiness, Participants, Enrollment). Authorized Activity and cohort context
+stays in the locator, BackKey, and in-page chrome; those locators are not
+invented as trail steps without pages. Opening an Activity does not imply
+permission for every child or source.
 
 ### Setup page hierarchy
 

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { CATALOG_ROUTE } from "../chrome/operator";
-import { Key, KeyGroup } from "../../../design-system/components/keys";
+import { Key } from "../../../design-system/components/keys";
 import { CeremonyDialog } from "../../../design-system/components/overlays/CeremonyDialog";
 import {
   DialogPlate,
@@ -27,11 +27,14 @@ export function SignOutCeremony({
             authentication guarantee.
           </p>
         </DialogPlateBody>
-        <DialogPlateFooter>
-          <KeyGroup>
+        <DialogPlateFooter
+          arrangement="split"
+          secondary={
             <Key variant="quiet" onClick={onClose}>
               Remain signed in
             </Key>
+          }
+          primary={
             <Key
               variant="quiet"
               onClick={() => {
@@ -41,8 +44,8 @@ export function SignOutCeremony({
             >
               Sign out
             </Key>
-          </KeyGroup>
-        </DialogPlateFooter>
+          }
+        />
       </DialogPlate>
     </CeremonyDialog>
   );

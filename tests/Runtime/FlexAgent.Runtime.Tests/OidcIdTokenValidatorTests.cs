@@ -33,8 +33,26 @@ public sealed class OidcIdTokenValidatorTests
         Assert.True(accepted.Succeeded);
         Assert.Equal("subject-1", accepted.Token!.Identity.Subject);
         Assert.True(accepted.Token.IssuedAt > DateTimeOffset.UtcNow.AddMinutes(-2));
+        Assert.Null(accepted.Token.SeatedDisplayName);
         Assert.False(rejected.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InvalidProviderResponse, rejected.ReasonCode);
+    }
+
+    [Fact]
+    public void Id_token_profile_claims_compose_the_seated_display_name()
+    {
+        using var rsa = RSA.Create(2048);
+        var keys = Keys(rsa);
+        var nonce = "nonce-display";
+        var claims = IdClaims(nonce, includeIat: true, includeNbf: false);
+        claims["given_name"] = "Demo";
+        claims["family_name"] = "Participant";
+        claims["preferred_username"] = "demo.participant";
+
+        var accepted = OidcIdTokenValidator.Validate(Sign(rsa, claims), nonce, Profile, keys, Clock);
+
+        Assert.True(accepted.Succeeded);
+        Assert.Equal("Demo Participant", accepted.Token!.SeatedDisplayName);
     }
 
     [Fact]

@@ -10,29 +10,56 @@ import {
   type EnrollmentTimingV2,
 } from "../api/production-enrollment";
 import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
-import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
 import {
+  ACCOMMODATION_CONSEQUENCE_COPY,
+  ACCOMMODATION_DIMENSION_COPY,
+  ACCOMMODATION_STATUS_COPY,
+  ELIGIBILITY_COPY,
+  accommodationValueExample,
+  accommodationValueHint,
+  accommodationCurrentBoundTerm,
+  accommodationCurrentUtc,
+  enrollmentRecordVariant,
+  enrollmentStatusCopy,
+  pickerValueToUtcInstant,
+  utcInstantToPickerValue,
+  wordsFromCode,
+} from "../lib/enrollment-presentation";
+import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import {
+  AcknowledgmentGate,
   Alert,
   BackKey,
   CeremonyDialog,
+  CompactId,
+  DateTimePicker,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
+  EmptyPlate,
   FieldInput,
   FormField,
   Inline,
+  InstantReadout,
   Key,
+  KeyGroup,
   OperateArea,
   ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
+  ReadoutList,
+  Stack,
   StateReadout,
-  WaitPanel,
   WorkWell,
   WorkWellHead,
   WorkWellSection,
 } from "../design-system";
+
+function campaignInstantCopy(utc: string | undefined, timeZoneId: string) {
+  if (!utc) return "—";
+  return campaignDeadlineCopy(formatCampaignInstant(utc, timeZoneId));
+}
 
 export function ProductionEnrollmentDetailPage() {
   const { activityId = "", cohortId = "", enrollmentId = "" } = useParams();
@@ -40,6 +67,7 @@ export function ProductionEnrollmentDetailPage() {
   const client = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const confirmId = useId();
   const valueId = useId();
+  const fairnessId = useId();
   const [detail, setDetail] = useState<EnrollmentDetailV1 | null>(null);
   const [timing, setTiming] = useState<EnrollmentTimingV2 | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,27 +110,56 @@ export function ProductionEnrollmentDetailPage() {
 
   if (error && !detail) {
     return (
-      <CeremonyArea label="Enrollment unavailable" title="Enrollment unavailable" danger>
-        <CeremonyEmpty note={error}>
-          <Key variant="open" to={`/activities/${activityId}/cohorts/${cohortId}/enrollments`}>Return to Participants</Key>
-        </CeremonyEmpty>
-      </CeremonyArea>
+      <CeremonyUnavailable
+        title="Enrollment unavailable"
+        note={error}
+        danger
+        recovery={{ label: "Return to Participants", to: `/activities/${activityId}/cohorts/${cohortId}/enrollments` }}
+      />
     );
   }
 
   if (!detail) {
     return (
       <CeremonyArea label="Enrollment" title="Enrollment">
-        <WaitPanel label="Loading Enrollment…" />
+        <CeremonyWait label="Loading Enrollment…" />
       </CeremonyArea>
     );
   }
 
   const actions = detail.enrollment.permitted_actions;
   const revision = detail.enrollment.revision;
+  const record = enrollmentRecordVariant(detail.enrollment.status);
+  const statusCopy = enrollmentStatusCopy(detail.enrollment.status);
   const dimension = timing?.permitted_dimensions[0];
   const reasonCategory = timing?.permitted_reason_categories[0];
   const canRequest = Boolean(timing?.policy_available && dimension && reasonCategory);
+  const zone = timing?.effective.time_zone_id ?? timing?.baseline.time_zone_id ?? "UTC";
+  const eligibility = wordsFromCode(timing?.effective.eligibility_state, ELIGIBILITY_COPY);
+  const consequence = wordsFromCode(
+    timing?.effective.participant_consequence_code,
+    ACCOMMODATION_CONSEQUENCE_COPY,
+    "None",
+  );
+  const dimensionCopy = wordsFromCode(dimension, ACCOMMODATION_DIMENSION_COPY);
+  const reasonCopy = wordsFromCode(reasonCategory);
+  const durationDimension = dimension === "per_attempt_duration_seconds";
+  const currentBound = timing ? accommodationCurrentUtc(dimension, timing.effective) : "";
+  const effectiveEnd = campaignInstantCopy(timing?.effective.submission_exclusive_end_utc, zone);
+  const baselineDeadline = campaignInstantCopy(timing?.baseline.deadline_utc, timing?.baseline.time_zone_id ?? zone);
+  const currentBoundCopy = durationDimension
+    ? (currentBound ? `${currentBound} seconds` : "—")
+    : campaignInstantCopy(currentBound, zone);
+  const selectedUtc = durationDimension
+    ? null
+    : pickerValueToUtcInstant(requestedValue, zone) ?? (currentBound || null);
+  const selectedDisplay = selectedUtc ? campaignInstantCopy(selectedUtc, zone) : "";
+  const valueExample = accommodationValueExample(dimension, durationDimension ? undefined : currentBound);
+  const valueHint = accommodationValueHint(
+    dimension,
+    zone,
+    selectedDisplay && selectedDisplay !== "—" ? selectedDisplay : undefined,
+  );
 
   function mutate(operation: "suspend" | "restore" | "close" | "revoke") {
     setPending(true);
@@ -128,180 +185,197 @@ export function ProductionEnrollmentDetailPage() {
       .finally(() => setPending(false));
   }
 
+  function runAccommodation(work: () => Promise<{ succeeded: boolean; outcome_code: string }>, failed: string) {
+    setPending(true);
+    void work()
+      .then((outcome) => {
+        if (!outcome.succeeded) {
+          setError(enrollmentOutcomeCopy(outcome.outcome_code, failed));
+          return;
+        }
+        return reload();
+      })
+      .catch((caught: unknown) => {
+        setError(enrollmentFailureCopy(caught, failed));
+      })
+      .finally(() => setPending(false));
+  }
+
+  const hasLifecycle = actions.some((action) => ["suspend", "restore", "close", "revoke"].includes(action));
+
   return (
     <OperateArea
-      className="workspace-area work-plane"
-      frameClassName="record-frame"
+      className="workspace-area work-plane record-plane"
+      framed={false}
       label="Enrollment"
       title={detail.enrollment.display_label}
-      description={`Status ${detail.enrollment.status}. History remains inspectable.`}
+      description={`${statusCopy}. History remains inspectable.`}
       back={<BackKey to={`/activities/${activityId}/cohorts/${cohortId}/enrollments`} label="Participants" />}
-      context={(
+    >
+      <Stack gap="6">
         <ReadoutGrid label="Enrollment identity" columns={4} className="assignment-instruments">
           <ReadoutGridRow label="Identity">
             <ReadoutGridField term="Participant">{detail.enrollment.display_label}</ReadoutGridField>
-            <ReadoutGridField term="Enrollment">{detail.enrollment.enrollment_id}</ReadoutGridField>
+            <ReadoutGridField term="Enrollment">
+              <CompactId tabbable value={detail.enrollment.enrollment_id} />
+            </ReadoutGridField>
             <ReadoutGridField term="Revision">{String(detail.enrollment.revision)}</ReadoutGridField>
             <ReadoutGridField term="Record">
               <StateReadout
-                variant="rest"
-                label={detail.enrollment.status}
+                variant={record.variant}
+                solid={record.solid}
+                label={statusCopy}
                 className="assignment-record"
                 labelClassName="assignment-record-label"
               />
             </ReadoutGridField>
           </ReadoutGridRow>
+          <ReadoutGridRow label="Timing">
+            <ReadoutGridField term="Eligibility">{timing ? eligibility : "—"}</ReadoutGridField>
+            <ReadoutGridField term="Baseline deadline">{timing ? baselineDeadline : "—"}</ReadoutGridField>
+            <ReadoutGridField term="Effective exclusive end">{timing ? effectiveEnd : "—"}</ReadoutGridField>
+            <ReadoutGridField term="Accommodation">{timing ? consequence : "—"}</ReadoutGridField>
+          </ReadoutGridRow>
         </ReadoutGrid>
-      )}
-    >
-      <div className="assignment-station">
-        {error ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
+        {error && !confirmOpen ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
         <WorkWell
           live={false}
           label="Enrollment actions"
           head={<WorkWellHead title="Enrollment actions" ident="Lifecycle stays on the server." />}
-          foot={
-            <Inline gap="2" wrap>
-              {actions.includes("suspend") ? (
-                <Key variant="quiet" disabled={pending} onClick={() => mutate("suspend")}>Suspend</Key>
-              ) : null}
-              {actions.includes("restore") ? (
-                <Key variant="quiet" disabled={pending} onClick={() => mutate("restore")}>Restore</Key>
-              ) : null}
-              {actions.includes("close") ? (
-                <Key variant="quiet" disabled={pending} onClick={() => mutate("close")}>Close</Key>
-              ) : null}
-              {actions.includes("revoke") ? (
-                <Key variant="quiet" disabled={pending} onClick={() => mutate("revoke")}>Revoke</Key>
-              ) : null}
-              {canRequest ? (
-                <Key variant="quiet" disabled={pending} onClick={() => setConfirmOpen(true)}>Request accommodation</Key>
-              ) : null}
-            </Inline>
-          }
         >
           <WorkWellSection>
-            {timing?.effective ? (
-              <p>
-                Effective eligibility {timing.effective.eligibility_state} in {timing.effective.time_zone_id}.
-                Exclusive submission end{" "}
-                {campaignDeadlineCopy(
-                  formatCampaignInstant(
-                    timing.effective.submission_exclusive_end_utc,
-                    timing.effective.time_zone_id,
-                  ),
-                )}.
-              </p>
-            ) : (
-              <p>Timing is not available for this Enrollment.</p>
-            )}
+            <Stack gap="4">
+              {timing ? null : (
+                <EmptyPlate
+                  inset
+                  label="Timing unavailable"
+                  note="Timing is not available for this Enrollment."
+                />
+              )}
+              {hasLifecycle || canRequest ? (
+                <KeyGroup aria-label="Enrollment commands">
+                  {actions.includes("suspend") ? (
+                    <Key variant="quiet" disabled={pending} onClick={() => mutate("suspend")}>Suspend Enrollment</Key>
+                  ) : null}
+                  {actions.includes("restore") ? (
+                    <Key variant="quiet" disabled={pending} onClick={() => mutate("restore")}>Restore Enrollment</Key>
+                  ) : null}
+                  {actions.includes("close") ? (
+                    <Key variant="quiet" disabled={pending} onClick={() => mutate("close")}>Close Enrollment</Key>
+                  ) : null}
+                  {actions.includes("revoke") ? (
+                    <Key variant="quiet" disabled={pending} onClick={() => mutate("revoke")}>Revoke Enrollment</Key>
+                  ) : null}
+                  {canRequest ? (
+                    <Key variant="open" disabled={pending} onClick={() => {
+                      setError(null);
+                      setRequestedValue((current) => {
+                        if (current.trim() || !timing) return current;
+                        const bound = accommodationCurrentUtc(dimension, timing.effective);
+                        if (durationDimension) return bound;
+                        return utcInstantToPickerValue(bound, zone);
+                      });
+                      setConfirmOpen(true);
+                    }}>
+                      Request accommodation
+                    </Key>
+                  ) : null}
+                </KeyGroup>
+              ) : null}
+            </Stack>
           </WorkWellSection>
         </WorkWell>
         <WorkWell live={false} label="Accommodations" head={<WorkWellHead title="Accommodations" ident="Policy-bounded requests. The cohort baseline stays frozen until the server grants a replacement." />}>
           <WorkWellSection>
             {timing && timing.history.length > 0 ? (
-              <ol>
+              <ul>
                 {timing.history.map((item) => (
                   <li key={`${item.accommodation_id}-${item.revision}`}>
-                    {item.dimension} {item.status} ({item.reason_category}
-                    {item.fairness_exception ? "; fairness exception" : ""})
-                    {item.status === "pending_approval" ? (
-                      <Inline gap="2">
+                    <Stack gap="2">
+                      <span>
+                        {wordsFromCode(item.dimension, ACCOMMODATION_DIMENSION_COPY)}
+                        {" · "}
+                        {wordsFromCode(item.status, ACCOMMODATION_STATUS_COPY)}
+                        {" · "}
+                        {wordsFromCode(item.reason_category)}
+                        {item.fairness_exception ? " · Fairness exception" : ""}
+                      </span>
+                      <InstantReadout value={item.created_at_utc} timeZone={zone} />
+                      {item.status === "pending_approval" ? (
+                        <Inline gap="2" wrap>
+                          <Key
+                            variant="quiet"
+                            disabled={pending}
+                            onClick={() => {
+                              runAccommodation(
+                                () => client.decideAccommodation(
+                                  activityId,
+                                  cohortId,
+                                  enrollmentId,
+                                  item.accommodation_id,
+                                  true,
+                                  item.revision,
+                                  createEnrollmentIdempotencyKey(),
+                                ),
+                                "The accommodation could not be decided.",
+                              );
+                            }}
+                          >
+                            Approve exception
+                          </Key>
+                          <Key
+                            variant="quiet"
+                            disabled={pending}
+                            onClick={() => {
+                              runAccommodation(
+                                () => client.decideAccommodation(
+                                  activityId,
+                                  cohortId,
+                                  enrollmentId,
+                                  item.accommodation_id,
+                                  false,
+                                  item.revision,
+                                  createEnrollmentIdempotencyKey(),
+                                ),
+                                "The accommodation could not be decided.",
+                              );
+                            }}
+                          >
+                            Reject exception
+                          </Key>
+                        </Inline>
+                      ) : null}
+                      {item.status === "granted" ? (
                         <Key
                           variant="quiet"
                           disabled={pending}
                           onClick={() => {
-                            setPending(true);
-                            void client.decideAccommodation(
-                              activityId,
-                              cohortId,
-                              enrollmentId,
-                              item.accommodation_id,
-                              true,
-                              item.revision,
-                              createEnrollmentIdempotencyKey(),
-                            )
-                              .then((outcome) => {
-                                if (!outcome.succeeded) {
-                                  setError(enrollmentOutcomeCopy(outcome.outcome_code, "The accommodation could not be decided."));
-                                  return;
-                                }
-                                return reload();
-                              })
-                              .catch((caught: unknown) => {
-                                setError(enrollmentFailureCopy(caught, "The accommodation could not be decided."));
-                              })
-                              .finally(() => setPending(false));
+                            runAccommodation(
+                              () => client.revokeAccommodation(
+                                activityId,
+                                cohortId,
+                                enrollmentId,
+                                item.accommodation_id,
+                                item.revision,
+                                createEnrollmentIdempotencyKey(),
+                              ),
+                              "The accommodation could not be revoked.",
+                            );
                           }}
                         >
-                          Approve exception
+                          Revoke accommodation
                         </Key>
-                        <Key
-                          variant="quiet"
-                          disabled={pending}
-                          onClick={() => {
-                            setPending(true);
-                            void client.decideAccommodation(
-                              activityId,
-                              cohortId,
-                              enrollmentId,
-                              item.accommodation_id,
-                              false,
-                              item.revision,
-                              createEnrollmentIdempotencyKey(),
-                            )
-                              .then((outcome) => {
-                                if (!outcome.succeeded) {
-                                  setError(enrollmentOutcomeCopy(outcome.outcome_code, "The accommodation could not be decided."));
-                                  return;
-                                }
-                                return reload();
-                              })
-                              .catch((caught: unknown) => {
-                                setError(enrollmentFailureCopy(caught, "The accommodation could not be decided."));
-                              })
-                              .finally(() => setPending(false));
-                          }}
-                        >
-                          Reject exception
-                        </Key>
-                      </Inline>
-                    ) : null}
-                    {item.status === "granted" ? (
-                      <Key
-                        variant="quiet"
-                        disabled={pending}
-                        onClick={() => {
-                          setPending(true);
-                          void client.revokeAccommodation(
-                            activityId,
-                            cohortId,
-                            enrollmentId,
-                            item.accommodation_id,
-                            item.revision,
-                            createEnrollmentIdempotencyKey(),
-                          )
-                            .then((outcome) => {
-                              if (!outcome.succeeded) {
-                                setError(enrollmentOutcomeCopy(outcome.outcome_code, "The accommodation could not be revoked."));
-                                return;
-                              }
-                              return reload();
-                            })
-                            .catch((caught: unknown) => {
-                              setError(enrollmentFailureCopy(caught, "The accommodation could not be revoked."));
-                            })
-                            .finally(() => setPending(false));
-                        }}
-                      >
-                        Revoke accommodation
-                      </Key>
-                    ) : null}
+                      ) : null}
+                    </Stack>
                   </li>
                 ))}
-              </ol>
+              </ul>
             ) : (
-              <p>No accommodation history for this Enrollment.</p>
+              <EmptyPlate
+                inset
+                label="No accommodations"
+                note="No accommodation history for this Enrollment."
+              />
             )}
           </WorkWellSection>
         </WorkWell>
@@ -310,57 +384,113 @@ export function ProductionEnrollmentDetailPage() {
             {detail.history.length > 0 ? (
               <ol>
                 {detail.history.map((item) => (
-                  <li key={item.sequence}>
-                    {item.prior_status} → {item.new_status} ({item.reason_code}) at {item.occurred_at}
+                  <li key={item.sequence} data-sequence={String(item.sequence)} value={item.sequence}>
+                    <Stack gap="2">
+                      <span>
+                        {enrollmentStatusCopy(item.prior_status)}
+                        {" → "}
+                        {enrollmentStatusCopy(item.new_status)}
+                        {" ("}
+                        {wordsFromCode(item.reason_code)}
+                        {")"}
+                      </span>
+                      <InstantReadout value={item.occurred_at} timeZone={zone} />
+                    </Stack>
                   </li>
                 ))}
               </ol>
             ) : (
-              <p>No enrollment history is available.</p>
+              <EmptyPlate
+                inset
+                label="No history"
+                note="No enrollment history is available."
+              />
             )}
           </WorkWellSection>
         </WorkWell>
-      </div>
+      </Stack>
       <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
-        <DialogPlate>
+        <DialogPlate width="wide">
           <DialogPlateHead title="Request a bounded accommodation?" titleId={confirmId} />
           <DialogPlateBody>
-            <p>
-              This records a policy-bounded request. It does not change the frozen cohort baseline until the server
-              grants an effective replacement.
-            </p>
-            <FormField id={valueId} label="Requested value" layout="stack">
-              {(control) => (
-                <FieldInput
-                  {...control}
-                  value={requestedValue}
-                  onChange={(event) => setRequestedValue(event.target.value)}
-                />
+            <Stack gap="4">
+              {error ? <Alert variant="danger" title="Request did not complete">{error}</Alert> : null}
+              <p>
+                This records a policy-bounded request. It does not change the frozen cohort baseline until the server
+                grants an effective replacement.
+              </p>
+              <ReadoutList
+                label="Request bounds"
+                rows={[
+                  { term: "Dimension", value: dimensionCopy },
+                  { term: "Reason", value: reasonCopy },
+                  { term: accommodationCurrentBoundTerm(dimension), value: currentBoundCopy },
+                ]}
+              />
+              {durationDimension ? (
+                <FormField id={valueId} label="Requested value" layout="stack" hint={valueHint}>
+                  {(control) => (
+                    <FieldInput
+                      {...control}
+                      value={requestedValue}
+                      placeholder={valueExample}
+                      onChange={(event) => setRequestedValue(event.target.value)}
+                    />
+                  )}
+                </FormField>
+              ) : (
+                <FormField
+                  id={valueId}
+                  label="Requested value"
+                  layout="stack"
+                  hint={valueHint}
+                  labelAssociatesControl={false}
+                >
+                  {(control, { labelId }) => (
+                    <DateTimePicker
+                      id={control.id}
+                      labelId={labelId}
+                      describedBy={control["aria-describedby"]}
+                      mode="datetime"
+                      value={requestedValue}
+                      onChange={setRequestedValue}
+                      now={utcInstantToPickerValue(new Date().toISOString(), zone)}
+                    />
+                  )}
+                </FormField>
               )}
-            </FormField>
-            <p>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={fairnessException}
-                  onChange={(event) => setFairnessException(event.target.checked)}
-                />
-                {" "}
+              <AcknowledgmentGate
+                id={fairnessId}
+                className="control-line"
+                checked={fairnessException}
+                onChange={setFairnessException}
+              >
                 Requires a distinct fairness-exception approver
-              </label>
-            </p>
+              </AcknowledgmentGate>
+            </Stack>
           </DialogPlateBody>
-          <DialogPlateFooter>
-            <Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>
+          <DialogPlateFooter
+            arrangement="split"
+            secondary={<Key variant="quiet" onClick={() => setConfirmOpen(false)}>Cancel</Key>}
+            primary={
             <Key
               variant="transmit"
               disabled={pending || requestedValue.trim().length === 0 || !dimension || !reasonCategory}
               onClick={() => {
                 if (!dimension || !reasonCategory) return;
+                const requested = durationDimension
+                  ? requestedValue.trim()
+                  : pickerValueToUtcInstant(requestedValue, zone);
+                if (!requested) {
+                  setError(durationDimension
+                    ? "Enter a duration in seconds."
+                    : "Enter a complete date and time.");
+                  return;
+                }
                 setPending(true);
                 void client.grantAccommodation(activityId, cohortId, enrollmentId, {
                   dimension,
-                  requested_value: requestedValue.trim(),
+                  requested_value: requested,
                   reason_category: reasonCategory,
                   fairness_exception: fairnessException,
                   expected_revision: timing?.enrollment.revision ?? revision,
@@ -384,7 +514,8 @@ export function ProductionEnrollmentDetailPage() {
             >
               Request accommodation
             </Key>
-          </DialogPlateFooter>
+            }
+          />
         </DialogPlate>
       </CeremonyDialog>
     </OperateArea>

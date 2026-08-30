@@ -62,7 +62,7 @@ public static class HumanAuthenticationEndpointExtensions
             + "?response_type=code"
             + "&client_id=" + Uri.EscapeDataString(options.ClientId)
             + "&redirect_uri=" + Uri.EscapeDataString(options.RedirectUri)
-            + "&scope=openid"
+            + "&scope=" + Uri.EscapeDataString("openid profile")
             + "&state=" + Uri.EscapeDataString(state)
             + "&nonce=" + Uri.EscapeDataString(nonce)
             + "&code_challenge=" + Uri.EscapeDataString(challenge)
@@ -91,24 +91,20 @@ public static class HumanAuthenticationEndpointExtensions
         var state = context.Request.Query["state"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
         {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
-        if (Guid.TryParse(context.Request.Query["organization_id"].FirstOrDefault(), out var clientOrganization))
+        if (Guid.TryParse(context.Request.Query["organization_id"].FirstOrDefault(), out _))
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(
-                new { error = HumanAuthenticationReasonCodes.ClientSuppliedOrganizationRejected });
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
         var presentedCorrelation = context.Request.Cookies[HumanAuthenticationHostOptions.CorrelationCookieName];
         if (string.IsNullOrWhiteSpace(presentedCorrelation))
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
@@ -120,19 +116,14 @@ public static class HumanAuthenticationEndpointExtensions
             context.RequestAborted);
         if (transaction is null)
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(
-                new { error = HumanAuthenticationReasonCodes.ReplayOrConsumedTransaction });
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
         var exchange = await tokens.ExchangeAuthorizationCodeAsync(code, transaction.CodeVerifier, context.RequestAborted);
         if (exchange.IdToken is null)
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new { error = exchange.ErrorReason });
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
@@ -142,9 +133,7 @@ public static class HumanAuthenticationEndpointExtensions
             context.RequestAborted);
         if (keys is null)
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            await context.Response.WriteAsJsonAsync(new { error = HumanAuthenticationReasonCodes.ProviderUnavailable });
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
@@ -156,9 +145,7 @@ public static class HumanAuthenticationEndpointExtensions
             timeProvider);
         if (!validated.Succeeded || validated.Token is null)
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new { error = validated.ReasonCode });
+            RedirectCallbackFailure(context, options, endProviderSession: false);
             return;
         }
 
@@ -167,15 +154,15 @@ public static class HumanAuthenticationEndpointExtensions
                 validated.Token.Identity,
                 validated.Token.Strength,
                 validated.Token.ProviderSessionId,
-                validated.Token.IssuedAt),
+                validated.Token.IssuedAt,
+                exchange.IdToken,
+                validated.Token.SeatedDisplayName),
             clientSuppliedOrganizationId: null,
             transaction.CorrelationId,
             context.RequestAborted);
         if (!completed.Succeeded || completed.RawCredential is null)
         {
-            ClearCorrelationCookie(context, options);
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = completed.ReasonCode });
+            RedirectCallbackFailure(context, options, endProviderSession: true, idTokenHint: exchange.IdToken);
             return;
         }
 
@@ -221,9 +208,10 @@ public static class HumanAuthenticationEndpointExtensions
             return;
         }
         var credential = context.Request.Cookies[HumanAuthenticationHostOptions.CookieName];
+        ApplicationLogoutResult logout = ApplicationLogoutResult.NotFound();
         if (!string.IsNullOrWhiteSpace(credential))
         {
-            await coordinator.LogoutAsync(credential, Guid.NewGuid(), context.RequestAborted);
+            logout = await coordinator.LogoutAsync(credential, Guid.NewGuid(), context.RequestAborted);
         }
 
         AppendSessionCookie(context, string.Empty, options, persistent: false);
@@ -231,7 +219,7 @@ public static class HumanAuthenticationEndpointExtensions
         await context.Response.WriteAsJsonAsync(new
         {
             logged_out = true,
-            end_session_url = options.TryBrowserEndSessionUrl(),
+            end_session_url = options.TryBrowserEndSessionUrl(logout.IdTokenHint),
         });
     }
 
@@ -310,6 +298,16 @@ public static class HumanAuthenticationEndpointExtensions
 
         await coordinator.ApplyAccountDisablementAsync(identity, Guid.NewGuid(), context.RequestAborted);
         context.Response.StatusCode = StatusCodes.Status204NoContent;
+    }
+
+    private static void RedirectCallbackFailure(
+        HttpContext context,
+        HumanAuthenticationHostOptions options,
+        bool endProviderSession,
+        string? idTokenHint = null)
+    {
+        ClearCorrelationCookie(context, options);
+        context.Response.Redirect(options.CallbackFailureLocation(endProviderSession, idTokenHint));
     }
 
     private static void AppendCorrelationCookie(

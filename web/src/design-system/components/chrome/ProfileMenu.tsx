@@ -19,7 +19,13 @@ export function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
-  const label = ariaLabel ?? `Operator menu, ${identity.role.toLowerCase()} ${identity.fullId}`;
+  const named = identity.fullId.trim();
+  const role = identity.role.trim();
+  const label = ariaLabel ?? (
+    named && named.toLowerCase() !== role.toLowerCase()
+      ? `Operator menu, ${role.toLowerCase()} ${named}`
+      : `Operator menu, ${role.toLowerCase() || named}`
+  );
   const rail = Boolean(className?.includes("strip-profile--rail"));
   const standard = actions.filter((action) => action.intent !== "signout");
   const signOut = actions.filter((action) => action.intent === "signout");
@@ -55,7 +61,9 @@ export function ProfileMenu({
           onKeyDown={bind.onKeyDown}
         >
           <OperatorGlyph />
-          <span className="strip-profile-id">{identity.shortId}</span>
+          <span className="strip-profile-copy">
+            <span className="strip-profile-id">{identity.shortId}</span>
+          </span>
           <ChevronGlyph />
         </button>
       )}

@@ -67,7 +67,7 @@ export function PoliciesArea() {
           <ReadoutGridField term="Human review">Required before Release</ReadoutGridField>
         </ReadoutGridRow>
       </ReadoutGrid>
-      <PlateFoot className="plate-foot--start">
+      <PlateFoot arrangement="start">
         <p className="frozen-line">Policy authoring is not seated in this prototype</p>
       </PlateFoot>
       </Stack>

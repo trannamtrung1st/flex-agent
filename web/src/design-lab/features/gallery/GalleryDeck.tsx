@@ -1,10 +1,11 @@
 import type { MouseEvent } from "react";
 import { CATALOG_ROUTE } from "../../data/fixtures/surfaces";
-import { Stack, useToasts } from "../../components";
+import { LabThemeToggle, Stack, useToasts } from "../../components";
 import { ReferenceLayout } from "../../../design-system/lab";
 import { DataSections } from "./sections/DataSections";
 import { FeedbackSections } from "./sections/FeedbackSections";
 import { FoundationsSections } from "./sections/FoundationsSections";
+import { FormRecipeSections } from "./sections/FormRecipeSections";
 import { InputSections } from "./sections/InputSections";
 import { LayoutPrimitiveSections } from "./sections/LayoutPrimitiveSections";
 import { LayoutSections } from "./sections/LayoutSections";
@@ -30,9 +31,9 @@ export function GalleryDeck() {
       commandStrip={{
         homeTo: CATALOG_ROUTE,
         homeLabel: "Channel index",
-        origin: true,
         brandSuffix: "Component Deck",
         readout: "SHARED LAYER · SHIPBOARD TERMINAL",
+        identLeading: <LabThemeToggle />,
       }}
       index={{
         groups: gallerySections,
@@ -51,6 +52,7 @@ export function GalleryDeck() {
       <FeedbackSections toasts={toasts} pushToast={pushToast} />
       <LayoutSections />
       <LayoutPrimitiveSections />
+      <FormRecipeSections />
       <InputSections />
     </ReferenceLayout>
   );

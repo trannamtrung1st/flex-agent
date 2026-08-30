@@ -1,4 +1,14 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type SyntheticEvent } from "react";
+
+const NESTED_OVERLAY = [
+  '[aria-expanded="true"][aria-haspopup="dialog"]',
+  '[aria-expanded="true"][aria-haspopup="listbox"]',
+  '[aria-expanded="true"][aria-haspopup="menu"]',
+].join(", ");
+
+function nestedOverlayExpanded(dialog: HTMLElement | null) {
+  return Boolean(dialog?.querySelector(NESTED_OVERLAY));
+}
 
 export function NativeDialog({
   open,
@@ -17,6 +27,7 @@ export function NativeDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const suppressEscapeClose = useRef(false);
 
   useEffect(() => {
     const node = ref.current;
@@ -37,6 +48,29 @@ export function NativeDialog({
     }
   }, [open]);
 
+  function onKeyDownCapture(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Escape") return;
+    if (nestedOverlayExpanded(ref.current)) {
+      suppressEscapeClose.current = true;
+    }
+  }
+
+  function onKeyUpCapture(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Escape") return;
+    if (!nestedOverlayExpanded(ref.current)) {
+      suppressEscapeClose.current = false;
+    }
+  }
+
+  function onCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault();
+    if (suppressEscapeClose.current) {
+      suppressEscapeClose.current = false;
+      return;
+    }
+    onClose();
+  }
+
   return (
     <dialog
       ref={ref}
@@ -44,9 +78,9 @@ export function NativeDialog({
       className={className}
       aria-labelledby={labelledBy}
       onClose={onClose}
-      onCancel={() => {
-        onClose();
-      }}
+      onCancel={onCancel}
+      onKeyDownCapture={onKeyDownCapture}
+      onKeyUpCapture={onKeyUpCapture}
     >
       {children}
     </dialog>

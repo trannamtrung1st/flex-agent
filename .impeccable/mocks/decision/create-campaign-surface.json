@@ -1,0 +1,118 @@
+{
+  "title": "Choose the Create assessment Campaign station",
+  "question": "Shipboard Terminal stays. The roll seated a source berth rack inside the management record — not the current stacked dropdowns. Lock a composition, steer, or re-roll. Alphabet storm, variable-font specimen, and elbow-panel console wait in the re-roll pool.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Berth rack",
+      "kicker": "THE ROLL",
+      "lineage": "Source board on a working ship: ten required bindings occupy visible berths",
+      "thesis": "Name the Campaign on a plaque; the ten required sources sit as etched berths you inspect and bind, then Create.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["smoked-glass plate", "etched cell grid", "notched berth", "revision code cluster", "Michroma + Sometype Mono"],
+      "viewport": "Command strip and gangway stay. Operate head is Create assessment Campaign, Activities back, and form/type microlabels. A wide notched plate fills the record: title nameplate, then a visible 5-by-2 berth grid of product-named sources with short revision codes and eligibility marks; dashed slack for a missing required category. Amber Create stays in the reserved foot.",
+      "risk": "Ten cells still read as a parts bin if labels stay snake_case or revisions stay raw UUIDs.",
+      "raised": [
+        {
+          "from": "alphabet storm",
+          "raise": "The Campaign title is the one word that comes into existence; berths are the landscape it names, not a second equal form."
+        },
+        {
+          "from": "tensegrity column",
+          "raise": "A missing required category is a slack dashed berth, never an omitted row."
+        },
+        {
+          "from": "variable font specimen",
+          "raise": "Title at display scale, source labels at instrument micro; hierarchy by scale contrast alone."
+        },
+        {
+          "from": "oscilloscope bench",
+          "raise": "Berths sit on an etched division grid; each cell is one source channel."
+        },
+        {
+          "from": "Crouwel grid",
+          "raise": "The construction grid stays visible; sources occupy cells, they are not a stacked form."
+        },
+        {
+          "from": "elbow panel",
+          "raise": "Each berth carries a short revision code cluster, not a prose sentence."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/create-berth.webp"
+    },
+    {
+      "id": "ceremony-plate",
+      "label": "Commissioning plate",
+      "lineage": "Lab Campaign Configuration ceremony plate, seated as the create record",
+      "thesis": "Create is one wide ceremony plate: identity first, then the signed source set, then a monument Create.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["ceremony plate", "notched clip", "dropdown selects", "signed source strip", "Michroma + Sometype Mono"],
+      "viewport": "Same chrome. A wide notched ceremony plate fills the record, not a dialog. Form/type as a chase. Campaign title at monument scale. Agent and Harness as two full selects; the other eight bindings as a compact signed revision strip. Amber Create in the ceremony foot.",
+      "case": "Strongest when the administrator should feel a Campaign coming into existence, then continue to Setup.",
+      "risk": "Reads as a parked modal, or as Setup-lite, if the plate floats or the strip hides exact revisions.",
+      "comp": ".impeccable/mocks/decision/create-ceremony.webp"
+    },
+    {
+      "id": "dock-ledger",
+      "label": "Dock ledger",
+      "lineage": "Reviewer split bay adapted to commissioning: identity facing the source manifest",
+      "thesis": "Identity and source manifest are facing pages, so Create never hides below the source wall.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["plaque head", "split bay", "manifest rows", "reserved Create key", "Michroma + Sometype Mono"],
+      "viewport": "Operate head with back and title. Start column: form/type, Campaign title, and the Create key. Main column: ten readable source rows (object, name, revision, eligibility), each a select. Narrow stacks identity then manifest with Create sticky.",
+      "case": "Holds when all ten revisions must stay inspectable without scrolling the primary action away.",
+      "risk": "The left column feels empty until a title is typed, and can read as a reviewer console for a create task.",
+      "comp": ".impeccable/mocks/decision/create-ledger.webp"
+    },
+    {
+      "id": "challenger-crouwel",
+      "label": "Construction grid",
+      "verdict": "declined",
+      "lineage": "Wim Crouwel gridded type specimen, fused as a visible cell armature",
+      "thesis": "Letterforms and sources assemble from the same visible construction grid.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["visible cell grid", "monument title cells"],
+      "viewport": "Faint construction hairlines over the record; the title occupies giant cells; sources fill the remaining cells.",
+      "case": "Holds clarity of required cells; loses audience — administrators are not poster makers. The visible cell grid was kept.",
+      "kept": "The construction grid stays visible; sources occupy cells, they are not a stacked form.",
+      "risk": "A type-specimen poster on a fairness binding task.",
+      "hero": "https://impeccable.style/worlds/cards/crouwel-grid-specimen-hero.webp"
+    },
+    {
+      "id": "challenger-scope",
+      "label": "Channel graticule",
+      "verdict": "declined",
+      "lineage": "CRT oscilloscope signal bench, fused as ten source channels",
+      "thesis": "Each required source is a channel on one etched graticule.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["phosphor trace", "etched graticule"],
+      "viewport": "A ten-division graticule where each division is a source channel with a revision readout.",
+      "case": "Loses as a whole station: an oscilloscope watches signals over time, it does not bind discrete revisions. Channel divisions were kept.",
+      "kept": "Berths sit on an etched division grid; each cell is one source channel.",
+      "risk": "Turns commissioning into a live waveform monitor.",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-oscilloscope-signal-bench-hero.webp"
+    },
+    {
+      "id": "challenger-tensegrity",
+      "label": "Load members",
+      "verdict": "declined",
+      "lineage": "Tensegrity breathing column, fused as required source members",
+      "thesis": "The Campaign stands only when every required source is in tension.",
+      "palette": ["#07141B", "#041018", "#3CC0BF", "#E2A33C"],
+      "materials": ["strut network", "slack vs locked members"],
+      "viewport": "A force diagram of ten members; slack members are unbound categories.",
+      "case": "Loses audience: administrators are not structural engineers. Slack-versus-locked was kept.",
+      "kept": "A missing required category is a slack dashed berth, never an omitted row.",
+      "risk": "A sculpture metaphor on a create form.",
+      "hero": "https://impeccable.style/worlds/cards/kinetic-sculpture-automata-tensegrity-breathing-column-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "steer": true
+}

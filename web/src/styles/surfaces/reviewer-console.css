@@ -113,14 +113,7 @@ body {
 
 .manifest .col-confidence { color: var(--teal); }
 
-/* .state-cell and .state-node families come from the shared component family sheets */
-
-.state-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--label);
-}
+/* .state-cell, .state-label, and .state-node families come from the shared component family sheets */
 
 .manifest .col-action { text-align: right; white-space: nowrap; }
 
@@ -220,7 +213,7 @@ body {
 }
 
 .rail-readout dt {
-  font-size: 0.56rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--label);
@@ -527,7 +520,7 @@ body {
 }
 
 .marginalia-original dt {
-  font-size: 0.55rem;
+  font-size: var(--microlabel-font-size);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -695,6 +688,10 @@ body {
   .queue-view .datatable-scroll { overflow-x: hidden; }
   .queue-view .datatable-scroll::before { content: none; }
   .queue-view .datatable-table { min-width: 0; }
+  .queue-view .datatable-table tbody td {
+    width: auto;
+    min-width: 0;
+  }
 
   .manifest thead { display: none; }
   .manifest tr {
@@ -723,7 +720,7 @@ body {
   .manifest td[data-label]::before {
     content: attr(data-label);
     display: block;
-    font-size: 0.56rem;
+    font-size: var(--microlabel-font-size);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--teal);

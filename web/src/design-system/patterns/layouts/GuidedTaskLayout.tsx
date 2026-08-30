@@ -1,9 +1,18 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { To } from "react-router-dom";
 import { RailBrand } from "../../components/chrome/Brand";
+import { PlateFoot } from "../../components/plates/EtchedFrame";
+import { cx } from "../../../lib/cx";
 import { useAssignedLayoutId } from "./LayoutAssignment";
 import { LayoutContent } from "./LayoutContent";
 import { SkipLink } from "./SkipLink";
+
+export function GuidedTaskFoot({
+  className,
+  ...props
+}: ComponentProps<typeof PlateFoot>) {
+  return <PlateFoot className={cx("layout-guided__actions", className)} {...props} />;
+}
 
 export type GuidedTaskLayoutProps = {
   homeTo?: To;
@@ -59,7 +68,7 @@ export function GuidedTaskLayout({
           >
             {children}
           </LayoutContent>
-          {actions ? <footer className="layout-guided__actions action-row">{actions}</footer> : null}
+          {actions}
         </div>
       </div>
       {overlays}

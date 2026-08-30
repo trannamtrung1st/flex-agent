@@ -71,15 +71,29 @@ describe("design lab routes", () => {
     expect(screen.getByRole("region", { name: "Assigned work by record state" })).toBeInTheDocument();
     expect(document.querySelector(".bay")).toHaveClass("composition-stack");
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
-    expect(document.querySelector(".board-frame.frame-cut")).toHaveClass("frame-cut--flush");
+    expect(document.querySelector(".board-frame.frame-cut")).toBeNull();
+    expect(screen.getByRole("region", { name: "Assigned work by record state" }).querySelector(".frame-cut")).toBeNull();
   });
 
-  it("centers the participant-home empty plate inside the board frame", () => {
+  it("shows a readable open key and deadline on a single assignment plate", () => {
+    renderLab("/design-lab/participant-home?demo=single");
+    const plate = screen.getByText("Systems Design Q3").closest("article");
+    expect(plate).toBeTruthy();
+    expect(plate).toHaveTextContent("Real-time Inventory & Order Management at Scale");
+    expect(plate).toHaveTextContent("Briefing");
+    expect(plate).not.toHaveTextContent("2026-09-12T23:00:00Z");
+    const open = screen.getByRole("link", { name: "Open" });
+    expect(open).toHaveClass("key--open");
+    expect(open.querySelector(".key-label")).toHaveTextContent("Open");
+  });
+
+  it("seats an inset empty plate in the assigned-work well", () => {
     renderLab("/design-lab/participant-home?demo=empty");
     const emptyPlate = screen.getByText("No assigned work").closest(".empty-plate");
-    expect(emptyPlate).toBeTruthy();
-    expect(emptyPlate).not.toHaveClass("empty-plate--inset");
-    expect(emptyPlate?.closest(".board-empty")).toBeTruthy();
+    expect(emptyPlate).toHaveClass("empty-plate--inset");
+    expect(emptyPlate?.closest(".frame-cut")).toBeTruthy();
+    expect(emptyPlate?.closest(".frame-cut")).not.toHaveClass("frame-cut--flush");
+    expect(emptyPlate?.closest(".board-empty")).toBeNull();
   });
 
   it("opens the Review Console queue on OperateArea", () => {
@@ -105,7 +119,9 @@ describe("design lab routes", () => {
 
   it("shows a non-disclosing unknown-channel state", () => {
     renderLab("/design-lab/does-not-exist");
-    expect(screen.getByText("Channel not found")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to channel index" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Channel not found" })).toBeInTheDocument();
+    expect(screen.getByText("That channel is not on this console.")).toBeInTheDocument();
+    expect(document.querySelector(".operate-column--hug")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Return to channel index" })).toHaveClass("key--quiet");
   });
 });

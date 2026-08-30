@@ -93,6 +93,17 @@ describe("ProductionMyWorkDetailPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it("seats assignment loading as an inset wait-plate in the work well", () => {
+    stubAuthenticatedFetch(() => new Promise(() => {}));
+    renderDetail();
+    const status = screen.getByRole("status");
+    expect(status).toHaveClass("wait-plate", "wait-plate--inset");
+    expect(status).not.toHaveClass("ceremony-wait");
+    expect(screen.getByText("Loading assignment…")).toBeVisible();
+    expect(status.closest(".work-well")).toBeTruthy();
+    expect(document.querySelector(".operate-column--hug")).toBeNull();
+  });
+
   it("loads assignment tracks and offers Begin intake when permitted", async () => {
     stubAuthenticatedFetch((url) => {
       if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
@@ -124,20 +135,31 @@ describe("ProductionMyWorkDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findByRole("heading", { name: "Campaign A" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Assignment" }).querySelector(".frame-cut")).toHaveClass(
-      "destination-board",
-      "assignment-station-board",
-      "frame-cut--flush",
-    );
+    expect(await screen.findByRole("heading", { name: "Case study" })).toBeInTheDocument();
+    expect(document.querySelector(".assignment-meta")).toHaveTextContent("Campaign A");
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent(/Begin intake/);
+    expect(document.querySelector('[data-layout="guided-task"]')).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My work" })).toHaveAttribute("href", "/my-work");
     expect(screen.getByRole("heading", { name: "Submission" })).toBeInTheDocument();
+    expect(screen.getByText(/Direct text up to 4,000 bytes/)).toBeInTheDocument();
+    expect(screen.getByText(/Eligibility: Open/)).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Assignment phases" })).toBeInTheDocument();
     const begin = screen.getByRole("button", { name: "Begin intake" });
-    expect(begin.closest(".operate-head")).toBeTruthy();
-    expect(begin.closest(".work-well__foot")).toBeNull();
+    const beginFoot = begin.closest(".layout-guided__actions");
+    expect(beginFoot).toBeTruthy();
+    expect(beginFoot).toHaveAttribute("data-arrangement", "end");
+    expect(begin.closest(".operate-head")).toBeNull();
     const submission = screen.getByRole("heading", { name: "Submission" });
-    expect(begin.compareDocumentPosition(submission) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(screen.getByText(/Start Attempt is not available/)).toBeInTheDocument();
+    expect(submission.compareDocumentPosition(begin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(screen.queryByText(/Start Attempt is not available/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Attempt/ }));
+    expect(screen.getByRole("heading", { name: "Attempt" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent(/Not available here/);
+    expect(screen.getByText(/No production Attempt-start HTTP contract/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Begin intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Start Attempt/i })).not.toBeInTheDocument();
   });
 
   it("finalizes an intake only after confirmation", async () => {
@@ -194,13 +216,30 @@ describe("ProductionMyWorkDetailPage", () => {
 
     renderDetail();
     fireEvent.click(await screen.findByRole("button", { name: "Begin intake" }));
-    expect(await screen.findByRole("button", { name: "Submit version" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Submit version" }));
+    expect(await screen.findByLabelText("Direct text")).toHaveAttribute(
+      "placeholder",
+      "Write or paste the submission text",
+    );
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Submit version");
+    const submit = await screen.findByRole("button", { name: "Submit version" });
+    const cancel = screen.getByRole("button", { name: "Cancel intake" });
+    const splitFoot = submit.closest(".layout-guided__actions");
+    expect(splitFoot).toHaveAttribute("data-arrangement", "split");
+    expect(cancel.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    fireEvent.click(submit);
     const dialog = await screen.findByRole("dialog", { name: "Submit this version?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Submit version" }));
     await waitFor(() => {
       expect(screen.getByText(/Accepted version 1 remains immutable/)).toBeInTheDocument();
+      expect(screen.getByText(/1 item/)).toBeInTheDocument();
     });
+    const versions = screen.getByRole("list", { name: "Accepted submission versions" });
+    expect(versions.tagName).toBe("OL");
+    const versionItem = versions.querySelector(":scope > li");
+    expect(versionItem).toHaveAttribute("data-sequence", "1");
+    expect(versionItem).toHaveAttribute("value", "1");
+    expect(versionItem?.querySelector(":scope > .composition-stack")).not.toBeNull();
+    expect(versionItem?.querySelector("time")).toHaveAttribute("datetime", "2026-08-28T01:00:00.000Z");
   });
 
   it("offers a Shipboard Choose files key instead of a bare file control", async () => {
@@ -221,7 +260,11 @@ describe("ProductionMyWorkDetailPage", () => {
             revision: 1,
             created_at_utc: "2026-08-28T00:00:00Z",
             updated_at_utc: "2026-08-28T00:00:00Z",
-            items: [],
+            items: [{
+              item_id: "it-1",
+              category: "direct_text",
+              byte_count: 48,
+            }],
             permitted_actions: ["complete_item", "cancel_intake"],
           },
         }));
@@ -232,8 +275,18 @@ describe("ProductionMyWorkDetailPage", () => {
     renderDetail();
 
     expect(await screen.findByRole("button", { name: "Choose files" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Attachments (.txt or .md)" })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 item received locally until the server accepts a version/)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Received intake items" })).toHaveTextContent(/Direct text/);
+    expect(screen.getByRole("list", { name: "Received intake items" })).toHaveTextContent(/48 bytes/);
+    expect(screen.queryByRole("textbox", { name: "UTF-8 .txt or .md" })).not.toBeInTheDocument();
     const fileInput = document.querySelector('input[type="file"]');
-    expect(fileInput).toHaveClass("visually-hidden");
     expect(fileInput).toHaveAttribute("accept", expect.stringContaining(".txt"));
+    expect(fileInput).toHaveAttribute("multiple");
+    expect(fileInput?.closest("[aria-hidden='true']")).toBeTruthy();
+    expect(document.querySelector(".field-file")).toBeTruthy();
+    expect(document.querySelector(".field-file-well")).toBeTruthy();
+    expect(screen.getByText("Drop files onto this bay")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Attachments (.txt or .md)" })).toBeInTheDocument();
   });
 });

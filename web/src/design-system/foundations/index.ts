@@ -4,9 +4,10 @@ export { breakpoints, maxWidthQuery, type BreakpointName } from "../../lib/break
 export { useMediaQuery } from "../../lib/useMediaQuery";
 export { useAnnouncer } from "../../lib/useAnnouncer";
 export {
+  ABSENT_INSTANT_MARK,
+  ABSENT_INSTANT_TITLE,
   formatClock,
   formatDeadline,
-  formatNamedCampaignInstant,
   formatViewerInstant,
   pad,
   polar,

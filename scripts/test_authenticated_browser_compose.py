@@ -53,7 +53,10 @@ def valid_config() -> dict:
                         "target": "/run/secrets",
                     }
                 ],
-                "depends_on": {"keycloak": {"condition": "service_healthy"}},
+                "depends_on": {
+                    "keycloak": {"condition": "service_healthy"},
+                    "seed": {"condition": "service_completed_successfully"},
+                },
             },
             "spa": {"build": {}},
             "nginx": {
@@ -67,7 +70,13 @@ def valid_config() -> dict:
     }
 
 
-def run_validator(config: dict, nginx: Path | None = None, realm: Path | None = None, generated: bool = False) -> subprocess.CompletedProcess[str]:
+def run_validator(
+    config: dict,
+    nginx: Path | None = None,
+    realm: Path | None = None,
+    generated: bool = False,
+    demo_work: bool = False,
+) -> subprocess.CompletedProcess[str]:
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
         json.dump(config, handle)
         config_path = handle.name
@@ -83,11 +92,13 @@ def run_validator(config: dict, nginx: Path | None = None, realm: Path | None = 
     ]
     if generated:
         command.append("--generated-realm")
+    if demo_work:
+        command.append("--demo-work")
     return subprocess.run(command, check=False, capture_output=True, text=True)
 
 
-def expect_fail(config: dict, needle: str) -> None:
-    result = run_validator(config)
+def expect_fail(config: dict, needle: str, demo_work: bool = False) -> None:
+    result = run_validator(config, demo_work=demo_work)
     if result.returncode == 0:
         raise SystemExit(f"expected validation failure containing {needle!r}")
     if needle not in (result.stderr + result.stdout):
@@ -120,6 +131,23 @@ def main() -> None:
     ok = run_validator(valid_config())
     if ok.returncode != 0:
         raise SystemExit(ok.stderr)
+
+    demo_work = copy.deepcopy(valid_config())
+    demo_work["services"]["seed-demo-work"] = {
+        "image": f"postgres:18{DIGEST}",
+        "depends_on": {"seed": {"condition": "service_completed_successfully"}},
+    }
+    demo_work["services"]["api"]["depends_on"] = {
+        "keycloak": {"condition": "service_healthy"},
+        "seed-demo-work": {"condition": "service_completed_successfully"},
+    }
+    ok_demo_work = run_validator(demo_work, demo_work=True)
+    if ok_demo_work.returncode != 0:
+        raise SystemExit(ok_demo_work.stderr)
+
+    missing_demo_work_seed = copy.deepcopy(demo_work)
+    del missing_demo_work_seed["services"]["seed-demo-work"]
+    expect_fail(missing_demo_work_seed, "missing services", demo_work=True)
 
     floating = copy.deepcopy(valid_config())
     floating["services"]["keycloak"]["image"] = "quay.io/keycloak/keycloak:26.7.0"

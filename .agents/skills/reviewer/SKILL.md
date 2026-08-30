@@ -19,7 +19,7 @@ Apply every reviewer to the changed surfaces. Mark a specialist area not applica
 
 1. Inspect the request, diff, governing specifications, architecture decisions, and relevant tests before accepting implementation claims.
 2. Build a change map covering server, client, data, asynchronous or external boundaries, and sensitive assets.
-3. Apply each specialist review independently. Run focused checks and use live-browser evidence where the frontend reviewer requires it.
+3. Apply each specialist review independently. Run focused checks and use live-browser evidence where the frontend reviewer requires it, attaching to a healthy local origin first.
 4. Consolidate duplicate findings without erasing specialist evidence. Use the highest justified severity and identify every affected surface.
 5. Lead with actionable findings ordered by severity, followed by open questions, verification gaps, and residual risks.
 

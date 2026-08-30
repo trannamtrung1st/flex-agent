@@ -45,6 +45,8 @@ export const FieldInput = forwardRef<
     width?: FieldWidth;
     invalid?: boolean;
     frozen?: boolean;
+    /** Format example. Required; never a substitute for the visible label. */
+    placeholder: string;
   }
 >(function FieldInput({ width = "standard", invalid, frozen, className, readOnly, ...props }, ref) {
   return (
@@ -70,6 +72,8 @@ export const FieldTextarea = forwardRef<
     invalid?: boolean;
     frozen?: boolean;
     resize?: FieldTextareaResize;
+    /** Format example. Required; never a substitute for the visible label. */
+    placeholder: string;
   }
 >(function FieldTextarea({ invalid, frozen, resize = "none", className, readOnly, ...props }, ref) {
   const resizeClass =

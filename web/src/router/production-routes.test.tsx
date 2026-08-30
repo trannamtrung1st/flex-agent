@@ -5,6 +5,11 @@ import { FlexQueryProvider } from "../api/query-client";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
 import { ProductionDestinationGuard } from "./production-routes";
 
+async function chooseOperatorAction(name: string | RegExp) {
+  fireEvent.click(await screen.findByRole("button", { name: /operator menu/i }));
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+}
+
 describe("production destination guards", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -46,10 +51,7 @@ describe("production destination guards", () => {
               <Route
                 path="/activities"
                 element={(
-                  <ProductionDestinationGuard
-                    destinationId="activities"
-                    unavailableCopy="Activities are not available for the current authorized relationship."
-                  >
+                  <ProductionDestinationGuard destinationId="activities">
                     <p>Activities workspace</p>
                   </ProductionDestinationGuard>
                 )}
@@ -66,13 +68,71 @@ describe("production destination guards", () => {
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Access denied" })).toHaveClass("work-plane--ceremony");
+    expect(document.querySelector(".operate-column--hug")).toBeTruthy();
     expect(screen.getByText("Activities are not available for the current authorized relationship.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Home" })).toHaveClass("key--quiet");
     expect(screen.getAllByRole("link", { name: "My work" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Activities workspace")).not.toBeInTheDocument();
-    expect(screen.getByText("Organization")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /operator menu, participant$/i })).toBeInTheDocument();
     expect(screen.queryByText(/Organization org/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+  });
+
+  it("uses the assignment station hull for denied My work deep links without duplicating the heading", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "part",
+            organization_id: "org",
+            relationship: "participant",
+            navigation: [
+              { destination_id: "home", is_available: true },
+              { destination_id: "my-work", is_available: false },
+            ],
+            permitted_actions: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <MemoryRouter initialEntries={["/my-work/enr-1"]}>
+            <Routes>
+              <Route element={<ProductionAppShell />}>
+                <Route
+                  path="/my-work/:enrollmentId"
+                  element={(
+                    <ProductionDestinationGuard destinationId="my-work">
+                      <p>Assignment detail</p>
+                    </ProductionDestinationGuard>
+                  )}
+                />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Access denied", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Access denied", level: 2 })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-layout="guided-task"]')).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
+    expect(screen.getByText("My work is not available for the current authorized relationship.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
+    expect(screen.queryByText("Assignment detail")).not.toBeInTheDocument();
   });
 
   it("groups Review, Release, and Results away from workspace destinations", async () => {
@@ -160,10 +220,7 @@ describe("production destination guards", () => {
                 <Route
                   path="/sessions/:sessionId"
                   element={(
-                    <ProductionDestinationGuard
-                      destinationId="sessions"
-                      unavailableCopy="Sessions are not available for the current authorized relationship."
-                    >
+                    <ProductionDestinationGuard destinationId="sessions">
                       <p>Session contract page</p>
                     </ProductionDestinationGuard>
                   )}
@@ -229,7 +286,7 @@ describe("production destination guards", () => {
     </FlexQueryProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await chooseOperatorAction("Sign out");
     await waitFor(() => {
       expect(assign).toHaveBeenCalledWith("/");
     });
@@ -288,9 +345,9 @@ describe("production destination guards", () => {
     </FlexQueryProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await chooseOperatorAction("Sign out");
     expect(assign).not.toHaveBeenCalled();
-    expect(await screen.findByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /operator menu/i })).toBeInTheDocument();
     expect(screen.queryByText("Sign out status could not be confirmed. Try again.")).not.toBeInTheDocument();
   });
 
@@ -343,7 +400,7 @@ describe("production destination guards", () => {
     );
 
     expect(await screen.findByText("Assignment content")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await chooseOperatorAction("Sign out");
     expect(await screen.findByRole("alert")).toHaveTextContent("Sign out status could not be confirmed. Try again.");
     expect(screen.queryByText("Assignment content")).not.toBeInTheDocument();
     expect(assign).not.toHaveBeenCalled();
@@ -403,7 +460,7 @@ describe("production destination guards", () => {
     </FlexQueryProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    await chooseOperatorAction("Sign out");
     await waitFor(() => {
       expect(assign).toHaveBeenCalledWith(endSession);
     });

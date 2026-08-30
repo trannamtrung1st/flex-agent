@@ -1,3 +1,4 @@
+export { InstantReadout } from "./InstantReadout";
 export { DatePicker, DateTimePicker, TimePicker } from "./DateTimePicker";
 export type { TemporalMode } from "./DateTimePicker";
 export { DateGlyph, TimeGlyph } from "./TemporalGlyphs";

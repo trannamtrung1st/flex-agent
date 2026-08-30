@@ -17,16 +17,14 @@ export function BrandHomeLink({ className }: { className?: string }) {
 
 export function StripBrand({
   suffix,
-  origin,
   homeTo = CATALOG_ROUTE,
   homeLabel = "Channel index",
 }: {
   suffix?: string;
-  origin?: boolean;
   homeTo?: To;
   homeLabel?: string;
 }) {
-  return <SharedStripBrand homeTo={homeTo} homeLabel={homeLabel} suffix={suffix} origin={origin} />;
+  return <SharedStripBrand homeTo={homeTo} homeLabel={homeLabel} suffix={suffix} />;
 }
 
 export function RailBrand({

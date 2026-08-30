@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { FieldNumber, FieldTextarea, FormField, ReadoutList } from "../../components";
+import { FieldNumber, FieldTextarea, FormField, ADJUSTED_RATIONALE_PLACEHOLDER, SCORE_PLACEHOLDER, ReadoutList } from "../../components";
 import type { ReviewSession } from "../../data/types";
 
 export function statusLabel(status: ReviewSession["reviewStatus"]) {
@@ -132,6 +132,7 @@ export const MarginaliaStack = forwardRef<HTMLDivElement, MarginaliaStackProps>(
                     max={c.max}
                     step={1}
                     defaultValue={c.score}
+                    placeholder={SCORE_PLACEHOLDER}
                     data-field="score"
                   />
                 )}
@@ -142,6 +143,7 @@ export const MarginaliaStack = forwardRef<HTMLDivElement, MarginaliaStackProps>(
                     {...controlProps}
                     rows={3}
                     defaultValue={c.rationale}
+                    placeholder={ADJUSTED_RATIONALE_PLACEHOLDER}
                     data-field="rationale"
                   />
                 )}

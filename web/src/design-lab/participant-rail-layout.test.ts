@@ -30,6 +30,7 @@ describe("participant instrument bulkheads", () => {
     expect(rule(css, ".layout-guided")).not.toMatch(/min-height:\s*620px/);
     expect(rule(css, ".layout-guided__bay")).toMatch(/padding:\s*18px 0/);
     expect(rule(css, ".layout-guided__main")).toMatch(/flex:\s*1 1 auto/);
+    expect(rule(css, ".layout-guided")).toMatch(/--instrument-bulkhead-fill:\s*transparent/);
     expect(rule(css, ".layout-guided .phase-rail")).toMatch(/--instrument-bulkhead-fill/);
   });
 
@@ -39,6 +40,7 @@ describe("participant instrument bulkheads", () => {
     expect(rule(css, ".layout-session")).toMatch(/height:\s*100dvh/);
     expect(rule(css, ".layout-session")).not.toMatch(/min-height:\s*620px/);
     expect(rule(css, ".layout-session__bay")).toMatch(/padding:\s*18px 0/);
+    expect(rule(css, ".layout-session")).toMatch(/--instrument-bulkhead-fill:\s*transparent/);
     expect(rule(css, ".layout-session .rail")).toMatch(/--instrument-bulkhead-fill/);
   });
 

@@ -29,6 +29,7 @@ export {
 export {
   APPROVED_LAYOUT_IDS,
   PRODUCTION_LAYOUT_IDS,
+  GuidedTaskFoot,
   GuidedTaskLayout,
   LayoutAssignment,
   LiveSessionLayout,

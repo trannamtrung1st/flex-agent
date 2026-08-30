@@ -5,8 +5,8 @@ is documentation, not a repository skill. Load the matching role skill from
 `.agents/skills/` or `.cursor/skills/` first, then use this guide with the
 governing requirements and UI/UX specifications.
 
-Design-system **v1.0 is Approved**. Use it as the target visual contract for
-the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
+Design-system **v1.0 is Approved**. Use it as the target visual contract.
+Do not use v0.1 Deep-Space styling as the target look.
 
 ## Before implementation
 
@@ -24,19 +24,24 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
    system; do not treat token names as framework utilities. Dark primitives
    live in `web/src/styles/tokens.css`; semantic aliases in
    `semantic-aliases.css`; light remaps in `adaptations.css`. Prototype
-   `--ground` / `--teal` / `--amber` values remain the dark-theme source.
+   `--ground` / `--teal` / `--amber` / `--danger` values remain the dark-theme source.
 7. Define applicable initial, loading, empty, populated, pending, success,
    validation, error/retry, reconnecting, permission-denied, terminal, and
    responsive states before styling only the happy path.
 8. Apply `PC-01`–`PC-14` so prototype visuals cannot change repo behavior.
 9. Verify specimens in the isolated design-lab Component Deck
    (`/design-lab/shared/gallery`). Production routes never include
-   `/design-lab/*`. Candidate production pages are not a visual reference until
-   rebuilt ([visual evidence](README.md#visual-evidence)). Select one closed-set
+   `/design-lab/*`. Clone a matching existing production page and Deck
+   specimen ([visual evidence](README.md#visual-evidence)); do not invent
+   chrome or copy lab fixtures. Select one closed-set
    layout family from [layouts](components/layouts.md); do not compose outer
    chrome in a page module. Inside the chosen family, compose slot content with
    [layout primitives](components/layout-primitives.md) (`Stack`, `Inline`,
    `Grid`, `Container`, `Inset`, `SplitBay`) instead of one-off flex/grid/spacing CSS.
+   Inner page/form rhythm uses control / group / bay tokens (`--field-label-gap`,
+   `--form-group-gap`, `--operate-bay-gap`): `OperateArea` owns bay strata
+   (head / context / advisory / optional frame); titled field clusters use
+   `FormSection`. `gap="none"` is only for fused plates.
    Shells wrap main content in an even `Inset` when `contain` is true
    (management and reference catalog default on; hull shells and the Component
    Deck default off). That pad is not a max-width column.
@@ -91,7 +96,7 @@ are visual evidence; the module is the contract.
 | Foundations | `colors` | [colors](foundation/colors.md) |
 | Foundations | `type`, `typography` | [typography](foundation/typography.md) |
 | Foundations | `keys`, `key-group` | [buttons](components/buttons.md), [button groups](components/button-group.md) |
-| Foundations | `pane`, `frame` | [plates](components/cards.md) |
+| Foundations | `pane`, `frame` | [plates](components/cards.md) (`pane` includes the WorkWell section-label vs list-tick specimen) |
 | Navigation | `nav-rail` | [sidebars](components/sidebars.md) (`.nav-rail` grammar; `IndexRail` on the reference shell) |
 | Navigation | `strip`, `gangway`, `drawer`, `footer` | [layouts](components/layouts.md), [sidebars](components/sidebars.md) |
 | Navigation | `breadcrumbs` | [sidebars](components/sidebars.md) |
@@ -99,14 +104,16 @@ are visual evidence; the module is the contract.
 | Data | `marks` | [badges](components/badges.md) |
 | Data | `select-mark` | [selection](components/radios-checkboxes-toggle.md), [tables](components/tables.md) |
 | Data | `readout`, `readout-grid` | [content](components/content.md) |
-| Data | `datatable` | [tables](components/tables.md), [pagination](components/pagination.md) |
+| Data | `compact-id` | [tables](components/tables.md), [technical metadata](product/technical-metadata.md), [tooltips](components/tooltips-popovers.md) |
+| Data | `datatable`, `datatable-scroll` | [tables](components/tables.md), [pagination](components/pagination.md) |
 | Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) |
 | Feedback | `tooltip` | [tooltips](components/tooltips-popovers.md) |
 | Feedback | `error-summary` | [error summary](components/error-summary.md) |
 | Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md) |
 | Shells | `layout-*` | [layouts](components/layouts.md) |
 | Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (`composition-recipes` are specimen recipes, not a fifth primitive) |
-| Overlays & input | `form`, `datetime` | [inputs](components/inputs.md) |
+| Overlays & input | `form-recipes` | [inputs](components/inputs.md), [error summary](components/error-summary.md), [layout primitives](components/layout-primitives.md), [plates](components/cards.md), [modals](components/modals.md) |
+| Overlays & input | `form`, `file`, `datetime` | [inputs](components/inputs.md), [attachments](product/attachments.md) |
 | Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) |
 | Overlays & input | `dialog` | [modals](components/modals.md) |
 
@@ -145,8 +152,9 @@ specification authorize it.
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, status, motion
-- Components: keys, inputs, selection, error summary, tables, pagination,
-  modals, readout grid
+- Components: plates (`OperateArea` clip vs grouping: Enrollment stacked
+  record unframed; setup/create ceremony framed at 52rem), keys, inputs,
+  selection, error summary, tables, pagination, modals, readout grid
 - Product: empty/loading, technical metadata, protected content, attachments
   where Enrollment lists require them
 - Governing specification:
@@ -154,8 +162,8 @@ specification authorize it.
   [Submission and Attempt](../submission-attempt.md) (administrator Enrollment)
 - States: draft, invalid, pending, active, stale, conflict, denied, empty,
   large table, narrow
-- Gallery: form controls, number field, datatable, dialog (Deck: `form`,
-  `datatable`, `dialog`)
+- Gallery: form controls, number field, datatable, dialog, layout (Deck:
+  `form`, `datatable`, `dialog`, `layout`)
 - Constraints: `PC-05`, `PC-06`, `PC-09`, `PC-11`
 
 ### MVP Participant My Work and Submission intake
@@ -170,7 +178,7 @@ specification authorize it.
   unavailable, narrow
 - Constraints: `PC-03`, `PC-07` (rail cannot mutate lifecycle)
 
-### MVP Text Session (design-lab this migration unless production-backed)
+### MVP Text Session (production contract-unavailable; lab composition donor)
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, motion, status
@@ -178,9 +186,11 @@ specification authorize it.
 - Product: conversation, timeline, Agent presence, Session controls,
   empty/loading, protected content
 - Governing specification: [Text Session](../text-session.md)
-- Constraints: `PC-08`; no production simulator
+- Constraints: `PC-08`; no production simulator. Approved family is
+  `live-session`; production locator stays `management` until the host
+  contract exists.
 
-### Evidence, Evaluation, and Human Review (design-lab this migration)
+### Evidence, Evaluation, and Human Review (production contract-unavailable; lab composition donor)
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, status
@@ -189,16 +199,20 @@ specification authorize it.
   protected content
 - Governing specification:
   [Evidence, Evaluation, and Human Review](../evidence-evaluation-human-review.md)
-- Constraints: `PC-01`, `PC-02`, `PC-04`
+- Constraints: `PC-01`, `PC-02`, `PC-04`. Approved Review-case family is
+  `guided-task`; production locators stay `management` until the host
+  contract exists.
 
-### Result and Release (design-lab this migration)
+### Result and Release (production contract-unavailable; lab composition donor)
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, status
 - Components: keys, alerts, marks, lists, modals, error summary, content
 - Product: Result/Release, technical metadata, timeline, protected content
 - Governing specification: [Result and Release](../result-release.md)
-- Constraints: `PC-01`, `PC-03`, `PC-04`
+- Constraints: `PC-01`, `PC-03`, `PC-04`. Approved Release-record family is
+  `guided-task`; production locators stay `management` until the host
+  contract exists.
 
 ### Later voice Session
 

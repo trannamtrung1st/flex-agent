@@ -44,6 +44,60 @@ must still verify every token pairing in both themes.
 Exact versions are pinned in `web/package.json`. Self-host only. Include OFL
 notices with the SPA license inventory.
 
+## Official docs refresh (2026-08-30)
+
+Canonical modules synced to the current Shipboard implementation without
+changing Approved v1.0 token meaning. Visual evidence now treats rebuilt
+production pages as clone sources; the Component Deck remains the primitive
+catalog; isolated lab journeys remain donors only for shells whose approved
+family is not yet production-backed. Deck catalog includes `datatable-scroll`.
+Layouts record current production assignment and keep approved Session/Review
+families from the Activity IA as the contract target.
+
+Consistency pass: canonical IA now lists `/activities/new` and `/results`;
+unavailable locators may stay on `management` until the host contract exists.
+Frontend architecture, design-lab README, and frontend-developer skill use the
+same clone rule.
+
+Root `DESIGN.md` remains a generated adapter (`python3 scripts/impeccable_context.py
+generate`). The adapter source list now also fingerprints lists, tables,
+inputs, borders, and empty/loading. It is not a Stitch token sheet.
+
+## Etched frame clip vs grouping (2026-08-30)
+
+`EtchedFrame` is a clip for one seated instrument, not a grouping box.
+Stacked nested records (Enrollment detail, the Component Deck management-record
+specimen) omit the well and fill the main landmark. Setup/create ceremonies
+keep the 52rem form column. Registries, empty/wait plates, assignment-station
+wells, and a readout fused to a `PlateFoot` keep the etched clip. Do not wrap
+a stacked-record `ReadoutGrid` in its own well — it is a rule band
+([content](components/content.md)). Unframed `record-plane` no longer carries
+a `.record-frame` grow/undo rule — stacked records are not a clipped
+instrument.
+
+## Operate / form spacing rungs (2026-08-29)
+
+Workspace in-page rhythm is three named tokens: `--field-label-gap` (control,
+10px / `space-2-5`), `--form-group-gap` (group, 16px), `--operate-bay-gap`
+(bay, 24px). `OperateArea` owns bay strata except plaque ledgers.
+`FormSection` owns titled fieldsets; legend group gap is margin, not flex gap.
+Legend type is H2 / plate title (`0.72rem`, `--text-bright`), not a field
+microlabel. `WorkWellHead` default gap is control rung; head pad uses frame
+insets.
+
+## OperateHead copy cluster (2026-08-29)
+
+Nested-record `BackKey` trails the copy cluster (title + description), not a
+title-only row, so the title–description gap stays `space-2.5` with or without
+the key. Compact widths still put the key on its own leading row.
+
+## Work-well section ticks (2026-08-29)
+
+Section labels in `WorkWell` and session briefing are teal microlabels without a
+leading 7×1px tick. That tick remains the unordered-list bullet on those
+surfaces and the current-item mark on interactive chrome. Gallery `pane`
+includes a WorkWell specimen.
+
 ## Documentation sync from design lab (2026-08-28)
 
 Official modules refreshed from `web/src/design-system/` and the Component Deck
@@ -170,3 +224,107 @@ new escalation-threshold product question was found.
 | `DS-X8` | Prototype amber-only validation vs danger | Amber for field validation; danger for failed/destructive outcomes |
 | `DS-X9` | Geist/Space Grotesk/IBM Plex vs Michroma/Sometype | `DS-PROP-2` |
 | `DS-X10` | Soft radii vs zero-radius notches | `DS-DEC-9` |
+
+## Command-strip hull (2026-08-29)
+
+The command strip is hull chrome, not a second umbra. Resting fill is
+transparent so the body canvas shows through. Sticky Component Deck chrome
+uses `--ground-deep` only. Light theme no longer paints a white wash on the
+strip. Gangway, console foot, management drawer bar, and instrument bulkhead
+rails follow the same hull rule; overlay bulkhead drawers stay opaque.
+
+## Compact ID (2026-08-29)
+
+`CompactId` is the shared center-truncated identifier readout. It uses
+`TooltipHost` `tone="value"` so the full identifier stays exact-case on hover.
+Dense registry tables omit per-cell tab stops; pass `tabbable` for
+focus-visible plaque in standalone surfaces. `compactRegistryId` lives beside
+the component. Component Deck section: `compact-id`. Production Enrollment
+registry and the assignment instrument rail consume it. Activities registry
+dropped its Campaign ID column in the shipboard reset (IDs remain searchable).
+Native `title` is not this pattern.
+
+## Instant readout absence (2026-08-29)
+
+Registry timestamps use `InstantReadout`. Missing or unreadable UTC instants
+show the shared absence glyph (`—`) with accessible name “Not recorded”. They
+must not interpolate `undefined` or report the viewer timezone as unavailable.
+
+## Selectable TooltipHost plaques (2026-08-29)
+
+`TooltipHost` plaques linger 240ms after pointer leave so the pointer can enter
+the plaque and select or copy its text. Selection drags that start on the
+plaque keep it open until pointer up. Opening one plaque dismisses any other.
+CSS `data-tip` plaques stay inspect-only.
+
+## Ceremony unavailable helper (2026-08-29)
+
+`CeremonyUnavailable` is the shared unknown / denied / missing-resource plane:
+hug `CeremonyArea`, inset empty well, quiet recovery key centered in the well.
+Design-lab not-found and production destination pages consume it. Amber `open`
+stays on Open-session and other commit actions.
+
+## Fault phosphor danger (2026-08-29)
+
+Dark outcome red is a hull fault lamp, not Tailwind rose. Primitives
+`--danger` (`#F05C58`), `--danger-bright` / `fg-danger` (`#FF7468`), and
+`--danger-glow` live in `tokens.css` beside teal and amber. Denied ceremony
+titles consume `--fg-danger` plus `--danger-glow` (no leftover teal halo).
+Component Deck `colors` catalogs the chips and a danger placard; Management
+ceremony shows `CeremonyUnavailable danger`. Light theme keeps wine
+`#A9323E` / `#C43E4B`. Validation remains amber (`DS-X8`).
+
+## Plate foot arrangement (2026-08-29)
+
+`PlateFoot` is the shared plate action rail: closed `arrangement` `start` |
+`center` | `end` (default) | `split`. Assignment and destination plates use
+`end`. Work wells use `start`. Dialog feet use the same primitive except
+ceremony fill-grid feet. There is no `plate-foot--start` class hatch and no
+free middle slot.
+
+## Plate bay slots (2026-08-29)
+
+Home destination plates and My work assignment plates use `auto-fill` columns
+so a lone plate occupies one hull slot instead of stretching. Compact
+viewports still use one full-width column.
+
+## Ceremony wait auto measure (2026-08-29)
+
+Auto hug `CeremonyWait` / inset wait-plate occupies the existing 36rem
+column cap so a short loading line does not collapse the etched well or
+ellipsize the operate description while the landmark still has room.
+Desktop keeps the status label on one line; compact wraps inside the well.
+Named `sm`/`md`/`lg` rungs are unchanged.
+
+## Management scroll ownership (2026-08-29)
+
+Management `main` is clipped. Bay chrome stays seated (breadcrumbs, title,
+description, context, advisory). Fill composition wraps only the work body in
+`.operate-scroll`. `EtchedFrame` grows with content and is not a vertical
+scrollport. Nested `.frame-scroll` overflow is visible. Exceptions that keep
+one inner scroller: setup/create `.create-ceremony__scroll` (docked foot),
+filling-registry `.datatable-scroll` (rows), split-ledger columns, assignment
+`.work-well__body` (`.well-frame` is clipped), Status Bays `.bay-plates`
+(`.operate-scroll` is clipped). Ceremony hug may overflow on
+`main`. Stacked management wells (Enrollment detail) overflow visible inside
+`.operate-scroll`.
+
+## Nested scroll ownership (2026-08-30)
+
+Status Bays keep per-column `.bay-plates` scroll; the operate wrapper is
+clipped. `WorkWell` body scroll is only the guided-task well. Management
+stacked wells grow in `.operate-scroll` so one operate pane receives the
+wheel. Filling tables in lab walls (not only `.workspace-area`) use the same
+clipped operate column so `.datatable-scroll` can own rows. Etched
+`.frame-scroll` uses `overflow-x: clip` with `overflow-y: visible` so
+`hidden`+`visible` does not compute as a dormant nested `overflow-y: auto`.
+
+## Component Deck catalog scroll (2026-08-30)
+
+The Component Deck catalog column is the vertical wheel target. Nested family
+specimens (`.layout-spec`) hug instead of acting as `72dvh` mini-hulls; inner
+operate, rail, well, and table regions use `overflow-x`/`overflow-y: clip`
+(tables keep `overflow-x: auto` with `overflow-y: clip` so `visible` does not
+compute to `auto`). The sticky deck index rail still
+inner-scrolls. Overlay widgets are unchanged. Production hulls and design-lab
+Operate routes keep the nested-scroll ownership rules above.

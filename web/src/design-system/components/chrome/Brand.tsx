@@ -28,14 +28,12 @@ export function StripBrand({
   homeTo,
   homeLabel,
   suffix,
-  origin,
 }: {
   homeTo: To;
   homeLabel?: string;
   suffix?: string;
-  origin?: boolean;
 }) {
-  const isOrigin = origin ?? Boolean(suffix);
+  const isOrigin = Boolean(suffix);
   return (
     <span className={cx("strip-brand", isOrigin && "strip-brand--origin")}>
       <BrandHomeLink to={homeTo} label={homeLabel} />

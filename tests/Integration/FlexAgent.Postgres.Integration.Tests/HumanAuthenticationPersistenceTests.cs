@@ -80,6 +80,7 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             sessions,
             audit,
             digests,
+            TestPayloadProtector.Instance,
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });
 
@@ -126,6 +127,73 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
     }
 
     [Fact]
+    public async Task Coordinator_persists_encrypted_provider_id_token_and_clears_it_on_logout()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var issuer = "https://issuer.example/realms/flex";
+        var subject = "subject-" + seeded.ActorId.ToString("N")[..8];
+        var bindings = new PostgresHumanIdentityBindingStore(Fixture.Services.ConnectionAccessor);
+        var sessions = new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor);
+        var audit = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
+        var digests = new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray());
+        var coordinator = new HumanAuthenticationCoordinator(
+            bindings,
+            sessions,
+            audit,
+            digests,
+            TestPayloadProtector.Instance,
+            new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
+            new HumanAuthenticationOptions { Issuer = issuer });
+        const string providerIdToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.sig";
+
+        Assert.Null(await bindings.TryProvisionAsync(
+            new HumanIdentityBinding(
+                Guid.NewGuid(),
+                new ExactIssuerSubject(issuer, subject),
+                seeded.ActorId,
+                DateTimeOffset.UtcNow,
+                null),
+            CancellationToken));
+
+        var login = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(
+                new ExactIssuerSubject(issuer, subject),
+                new AuthenticationStrength("acr:mfa", ["mfa"]),
+                "sid-1",
+                DateTimeOffset.UtcNow,
+                providerIdToken),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+        Assert.True(login.Succeeded);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var storedCiphertext = await connection.ExecuteScalarAsync<byte[]?>(
+            """
+            SELECT provider_id_token_ciphertext
+            FROM application_sessions
+            WHERE application_session_id = @Id;
+            """,
+            new { Id = login.ApplicationSessionId });
+        Assert.NotNull(storedCiphertext);
+        Assert.NotEmpty(storedCiphertext!);
+        Assert.Equal(providerIdToken, TestPayloadProtector.Instance.Unprotect(storedCiphertext!));
+
+        var logout = await coordinator.LogoutAsync(login.RawCredential!, Guid.NewGuid(), CancellationToken);
+        Assert.True(logout.Succeeded);
+        Assert.Equal(providerIdToken, logout.IdTokenHint);
+
+        var clearedCiphertext = await connection.ExecuteScalarAsync<byte[]?>(
+            """
+            SELECT provider_id_token_ciphertext
+            FROM application_sessions
+            WHERE application_session_id = @Id;
+            """,
+            new { Id = login.ApplicationSessionId });
+        Assert.Null(clearedCiphertext);
+    }
+
+    [Fact]
     public async Task Concurrent_rotations_create_exactly_one_successor()
     {
         var seeded = await Fixture.SeedOrganizationAsync();
@@ -139,6 +207,7 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             sessions,
             audit,
             new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray()),
+            TestPayloadProtector.Instance,
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });
         Assert.Null(await bindings.TryProvisionAsync(
@@ -199,6 +268,7 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             sessions,
             audit,
             new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray()),
+            TestPayloadProtector.Instance,
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });
         Assert.Null(await bindings.TryProvisionAsync(
@@ -249,5 +319,11 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             """,
             new { Issuer = issuer, Subject = subject });
         Assert.Equal(0, watermarks);
+    }
+
+    private static class TestPayloadProtector
+    {
+        public static ISymmetricPayloadProtector Instance { get; } =
+            new AesGcmPayloadProtector("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"u8.ToArray());
     }
 }

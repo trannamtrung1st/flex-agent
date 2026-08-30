@@ -1,12 +1,46 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import type { Cookie, Page, Request } from "@playwright/test";
 import { expect } from "@playwright/test";
 
-const root = process.env.FLEXAGENT_ROOT ?? process.cwd();
+function resolveRepoRoot(): string {
+  if (process.env.FLEXAGENT_ROOT) {
+    return process.env.FLEXAGENT_ROOT;
+  }
+  let current = process.cwd();
+  for (let depth = 0; depth < 6; depth += 1) {
+    if (existsSync(path.join(current, "build/scripts/oidc-keycloak-admin-logout.sh"))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return process.cwd();
+}
+
+const root = resolveRepoRoot();
 const composeProject = process.env.FLEXAGENT_COMPOSE_PROJECT ?? "flex-agent-authenticated-browser";
 const composeFile = `${root}/deploy/compose/authenticated-browser.compose.yaml`;
 
 const demoPassword = process.env.FLEXAGENT_OIDC_DEMO_PASSWORD ?? "zaQ@123456!";
+
+/** Compose nginx publishes :18080 on IPv4 only; APIRequestContext may resolve localhost to ::1. */
+export function apiOrigin(): string {
+  if (process.env.FLEXAGENT_OIDC_API_ORIGIN) {
+    return process.env.FLEXAGENT_OIDC_API_ORIGIN.replace(/\/$/, "");
+  }
+  const origin = process.env.FLEXAGENT_OIDC_ORIGIN ?? "http://localhost:18080";
+  return origin.replace("://localhost:", "://127.0.0.1:").replace(/\/$/, "");
+}
+
+export function apiUrl(path: string): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${apiOrigin()}${normalized}`;
+}
 
 export const syntheticUsers = {
   administrator: {
@@ -97,9 +131,15 @@ export async function signInThroughKeycloak(page: Page, username: string, passwo
   await page.locator("#kc-login").click();
 }
 
+export async function signOutThroughProductionChrome(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /Operator menu/i }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+}
+
 export async function finishRpInitiatedLogout(page: Page): Promise<void> {
   const signIn = page.getByRole("button", { name: "Continue to sign in" });
-  const confirm = page.locator("#kc-logout");
+  // Fallback when end_session_url omits id_token_hint (legacy sessions or degraded paths).
+  const confirm = page.locator("#kc-logout").or(page.getByRole("button", { name: "Logout" }));
   await Promise.race([
     signIn.waitFor({ state: "visible", timeout: 30_000 }),
     confirm.waitFor({ state: "visible", timeout: 30_000 }),

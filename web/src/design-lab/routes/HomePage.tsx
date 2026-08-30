@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Announcer,
   DemoPlate,
-  EmptyPlate,
   PARTICIPANT_HOME,
   PARTICIPANT_IDENTITY,
   RecordSeal,
@@ -12,30 +9,31 @@ import {
   usePrototypeSignOut,
   CATALOG_ROUTE,
 } from "../components";
-import { ManagementLayout, OperateArea, Stack } from "../../design-system";
+import { Key, ManagementLayout, OperateArea, Stack } from "../../design-system";
 import { HOME_BAYS, HOME_DEMO, HOME_DEMO_KEYS } from "../data/fixtures/home";
 import type { HomeEnrollment } from "../data/types";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
-import { formatNamedCampaignInstant, prefersReducedMotion } from "../../lib/format";
+import { campaignDeadlineCopy, formatCampaignInstant } from "../../lib/campaign-timezone";
+import { DESIGN_LAB_CAMPAIGN_TIME_ZONE } from "../../lib/format";
 import { useSurface } from "../lib/useSurface";
+
+function enrollmentDeadlineCopy(entry: HomeEnrollment): string {
+  if (!entry.deadlineUtc) {
+    return entry.deadline;
+  }
+  return campaignDeadlineCopy(formatCampaignInstant(entry.deadlineUtc, DESIGN_LAB_CAMPAIGN_TIME_ZONE));
+}
 
 export function HomePage() {
   useSurface("participant-home");
   const [demo, setDemo] = useDemoParam(HOME_DEMO_KEYS, "populated");
   const { message, announce } = useAnnouncer();
-  const [revealing, setRevealing] = useState(() => !prefersReducedMotion());
   const entries = HOME_DEMO[demo];
   const rosterNote =
     entries.length === 0
       ? "No assigned work."
       : `Roster showing ${entries.length} enrollment${entries.length === 1 ? "" : "s"}.`;
-
-  useEffect(() => {
-    if (!revealing) return;
-    const t = window.setTimeout(() => setRevealing(false), 640);
-    return () => window.clearTimeout(t);
-  }, [revealing]);
 
   const dense = HOME_BAYS.some((bay) => entries.filter((e) => e.bay === bay.id).length > 1);
 
@@ -81,39 +79,38 @@ export function HomePage() {
       }
     >
       <OperateArea
-        className="workspace-area board"
+        className={entries.length === 0 ? "workspace-area board assignment-board--hug" : "workspace-area board"}
         label="Assigned work by record state"
         title="Assigned work"
         description="Open assignments and released records for this participant."
-        revealing={revealing}
-        frameClassName="board-frame"
-        frameInset="flush"
+        framed={entries.length === 0}
+        empty={
+          entries.length === 0
+            ? {
+                label: "No assigned work",
+                note: "Nothing is enrolled to this participant. Assignments appear here the moment an administrator enrolls you.",
+              }
+            : undefined
+        }
       >
-        {entries.length === 0 ? (
-          <div className="board-empty">
-            <EmptyPlate
-              label="No assigned work"
-              note="Nothing is enrolled to this participant. Assignments appear here the moment an administrator enrolls you."
-            />
-          </div>
-        ) : (
-            <div className={`bays${dense ? " bays--dense" : ""}`}>
-              {HOME_BAYS.map((bay) => {
-                const plates = entries.filter((e) => e.bay === bay.id);
-                return (
-                  <Stack as="section" className="bay" gap="none" aria-labelledby={`bay-${bay.id}`} key={bay.id}>
-                    <h2 className="bay-head" id={`bay-${bay.id}`}>
-                      {bay.label}
-                    </h2>
-                    <Stack gap="4" className="bay-plates">
-                      {plates.length ? plates.map((entry) => <Plate key={entry.campaign} entry={entry} />) : (
-                        <p className="bay-empty">No enrollments in this bay</p>
-                      )}
-                    </Stack>
+        {entries.length === 0 ? null : (
+          <div className={`bays${dense ? " bays--dense" : ""}`}>
+            {HOME_BAYS.map((bay) => {
+              const plates = entries.filter((e) => e.bay === bay.id);
+              return (
+                <Stack as="section" className="bay" gap="none" aria-labelledby={`bay-${bay.id}`} key={bay.id}>
+                  <h2 className="bay-head" id={`bay-${bay.id}`}>
+                    {bay.label}
+                  </h2>
+                  <Stack gap="4" className="bay-plates">
+                    {plates.length ? plates.map((entry) => <Plate key={entry.campaign} entry={entry} />) : (
+                      <p className="bay-empty">No enrollments in this bay</p>
+                    )}
                   </Stack>
-                );
-              })}
-            </div>
+                </Stack>
+              );
+            })}
+          </div>
         )}
       </OperateArea>
     </ManagementLayout>
@@ -135,7 +132,7 @@ function Plate({ entry }: { entry: HomeEnrollment }) {
           </div>
           <div className="plate-row">
             <dt>Deadline</dt>
-            <dd>{entry.deadlineUtc ? formatNamedCampaignInstant(entry.deadlineUtc) : entry.deadline}</dd>
+            <dd>{enrollmentDeadlineCopy(entry)}</dd>
           </div>
           <div className="plate-row">
             <dt>Phase</dt>
@@ -164,9 +161,9 @@ function Plate({ entry }: { entry: HomeEnrollment }) {
         </dl>
         {entry.key ? (
           <div className="plate-keys">
-            <Link className={entry.key.kind === "open" ? "key key--open" : "key key--quiet"} to={entry.key.to}>
+            <Key variant={entry.key.kind === "open" ? "open" : "quiet"} to={entry.key.to}>
               {entry.key.label}
-            </Link>
+            </Key>
           </div>
         ) : (
           <div className="plate-keys" aria-hidden="true" />

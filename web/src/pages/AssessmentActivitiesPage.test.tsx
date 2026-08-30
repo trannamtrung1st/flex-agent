@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { ProductionApiError } from "../api/production-api";
-import { REQUIRED_SOURCE_CATEGORIES, type ProductionSourceOption } from "../api/production-assessment";
+import {
+  REQUIRED_SOURCE_CATEGORIES,
+  type ProductionActivityList,
+  type ProductionActivitySummary,
+  type ProductionSourceOption,
+} from "../api/production-assessment";
 import { FlexQueryProvider, createFlexQueryClient } from "../api/query-client";
 import { assessmentKeys } from "../features/assessment/queryKeys";
 import { AssessmentActivitiesPage } from "./AssessmentActivitiesPage";
@@ -17,20 +21,29 @@ function source(category: string, version = "v1"): ProductionSourceOption {
   };
 }
 
+function activityRow(overrides: {
+  activity_id: string;
+  title: string;
+  revision_number?: number;
+  has_activated_cohort?: boolean;
+  updated_at?: string;
+}): ProductionActivitySummary {
+  return {
+    revision_number: 1,
+    has_activated_cohort: false,
+    updated_at: "2026-08-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
 function renderActivities(options?: {
-  activities?: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
+  activities?: ProductionActivitySummary[];
   permittedActions?: string[];
   sources?: ProductionSourceOption[];
-  createError?: Error;
-  loadActivities?: (signal?: AbortSignal) => Promise<{
-    activities: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
-    permitted_actions: string[];
-  }>;
+  loadActivities?: (signal?: AbortSignal) => Promise<ProductionActivityList>;
   loadSourceOptions?: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
-  onCreated?: (activityId: string) => void;
   queryClient?: ReturnType<typeof createFlexQueryClient>;
 }) {
-  const created: Array<{ title: string; sources: Record<string, { source_id: string }> }> = [];
   const sourceCalls: AbortSignal[] = [];
   const queryClient = options?.queryClient ?? createFlexQueryClient();
   const loadSourceOptions = options?.loadSourceOptions ?? ((signal?: AbortSignal) => {
@@ -48,74 +61,77 @@ function renderActivities(options?: {
           loadActivities={options?.loadActivities ?? (() => Promise.resolve({
             activities: options?.activities ?? [],
             permitted_actions: options?.permittedActions ?? ["create_assessment"],
-          }))}
+          } satisfies ProductionActivityList))}
           loadSourceOptions={loadSourceOptions}
-          createActivity={(title, sources) => {
-            if (options?.createError) {
-              return Promise.reject(options.createError);
-            }
-
-            created.push({ title, sources: sources as Record<string, { source_id: string }> });
-            return Promise.resolve("act-new");
-          }}
-          onCreated={options?.onCreated ?? (() => undefined)}
         />
       </MemoryRouter>
     </FlexQueryProvider>,
   );
-  return { created, sourceCalls, queryClient };
+  return { sourceCalls, queryClient };
 }
 
 describe("AssessmentActivitiesPage", () => {
-  it("shows an empty activity list and exact source selectors", async () => {
-    renderActivities();
-    expect(await screen.findByText("No activities are available. Create an assessment Campaign below.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Create assessment Campaign" })).toBeInTheDocument();
-    expect(screen.getByLabelText("agent")).toBeInTheDocument();
-    expect(screen.getAllByRole("option", { name: "agent · v1 · available" }).length).toBeGreaterThan(0);
+  it("shows a ceremony wait plate while activities load", () => {
+    renderActivities({ loadActivities: () => new Promise(() => {}) });
+    const status = screen.getByRole("status");
+    expect(status).toHaveClass("wait-plate", "wait-plate--inset", "ceremony-wait");
+    expect(screen.getByText("Loading activities…")).toBeVisible();
+    expect(status.querySelector(".scan-track.is-waiting")).toBeTruthy();
+    expect(status.closest(".work-plane--ceremony")).toBeTruthy();
   });
 
-  it("places the empty registry before the create form so the first work plane is the campaign list", async () => {
+  it("shows an empty registry with a table-action create destination and no empty-plate create key", async () => {
     renderActivities();
-    const empty = await screen.findByText("No activities are available. Create an assessment Campaign below.");
-    const create = screen.getByRole("heading", { name: "Create assessment Campaign" });
-    expect(empty.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(await screen.findByText("No activities are available.")).toBeInTheDocument();
+    const create = screen.getByRole("link", { name: "Create" });
+    expect(create).toHaveAttribute("href", "/activities/new");
+    expect(create.closest(".datatable-actions")).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+    expect(document.querySelector(".datatable-empty")).toHaveClass("datatable-empty", "empty-plate--inset");
+    expect(document.querySelector(".datatable-empty")?.querySelector(".key")).toBeNull();
+    expect(document.querySelector(".registry-wall--empty")).toBeNull();
+    expect(document.querySelector(".registry-assign-keys")).toBeNull();
+  });
+
+  it("seats a Clear search key in the empty plate when no campaigns match the query", async () => {
+    renderActivities({
+      activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
+    });
+    await screen.findByRole("link", { name: /Existing/ });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search campaign title or ID" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(await screen.findByText("No matching activities")).toBeInTheDocument();
+    expect(screen.getByText("Nothing matches the current search. Clear the search to restore the registry.")).toBeInTheDocument();
+    const clear = screen.getByRole("button", { name: "Clear search" });
+    expect(clear.closest(".datatable-empty")).not.toBeNull();
+    fireEvent.click(clear);
+    expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the empty registry as the only work plane", async () => {
+    renderActivities();
+    const empty = await screen.findByText("No activities are available.");
     expect(empty.closest(".frame-cut")).toHaveClass("datatable-frame", "frame-cut--flush");
-    expect(create.closest(".registry-create")).not.toBeNull();
+    expect(empty.closest(".work-plane")).toHaveClass("registry-wall");
+    expect(empty.closest(".work-plane")).not.toHaveClass("registry-wall--hug");
   });
 
-  it("explains a missing required source category", async () => {
+  it("explains a missing required source category and withholds create", async () => {
     renderActivities({
       sources: REQUIRED_SOURCE_CATEGORIES.filter((category) => category !== "agent").map((category) => source(category)),
     });
-    expect(await screen.findByText(/No permitted agent revisions are available/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
-  });
-
-  it("removes protected create controls when access is lost", async () => {
-    renderActivities({ createError: new ProductionApiError(403, "Your access changed") });
-    await screen.findByRole("heading", { name: "Create assessment Campaign" });
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("agent")).not.toBeInTheDocument();
-  });
-
-  it("preserves the title after a create failure", async () => {
-    renderActivities({ createError: new Error("denied") });
-    await screen.findByRole("heading", { name: "Create assessment Campaign" });
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    expect(await screen.findByText("The Campaign could not be created.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Campaign title")).toHaveValue("Local campaign");
+    expect(await screen.findByText(/No permitted Agent revisions are available/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create" })).not.toBeInTheDocument();
   });
 
   it("omits create when the server does not permit it", async () => {
     const loadSourceOptions = vi.fn(() => Promise.resolve({ sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)) }));
     renderActivities({
       permittedActions: [],
-      activities: [{ activity_id: "act-1", title: "Existing", revision_number: 1, has_activated_cohort: false }],
+      activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
       loadSourceOptions,
     });
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
@@ -125,105 +141,92 @@ describe("AssessmentActivitiesPage", () => {
       "datatable-frame",
       "frame-cut--flush",
     );
-    expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create" })).not.toBeInTheDocument();
     expect(loadSourceOptions).not.toHaveBeenCalled();
   });
 
-  it("keeps a populated registry above create and offers an in-page create key", async () => {
+  it("filters campaigns by activity id", async () => {
     renderActivities({
-      activities: [{ activity_id: "act-1", title: "Existing", revision_number: 1, has_activated_cohort: false }],
+      activities: [
+        activityRow({ activity_id: "act-alpha", title: "Alpha Campaign" }),
+        activityRow({ activity_id: "act-beta", title: "Beta Campaign", revision_number: 2, has_activated_cohort: true }),
+      ],
+    });
+    await screen.findByRole("link", { name: /Alpha Campaign/ });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search campaign title or ID" }), {
+      target: { value: "act-beta" },
+    });
+    expect(screen.queryByRole("link", { name: /Alpha Campaign/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Beta Campaign/ })).toBeInTheDocument();
+  });
+
+  it("sorts campaigns by activation state", async () => {
+    renderActivities({
+      activities: [
+        activityRow({ activity_id: "act-draft", title: "Draft Campaign" }),
+        activityRow({ activity_id: "act-live", title: "Live Campaign", revision_number: 3, has_activated_cohort: true }),
+      ],
+    });
+    await screen.findByRole("link", { name: /Draft Campaign/ });
+    fireEvent.click(screen.getByRole("button", { name: "Activation" }));
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("Draft Campaign");
+    expect(rows[1]).toHaveTextContent("Live Campaign");
+  });
+
+  it("keeps a populated registry above setup links and offers a create destination in the toolbar", async () => {
+    renderActivities({
+      activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
     });
     const campaign = await screen.findByRole("link", { name: /Existing/ });
-    expect(screen.getByRole("table", { name: "Activities" })).toHaveClass("datatable-table--fit");
+    expect(campaign).toHaveClass("datatable-id");
+    expect(screen.getByRole("table", { name: "Activities" })).toHaveClass("datatable-table");
+    expect(screen.getByRole("columnheader", { name: "Updated" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Rev" })).toBeInTheDocument();
+    expect(campaign.closest("tr")?.querySelector("time")).toBeInTheDocument();
+    expect(campaign.closest("tr")?.children.item(3)).toHaveTextContent("1");
     expect(campaign.closest(".work-plane")).toHaveClass("registry-wall--hug");
     expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    const create = await screen.findByRole("heading", { name: "Create assessment Campaign" });
-    expect(campaign.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Campaign title")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Create assessment Campaign" })).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Create assessment Campaign" })).toHaveAttribute("type", "submit");
-    await waitFor(() => {
-      expect(document.activeElement).toBe(create);
+    expect(screen.getByRole("link", { name: "Create" })).toHaveAttribute("href", "/activities/new");
+    expect(screen.getByRole("link", { name: "Create" }).closest(".datatable-actions")).not.toBeNull();
+  });
+
+  it("shows the shared absence mark when a campaign has no updated instant", async () => {
+    renderActivities({
+      activities: [activityRow({ activity_id: "act-1", title: "Existing", updated_at: undefined })],
     });
+    const campaign = await screen.findByRole("link", { name: /Existing/ });
+    const row = campaign.closest("tr");
+    expect(row).toHaveTextContent("—");
+    expect(row).not.toHaveTextContent(/undefined/i);
+    expect(row?.querySelector("time")).toBeNull();
+    expect(screen.getByText("Not recorded")).toHaveClass("visually-hidden");
   });
 
   it("keeps the authorized list when source options fail independently", async () => {
     renderActivities({
-      activities: [{ activity_id: "act-1", title: "Existing", revision_number: 1, has_activated_cohort: false }],
+      activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
       loadSourceOptions: () => Promise.reject(new Error("source unavailable")),
     });
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
-    expect(await screen.findByText(/No permitted organization policy revisions are available/i)).toBeInTheDocument();
-  });
-
-  it("prevents duplicate create submission while pending", async () => {
-    let resolveCreate: ((value: string) => void) | undefined;
-    const createActivity = vi.fn(() => new Promise<string>((resolve) => {
-      resolveCreate = resolve;
-    }));
-    render(
-      <FlexQueryProvider>
-        <MemoryRouter>
-          <AssessmentActivitiesPage
-            organizationId="org-1"
-            loadActivities={() => Promise.resolve({
-              activities: [],
-              permitted_actions: ["create_assessment"],
-            })}
-            loadSourceOptions={() => Promise.resolve({
-              sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
-            })}
-            createActivity={createActivity}
-            onCreated={() => undefined}
-          />
-        </MemoryRouter>
-      </FlexQueryProvider>,
-    );
-    await screen.findByRole("button", { name: "Create assessment Campaign" });
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    expect(await screen.findByRole("button", { name: "Creating…" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Creating…" }));
-    expect(createActivity).toHaveBeenCalledTimes(1);
-    resolveCreate?.("act-new");
-  });
-
-  it("navigates immediately after authoritative create and invalidates the list key", async () => {
-    const onCreated = vi.fn();
-    const queryClient = createFlexQueryClient();
-    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-    renderActivities({ onCreated, queryClient });
-    await screen.findByRole("button", { name: "Create assessment Campaign" });
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    await waitFor(() => {
-      expect(onCreated).toHaveBeenCalledWith("act-new");
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: assessmentKeys.activities(),
-      exact: true,
-      refetchType: "none",
-    });
-    expect(queryClient.getQueryState(assessmentKeys.activities())?.fetchStatus).not.toBe("fetching");
+    expect(await screen.findByText(/No permitted Organization policy revisions are available/i)).toBeInTheDocument();
   });
 
   it("does not request source options from cached create permission", async () => {
     const queryClient = createFlexQueryClient();
     queryClient.setQueryData(assessmentKeys.activities(), {
-      activities: [{ activity_id: "act-1", title: "Cached", revision_number: 1, has_activated_cohort: false }],
+      activities: [activityRow({ activity_id: "act-1", title: "Cached" })],
       permitted_actions: ["create_assessment"],
     });
     const loadSourceOptions = vi.fn(() => Promise.resolve({
       sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
     }));
     let releaseList: ((value: {
-      activities: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
+      activities: Array<ReturnType<typeof activityRow>>;
       permitted_actions: string[];
     }) => void) | undefined;
     const listPromise = new Promise<{
-      activities: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
+      activities: Array<ReturnType<typeof activityRow>>;
       permitted_actions: string[];
     }>((resolve) => {
       releaseList = resolve;
@@ -239,52 +242,12 @@ describe("AssessmentActivitiesPage", () => {
       expect(loadSourceOptions).not.toHaveBeenCalled();
     });
     releaseList?.({
-      activities: [{ activity_id: "act-1", title: "Cached", revision_number: 1, has_activated_cohort: false }],
+      activities: [activityRow({ activity_id: "act-1", title: "Cached" })],
       permitted_actions: [],
     });
     expect(await screen.findByRole("link", { name: /Cached/ })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create" })).not.toBeInTheDocument();
     expect(loadSourceOptions).not.toHaveBeenCalled();
-  });
-
-  it("does not submit a client-invalid title and focuses the linked error summary", async () => {
-    const { created } = renderActivities();
-    await screen.findByRole("button", { name: "Create assessment Campaign" });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    expect(await screen.findByRole("link", { name: "Enter a Campaign title" })).toHaveAttribute("href", expect.stringMatching(/^#/));
-    await waitFor(() => {
-      expect(document.activeElement).toHaveTextContent("Correct the following");
-      expect(document.activeElement?.id).toBe(screen.getByRole("heading", { name: "Correct the following" }).id);
-    });
-    expect(created).toHaveLength(0);
-  });
-
-  it("rejects a stale source identity before calling create", async () => {
-    const queryClient = createFlexQueryClient();
-    const { created } = renderActivities({ queryClient });
-    await screen.findByRole("button", { name: "Create assessment Campaign" });
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
-    queryClient.setQueryData(assessmentKeys.sourceOptions(), {
-      sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category, "v2")),
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
-    expect(await screen.findByText("Selected sources are no longer available. Choose current options.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Campaign title")).toHaveValue("Local campaign");
-    expect(created).toHaveLength(0);
-  });
-
-  it("does not reset a touched title when source options refetch", async () => {
-    const queryClient = createFlexQueryClient();
-    renderActivities({ queryClient });
-    await screen.findByLabelText("Campaign title");
-    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Kept title" } });
-    queryClient.setQueryData(assessmentKeys.sourceOptions(), {
-      sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category, "v9")),
-    });
-    await waitFor(() => {
-      expect(screen.getByLabelText("Campaign title")).toHaveValue("Kept title");
-    });
-    expect(screen.getByLabelText("agent")).toHaveValue("agent-id:v1");
   });
 
   it("passes Query cancellation through the activities loader", async () => {

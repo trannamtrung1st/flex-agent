@@ -29,6 +29,7 @@ describe("FieldNumber", () => {
 
     const input = screen.getByRole("spinbutton", { name: "Score" });
     expect(input).toHaveAttribute("type", "number");
+    expect(input).toHaveAttribute("placeholder", "0");
     expect(screen.getByRole("button", { name: "Increase" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Decrease" })).toBeInTheDocument();
   });

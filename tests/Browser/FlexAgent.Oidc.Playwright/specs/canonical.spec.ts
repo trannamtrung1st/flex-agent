@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  apiUrl,
   assertOpaqueCookieAttributes,
   captureAuthorizationRequest,
   keycloakAdminLogout,
@@ -7,6 +8,7 @@ import {
   scanStorageForProviderTokens,
   sessionProjection,
   signInThroughKeycloak,
+  signOutThroughProductionChrome,
   sqlScalar,
   storageSnapshot,
   syntheticUsers,
@@ -57,7 +59,7 @@ test("OIDC-E2E-02 cookie and protected authority [OIDC-E2E-02]", async ({ page, 
     return response.status;
   });
   expect(activities).toBe(200);
-  const anonymous = await request.get("/v1/assessment/activities");
+  const anonymous = await request.get(apiUrl("/v1/assessment/activities"));
   expect(anonymous.status()).toBe(401);
 });
 
@@ -71,13 +73,13 @@ test("OIDC-E2E-03 local logout [OIDC-E2E-03]", async ({ page, context, request }
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 30_000 });
   const cookieValue = (await context.cookies()).find((item) => item.name === "flex_agent_application_session")?.value;
   expect(cookieValue).toBeTruthy();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await signOutThroughProductionChrome(page);
   await finishRpInitiatedLogout(page);
   const session = await sessionProjection(page);
   expect(session.authenticated).toBe(false);
   await page.getByRole("button", { name: "Continue to sign in" }).click();
   await expect(page.locator("#username")).toBeVisible({ timeout: 30_000 });
-  const replay = await request.get("/v1/assessment/activities", {
+  const replay = await request.get(apiUrl("/v1/assessment/activities"), {
     headers: { Cookie: `flex_agent_application_session=${cookieValue}` },
   });
   expect(replay.status()).toBe(401);
@@ -115,7 +117,10 @@ test("OIDC-E2E-05A unbound identity [OIDC-E2E-05A]", async ({ page }) => {
   );
   await page.goto("/");
   await signInThroughKeycloak(page, syntheticUsers.unbound.username, syntheticUsers.unbound.password);
-  await page.waitForTimeout(2000);
+  await finishRpInitiatedLogout(page);
+  await expect(page.getByRole("heading", { name: "Sign-in could not be completed" })).toBeVisible();
+  await expect(page).not.toHaveURL(/\/auth\/callback/);
+  expect(page.url()).not.toMatch(/unknown_subject|authn\./);
   const session = await sessionProjection(page);
   expect(session.authenticated).toBe(false);
   expect(sqlScalar(
@@ -128,6 +133,8 @@ test("OIDC-E2E-05A unbound identity [OIDC-E2E-05A]", async ({ page }) => {
     "SELECT count(*) FROM authentication_security_events WHERE event_type = 'login_denied' AND reason_code = 'authn.unknown_subject';",
   );
   expect(Number(denial)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await expect(page.locator("#username")).toBeVisible({ timeout: 30_000 });
 });
 
 test("OIDC-E2E-05B ambiguous and zero organization [OIDC-E2E-05B]", async ({ page }) => {
@@ -139,7 +146,8 @@ test("OIDC-E2E-05B ambiguous and zero organization [OIDC-E2E-05B]", async ({ pag
     const isolated = await context.newPage();
     await isolated.goto("/");
     await signInThroughKeycloak(isolated, user.username, user.password);
-    await isolated.waitForTimeout(2000);
+    await finishRpInitiatedLogout(isolated);
+    await expect(isolated.getByRole("heading", { name: "Sign-in could not be completed" })).toBeVisible();
     const session = await sessionProjection(isolated);
     expect(session.authenticated).toBe(false);
     expect(sqlScalar(
@@ -154,12 +162,12 @@ test("OIDC-E2E-05B ambiguous and zero organization [OIDC-E2E-05B]", async ({ pag
 });
 
 test("OIDC-E2E-06 public route boundary [OIDC-E2E-06]", async ({ request }) => {
-  expect((await request.get("/realms/flex-agent")).ok()).toBeTruthy();
-  expect((await request.get("/resources/")).status()).toBeLessThan(500);
-  expect((await request.get("/admin")).status()).toBe(404);
-  expect((await request.get("/health")).status()).toBe(404);
-  expect((await request.get("/metrics")).status()).toBe(404);
-  expect((await request.get("/realms/master")).status()).toBe(404);
-  expect((await request.get("/browser")).status()).toBe(404);
-  expect((await request.get("/v1/assessment/activities")).status()).toBe(401);
+  expect((await request.get(apiUrl("/realms/flex-agent"))).ok()).toBeTruthy();
+  expect((await request.get(apiUrl("/resources/"))).status()).toBeLessThan(500);
+  expect((await request.get(apiUrl("/admin"))).status()).toBe(404);
+  expect((await request.get(apiUrl("/health"))).status()).toBe(404);
+  expect((await request.get(apiUrl("/metrics"))).status()).toBe(404);
+  expect((await request.get(apiUrl("/realms/master"))).status()).toBe(404);
+  expect((await request.get(apiUrl("/browser"))).status()).toBe(404);
+  expect((await request.get(apiUrl("/v1/assessment/activities"))).status()).toBe(401);
 });

@@ -23,7 +23,8 @@ public sealed record ValidatedOidcIdToken(
     AuthenticationStrength Strength,
     string Nonce,
     string? ProviderSessionId,
-    DateTimeOffset IssuedAt);
+    DateTimeOffset IssuedAt,
+    string? SeatedDisplayName = null);
 
 public sealed record OidcValidationResult(bool Succeeded, string? ReasonCode, ValidatedOidcIdToken? Token)
 {
@@ -143,13 +144,17 @@ public static class OidcIdTokenValidator
         }
 
         TryReadString(payload, "sid", out var providerSessionId);
+        TryReadString(payload, "given_name", out var givenName);
+        TryReadString(payload, "family_name", out var familyName);
+        TryReadString(payload, "preferred_username", out var preferredUsername);
         return OidcValidationResult.Permit(
             new ValidatedOidcIdToken(
                 identity,
                 ReadStrength(payload),
                 nonce,
                 string.IsNullOrWhiteSpace(providerSessionId) ? null : providerSessionId,
-                issuedAt));
+                issuedAt,
+                SeatedOperatorDisplayName.Compose(givenName, familyName, preferredUsername)));
     }
 
     public static OidcLogoutValidationResult ValidateLogoutToken(

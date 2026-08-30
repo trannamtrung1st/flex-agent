@@ -8,7 +8,7 @@ export {
 } from "./ids";
 export { LayoutAssignment, useAssignedLayoutId } from "./LayoutAssignment";
 export { ManagementLayout, type ManagementLayoutProps, type ManagementNavigation } from "./ManagementLayout";
-export { GuidedTaskLayout, type GuidedTaskLayoutProps } from "./GuidedTaskLayout";
+export { GuidedTaskFoot, GuidedTaskLayout, type GuidedTaskLayoutProps } from "./GuidedTaskLayout";
 export { LiveSessionLayout, type LiveSessionLayoutProps } from "./LiveSessionLayout";
 export { ReferenceLayout, type ReferenceIndex, type ReferenceLayoutProps } from "./ReferenceLayout";
 export { SHELL_MAIN_INSET_BLOCK, SHELL_MAIN_INSET_CLASS, SHELL_MAIN_INSET_INLINE } from "./shellInset";

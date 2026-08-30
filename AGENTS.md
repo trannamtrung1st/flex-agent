@@ -91,7 +91,9 @@ For any UI design, implementation, review, or testing task, read
 the applicable modules through
 `docs/ui-ux/design-system/implementation-guide.md`. A narrower approved UI/UX
 specification governs feature-specific behavior. A design-system module does
-not authorize a deferred capability.
+not authorize a deferred capability. New production UI clones a matching
+existing production page and Component Deck specimen. Attach to a healthy local
+origin before starting Compose or Vite; see Playwright MCP verification below.
 
 ## Specification-driven TDD
 
@@ -110,7 +112,35 @@ For defects, reproduce with a failing regression test before fixing when feasibl
 
 ## Playwright MCP verification
 
-For every UI-affecting change when the app can run, use the project `playwright` MCP server configured in `.codex/config.toml`:
+Use the project `playwright` MCP server configured in `.codex/config.toml`.
+Artifacts must stay under `.playwright-mcp/`.
+
+Attach before starting anything. Pick the origin the work needs, probe it, and
+reuse it when healthy. Do not start a second listener on the same port. Do not
+run `pnpm compose:up` over a healthy stack (`compose:up` regenerates secrets
+and reseeds). A busy port is not proof it is Flex Agent or the right profile.
+Probe both `http://localhost:<port>` and `http://127.0.0.1:<port>` (Vite often
+binds `::1` only; Compose `:18080` is IPv4 `127.0.0.1`).
+Full table: `docs/contributing/development-harness.md` (Attach to a running
+local origin).
+
+| Work | Origin | Attach probe |
+| --- | --- | --- |
+| Canonical product | `http://localhost:18080` | `pnpm compose:status` with `session-endpoint:ok`; `/realms/flex-agent` answers |
+| Candidate UI | `http://localhost:5274` | HTTP success **and** `:18080` healthy; candidate overlay + `VITE_DEV_API_PROXY=http://127.0.0.1:18080` for OIDC |
+| Design lab | `http://localhost:5275` | HTTP success on `/design-lab/` (also try `127.0.0.1` if bound there) |
+
+After candidate overlay work, return the API to the canonical `RedirectUri` before
+`:18080` sign-in or Playwright (`pnpm compose:reset` or equivalent; see
+`docs/contributing/development-harness.md`).
+
+If the probe succeeds, navigate there. If the port is busy but the probe fails,
+report the blocker; do not tear down the user's stack. If nothing is listening,
+start only the documented command for that origin (never a fallback port).
+Prefer `:5274` when Compose SPA may lag `web/` source; prefer `:18080` for
+canonical OIDC. Never reuse a live stack for `pnpm verify:oidc`.
+
+For every UI-affecting change when that origin can run:
 
 1. Reach each changed state through real interactions.
 2. Use accessibility snapshots to inspect controls, names, structure, and focus.

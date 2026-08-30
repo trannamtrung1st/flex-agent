@@ -34,7 +34,10 @@ Use unit/integration suites for broad repeatability and browser E2E for critical
 
 ## Mandatory UI/UX execution
 
-For every relevant UI state:
+For every relevant UI state, attach first: probe the origin this work needs
+(`docs/contributing/development-harness.md`, Attach to a running local origin)
+and reuse it when healthy. Do not start a second listener or run
+`pnpm compose:up` over a healthy stack.
 
 1. Use the project `playwright` MCP server to navigate and interact.
 2. Use accessibility snapshots for names, roles, landmarks, and keyboard paths.

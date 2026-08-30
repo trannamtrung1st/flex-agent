@@ -4,13 +4,16 @@ import {
   ActivationMark,
   ChevronGlyph,
   CommandMenu,
+  CompactId,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  datatableColMin,
   DisclosureMenu,
   EmptyPlate,
   EtchedFrame,
   HeaderSelectionControl,
+  InstantReadout,
   Key,
   KeyGroup,
   ReadoutGrid,
@@ -24,6 +27,7 @@ import {
   TableSelectionBand,
   ToolbarReadout,
   ToolbarSearch,
+  SEARCH_ID_PLACEHOLDER,
   recordResultMark,
   useDatatableDetailGutter,
   useTableController,
@@ -50,7 +54,15 @@ const rows: Row[] = Array.from({ length: 100 }, (_, index) => {
     campaign: `CMP-${String(42 + (index % 5)).padStart(4, "0")}`,
     stage,
     result: stage === "RELEASED" ? "COMPLETE" : stage === "EXAMINATION" ? ["READY", "IN PROGRESS", "LIVE"][index % 3] : "PENDING",
-    deadline: `2026-08-${String(28 + Math.floor(index / 48)).padStart(2, "0")}  ${String(9 + Math.floor((index % 48) / 4)).padStart(2, "0")}:${String((index * 18) % 60).padStart(2, "0")}`,
+    deadline: new Date(
+      Date.UTC(
+        2026,
+        7,
+        28 + Math.floor(index / 48),
+        9 + Math.floor((index % 48) / 4),
+        (index * 18) % 60,
+      ),
+    ).toISOString(),
   };
 });
 
@@ -232,7 +244,7 @@ function DatatableSpecimen({
               />
             }
             readout={<ToolbarReadout label="Showing" value={`${filtered.length} enrollment${filtered.length === 1 ? "" : "s"}`} valueId="dtCountValue" />}
-            search={<ToolbarSearch id="dtSearch" label="Search participant ID" placeholder="Search ID" value={search} onChange={(event) => { setSearch(event.target.value); resetForQuery(); }} />}
+            search={<ToolbarSearch id="dtSearch" label="Search participant ID" placeholder={SEARCH_ID_PLACEHOLDER} value={search} onChange={(event) => { setSearch(event.target.value); resetForQuery(); }} />}
             selection={<TableSelectionBand selection={selection} pageIds={pageIds} matchingIds={matchingIds} noun="enrollments" headerSelectId="dtSelectAll" onClear={() => setSelection(EMPTY_SELECTION)} />}
           />
         }
@@ -244,13 +256,13 @@ function DatatableSpecimen({
                 <th scope="col" className="col-select">
                   <HeaderSelectionControl id="dtSelectAll" selection={selection} pageIds={pageIds} matchingIds={matchingIds} queryKey={queryKey} noun="enrollments" onTransition={setSelection} />
                 </th>
-                <SortableHeader sortKey="id" label="Participant ID" sorts={sorts} onSort={sort} />
-                <SortableHeader sortKey="campaign" label="Campaign" sorts={sorts} onSort={sort} />
-                <SortableHeader sortKey="stage" label="Stage" sorts={sorts} onSort={sort} />
-                <th scope="col" className="col-state">Session state</th>
-                <SortableHeader sortKey="deadline" label="Deadline" sorts={sorts} onSort={sort} />
-                <SortableHeader sortKey="result" label="Result" sorts={sorts} onSort={sort} />
-                <th scope="col"><span className="visually-hidden">Actions</span></th>
+                <SortableHeader sortKey="id" label="Participant ID" sorts={sorts} onSort={sort} colMin="id" />
+                <SortableHeader sortKey="campaign" label="Campaign" sorts={sorts} onSort={sort} colMin="label" />
+                <SortableHeader sortKey="stage" label="Stage" sorts={sorts} onSort={sort} colMin="stage" />
+                <th scope="col" className="col-state" {...datatableColMin("state")}>Session state</th>
+                <SortableHeader sortKey="deadline" label="Deadline" sorts={sorts} onSort={sort} colMin="instant" />
+                <SortableHeader sortKey="result" label="Result" sorts={sorts} onSort={sort} colMin="result" />
+                <th scope="col" {...datatableColMin("action")}><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody id="dtBody" ref={tbodyRef}>
@@ -258,13 +270,15 @@ function DatatableSpecimen({
                 <Fragment key={row.id}>
                   <tr className={`datatable-row${isSelected(selection, row.id) ? " is-selected" : ""}${expanded === row.id ? " is-expanded" : ""}`}>
                     <td className="cell-select"><SelectMark checked={isSelected(selection, row.id)} label={`Select ${row.id}`} onChange={(checked) => setSelection((current: TableSelection) => toggleRow(current, row.id, checked))} /></td>
-                    <td className="cell-id"><div className="datatable-id-cell"><button className={`icon-button command-menu-trigger command-menu-trigger--icon${expanded === row.id ? " is-open" : ""}`} type="button" aria-label={`${expanded === row.id ? "Collapse" : "Expand"} enrollment ${row.id}`} aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? null : row.id)}><ChevronGlyph /></button><button className="datatable-id" type="button" onClick={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}>{row.id}</button></div></td>
-                    <td className="cell-content">{row.campaign}</td>
-                    <td className="cell-content">{row.stage}</td>
-                    <td className="cell-state">{recordResultMark(row.result)}</td>
-                    <td className="cell-content">{row.deadline}</td>
-                    <td className="cell-result cell-content">{row.result}</td>
-                    <td className="col-action">
+                    <td className="cell-id" {...datatableColMin("id")}><div className="datatable-id-cell"><button className={`icon-button command-menu-trigger command-menu-trigger--icon${expanded === row.id ? " is-open" : ""}`} type="button" aria-label={`${expanded === row.id ? "Collapse" : "Expand"} enrollment ${row.id}`} aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? null : row.id)}><ChevronGlyph /></button><button className="datatable-id" type="button" onClick={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}>{row.id}</button></div></td>
+                    <td className="cell-content" {...datatableColMin("label")}>{row.campaign}</td>
+                    <td className="cell-content" {...datatableColMin("stage")}>{row.stage}</td>
+                    <td className="cell-state" {...datatableColMin("state")}>{recordResultMark(row.result)}</td>
+                    <td className="cell-content" {...datatableColMin("instant")}>
+                      <InstantReadout value={row.deadline} />
+                    </td>
+                    <td className="cell-result cell-content" {...datatableColMin("result")}>{row.result}</td>
+                    <td className="col-action" {...datatableColMin("action")}>
                       <RowActionMenu
                         open={openMenuId === row.id}
                         onOpenChange={(open) => setOpenMenuId(open ? row.id : null)}
@@ -297,8 +311,140 @@ function DatatableSpecimen({
             </tbody>
           </table>
         }
-        empty={filtered.length === 0 ? <EmptyPlate className="datatable-empty" label="No matching enrollments" note="Clear the stage filter or search field to restore the manifest."><Key size="compact" onClick={() => { setStage("all"); setSearch(""); resetForQuery(); }}>Clear filters</Key></EmptyPlate> : undefined}
+        empty={filtered.length === 0 ? <EmptyPlate className="datatable-empty" inset label="No matching enrollments" note="Clear the stage filter or search field to restore the manifest."><Key size="compact" onClick={() => { setStage("all"); setSearch(""); resetForQuery(); }}>Clear filters</Key></EmptyPlate> : undefined}
         footer={<DataTablePagination total={filtered.length} startIndex={start} visibleCount={visible.length} page={safePage} pageCount={pageCount} pageSize={pageSize} pageSizeOptions={[8, 16, 32]} onPageSizeChange={(size) => { setPageSize(size); setPage(0); }} onPageChange={setPage} onPrevious={() => setPage(Math.max(0, safePage - 1))} onNext={() => setPage(Math.min(pageCount - 1, safePage + 1))} />}
+      />
+    </EtchedFrame>
+  );
+}
+
+const WIDE_ROWS = [
+  {
+    participant: "Alex Chen",
+    campaign: "Access Review 2026",
+    stage: "EXAMINATION",
+    cohort: "Northbound Q3",
+    channel: "Voice + text",
+    locale: "en-AU",
+    attempt: "01 / 02",
+    session: "Live",
+    received: "2026-08-28T02:18:00.000Z",
+    deadline: "2026-08-29T14:00:00.000Z",
+    result: "IN PROGRESS",
+    confidence: "0.86",
+    reviewer: "Morgan Ellis",
+    rev: "3",
+  },
+  {
+    participant: "Priya Nair",
+    campaign: "Clinical Documentation",
+    stage: "REVIEW",
+    cohort: "Night watch",
+    channel: "Text",
+    locale: "en-GB",
+    attempt: "01 / 01",
+    session: "Sealed",
+    received: "2026-08-27T19:42:00.000Z",
+    deadline: "2026-08-30T09:00:00.000Z",
+    result: "READY",
+    confidence: "0.91",
+    reviewer: "Sam Okonkwo",
+    rev: "1",
+  },
+  {
+    participant: "Jordan Blake",
+    campaign: "Harassment Annual",
+    stage: "BRIEFING",
+    cohort: "Dockside A",
+    channel: "Voice",
+    locale: "en-US",
+    attempt: "02 / 02",
+    session: "Draft",
+    received: "2026-08-26T11:05:00.000Z",
+    deadline: "2026-09-01T16:30:00.000Z",
+    result: "PENDING",
+    confidence: "—",
+    reviewer: "Unassigned",
+    rev: "2",
+  },
+  {
+    participant: "Riley Cho",
+    campaign: "Field Hazard Brief",
+    stage: "RELEASED",
+    cohort: "Pacific rim",
+    channel: "Voice + text",
+    locale: "en-SG",
+    attempt: "01 / 01",
+    session: "Released",
+    received: "2026-08-25T07:55:00.000Z",
+    deadline: "2026-08-28T22:00:00.000Z",
+    result: "COMPLETE",
+    confidence: "0.74",
+    reviewer: "Alex Chen",
+    rev: "4",
+  },
+] as const;
+
+function WideDatatableSpecimen() {
+  return (
+    <EtchedFrame className="datatable-demo datatable-frame" inset="flush">
+      <DataTableShell
+        toolbar={
+          <DataTableToolbar
+            ariaLabel="Wide registry controls"
+            readout={<ToolbarReadout label="Showing" value="4 rows · 14 columns" valueId="wideDtCount" />}
+          />
+        }
+        scrollProps={{ tabIndex: 0, role: "region", "aria-label": "Wide registry rows, scrollable" }}
+        table={
+          <table className="datatable-table">
+            <caption className="visually-hidden">Wide registry</caption>
+            <thead>
+              <tr>
+                <th scope="col" {...datatableColMin("id")}><span className="col-head">Participant</span></th>
+                <th scope="col" {...datatableColMin("label")}><span className="col-head">Campaign</span></th>
+                <th scope="col" {...datatableColMin("stage")}><span className="col-head">Stage</span></th>
+                <th scope="col" {...datatableColMin("label")}><span className="col-head">Cohort</span></th>
+                <th scope="col" {...datatableColMin("label")}><span className="col-head">Channel</span></th>
+                <th scope="col" {...datatableColMin("label")}><span className="col-head">Locale</span></th>
+                <th scope="col" {...datatableColMin("count")}><span className="col-head">Attempt</span></th>
+                <th scope="col" {...datatableColMin("state")}><span className="col-head">Session</span></th>
+                <th scope="col" {...datatableColMin("instant")}><span className="col-head">Received</span></th>
+                <th scope="col" {...datatableColMin("instant")}><span className="col-head">Deadline</span></th>
+                <th scope="col" {...datatableColMin("result")}><span className="col-head">Result</span></th>
+                <th scope="col" {...datatableColMin("confidence")}><span className="col-head">Confidence</span></th>
+                <th scope="col" {...datatableColMin("label")}><span className="col-head">Reviewer</span></th>
+                <th scope="col" {...datatableColMin("rev")}><span className="col-head">Rev</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {WIDE_ROWS.map((row) => (
+                <tr key={row.participant} className="datatable-row">
+                  <td className="cell-id" {...datatableColMin("id")}>
+                    <button className="datatable-id" type="button">{row.participant}</button>
+                  </td>
+                  <td className="cell-content" {...datatableColMin("label")}>{row.campaign}</td>
+                  <td className="cell-content" {...datatableColMin("stage")}>{row.stage}</td>
+                  <td className="cell-content" {...datatableColMin("label")}>{row.cohort}</td>
+                  <td className="cell-content" {...datatableColMin("label")}>{row.channel}</td>
+                  <td className="cell-content" {...datatableColMin("label")}>{row.locale}</td>
+                  <td className="cell-content" {...datatableColMin("count")}>{row.attempt}</td>
+                  <td className="cell-content" {...datatableColMin("state")}>{row.session}</td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.received} />
+                  </td>
+                  <td className="cell-content" {...datatableColMin("instant")}>
+                    <InstantReadout value={row.deadline} />
+                  </td>
+                  <td className="cell-result cell-content" {...datatableColMin("result")}>{row.result}</td>
+                  <td className="cell-content" {...datatableColMin("confidence")}>{row.confidence}</td>
+                  <td className="cell-content" {...datatableColMin("label")}>{row.reviewer}</td>
+                  <td className="cell-content" {...datatableColMin("rev")}>{row.rev}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        }
       />
     </EtchedFrame>
   );
@@ -341,8 +487,24 @@ export function DataSections({
           </ReadoutGrid>
         </Spec>
       </GallerySection>
+      <GallerySection id="compact-id" title="Compact ID" note="Center-truncated registry identifiers keep the head and tail. Hover opens a copyable value plaque; pass tabbable for focus-visible plaque in standalone surfaces. Dense registry tables omit per-cell tab stops because assistive technology already hears the full value.">
+        <div className="spec-row">
+          <Spec tag="CompactId · truncated · value plaque">
+            <CompactId tabbable value="a1000000-0000-4000-8000-000000000007" />
+          </Spec>
+          <Spec tag="CompactId · fits · no plaque">
+            <CompactId value="solo" />
+          </Spec>
+          <Spec tag="CompactId · explicit display">
+            <CompactId tabbable value="GOVERNED-AUDIT-01" display="GOV…01" />
+          </Spec>
+        </div>
+      </GallerySection>
       <GallerySection id="datatable" title="Datatable" note="The canonical manifest grammar: one shared 18px inline gutter across toolbar, table, expanded detail, and pagination; a persistent action bar; compact selection band; multi-column sort; teal row selection; expandable row detail; and pagination controls.">
         <Spec wide tag=".datatable-frame + .datatable · shared 18px gutter · full-bleed detail · page then all-matching selection"><DatatableSpecimen announce={announce} /></Spec>
+      </GallerySection>
+      <GallerySection id="datatable-scroll" title="Datatable scroll" note="Named column floors (`data-col-min`) keep headers and typical values from crushing. When the floors no longer fit the scrollport, `.datatable-scroll` takes horizontal overflow — the etched frame does not.">
+        <Spec wide tag="14 columns · data-col-min floors · named scroll region"><WideDatatableSpecimen /></Spec>
       </GallerySection>
     </>
   );
