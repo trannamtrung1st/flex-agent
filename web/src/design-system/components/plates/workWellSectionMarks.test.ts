@@ -22,8 +22,40 @@ describe("prose section marks", () => {
     expect(platesCss).not.toMatch(/\.work-well__section h3::before/);
     expect(rule(platesCss, ".work-well__section h3")).toMatch(/color:\s*var\(--teal\)/);
     expect(rule(platesCss, ".work-well__section h3")).toMatch(/margin-bottom:\s*var\(--field-label-gap\)/);
-    expect(rule(platesCss, ".work-well__head")).toMatch(/var\(--frame-inset-block-end\)/);
-    expect(rule(platesCss, ".work-well__head")).not.toMatch(/18px/);
+    expect(platesCss).toMatch(
+      /\.work-well__head\[data-mark="span"\]\s*\{[^}]*var\(--frame-inset-block-end\)/,
+    );
+    expect(platesCss).not.toMatch(/\.work-well__head\[data-mark="span"\]\s*\{[^}]*18px/);
+    expect(platesCss).toMatch(
+      /\.work-well__head\[data-mark="title"\] \.work-well__copy\s*\{[^}]*border-block-end:\s*2px solid var\(--hairline\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] \.work-well__head\s*\{[^}]*padding-inline:\s*0/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] \.work-well__head\[data-mark="span"\]\s*\{[^}]*padding-block-start:\s*0/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] \.work-well__head\[data-mark="span"\]\s*\{[^}]*padding-block-end:\s*var\(--space-2\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] \.work-well__body\s*\{[^}]*padding-block-start:\s*0/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] \.work-well__head \+ \.work-well__body\s*\{[^}]*padding-block-start:\s*var\(--form-group-gap\)/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well\[data-inset="flush"\] > \.work-well__foot\s*\{[^}]*padding-inline:\s*0/,
+    );
+    expect(platesCss).not.toMatch(/\.work-well__head\[data-mark="title"\] \.work-well__ident\s*\{[^}]*width:\s*0/);
+    expect(platesCss).toMatch(
+      /\.work-well__head\[data-title-role="plate"\] \.work-well__title\s*\{[^}]*font-size:\s*0\.72rem/,
+    );
+    expect(platesCss).toMatch(
+      /\.work-well__head\[data-title-role="task"\] \.work-well__title\s*\{[^}]*font-size:\s*1\.05rem/,
+    );
+    expect(platesCss).not.toMatch(/\.work-well\[data-seat="stack"\] \.work-well__title/);
+    expect(platesCss).not.toMatch(/\.work-well__title\[data-title-role/);
     expect(rule(briefingCss, ".briefing-sec h2")).toMatch(/margin-bottom:\s*var\(--field-label-gap\)/);
     expect(rule(briefingCss, ".briefing-sec")).toMatch(/margin-bottom:\s*var\(--operate-bay-gap\)/);
   });

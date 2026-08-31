@@ -1,8 +1,5 @@
-export { Bulkhead } from "./Bulkhead";
-export {
-  CeremonyDialog,
-  type CeremonyDialogVariant,
-} from "./CeremonyDialog";
+export { Bulkhead, BULKHEAD_INERT_SELECTOR } from "./Bulkhead";
+export { CeremonyDialog } from "./CeremonyDialog";
 export {
   DialogPlate,
   DialogPlateBody,
@@ -14,6 +11,8 @@ export { NativeDialog } from "./NativeDialog";
 export { overlayPortalRoot } from "./overlayPortalRoot";
 export { placeFloating } from "./placeFloating";
 export { AnchoredOverlay, useFloatingPlacement } from "./AnchoredOverlay";
+export { overlayPlateClass, OVERLAY_PLATE_CLASS, OVERLAY_PLATE_OFFSET } from "./overlayPlate";
+export { useOverlayDismiss } from "./useOverlayDismiss";
 export {
   ToastDock,
   ToastHost,

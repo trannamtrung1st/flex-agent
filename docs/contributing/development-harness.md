@@ -87,20 +87,52 @@ another listener.
 | Work | Origin | Attach probe |
 | --- | --- | --- |
 | Authenticated product (canonical SPA + API) | `http://localhost:18080` | `pnpm compose:status` — Compose services up and `session-endpoint:ok`. `/realms/flex-agent` also answers |
-| Candidate UI against the live API | `http://localhost:5274` | HTTP success on that origin **and** Compose `:18080` healthy. Candidate OIDC also needs the candidate overlay (`RedirectUri` for `:5274`) and Vite `VITE_DEV_API_PROXY=http://127.0.0.1:18080` |
+| Candidate UI against the live API | `http://localhost:5274` | HTTP success on that origin **and** Compose `:18080` healthy. Candidate OIDC also needs `RedirectUri` for `:5274` (`pnpm compose:status` prints `redirect-uri:`) and Vite `VITE_DEV_API_PROXY=http://127.0.0.1:18080` |
+| Isolated design lab | `http://localhost:5275` | HTTP success on `/design-lab/` (also try `http://127.0.0.1:5275` if the process was started with `--host 127.0.0.1`) |
 
-**Return to canonical after candidate work.** `pnpm compose:candidate` leaves the
-API on `HumanAuthentication__RedirectUri=http://localhost:5274/auth/callback`.
-Canonical sign-in and Playwright on `:18080` then fail with **Sign-in could not
-be completed** until the API is recreated with the canonical profile
-(`pnpm compose:reset`, or `pnpm compose:up` when a fresh stack is acceptable,
-or `docker compose … up -d --force-recreate api` without the candidate overlay).
+**Return to canonical after candidate work.** Candidate `RedirectUri` is
+`http://localhost:5274/auth/callback`. Canonical sign-in on `:18080` then fails
+with **Sign-in could not be completed** until the API matches the origin you
+use. On a **healthy** stack, switch the API only (no reseed, no new secrets):
+
+```bash
+pnpm compose:api:canonical   # RedirectUri → http://localhost:18080/auth/callback
+pnpm compose:api:candidate   # RedirectUri → http://localhost:5274/auth/callback
+```
+
+Do not run `pnpm compose:candidate` or `pnpm compose:up` over an attachable
+stack: those regenerate secrets and reseed. Use `pnpm compose:reset` only when
+the user asked for a fresh stack.
+
+### Synthetic sign-in (Playwright MCP)
+
+Authenticated product screenshots must pass the OIDC gate. Design lab (`:5275`)
+does not. Match the browser origin to `redirect-uri` from `pnpm compose:status`.
+
+1. Read usernames and the default demo password from
+   `tests/Browser/FlexAgent.Oidc.Playwright/helpers/oidc.ts` (`syntheticUsers`,
+   `FLEXAGENT_OIDC_*` overrides). Follow `signInThroughKeycloak`. Do not copy
+   passwords into `.work/`, chat logs, screenshots, or commits.
+2. Navigate the matching origin (`:18080` canonical SPA, or `:5274` candidate
+   Vite). If the heading is **Sign in required**, click **Continue to sign in**.
+3. On Keycloak, fill **Username or email** and **Password**, then **Sign In**.
+   Do not screenshot the password form.
+4. Wait until production chrome shows the operator menu (not the sign-in
+   ceremony). Then take screenshots of the product states under test.
+
+Actor choice: `demo.admin` for administrator Home / Activities / Setup /
+Participants; `demo.participant` for My work when that seed assignment exists
+(`FLEXAGENT_SEED_DEMO_WORK` default). Demo work IDs are deterministic in
+`deploy/compose/authenticated-browser/seed-demo-work.sql`.
+
+If **Continue to sign in** returns **Sign-in could not be completed**, the
+`RedirectUri` does not match the origin — run `compose:api:canonical` or
+`compose:api:candidate` as appropriate. Do not `compose:up`.
 
 **Canonical OIDC Playwright origins.** Browser tests must use
 `http://localhost:18080` so correlation cookies match the configured callback.
 The Playwright `request` fixture uses `apiUrl()` (IPv4 `127.0.0.1`) because
 Compose nginx publishes `:18080` on `127.0.0.1` only.
-| Isolated design lab | `http://localhost:5275` | HTTP success on `/design-lab/` (also try `http://127.0.0.1:5275` if the process was started with `--host 127.0.0.1`) |
 
 1. Choose the origin from the table. Record which origin screenshots used.
 2. If the probe succeeds, navigate Playwright MCP to that origin. Do not start Compose or another Vite.

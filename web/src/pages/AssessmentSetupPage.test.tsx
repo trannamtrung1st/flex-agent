@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import type { AssessmentSetupView } from "../api/production-assessment";
-import { CAMPAIGN_TITLE_PLACEHOLDER, SETUP_RESOLVED_NOTE } from "../design-system/components/fields/fieldFormat";
+import { CAMPAIGN_TITLE_PLACEHOLDER, SETUP_RESOLVED_NOTE } from "../content/fieldCopy";
 import { ToastHost } from "../design-system";
 import { AssessmentSetupPage, type AssessmentSetupPageProps } from "./AssessmentSetupPage";
 
@@ -86,6 +86,7 @@ describe("AssessmentSetupPage", () => {
     expect(screen.getByText("Readiness")).toBeInTheDocument();
     expect(within(tracks).getByText("Cohort")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Campaign title" })).toHaveClass("field-input--wide");
+    expect(screen.getByRole("textbox", { name: "Campaign title" })).not.toHaveClass("field-input--uppercase");
     expect(screen.getByRole("textbox", { name: "Campaign title" })).toHaveAttribute(
       "placeholder",
       CAMPAIGN_TITLE_PLACEHOLDER,

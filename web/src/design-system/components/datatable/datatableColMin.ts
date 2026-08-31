@@ -9,6 +9,7 @@ export const DATATABLE_COL_MIN = {
   count: "5.5rem",
   rev: "4rem",
   confidence: "7.5rem",
+  title: "24rem",
   action: "3rem",
 } as const;
 

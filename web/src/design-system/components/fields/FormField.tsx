@@ -10,29 +10,28 @@ export type FormFieldControlMeta = {
   labelId: string;
 };
 
-export type FormFieldLayout = "row" | "stack" | "pair";
+export type FormFieldLayout = "row" | "stack";
 
 function formFieldLayoutClass(layout: FormFieldLayout) {
   if (layout === "stack") return "field-stack";
-  if (layout === "pair") return "field-pair";
   return "form-row";
 }
 
-function resolveFormFieldClassName(layout: FormFieldLayout, className?: string) {
-  if (!className) return formFieldLayoutClass(layout);
+function resolveFormFieldClassName(
+  layout: FormFieldLayout,
+  className?: string,
+  hostClassName?: string,
+) {
+  const host = hostClassName ?? formFieldLayoutClass(layout);
+  if (!className) return host;
   if (
-    className === "form-row" ||
-    className === "field-stack" ||
-    className === "field-pair" ||
-    className.startsWith("form-row ") ||
-    className.startsWith("field-stack ") ||
-    className.startsWith("field-pair ") ||
-    className === "form-demo-row" ||
-    className.startsWith("form-demo-row ")
+    !hostClassName &&
+    (className === host ||
+      className.startsWith(`${host} `))
   ) {
     return className;
   }
-  return `${formFieldLayoutClass(layout)} ${className}`;
+  return `${host} ${className}`;
 }
 
 export function FormField({
@@ -44,6 +43,7 @@ export function FormField({
   invalid,
   layout = "row",
   className,
+  hostClassName,
   labelClassName = "field-label",
   errorClassName = "field-error",
   hintClassName = "field-hint",
@@ -56,9 +56,11 @@ export function FormField({
   hint?: ReactNode;
   describedBy?: string;
   invalid?: boolean;
-  /** Horizontal label row (default), stacked label/control (dialogs, bulkheads), or compact pair grid. */
+  /** Horizontal label row (default) or stacked label/control (dialogs, bulkheads). Compact pair cells replace the host class; they are not a layout. */
   layout?: FormFieldLayout;
   className?: string;
+  /** Lab specimens only. Replaces the layout class bundle. Production pages must not pass this. */
+  hostClassName?: string;
   labelClassName?: string;
   errorClassName?: string;
   hintClassName?: string;
@@ -71,7 +73,7 @@ export function FormField({
   const errorId = `${id}Error`;
   const isInvalid = invalid ?? Boolean(error);
   const ariaDescribedBy = [describedBy, hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-  const rootClassName = resolveFormFieldClassName(layout, className);
+  const rootClassName = resolveFormFieldClassName(layout, className, hostClassName);
 
   return (
     <div className={rootClassName}>

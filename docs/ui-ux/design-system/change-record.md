@@ -1,7 +1,284 @@
 # Design-system v1.0 change record
 
-Non-normative provenance. This file does not govern product behavior, journeys,
-or visual contracts. The [design-system README](README.md) and module files do.
+## Class-grammar freeze (2026-08-31)
+
+Page-authored Shipboard class grammar is closed. Production `OperateBay` stays
+`workspace`, `record`, `registry`, `ceremony`. `CeremonyArea` stays in the
+design system. Do not add bays, do not rename leftover CSS
+(`.readout--record`, `create-ceremony__scroll`, lab `registry-wall--hug` on
+non-registry wall hosts), and do not wrap session inner hull or gallery
+`spec-row`. New surfaces use existing typed APIs or new domain wrappers
+(`components/work/`, `design-lab/components/`), not a new `OperateBay`.
+
+## OperateBay teaching (2026-08-31)
+
+The implementation-guide MVP setup/Enrollment module list matches the live
+host API: setup/create is `SetupOperateArea`, not `OperateBay` `setup`. Closed
+production bays stay `workspace`, `record`, `registry`, `ceremony`. Lab
+replacement hosts use `OperateAreaHost`; Deck form recipes use
+`FormRecipeOperateArea` (owned `form-recipe`), not Host.
+
+## Status Bays stretched plate foot (2026-08-31)
+
+Stretched Status Bays assignment plates pin `PlateFoot` and scroll overflow on
+`.readout-stack--horizon`. Column stack overflow stays on `.bay-plates`. Dense
+and ≤1080px plates hug and do not inner-scroll the readout. Dense overrides use
+the same `.assignment-plate` specificity as the stretched stack rule so they
+win.
+
+## Lab datatable expand chrome (2026-08-31)
+
+`DatatableIdCell`, `DatatableExpandButton`, `DatatableDetailRow`,
+`DatatableDetailBody`, and `useDatatableDetailGutter` live in
+`web/src/design-lab/components/datatable/` with enrollment/Deck interiors.
+Production datatable primitives stay body/toolbar/pagination only.
+CSS class names on the DOM are unchanged.
+
+## Status Bay column gutters (2026-08-31)
+
+Hairline-split Status Bay columns use even `--form-group-gap` on `.bay`.
+They do not remap flush `--frame-content-pad-inline-end` (table overlay-thumb
+track) and `.bay-plates` does not add a second inline-end pad.
+
+## FieldInput authored casing (2026-08-31)
+
+`.field-input` no longer forces uppercase. Default `FieldInput` `casing` is
+`"authored"` (sentence-case tracking). Token slots pass `casing="uppercase"`
+(`.field-input--uppercase`). Field-select triggers (`.dropdown-key`), option
+rows, searchable/multiselect options, and `.seg-search` queries preserve
+authored case. Command-menu rows, keys, microlabels, and `FormSection`
+legends stay uppercase. CSS class names on the DOM add the FieldInput opt-in
+modifier only.
+
+## Setup host, OperateAreaHost, live-session hull (2026-08-31)
+
+`SetupOperateArea` owns `record-plane--setup`. `OperateArea` production props
+omit wrapper escapes; lab wrappers use `OperateAreaHost`. `LiveSessionLayout`
+lives in the design lab; `live-session` remains an approved layout family id.
+CSS class names on the DOM are unchanged.
+
+## Domain leftovers off generic APIs (2026-08-31)
+
+`FormField` `layout` is `"row"` | `"stack"`. Deck pair cells use lab
+`FormPairField` (`.field-pair`). `operateAreaClass` applies `registry-wall--hug`
+only for `bay="registry"`; lab wall/queue wrappers add that class.
+`layouts.css` no longer names `.wall` / `.campaigns-wall`.
+
+## Horizon readout emphasis (2026-08-31)
+
+`ReadoutList` `emphasis` is `"title"` | `"inline"`. `"inline"` is the clustered
+value + mark row (flex alignment). The DOM class remains `.readout--record`.
+Production pages do not pass OperateArea `hostClassName` / `frameClassName` /
+`headClassName`.
+
+## Domain paint hygiene (2026-08-31)
+
+Assignment heads, bays, instruments, board hug, and setup-ceremony paint live in
+`work-plates.css`. Compact plate-foot keys stretch in generic `plates.css`;
+assignment keys opt out from `work-plates.css`. Lab campaigns/enrollment-wall and
+reviewer-queue hug hosts live in their surface sheets. `recordResultMark` lives in
+the design lab. CSS class names on the DOM are unchanged.
+
+## One-surface OperateArea and frame bleed (2026-08-31)
+
+`OperateHug` is `"registry"` only. Empty assignment boards emit
+`assignment-board--hug` from `AssignmentBoardOperateArea` and
+`HomeBoardOperateArea`. Reviewer ledger plaque heads come from
+`ReviewerLedgerOperateArea` (`OperateHead` `arrangement="plaque"`). Etched-frame
+bleed uses additive `.plate-bleed` (`SetupCeremony`, `InPlateHost`). Assignment
+plate and record-mark paint lives in `work-plates.css`. `Bulkhead` inerts hull
+chrome and generic layout hosts, not `.queue-view`. CSS class names on the DOM
+are unchanged.
+
+## One-surface marks and overlay skins (2026-08-31)
+
+`AcknowledgmentGate` lives in `web/src/components/work/`. `RecordSeal`,
+`StageBars`, and `WorkWellReleasedSeal` live in the design lab.
+`CeremonyDialog` is a generic native-dialog shell. Campaign fill overlays use
+`CampaignCeremonyDialog`. `WorkWellHead` `seal` is an optional node slot.
+CSS class names on the DOM are unchanged.
+
+## Domain marks and expand content (2026-08-31)
+
+`SetupCeremony` lives in `web/src/components/work/`. `ActivationMark`, `FormPair`,
+and datatable expand term/value bands (`DatatableDetailReadouts` / `Field` /
+`Keys`) live in the design lab. The expand well later moved with them (see
+[Lab datatable expand chrome](#lab-datatable-expand-chrome-2026-08-31)). Search placeholders live in
+`web/src/content/fieldCopy.ts`. Campaign config field grids use
+`CampaignCeremonyConfigGrid`. CSS class names on the DOM are unchanged.
+
+## Domain ceremony plate and field copy (2026-08-31)
+
+`DialogPlate` is a generic overlay plate (width + additive `className`). Campaign
+fill-grid ceremony interiors (`CampaignCeremonyPlate` and companions),
+`FrozenLine`, and `InPlateHost` live in the design lab. Product field copy
+(`CAMPAIGN_TITLE_PLACEHOLDER`, `SETUP_RESOLVED_NOTE`, and related strings) lives
+in `web/src/content/fieldCopy.ts`. MM:SS format tokens and `SCORE_PLACEHOLDER`
+remain on `fieldFormat`. CSS class names on the DOM are unchanged.
+
+## Domain host and assignment chrome (2026-08-31)
+
+`OperateBay` is production-only (`workspace`, `record`, `registry`,
+`ceremony`). Setup/create uses `SetupOperateArea`. Lab walls, home board, Deck form recipes, and reviewer queue/ledger
+use domain wrappers (`OperateAreaHost` `hostClassName` or owned `form-recipe`). Assignment
+instrument bands, heading, bays, plates, and record marks live in
+`web/src/components/work/`. Setup-track emphasis lives in
+`web/src/features/assessment/`. Lab Status Bays, protocol ident, form-recipe
+dialogs, reviewer queue table/empty/sealed readout, and `FormDemoField` live in
+`web/src/design-lab/components/`. CSS class names on the DOM are unchanged.
+
+## Overlay flip or viewport pin (2026-08-31)
+
+`placeFloating` flips only when the opposite side fits the full panel.
+Otherwise it pins flush to the viewport (no inset). Covering the trigger is
+allowed. Height caps to the viewport only when the panel is taller than the
+viewport, not to the leftover gap beside the trigger.
+
+## Closed overlay bezel (2026-08-31)
+
+Dropdown, select, command-menu, and datetime overlays share one closed plate:
+full `--hairline` outer bezel, `--hairline-dim` inner row and footer dividers.
+The overlay no longer fuses to the field by punching the shared edge, including
+when a foot is present. `AnchoredOverlay` seats plates with
+`OVERLAY_PLATE_OFFSET` (`-1`) on the open axis (above/below) so the overlay
+hairline covers the trigger-adjacent bezel. Horizontal `align` does not
+apply a left/right overlap. Context and toolbar plates place against the
+shell's outer box and no longer use `−1px` / `100% + 2px` seam
+compensation. Calendar and clock heads do not restroke the plate top — the
+outer `--hairline` is the only top edge. Datetime plates also drop the 1px
+top inset from `--panel-inset` so that highlight does not double the bezel.
+Compose with `overlayPlateClass`. Tooltip plaques
+are unchanged.
+
+## Inset empty plate padding removed (2026-08-31)
+
+`.empty-plate--inset` (and stack-well `.empty-plate`) no longer adds a 2px
+vertical pad. Inset readouts stay flush (`padding: 0`); frame inset,
+`.datatable-empty`, or `--separated` top pad own spacing. Framed standalone
+plates keep `44px 52px`. Call sites pass `inset` on `EmptyPlate` for inset
+geometry. Production pages use `OperateArea` `empty.separated`,
+`CeremonyEmpty` / `CeremonyUnavailable`, and `DatatableEmpty` instead of
+authoring `.empty-plate--separated`, `.ceremony-empty`, or `.datatable-empty`
+class strings. Component Deck may still pass layout modifiers via `EmptyPlate`
+`className` for specimen documentation.
+
+## Empty-state component ownership (2026-08-31)
+
+`empty-loading.md` now matches component-owned class grammar: pages select
+`OperateArea` `empty.separated`, ceremony helpers, and `DatatableEmpty`; CSS
+class names remain implementation detail inside those components.
+
+## Review queue restack removed (2026-08-31)
+
+The lab review queue no longer restacks into labeled records at narrow
+scrollports. Floors and labeled-key Action columns scroll on `.datatable-scroll`
+like other registries. Participant keeps `colMin="compactId"`.
+
+## Review queue hug vertical clip (2026-08-31)
+
+Hug registries still size the etched plate to 0–4 visible rows. When a hugged
+review-queue page exceeds the bay, `.datatable-scroll` shrinks inside the
+capped frame and owns the wheel so `clip-path` cannot shear sessions.
+
+## Stacked-well empty plates stay inset (2026-08-31)
+
+`WorkWell seat="stack"` with a titled head uses one prose absence line, not
+`EmptyPlate`. Inset `EmptyPlate` remains for bays, tables, ceremony, and fault
+notes inside mixed wells. Unordered well lists keep the 7px + 12px mark gutter
+when populated.
+
+## Composition recipes dropped from Component Deck (2026-08-31)
+
+The Composition group is the six layout primitives only. Combined inner
+slots are not a Deck section: cloneable OperateArea forms stay on
+`form-recipes`. Retired `#composition-recipes` hashes alias to
+`#form-recipes` in the Component Deck scroll spy.
+
+## Review queue assignment floor (2026-08-30)
+
+Named datatable floor `title` (24rem) covers assignment titles. The lab review
+queue gives leftover width to `.col-assignment` (`width: auto`) instead of the
+compact participant identifier (`width: 100%` leftover would sum with hugging
+`1%` columns and clip Action). Labeled-key action columns use `StaticHeader`
+(`Action`). Icon overflow columns stay visually hidden (`Actions`). The 28ch
+wrap cap on assignment is removed so desktop rows stay one line; narrow widths
+scroll on `.datatable-scroll`.
+
+## Ceremony in-dialog save receipt (2026-08-30)
+
+Campaign configuration keeps one standing helper in `.ceremony-body`. Save
+draft and readiness *passed* copy are `role="status"` as the first child of
+`.ceremony-foot-actions`. Blocked readiness uses `ErrorSummary`
+(**Readiness blocked**) at the top of the body. Confirm clears the receipt.
+The foot keeps `--space-6` outer padding on every side; a receipt shares the
+action stack’s `--space-3` gap to the keys, not a separate outer inset.
+The plate uses `--space-6` on every remaining edge (plate floor is 0). The
+overlay thumb
+sits on the body’s inline-end; it does not reserve a second inset. The
+standing helper sits outside the bay stack so its `margin-block-start` can
+use the same `--space-6` token and span the full body width (`max-width:
+none`). The form stack in `.ceremony-body` grows
+(`flex: 1 1 auto`) so leftover height when the plate is `max-height` capped
+sits above the standing helper. Page toasts
+stay off this path because they cannot paint above the dialog top layer.
+
+## Campaign configuration ceremony width and timing row (2026-08-31)
+
+Campaign configuration fill-grid plates widen to 840px
+(`.dialog-plate--wide.ceremony-plate`; other `--wide` dialogs remain 680px).
+**Timing and attempts** uses `.ceremony-config-grid` with four equal columns on
+desktop; at ≤720px the grid reflows to two columns. Field inputs fill their
+columns (`max-width: none` on `.ceremony-config-grid .field-input`).
+
+## Dialog-portaled overlay stretch (2026-08-30)
+
+Portaled plaques and `AnchoredOverlay` panels are siblings of the plate
+inside `<dialog>`. Making the open dialog a flex or grid container sized
+those siblings to the plate on the first measure (dark slab over foot keys,
+including Save draft → hover Confirm activation). In-flow content sits in
+`.dialog-stage`; the open dialog is `display: block`. Unplaced overlays seed
+`top: 0; left: 0` so `placeFloating` measures content height, not a flex
+static-position box. Plaques keep hairline fill (`box-shadow: none`). Ceremony
+hot keys (`:hover` / `:focus-visible` face) apply only when `:not(:disabled)`.
+
+## Overlay plate scrollbar gutter (2026-08-30)
+
+Live overlay `.dialog-body`, overlay `.bulkhead-body`, and
+guided-task `.work-well__body` reserve `scrollbar-gutter: stable` so the thin
+themed thumb cannot overlay field bezels. That matches in-page
+`.create-ceremony__scroll` and `.operate-scroll`. Shared overlay themed
+thumbs still apply to `:is(.dialog-body, .ceremony-body)`; gutter and
+`scrollbar-width: auto` stay on `.dialog-body` only so fill-grid ceremony
+does not inherit a reserved track. Campaign configuration
+`.ceremony-plate` is unpadded so the overlay thumb can sit on the cut.
+Head, body, and foot each use `--space-6` (24px at every breakpoint) instead
+of prototype `34px 44px 30px`. Compact `--frame-inset-inline` remap
+to 16px is for in-page wells, not this overlay clip. Fill-grid
+`.ceremony-body` keeps `scrollbar-gutter: auto` and overlay `thin`. Component
+Deck in-flow form-recipe dialog bodies keep `scrollbar-gutter: auto`.
+
+## Catalog command-strip stacking (2026-08-30)
+
+Component Deck `header.page-strip` stays hull chrome at `z-index` 70, above
+portaled overlays (55). Catalog copies of `.command-strip` inside `.deck` use
+`z-index: auto` so they do not share that layer and cannot paint over the
+fixed Deck header or sticky index when scrolled.
+
+## Work well Deck section and title mark (2026-08-30)
+
+Component Deck lists `work-well` under Foundations (between pane and etched
+frame). `WorkWell` `seat="stack"` owns flush inset and a 2px `--hairline`
+under the title + ident cluster (`max-content`, capped at the well). Ident
+does not wrap to the title width. `seat="pane"`
+owns span mark and frame insets; `inset="flush"` only when parent `frame-in`
+already pads (flush zeros well-owned `--frame-inset-*`; span keeps `--space-2`
+under the ident and `--form-group-gap` into the body). Enrollment detail and
+the management-record specimen use `seat="stack"`. Guided-task wells stay
+`seat="pane"` with default `inset="frame"` (`.well-frame` does not pad).
+Title-mark ident is not shrunk to the title width (a short title must not wrap
+a sentence ident). Well heading size is `WorkWellHead` `titleRole` (`plate`
+0.72rem / `task` 1.05rem), inferred from `seat`, not a `[data-seat]` title
+selector.
 
 ## Source
 
@@ -92,9 +369,20 @@ inputs, borders, and empty/loading. It is not a Stitch token sheet.
 ## Viewport-aware overlays (2026-08-30)
 
 Portaled plaques, menus, and select popovers share `placeFloating` (flip, shift,
-and size into an 8px viewport inset). CSS `[data-tip]` plaques and native dialog
-centering are unchanged. Clone `AnchoredOverlay` for new overlays. `DropdownMenu`
-`placement` still exists on the API; both values portal.
+and size against the viewport; no inset gutter). Place once on open; resize
+re-places. External document, window, visual-viewport, or ancestor scroll
+dismisses the overlay; scrolling inside the panel (searchable lists, datetime
+wheels) does not. Linger still covers pointer travel onto a tooltip plaque.
+Do not lock ordinary page scroll. Escape restores trigger focus; outside
+pointer, focus-leave, and external-scroll dismissal do not steal focus.
+Overlays portal into `#root` (or the enclosing `<dialog>`), not
+`document.body`, so `command-strip` / Deck `page-strip` (`z-index` 70) stay
+above the panel (`z-index` 55). Do not lift an in-flow trigger when open.
+CSS `[data-tip]` plaques and native dialog centering are unchanged.
+Clone `AnchoredOverlay` for new overlays. `DropdownMenu` `placement` still exists
+on the API; both values portal. Percentage popover width tokens resolve against
+the trigger; stretch honors rem min-width floors so hug selects do not shatter.
+Authored max-width grows a plate past the trigger; it does not shrink below it.
 
 ## Etched frame clip vs grouping (2026-08-30)
 
@@ -281,7 +569,8 @@ rails follow the same hull rule; overlay bulkhead drawers stay opaque.
 Dense registry tables omit per-cell tab stops; pass `tabbable` for
 focus-visible plaque in standalone surfaces. The plaque also opens when the
 compact form differs from the value, or when CSS clips a value that already
-fits logically. `compactRegistryId` lives beside
+fits logically. Table hosts fill the identifier cell for hover and press; the
+plaque still centers on `.compact-id`. `compactRegistryId` lives beside
 the component. Component Deck section: `compact-id`. Production Enrollment
 registry and the assignment instrument rail consume it. Activities registry
 dropped its Campaign ID column in the shipboard reset (IDs remain searchable).
@@ -335,7 +624,9 @@ rule; dialog and work-well feet inherit it instead of a second stroke.
 work-well bodies, which already pad). Dialog `.dialog-head`, `.dialog-body`,
 and `.dialog-foot` use that same token on both block edges (inline
 `--frame-inset-inline`) instead of the prototype 22/14, 18/24/20, and 14/20
-offsets. Ceremony fill `.ceremony-foot` uses the token as `padding-block-start`.
+offsets. Ceremony fill `.ceremony-foot` used that token as
+`padding-block-start` (superseded 2026-08-30: fill-grid head/body/foot use
+`--space-6`; see overlay plate and ceremony receipt notes above).
 
 ## Plate foot hairline composition (2026-08-30)
 
@@ -430,10 +721,29 @@ into the existing Cohort activated Alert body. Gallery: `alert` plus
 Management setup. Advisory vs Alert placement, Setup shared-control copy, and
 the implementation-guide Feedback index were aligned the same day. Readiness
 blockers use ErrorSummary (**Readiness blocked**), not a warning Alert. The
-resolved-note copy constant is `SETUP_RESOLVED_NOTE` beside campaign field
-placeholders. Gallery Setup includes draft, blocked, and activated compositions.
+resolved-note copy constant is `SETUP_RESOLVED_NOTE` in
+`web/src/content/fieldCopy.ts` beside other product field placeholders. Gallery Setup includes draft, blocked, and activated compositions.
 Save and check failures on a blocked revision stay in the same ErrorSummary.
 Save-only Setup failures use **Correct the following**, matching Create.
+
+## Ceremony empty auto measure (2026-08-30)
+
+Auto hug inset empty wells hug the note and recovery key (`max-content`,
+note capped at 48ch). They do not occupy the 36rem wait cap — that left a
+hollow well around short copy. `minmax(0, 48ch)` plus percentage note
+max-width previously collapsed the frame to a hairline. Wait wells still
+use the 36rem cap. Named `sm`/`md`/`lg` rungs are unchanged. Compact
+(≤720px) ceremony stretch still wraps the empty note inside the well
+(`7px minmax(0, 1fr)`); desktop empty stays `max-content`.
+
+## Registry table hug including empty (2026-08-30)
+
+Production registry tables (`bay="registry"`) hug the etched plate when the
+**visible matching** list is 0–4 rows, including a true empty table and
+search-empty on a longer loaded list. Five or more visible matching rows
+fill the bay so `.datatable-scroll` owns overflow. Pages use
+`registryTableHug(slice.total)`. Ceremony empty wells remain hug-to-copy
+(width), which is a different contract.
 
 ## Assignment Station guided-task foot (2026-08-30)
 

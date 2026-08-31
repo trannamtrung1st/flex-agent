@@ -22,7 +22,11 @@ surfaces. Keep the CSS fallback stacks for unload or failure.
 - **Two voices.** Michroma names (brand, plate titles, key captions, bay heads).
   Sometype Mono speaks (transcript, readouts, inputs, navigation tokens, errors).
 - Placard and microlabel strings are uppercase with wide tracking. Sentence-case
-  body copy uses Sometype Mono and is not forced to uppercase. Field hints and
+  body copy uses Sometype Mono and is not forced to uppercase. Text field values
+  keep authored case (`FieldInput` default `casing="authored"`). Token slots may
+  opt into uppercase with `casing="uppercase"`. Field-select committed values,
+  listbox/searchable option labels, and registry search queries follow the same
+  authored-case rule. Command-menu actions and keys stay uppercase. Field hints and
   errors are helpers in that sentence-case voice. Standing **Note** copy on
   `Alert` / `Advisory` uses Small helper size (about 0.78rem), not the 0.68rem
   field-hint floor. Work-well and

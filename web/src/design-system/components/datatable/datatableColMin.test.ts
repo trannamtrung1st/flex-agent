@@ -16,6 +16,7 @@ const CSS_VAR: Record<DatatableColMin, string> = {
   count: "--datatable-col-min-count",
   rev: "--datatable-col-min-rev",
   confidence: "--datatable-col-min-confidence",
+  title: "--datatable-col-min-title",
   action: "--datatable-col-min-action",
 };
 

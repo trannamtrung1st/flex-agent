@@ -1,4 +1,5 @@
 import { useRef, type HTMLAttributes, type ReactNode, type Ref } from "react";
+import { cx } from "../../../lib/cx";
 import { useDatatableStickyRail } from "./useDatatableStickyRail";
 
 type TableSlot = {
@@ -44,13 +45,7 @@ export function DataTableShell({
   };
   useDatatableStickyRail(scrollRef);
 
-  const rootClassName = [
-    "datatable",
-    variant === "bodyOnly" ? "datatable--body-only" : null,
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const rootClassName = cx("datatable", variant === "bodyOnly" && "datatable--body-only", className);
   const resolvedScrollClassName = ["datatable-scroll", scrollClassName].filter(Boolean).join(" ");
   const labelled = Boolean(restScrollProps["aria-label"] || restScrollProps["aria-labelledby"]);
 

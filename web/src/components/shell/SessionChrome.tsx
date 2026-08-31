@@ -3,8 +3,6 @@ import { CeremonyArea, CeremonyEmpty, CeremonyUnavailable, CeremonyWait, Key, La
 import { ThemeToggle } from "./ThemeToggle";
 import { useProductionApi } from "../../api/production-api";
 
-export { CeremonyArea, CeremonyEmpty, CeremonyUnavailable, CeremonyWait } from "../../design-system";
-
 const statusStrip = {
   homeTo: "/",
   homeLabel: "Home",

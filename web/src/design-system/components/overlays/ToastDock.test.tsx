@@ -22,17 +22,17 @@ describe("ToastHost", () => {
     );
 
     expect(document.querySelector(".toast-dock")).toHaveAttribute("aria-live", "polite");
-    expect(document.querySelector(".toast-dock")).toHaveAttribute("data-placement", "bottom-center");
+    expect(document.querySelector(".toast-dock")).toHaveAttribute("data-placement", "top-center");
     fireEvent.click(screen.getByRole("button", { name: "Fire" }));
     const copy = screen.getByText("Casey Candidate is assigned and active.");
     expect(copy.closest(".toast")).toHaveAttribute("role", "status");
     expect(copy.closest(".toast")?.querySelector(".toast-label")).toHaveTextContent("Enrollment");
   });
 
-  it("docks at bottom-center by default and accepts a placement override", () => {
+  it("docks at top-center by default and accepts a placement override", () => {
     const { rerender } = render(<ToastDock toasts={[]} />);
     const dock = document.querySelector(".toast-dock");
-    expect(dock).toHaveAttribute("data-placement", "bottom-center");
+    expect(dock).toHaveAttribute("data-placement", "top-center");
 
     rerender(
       <ToastDock
@@ -64,9 +64,21 @@ describe("toast-dock CSS", () => {
       join(dirname(fileURLToPath(import.meta.url)), "../../../styles/components/overlays.css"),
       "utf8",
     );
+    expect(css).toMatch(/\.toast-dock \{\s*[^}]*z-index:\s*75/);
+    expect(css).toMatch(/\.toast-dock\[data-placement="top-center"\]/);
     expect(css).toMatch(/\.toast-dock\[data-placement="bottom-center"\]/);
     expect(css).toMatch(/\.toast-dock\[data-placement="bottom-start"\]/);
     expect(css).toMatch(/\.toast-dock\[data-placement="bottom-end"\]/);
     expect(css).not.toMatch(/\.toast-dock \{\s*position: fixed;\s*right: 22px;/);
+  });
+
+  it("does not add a hull-chrome block offset for top placements", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../styles/components/layouts.css"),
+      "utf8",
+    );
+    expect(css).not.toMatch(
+      /html:has\(\.command-strip, header\.page-strip\) \.toast-dock\[data-placement\^="top"\]/,
+    );
   });
 });

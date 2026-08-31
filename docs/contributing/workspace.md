@@ -113,7 +113,15 @@ The `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile
 | `pnpm compose:status` | Attach probe: Compose service status and `/auth/session` (`session-endpoint:ok` when healthy) |
 | `pnpm compose:down` | Tear down services and generated secret material |
 | `pnpm compose:reset` | `compose:down` then `compose:up` |
-| `pnpm compose:candidate` | Start with the candidate dev overlay for `web/` on port 5274 |
+| `pnpm compose:candidate` | Start a **fresh** stack with the candidate overlay (`RedirectUri` `:5274`). Same reseed warning as `compose:up` |
+| `pnpm compose:api:canonical` | Recreate **only** the API with canonical `RedirectUri` (`:18080`). Does not regenerate secrets or reseed |
+| `pnpm compose:api:candidate` | Recreate **only** the API with candidate `RedirectUri` (`:5274`). Does not regenerate secrets or reseed |
+
+`pnpm compose:status` also prints `redirect-uri:` so Playwright MCP can match
+the sign-in origin. Synthetic usernames and password defaults live in
+`tests/Browser/FlexAgent.Oidc.Playwright/helpers/oidc.ts` (do not copy them into
+docs or task files). Sign-in steps:
+[development harness](development-harness.md#synthetic-sign-in-playwright-mcp).
 
 The profile stores PostgreSQL, Keycloak, and blob data in container `tmpfs` only.
 Each `compose:up` regenerates synthetic OIDC secrets and reseeds the stack; use
@@ -147,11 +155,12 @@ When you finish candidate UI or OIDC work, return the API to the canonical
 callback before testing or developing on `http://localhost:18080`:
 
 ```bash
-pnpm compose:reset   # or pnpm compose:up when a fresh reseed is acceptable
+pnpm compose:api:canonical
 ```
 
-Leaving the candidate overlay active while using the canonical gateway breaks
-sign-in on `:18080` (**Sign-in could not be completed**).
+Use `pnpm compose:reset` only when a fresh reseed is acceptable. Leaving the
+candidate `RedirectUri` active while using the canonical gateway breaks sign-in
+on `:18080` (**Sign-in could not be completed**).
 
 Synthetic administrator username `demo.admin` is in
 `deploy/compose/keycloak/flex-agent-realm.json`, with numbered extras

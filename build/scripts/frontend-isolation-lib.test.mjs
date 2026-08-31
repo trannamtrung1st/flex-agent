@@ -69,15 +69,19 @@ describe("lab-owned stylesheet import detection", () => {
 describe("design-lab outbound import allowlist", () => {
   const fromLabFeature = "/repo/web/src/design-lab/features/admin/SampleArea.tsx";
 
-  it("allows design-lab, design-system, lib, and shared style imports", () => {
+  it("allows design-lab, design-system, lib, shared style, and production-safe domain composition imports", () => {
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../components", repoRoot), true);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../design-system/components/keys/Key", repoRoot), true);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../lib/cx", repoRoot), true);
+    assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../components/work/AssignmentPlate", repoRoot), true);
+    assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../content/fieldCopy", repoRoot), true);
+    assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../features/assessment/SetupTrackReadout", repoRoot), true);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../main.tsx", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../App", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../components/ErrorBoundary", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../api/client", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../features/auth/hooks", repoRoot), false);
+    assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../features/assessment/setupStation", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../../../contracts/something", repoRoot), false);
     assert.equal(specifierResolvesToAllowedDesignLabOutbound(fromLabFeature, "../../../../../build/scripts/foo", repoRoot), false);
   });
@@ -191,6 +195,16 @@ describe("shared layout governance", () => {
       '<div data-layout="management" />\n',
     );
     assert.equal(violations.length, 1);
+  });
+
+  it("allows the lab live-session layout family to own its data-layout root", () => {
+    assert.deepEqual(
+      layoutRootAttributeViolations(
+        "web/src/design-lab/components/layouts/LiveSessionLayout.tsx",
+        '<div data-layout="live-session" />\n',
+      ),
+      [],
+    );
   });
 
   it("reports a newly added route omitted from the manifest", () => {

@@ -2,9 +2,10 @@ import { useMyWorkList } from "../api/useMyWorkList";
 import {
   EnrollmentRateLimitedCopy,
 } from "../api/production-enrollment";
-import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import { AssignmentBoardOperateArea } from "../components/work/AssignmentBoardOperateArea";
 import { AssignmentWorkPlate } from "../components/work/AssignmentWorkPlate";
-import { Grid, OperateArea } from "../design-system";
+import { AssignmentBay, AssignmentBays } from "../components/work/AssignmentBays";
+import { CeremonyArea, CeremonyUnavailable, CeremonyWait, Grid } from "../design-system";
 
 const MY_WORK_DESCRIPTION =
   "Current Assignments for the signed-in Participant. Open an assignment to prepare a Submission version.";
@@ -41,8 +42,8 @@ export function ProductionMyWorkPage() {
 
   if (items.length === 0) {
     return (
-      <OperateArea
-        className="workspace-area work-plane assignment-board--hug"
+      <AssignmentBoardOperateArea
+        hug="board"
         label="My work"
         title="My work"
         description={MY_WORK_DESCRIPTION}
@@ -55,25 +56,21 @@ export function ProductionMyWorkPage() {
   }
 
   return (
-    <OperateArea
-      className="workspace-area work-plane"
+    <AssignmentBoardOperateArea
       framed={false}
       label="My work"
       title="My work"
       description={MY_WORK_DESCRIPTION}
     >
-      <div className="assignment-bays">
-        <section className="assignment-bay" aria-labelledby="current-assignments">
-          <h2 className="assignment-bay-head" id="current-assignments">
-            Current assignments
-          </h2>
+      <AssignmentBays>
+        <AssignmentBay headingId="current-assignments" label="Current assignments">
           <Grid gap="4" minItemWidth="control" fit="fill">
             {items.map((item) => (
               <AssignmentWorkPlate key={item.enrollment_id} item={item} />
             ))}
           </Grid>
-        </section>
-      </div>
-    </OperateArea>
+        </AssignmentBay>
+      </AssignmentBays>
+    </AssignmentBoardOperateArea>
   );
 }

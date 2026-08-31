@@ -1,10 +1,11 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, optionNounCount, pinIndex, stepVisibleIndex } from "./selectLogic";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
-import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { useSearchableSelect } from "./useSearchableSelect";
 
 export function SearchableDisclosureMenu({
@@ -70,7 +71,7 @@ export function SearchableDisclosureMenu({
     return pinIndex(filtered, options.findIndex((opt) => opt.id === selectedId));
   }, [caseSensitive, options, search, selectedId]);
 
-  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => close());
+  useOverlayDismiss(open, [rootRef, panelRef], () => close());
 
   const selectOption = (id: string) => {
     onSelect(id);
@@ -151,14 +152,14 @@ export function SearchableDisclosureMenu({
         <span className="seg-value" id={triggerValueId}>{value}</span>
         <ChevronGlyph />
       </button>
-      <AnchoredOverlay open={open} triggerRef={keyRef} tokenSourceRef={rootRef} floatingRef={panelRef}>
+      <AnchoredOverlay open={open} triggerRef={rootRef} tokenSourceRef={rootRef} floatingRef={panelRef}>
         {({ ref, style, overlayClassName }) => (
       <SearchableSelectPanel
         open={open}
         panelRef={ref}
         style={style}
         panelId={menuId ? undefined : `${uid}-panel`}
-        className={`searchable-disclosure-panel multiselect-panel seg-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
+        className={overlayPlateClass("searchable-disclosure-panel", "multiselect-panel", "seg-menu", overlayClassName)}
         searchId={searchId}
         searchRef={searchRef}
         searchValue={search}
@@ -178,7 +179,6 @@ export function SearchableDisclosureMenu({
           setFocusIdx(-1);
         }}
         onSearchKeyDown={onSearchKeyDown}
-        footClassName="searchable-disclosure-foot"
         doneLabel="Close"
         onDone={() => close(true)}
       >

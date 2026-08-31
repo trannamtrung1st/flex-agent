@@ -2,17 +2,27 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { EMPTY_SELECTION, isSelected, matchingQueryKey, resolveSelectedIds, toggleRow, type TableSelection } from "../../../../design-system/patterns/tableSelection";
 import {
   ActivationMark,
-  ChevronGlyph,
   CommandMenu,
   CompactId,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  DatatableActions,
+  DatatableCell,
+  DatatableDetailBody,
+  DatatableDetailField,
+  DatatableDetailKeys,
+  DatatableDetailReadouts,
+  DatatableDetailRow,
+  DatatableEmpty,
+  DatatableExpandButton,
+  DatatableId,
+  DatatableIdCell,
+  DatatableRow,
+  DatatableTable,
   datatableColMin,
   DisclosureMenu,
-  EmptyPlate,
   EtchedFrame,
-  HeaderSelectionControl,
   Inline,
   InstantReadout,
   ItemList,
@@ -23,6 +33,8 @@ import {
   ReadoutGridRow,
   ReadoutList,
   RowActionMenu,
+  ActionHeader,
+  SelectHeader,
   SelectMark,
   SortableHeader,
   StaticHeader,
@@ -173,51 +185,6 @@ function ItemListSpecimen({
   );
 }
 
-function DatatableDetailRow({
-  colSpan,
-  onOpen,
-  onOutside,
-}: {
-  colSpan: number;
-  onOpen: () => void;
-  onOutside: () => void;
-}) {
-  return (
-    <tr className="datatable-detail">
-      <td colSpan={colSpan}>
-        <div className="datatable-detail-cut is-revealing">
-          <div className="datatable-detail-plate">
-            <div className="datatable-detail-body">
-              <dl className="datatable-detail-readouts">
-                <div className="datatable-detail-field">
-                  <dt>Attempt</dt>
-                  <dd>1 OF 2</dd>
-                </div>
-                <div className="datatable-detail-field">
-                  <dt>Session duration</dt>
-                  <dd>—</dd>
-                </div>
-                <div className="datatable-detail-field">
-                  <dt>Submission</dt>
-                  <dd>V2 PRESERVED</dd>
-                </div>
-                <div className="datatable-detail-field">
-                  <dt>Evidence</dt>
-                  <dd>12 ITEMS</dd>
-                </div>
-              </dl>
-              <KeyGroup className="datatable-detail-keys">
-                <Key size="compact" onClick={onOpen}>View record</Key>
-                <Key size="compact" onClick={onOutside}>Transcript</Key>
-              </KeyGroup>
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
 function DatatableSpecimen({
   announce,
 }: {
@@ -319,27 +286,25 @@ function DatatableSpecimen({
         toolbar={
           <DataTableToolbar
             ariaLabel="Table controls"
-            actions={
-              <div className="datatable-actions" id="dtActionsStrip" aria-label="Table actions">
-                <KeyGroup className="datatable-actions-keys">
-                  <Key id="create" size="compact" onClick={() => announce({ label: "Create", copy: "Gallery-only create action demonstrated." })}>Create</Key>
-                  <Key id="dtBulkKey" size="compact" disabled={!selectedRows.length} disabledReason="Select one or more enrollments." onClick={() => announce({ label: "Export", copy: `${selectedRows.length} enrollments exported.` })}>Export</Key>
-                  <Key id="dtDownloadKey" size="compact" disabled={!selectedRows.length || selectedRows.some((row) => row.result !== "COMPLETE")} disabledReason={!selectedRows.length ? "Select one or more enrollments." : "Selected enrollments must be complete."}>Download</Key>
-                  <CommandMenu
-                    open={moreOpen}
-                    onOpenChange={setMoreOpen}
-                    triggerLabel="More actions"
-                    triggerCaption="More"
-                    triggerId="dtMoreKey"
-                    records={selectedRows}
-                    entries={menuEntries}
-                    onChoose={() => announce({ label: "Delete", copy: "Delete ceremony demonstrated." })}
-                    triggerDisabled={!selectedRows.length}
-                    triggerDisabledReason="Select one or more enrollments."
-                  />
-                </KeyGroup>
-              </div>
-            }
+            actions={(
+              <DatatableActions id="dtActionsStrip">
+                <Key id="create" size="compact" onClick={() => announce({ label: "Create", copy: "Gallery-only create action demonstrated." })}>Create</Key>
+                <Key id="dtBulkKey" size="compact" disabled={!selectedRows.length} disabledReason="Select one or more enrollments." onClick={() => announce({ label: "Export", copy: `${selectedRows.length} enrollments exported.` })}>Export</Key>
+                <Key id="dtDownloadKey" size="compact" disabled={!selectedRows.length || selectedRows.some((row) => row.result !== "COMPLETE")} disabledReason={!selectedRows.length ? "Select one or more enrollments." : "Selected enrollments must be complete."}>Download</Key>
+                <CommandMenu
+                  open={moreOpen}
+                  onOpenChange={setMoreOpen}
+                  triggerLabel="More actions"
+                  triggerCaption="More"
+                  triggerId="dtMoreKey"
+                  records={selectedRows}
+                  entries={menuEntries}
+                  onChoose={() => announce({ label: "Delete", copy: "Delete ceremony demonstrated." })}
+                  triggerDisabled={!selectedRows.length}
+                  triggerDisabledReason="Select one or more enrollments."
+                />
+              </DatatableActions>
+            )}
             leading={
               <DisclosureMenu
                 label="Filter"
@@ -357,35 +322,49 @@ function DatatableSpecimen({
         }
         scrollProps={{ id: "dtScroll", tabIndex: 0, "aria-label": "Enrollment rows, scrollable" }}
         table={
-          <table ref={tableRef} className="datatable-table" id="dtTable" aria-describedby="dtCountValue">
+          <DatatableTable ref={tableRef} id="dtTable" aria-describedby="dtCountValue">
             <thead>
               <tr>
-                <th scope="col" className="col-select">
-                  <HeaderSelectionControl id="dtSelectAll" selection={selection} pageIds={pageIds} matchingIds={matchingIds} queryKey={queryKey} noun="enrollments" onTransition={setSelection} />
-                </th>
+                <SelectHeader id="dtSelectAll" selection={selection} pageIds={pageIds} matchingIds={matchingIds} queryKey={queryKey} noun="enrollments" onTransition={setSelection} />
                 <SortableHeader sortKey="id" label="Participant ID" sorts={sorts} onSort={sort} colMin="id" />
                 <SortableHeader sortKey="campaign" label="Campaign" sorts={sorts} onSort={sort} colMin="label" />
                 <SortableHeader sortKey="stage" label="Stage" sorts={sorts} onSort={sort} colMin="stage" />
-                <th scope="col" className="col-state" {...datatableColMin("state")}>Session state</th>
+                <StaticHeader label="Session state" colMin="state" />
                 <SortableHeader sortKey="deadline" label="Deadline" sorts={sorts} onSort={sort} colMin="instant" />
                 <SortableHeader sortKey="result" label="Result" sorts={sorts} onSort={sort} colMin="result" />
-                <th scope="col" {...datatableColMin("action")}><span className="visually-hidden">Actions</span></th>
+                <ActionHeader />
               </tr>
             </thead>
             <tbody id="dtBody" ref={tbodyRef}>
               {visible.map((row) => (
                 <Fragment key={row.id}>
-                  <tr className={`datatable-row${isSelected(selection, row.id) ? " is-selected" : ""}${expanded === row.id ? " is-expanded" : ""}`}>
-                    <td className="cell-select"><SelectMark checked={isSelected(selection, row.id)} label={`Select ${row.id}`} onChange={(checked) => setSelection((current: TableSelection) => toggleRow(current, row.id, checked))} /></td>
-                    <td className="cell-id" {...datatableColMin("id")}><div className="datatable-id-cell"><button className={`icon-button command-menu-trigger command-menu-trigger--icon${expanded === row.id ? " is-open" : ""}`} type="button" aria-label={`${expanded === row.id ? "Collapse" : "Expand"} enrollment ${row.id}`} aria-expanded={expanded === row.id} onClick={() => setExpanded(expanded === row.id ? null : row.id)}><ChevronGlyph /></button><button className="datatable-id" type="button" onClick={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}>{row.id}</button></div></td>
-                    <td className="cell-content" {...datatableColMin("label")}>{row.campaign}</td>
-                    <td className="cell-content" {...datatableColMin("stage")}>{row.stage}</td>
-                    <td className="cell-state" {...datatableColMin("state")}>{recordResultMark(row.result)}</td>
-                    <td className="cell-content" {...datatableColMin("instant")}>
+                  <DatatableRow selected={isSelected(selection, row.id)} expanded={expanded === row.id}>
+                    <DatatableCell kind="select">
+                      <SelectMark checked={isSelected(selection, row.id)} label={`Select ${row.id}`} onChange={(checked) => setSelection((current: TableSelection) => toggleRow(current, row.id, checked))} />
+                    </DatatableCell>
+                    <DatatableCell kind="id" colMin="id">
+                      <DatatableIdCell
+                        expand={(
+                          <DatatableExpandButton
+                            expanded={expanded === row.id}
+                            label={expanded === row.id ? `Collapse enrollment ${row.id}` : `Expand enrollment ${row.id}`}
+                            onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+                          />
+                        )}
+                      >
+                        <DatatableId onClick={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}>
+                          {row.id}
+                        </DatatableId>
+                      </DatatableIdCell>
+                    </DatatableCell>
+                    <DatatableCell kind="content" colMin="label">{row.campaign}</DatatableCell>
+                    <DatatableCell kind="content" colMin="stage">{row.stage}</DatatableCell>
+                    <DatatableCell kind="state" colMin="state">{recordResultMark(row.result)}</DatatableCell>
+                    <DatatableCell kind="content" colMin="instant">
                       <InstantReadout value={row.deadline} />
-                    </td>
-                    <td className="cell-result cell-content" {...datatableColMin("result")}>{row.result}</td>
-                    <td className="col-action" {...datatableColMin("action")}>
+                    </DatatableCell>
+                    <DatatableCell kind="content" colMin="result">{row.result}</DatatableCell>
+                    <DatatableCell kind="action" colMin="action">
                       <RowActionMenu
                         open={openMenuId === row.id}
                         onOpenChange={(open) => setOpenMenuId(open ? row.id : null)}
@@ -404,21 +383,30 @@ function DatatableSpecimen({
                           announce({ label: "Delete", copy: "Delete ceremony demonstrated." });
                         }}
                       />
-                    </td>
-                  </tr>
+                    </DatatableCell>
+                  </DatatableRow>
                   {expanded === row.id ? (
-                    <DatatableDetailRow
-                      colSpan={8}
-                      onOpen={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}
-                      onOutside={() => announce({ label: "Record", copy: "Transcript is outside this specimen's scope." })}
-                    />
+                    <DatatableDetailRow colSpan={8}>
+                      <DatatableDetailBody>
+                        <DatatableDetailReadouts>
+                          <DatatableDetailField term="Attempt">1 OF 2</DatatableDetailField>
+                          <DatatableDetailField term="Session duration">—</DatatableDetailField>
+                          <DatatableDetailField term="Submission">V2 PRESERVED</DatatableDetailField>
+                          <DatatableDetailField term="Evidence">12 ITEMS</DatatableDetailField>
+                        </DatatableDetailReadouts>
+                        <DatatableDetailKeys>
+                          <Key size="compact" onClick={() => announce({ label: "Record", copy: "View is outside this specimen's scope." })}>View record</Key>
+                          <Key size="compact" onClick={() => announce({ label: "Record", copy: "Transcript is outside this specimen's scope." })}>Transcript</Key>
+                        </DatatableDetailKeys>
+                      </DatatableDetailBody>
+                    </DatatableDetailRow>
                   ) : null}
                 </Fragment>
               ))}
             </tbody>
-          </table>
+          </DatatableTable>
         }
-        empty={filtered.length === 0 ? <EmptyPlate className="datatable-empty" inset label="No matching enrollments" note="Clear the stage filter or search field to restore the manifest."><Key size="compact" onClick={() => { setStage("all"); setSearch(""); resetForQuery(); }}>Clear filters</Key></EmptyPlate> : undefined}
+        empty={filtered.length === 0 ? <DatatableEmpty inset label="No matching enrollments" note="Clear the stage filter or search field to restore the manifest."><Key size="compact" onClick={() => { setStage("all"); setSearch(""); resetForQuery(); }}>Clear filters</Key></DatatableEmpty> : undefined}
         footer={<DataTablePagination total={filtered.length} startIndex={start} visibleCount={visible.length} page={safePage} pageCount={pageCount} pageSize={pageSize} pageSizeOptions={[8, 16, 32]} onPageSizeChange={(size) => { setPageSize(size); setPage(0); }} onPageChange={setPage} onPrevious={() => setPage(Math.max(0, safePage - 1))} onNext={() => setPage(Math.min(pageCount - 1, safePage + 1))} />}
       />
     </EtchedFrame>
@@ -504,8 +492,7 @@ function WideDatatableSpecimen() {
         }
         scrollProps={{ tabIndex: 0, role: "region", "aria-label": "Wide registry rows, scrollable" }}
         table={
-          <table className="datatable-table">
-            <caption className="visually-hidden">Wide registry</caption>
+          <DatatableTable caption="Wide registry">
             <thead>
               <tr>
                 <StaticHeader label="Participant" colMin="id" />
@@ -526,31 +513,31 @@ function WideDatatableSpecimen() {
             </thead>
             <tbody>
               {WIDE_ROWS.map((row) => (
-                <tr key={row.participant} className="datatable-row">
-                  <td className="cell-id" {...datatableColMin("id")}>
-                    <button className="datatable-id" type="button">{row.participant}</button>
-                  </td>
-                  <td className="cell-content" {...datatableColMin("label")}>{row.campaign}</td>
-                  <td className="cell-content" {...datatableColMin("stage")}>{row.stage}</td>
-                  <td className="cell-content" {...datatableColMin("label")}>{row.cohort}</td>
-                  <td className="cell-content" {...datatableColMin("label")}>{row.channel}</td>
-                  <td className="cell-content" {...datatableColMin("label")}>{row.locale}</td>
-                  <td className="cell-content" {...datatableColMin("count")}>{row.attempt}</td>
-                  <td className="cell-content" {...datatableColMin("state")}>{row.session}</td>
-                  <td className="cell-content" {...datatableColMin("instant")}>
+                <DatatableRow key={row.participant}>
+                  <DatatableCell kind="id" colMin="id">
+                    <DatatableId>{row.participant}</DatatableId>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="label">{row.campaign}</DatatableCell>
+                  <DatatableCell kind="content" colMin="stage">{row.stage}</DatatableCell>
+                  <DatatableCell kind="content" colMin="label">{row.cohort}</DatatableCell>
+                  <DatatableCell kind="content" colMin="label">{row.channel}</DatatableCell>
+                  <DatatableCell kind="content" colMin="label">{row.locale}</DatatableCell>
+                  <DatatableCell kind="content" colMin="count">{row.attempt}</DatatableCell>
+                  <DatatableCell kind="content" colMin="state">{row.session}</DatatableCell>
+                  <DatatableCell kind="content" colMin="instant">
                     <InstantReadout value={row.received} />
-                  </td>
-                  <td className="cell-content" {...datatableColMin("instant")}>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="instant">
                     <InstantReadout value={row.deadline} />
-                  </td>
-                  <td className="cell-result cell-content" {...datatableColMin("result")}>{row.result}</td>
-                  <td className="cell-content" {...datatableColMin("confidence")}>{row.confidence}</td>
-                  <td className="cell-content" {...datatableColMin("label")}>{row.reviewer}</td>
-                  <td className="cell-content" {...datatableColMin("rev")}>{row.rev}</td>
-                </tr>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="result">{row.result}</DatatableCell>
+                  <DatatableCell kind="content" colMin="confidence">{row.confidence}</DatatableCell>
+                  <DatatableCell kind="content" colMin="label">{row.reviewer}</DatatableCell>
+                  <DatatableCell kind="content" colMin="rev">{row.rev}</DatatableCell>
+                </DatatableRow>
               ))}
             </tbody>
-          </table>
+          </DatatableTable>
         }
       />
     </EtchedFrame>
@@ -585,12 +572,12 @@ export function DataSections({
       </GallerySection>
       <GallerySection id="readout" title="Readout rows" note="Rail grammar is a dim microlabel over a mono value. Horizon rows (assignment and destination plates) use teal labels and Bright Text titles.">
         <div className="readout-demo"><ReadoutList rows={[{ term: "Session ID", value: "FXA-7C19-2A07" }, { term: "Participant ID", value: "CND-8842-19" }, { term: "Protocol", value: "V7.3.1" }]} /><span className="spec-tag">.readout-stack &gt; .readout · dt/dd</span></div>
-        <div className="readout-demo"><ReadoutList tone="horizon" rows={[{ term: "Purpose", value: "Create and resume Assessment Campaign drafts.", className: "readout--title" }, { term: "Availability", value: "Available" }]} /><span className="spec-tag">tone=horizon · .readout--horizon</span></div>
+        <div className="readout-demo"><ReadoutList tone="horizon" rows={[{ term: "Purpose", value: "Create and resume Assessment Campaign drafts.", emphasis: "title" }, { term: "Availability", value: "Available" }]} /><span className="spec-tag">tone=horizon · emphasis=title</span></div>
       </GallerySection>
       <GallerySection id="readout-grid" title="Readout grid" note="Aligned instrument data for records and configuration plates. Every row uses the same named column count; fields span tracks by meaning, so hairline divisions remain continuous.">
         <Spec wide tag="ReadoutGrid · ReadoutGridRow · ReadoutGridField · columns / span">
           <ReadoutGrid label="Campaign record specimen">
-            <ReadoutGridRow label="Campaign summary"><ReadoutGridField term="Campaign" span={3}>CMP-0044 / Access Review</ReadoutGridField><ReadoutGridField term="Enrollments">38</ReadoutGridField><ReadoutGridField term="Activation" span={2}><ActivationMark frozen={false} className="readout-grid-state" /></ReadoutGridField></ReadoutGridRow>
+            <ReadoutGridRow label="Campaign summary"><ReadoutGridField term="Campaign" span={3}>CMP-0044 / Access Review</ReadoutGridField><ReadoutGridField term="Enrollments">38</ReadoutGridField><ReadoutGridField term="Activation" span={2}><ActivationMark frozen={false} placement="grid" /></ReadoutGridField></ReadoutGridRow>
             <ReadoutGridRow label="Campaign configuration"><ReadoutGridField term="Harness">GOVERNED-AUDIT-01</ReadoutGridField><ReadoutGridField term="Agent identity">EXAMINER-STRUCT</ReadoutGridField><ReadoutGridField term="Session limit">60:00</ReadoutGridField><ReadoutGridField term="Time warning">10:00</ReadoutGridField><ReadoutGridField term="Max attempts">1</ReadoutGridField><ReadoutGridField term="Cooldown">48H</ReadoutGridField></ReadoutGridRow>
           </ReadoutGrid>
         </Spec>

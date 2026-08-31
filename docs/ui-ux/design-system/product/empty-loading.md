@@ -5,13 +5,38 @@
 A useful empty state is an **instrument plate** (`EmptyPlate`): dim node,
 Michroma label, mono note (max about 44ch), optional recovery key. Inset /
 separated modifiers (`empty-plate--inset`, `empty-plate--separated`) sit a
-dashed hairline empty note after seated content. Unoccupied bays use dashed
-absence, not a second clipped card. `OperateArea` `empty` renders this plate
-inside the etched frame. Page-level unknown, denied, and missing-resource
-planes use `CeremonyUnavailable`: hug ceremony + inset empty well + recovery
-centered in the well (Return, Reload). Do not use a commit/amber
-`open` key on those actions. Default recovery is **quiet**. Auth commit stays
-`transmit` (`Continue to sign in` via `recovery.variant="transmit"`).
+dashed hairline empty note after seated content. Inset plates carry no own
+padding (`padding: 0`); the etched frame, datatable empty band, or well host
+owns block and inline inset. Registry/table empties keep
+`.datatable-empty` padding; do not add a second pad on the plate class. Unoccupied bays use dashed
+absence, not a second clipped card. In a stacked nested-record well whose head
+already names the subject (`WorkWell seat="stack"`), an empty body is one prose
+line in `WorkWellSection` — not a second `EmptyPlate` that repeats the title.
+Reserve inset `EmptyPlate` for unoccupied bays, registry/table empties, ceremony
+unavailable, and standing fault notes inside mixed wells (for example timing
+unavailable beside action keys). Pass `inset` on `EmptyPlate` for inset
+geometry. Production and lab pages do not author empty-state class strings:
+
+- `OperateArea` `empty={{ label, note, separated? }}` renders inset
+  `EmptyPlate` inside the etched frame. Set `separated: true` for
+  `.empty-plate--separated` (dashed hairline after seated content).
+- `CeremonyUnavailable` / `CeremonyEmpty` own `.ceremony-empty` for page-level
+  unknown, denied, missing-resource, and sign-in planes: hug ceremony + inset
+  empty well + recovery centered in the well (Return, Reload). Do not use a
+  commit/amber `open` key on those actions. Default recovery is **quiet**. Auth
+  commit stays `transmit` (`Continue to sign in` via
+  `recovery.variant="transmit"`).
+- `DatatableEmpty` owns table empties; the review queue empty plate is
+  `ReviewerQueueEmpty` (`.queue-empty-plate`). Do not assemble `.datatable-empty` on `EmptyPlate`.
+
+Component Deck specimens may pass layout modifiers on `EmptyPlate` `className`
+only to document CSS — not as a page-authoring pattern. Do not seat a clipped
+empty card inside an unframed stack. A **registry table** empty plate sits in
+the same toolbar / scroll / pagination chrome; hug that plate when the visible
+matching list is 0–4 rows (`registryTableHug`) instead of stretching a hollow
+scrollport to the bay floor. Search-empty on a longer loaded list also hugs.
+Production registries, lab campaign and enrollment walls, and the review queue
+share that count.
 
 ## Loading
 
@@ -23,8 +48,9 @@ Loading is a Shipboard instrument family, never a spinner. Gallery: `wait`,
 - **Skel-stack:** dashed dim lines with optional teal sweep
 - **Wait-plate:** `WaitPlate` (`.wait-plate`) is empty-plate anatomy plus
   wait-mark and scan-track. Inset (`.wait-plate--inset`) sits inside an etched
-  well.   Auto hug ceremony wait and empty inset wells use the 36rem column cap so a
-  short status line does not shrink the well. `CeremonyWait` is the page helper for
+  well. Auto hug `CeremonyWait` occupies the 36rem column cap so a short
+  status line does not shrink the well. Auto hug empty inset wells hug the
+  note track instead of stretching to that cap. `CeremonyWait` is the page helper for
   protected ceremony loading; signing out uses the same wait plate until a logout
   error requires the empty well and retry key.
 - Occupied keys use the waiting state in [interaction states](../foundation/interaction-states.md)

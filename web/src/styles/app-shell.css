@@ -190,8 +190,7 @@
   overflow: visible;
 }
 
-.workspace-area > .operate-scroll > .composition-grid[data-flow-fit="fill"],
-.workspace-area > .operate-scroll > .assignment-bays {
+.workspace-area > .operate-scroll > .composition-grid[data-flow-fit="fill"] {
   flex: 0 0 auto;
   min-height: auto;
 }
@@ -364,88 +363,12 @@
   overflow: hidden;
 }
 
-.assignment-board > .frame-in > .frame-scroll,
-.assignment-station-board > .frame-in > .frame-scroll {
-  padding: 0;
-  overflow: visible;
-}
-
-.assignment-instruments {
-  margin-block: 0;
-}
-
-.frame-scroll > .assignment-instruments,
-.setup-ceremony > .assignment-instruments {
-  flex-shrink: 0;
-  margin-block-end: var(--form-group-gap);
-}
-
-.assignment-instruments .readout-grid-row {
-  border-top: 1px solid var(--hairline-dim);
-}
-
-.assignment-bays {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.assignment-bay {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-block: var(--space-2) var(--space-4);
-}
-
-.assignment-bay-head {
-  flex-shrink: 0;
-  margin: 0 0 14px;
-  font-family: var(--font-plaque);
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-size: 0.72rem;
-  color: var(--label);
-}
-
 .layout-guided .rail-brand {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   padding-bottom: 4px;
   padding-right: var(--instrument-rail-dock-inline);
-}
-
-.assignment-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--operate-bay-gap);
-  padding-bottom: var(--form-group-gap);
-  border-bottom: 1px solid var(--hairline-dim);
-  flex-shrink: 0;
-}
-
-.assignment-title {
-  font-family: var(--font-plaque);
-  text-transform: uppercase;
-  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
-  letter-spacing: 0.12em;
-  line-height: 1.35;
-  color: var(--text-bright);
-  font-weight: 400;
-  max-width: 42ch;
-  text-wrap: balance;
-  margin: 0;
-}
-
-.assignment-meta {
-  margin-top: 10px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  color: var(--label);
 }
 
 .status-readout {
@@ -697,11 +620,6 @@
 }
 
 @media (max-width: 720px) {
-  .assignment-head {
-    flex-direction: column;
-    gap: 14px;
-  }
-
   .status-readout {
     width: 100%;
   }
@@ -740,34 +658,35 @@
   min-height: min(22rem, 55vh);
 }
 
-.registry-wall--hug > .registry-frame.frame-cut,
-.registry-wall--hug > .operate-scroll > .registry-frame.frame-cut {
+.registry-wall--hug > .frame-cut,
+.registry-wall--hug > .operate-scroll > .frame-cut {
   flex: 0 1 auto;
   height: auto;
   min-height: 0;
   max-height: 100%;
 }
 
+/* Hug sizes the plate to short content (flex-grow 0). flex-shrink + min-height
+   0 let a max-height-capped etched frame constrain the named scrollport;
+   overflow-y visible next to overflow-x auto computes as auto and the
+   content-sized box is then sheared by clip-path. */
+.registry-wall--hug .datatable-frame .datatable,
 .registry-wall--hug .datatable {
-  flex: 0 0 auto;
-  height: auto;
-}
-
-.registry-wall--hug .datatable-scroll {
-  flex: 0 0 auto;
-  overflow-y: visible;
-}
-
-.workspace-area.registry-wall--hug,
-.workspace-area.assignment-board--hug {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
+  height: auto;
 }
 
-.workspace-area.assignment-board--hug > .frame-cut,
-.workspace-area.assignment-board--hug > .operate-scroll > .frame-cut {
-  flex: 0 0 auto;
-  height: auto;
+.registry-wall--hug .datatable-frame .datatable-scroll,
+.registry-wall--hug .datatable-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.workspace-area.registry-wall--hug {
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -839,18 +758,6 @@
   background: color-mix(in srgb, var(--ground) 82%, var(--hairline-dim));
 }
 
-.workspace-form.setup-ceremony > .setup-ceremony__foot,
-.setup-ceremony > .setup-ceremony__foot {
-  flex-shrink: 0;
-  margin-block-start: var(--plate-foot-pad-block);
-}
-
-.setup-ceremony .select-shell--field {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
 .workspace-area.record-plane--setup .frame-scroll {
   display: flex;
   flex-direction: column;
@@ -858,39 +765,7 @@
   overflow: hidden;
 }
 
-.workspace-area.record-plane--setup .readout-grid-field:has(.setup-track-now) dt {
-  color: var(--text-bright);
-  opacity: 1;
-}
-
-.setup-ceremony {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.setup-ceremony__foot {
-  flex-shrink: 0;
-  margin-block-start: auto;
-}
-
 @media (max-width: 720px) {
-  .setup-ceremony__foot .key--activate {
-    width: 100%;
-  }
-
-  .setup-ceremony__foot[data-arrangement="split"] {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .setup-ceremony__foot .plate-foot-slot--primary {
-    margin-inline-start: 0;
-    width: 100%;
-  }
-
   .work-plane--ceremony {
     justify-content: flex-start;
     align-items: stretch;
@@ -903,8 +778,26 @@
     align-self: stretch;
   }
 
+  .work-plane--ceremony > .operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) {
+    width: auto;
+    max-width: 100%;
+  }
+
   .work-plane--ceremony .ceremony-frame.frame-cut {
     width: auto;
     max-width: 100%;
+  }
+
+  /* Compact stretch makes the hug column definite. Re-enable a wrapping
+     copy track so a 48ch note cannot overflow the well. Desktop keeps
+     max-content so shrink-wrap parents cannot collapse to a hairline. */
+  .work-plane--ceremony > .operate-column--hug[data-hug-measure="auto"] .empty-plate--inset {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: 7px minmax(0, 1fr);
+  }
+
+  .work-plane--ceremony > .operate-column--hug[data-hug-measure="auto"] .empty-plate-note {
+    max-width: min(48ch, 100%);
   }
 }

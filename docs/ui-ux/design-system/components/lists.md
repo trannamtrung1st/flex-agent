@@ -7,7 +7,9 @@ rounded list tiles.
 ## Prose lists
 
 Prose lists in `WorkWell` and session briefing use the 7×1px teal hairline as
-the unordered bullet only. Ordered lists in those wells keep numerals in a
+the unordered bullet only. On `seat="stack"` wells that bullet shares the
+7px + 12px mark column with populated rows. An empty titled stack well does
+not render `EmptyPlate`; it uses one prose line under the head. Ordered lists in those wells keep numerals in a
 `--space-6` gutter (CSS counter, or `data-sequence` when the row is an
 inspectable lineage). Row copy stacks with `Stack` inside each `li`. Section
 headings in those surfaces do not share that mark. Submission version lineage

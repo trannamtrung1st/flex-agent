@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cx } from "../../../lib/cx";
 import { PlateFoot, type PlateFootArrangement } from "../plates/EtchedFrame";
 
 export type DialogPlateWidth = "narrow" | "default" | "wide";
@@ -12,9 +13,8 @@ export function DialogPlate({
   className?: string;
   children: ReactNode;
 }) {
-  const widthClass = width === "default" ? "" : ` dialog-plate--${width}`;
   return (
-    <div className={`dialog-plate${widthClass}${className ? ` ${className}` : ""}`}>
+    <div className={cx("dialog-plate", width !== "default" && `dialog-plate--${width}`, className)}>
       {children}
     </div>
   );
@@ -24,8 +24,8 @@ export function DialogPlateHead({
   title,
   titleId,
   marker = true,
-  className = "dialog-head",
-  titleClassName = "dialog-title",
+  className,
+  titleClassName,
   children,
 }: {
   title: ReactNode;
@@ -36,9 +36,9 @@ export function DialogPlateHead({
   children?: ReactNode;
 }) {
   return (
-    <header className={className}>
+    <header className={className ?? "dialog-head"}>
       {marker ? <span className="warn-triangle" aria-hidden="true" /> : null}
-      <h2 className={titleClassName} id={titleId}>
+      <h2 className={titleClassName ?? "dialog-title"} id={titleId}>
         {title}
       </h2>
       {children}
@@ -46,18 +46,12 @@ export function DialogPlateHead({
   );
 }
 
-export function DialogPlateBody({
-  className = "dialog-body",
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
-  return <div className={className}>{children}</div>;
+export function DialogPlateBody({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={className ?? "dialog-body"}>{children}</div>;
 }
 
 export function DialogPlateFooter({
-  className = "dialog-foot",
+  className,
   children,
   arrangement = "end",
   secondary,
@@ -69,11 +63,8 @@ export function DialogPlateFooter({
   secondary?: ReactNode;
   primary?: ReactNode;
 }) {
-  if (/\bceremony-foot\b/.test(className)) {
-    return <footer className={className}>{children}</footer>;
-  }
   return (
-    <PlateFoot className={className} arrangement={arrangement} secondary={secondary} primary={primary}>
+    <PlateFoot className={className ?? "dialog-foot"} arrangement={arrangement} secondary={secondary} primary={primary}>
       {children}
     </PlateFoot>
   );

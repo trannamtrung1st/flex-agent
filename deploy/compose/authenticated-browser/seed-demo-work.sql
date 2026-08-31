@@ -307,23 +307,19 @@ SELECT format('f1000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid, 
 FROM generate_series(1, 23) AS gs(i)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO actor_organization_grants (
-    organization_id, actor_id, relationship_version, granted_action, created_at)
-SELECT
-    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    format('f1000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
-    1,
-    'assessment.enrollment.receive',
-    CLOCK_TIMESTAMP()
-FROM generate_series(1, 23) AS gs(i)
-ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+-- Demo-work roster actors are pre-enrolled only; they must not appear as assignable
+-- candidates because they have no Keycloak login. Remove legacy receive grants.
+DELETE FROM actor_organization_grants
+WHERE organization_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    AND granted_action = 'assessment.enrollment.receive'
+    AND actor_id::text LIKE 'f1000000-%';
 
 INSERT INTO identity_human_display_profiles (
     organization_id, actor_id, display_label, created_at, updated_at)
 VALUES (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
-    'Morgan Ellis — Field trainee',
+    'Demo Participant',
     CLOCK_TIMESTAMP(),
     CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, actor_id) DO UPDATE

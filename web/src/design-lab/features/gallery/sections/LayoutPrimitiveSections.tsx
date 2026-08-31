@@ -1,4 +1,4 @@
-import { Container, EllipsisKey, Grid, Inline, Inset, Key, KeyGroup, SplitBay, Stack } from "../../../../design-system";
+import { Container, EllipsisKey, Grid, Inline, Inset, Key, SplitBay, Stack } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
 import { LayoutSlot } from "./LayoutSlot";
 
@@ -136,52 +136,6 @@ export function LayoutPrimitiveSections() {
             <Inset block="4" inline="8"><Tile label="Wider sides" /></Inset>
           </Spec>
         </div>
-      </GallerySection>
-
-      <GallerySection id="composition-recipes" title="Composition recipes" note="Common inner slots: a form column, and a grouped list with trailing opens.">
-        <Spec wide tag="form slot">
-          <Container size="form">
-            <Stack gap="6">
-              <Inline gap="3" justify="between" wrap={false}>
-                <span>Campaign draft</span>
-                <KeyGroup aria-label="Recipe actions">
-                  <Key>Save draft</Key>
-                  <Key variant="transmit">Create</Key>
-                </KeyGroup>
-              </Inline>
-              <Inset space="4">
-                <Grid gap="4" minItemWidth="control">
-                  <Tile label="Title field" />
-                  <Tile label="Source set" />
-                </Grid>
-              </Inset>
-            </Stack>
-          </Container>
-        </Spec>
-        <Spec wide tag="grouped list">
-          <Stack gap="8">
-            <Stack gap="2.5">
-              <span>Participant</span>
-              <Stack gap="3" role="group" aria-label="Participant channels">
-                <Inline gap="4" justify="between">
-                  <span>Status Bays</span>
-                  <Key variant="open">Open</Key>
-                </Inline>
-                <Inline gap="4" justify="between">
-                  <span>Assignment Station</span>
-                  <Key variant="open">Open</Key>
-                </Inline>
-              </Stack>
-            </Stack>
-            <Stack gap="2.5">
-              <span>Administrator</span>
-              <Inline gap="4" justify="between">
-                <span>Administration</span>
-                <Key variant="open">Open</Key>
-              </Inline>
-            </Stack>
-          </Stack>
-        </Spec>
       </GallerySection>
     </>
   );

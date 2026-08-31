@@ -25,7 +25,7 @@ completion flows, and any screen where sustained reading is primary.
 - conversation event spacing: 20–32px
 - toolbar gaps: 8–12px
 - major section gap: 32–48px
-- ceremony plate padding: 30–46px
+- ceremony overlay plates: `--plate-foot-pad-block` / `--frame-inset-inline` on `.dialog-head` / `.dialog-body` / `.dialog-foot`; campaign fill-grid uses `--space-6` on `.ceremony-head` / `.ceremony-body` / `.ceremony-foot`
 
 ## Workspace Mode
 
@@ -49,6 +49,7 @@ queues, and other operational dashboards authorized by the current release.
 - control (stacked label ↔ slot): `--field-label-gap` / 10px
 - form groups (legend ↔ fields, sibling fields): `--form-group-gap` / 16px
 - panel padding: 16–24px
+- hairline-split Status Bay columns: even `--form-group-gap` / 16px (not flush `--frame-content-pad-inline-end`)
 - major section / bay (operate strata, titled blocks): `--operate-bay-gap` / 24px
 - readout row padding: 9–12px
 

@@ -5,11 +5,15 @@ import {
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
-  datatableColMin,
+  ActionHeader,
+  DatatableCell,
+  DatatableEmpty,
+  DatatableId,
+  DatatableRow,
+  DatatableTable,
   DisclosureMenu,
-  EmptyPlate,
   InstantReadout,
-  HeaderSelectionControl,
+  SelectHeader,
   Key,
   RowActionMenu,
   SelectMark,
@@ -219,25 +223,22 @@ export function CampaignRegistry({
       }
       scrollProps={{ tabIndex: 0, "aria-label": "Campaign rows, scrollable" }}
       table={
-        <table className="datatable-table" hidden={slice.total === 0}>
-          <caption className="visually-hidden">Campaign registry</caption>
+        <DatatableTable caption="Campaign registry" hidden={slice.total === 0}>
           <thead>
             <tr>
-              <th scope="col" className="col-select">
-                <HeaderSelectionControl
-                  ref={headerSelectRef}
-                  id="campaignSelectAll"
-                  selection={selection}
-                  pageIds={pageIds}
-                  matchingIds={matchingIds}
-                  queryKey={queryKey}
-                  noun="campaigns"
-                  onTransition={(next) => {
-                    patch({ selection: next });
-                    announce("Selection updated.");
-                  }}
-                />
-              </th>
+              <SelectHeader
+                ref={headerSelectRef}
+                id="campaignSelectAll"
+                selection={selection}
+                pageIds={pageIds}
+                matchingIds={matchingIds}
+                queryKey={queryKey}
+                noun="campaigns"
+                onTransition={(next) => {
+                  patch({ selection: next });
+                  announce("Selection updated.");
+                }}
+              />
               {(Object.keys(SORT_LABELS) as CampaignRegistrySortKey[]).map((key) => (
                 <SortableHeader
                   key={key}
@@ -248,44 +249,40 @@ export function CampaignRegistry({
                   colMin={CAMPAIGN_COL_MIN[key]}
                 />
               ))}
-              <th scope="col" className="col-action" {...datatableColMin("action")}><span className="visually-hidden">Actions</span></th>
+              <ActionHeader />
             </tr>
           </thead>
           <tbody>
             {slice.pageRows.map((row) => {
               const selected = isSelected(selection, row.id);
               return (
-                <tr
+                <DatatableRow
                   key={row.id}
-                  className={`datatable-row${selected ? " is-selected" : ""}`}
+                  selected={selected}
                 >
-                  <td className="cell-select">
+                  <DatatableCell kind="select">
                     <SelectMark
                       checked={selected}
                       label={`Select ${row.id} / ${row.name}`}
                       onChange={(checked) => patch({ selection: toggleRow(selection, row.id, checked) })}
                     />
-                  </td>
-                  <td className="cell-id" {...datatableColMin("id")}>
-                    <button
-                      type="button"
-                      className="datatable-id"
-                      onClick={() => onOpen(row.id)}
-                    >
+                  </DatatableCell>
+                  <DatatableCell kind="id" colMin="id">
+                    <DatatableId onClick={() => onOpen(row.id)}>
                       {row.id} / {row.name}
-                    </button>
-                  </td>
-                  <td className="cell-content" {...datatableColMin("state")}>
-                    <ActivationMark frozen={row.frozen} compact className="state-cell" labelClassName="state-label" />
-                  </td>
-                  <td className="cell-content" {...datatableColMin("count")}>{pad(row.enrollments, 2)}</td>
-                  <td className="cell-content" {...datatableColMin("instant")}>
+                    </DatatableId>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="state">
+                    <ActivationMark frozen={row.frozen} compact />
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="count">{pad(row.enrollments, 2)}</DatatableCell>
+                  <DatatableCell kind="content" colMin="instant">
                     <InstantReadout value={row.deadline} />
-                  </td>
-                  <td className="cell-content" {...datatableColMin("instant")}>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="instant">
                     <InstantReadout value={row.updatedAt} />
-                  </td>
-                  <td className="col-action" {...datatableColMin("action")}>
+                  </DatatableCell>
+                  <DatatableCell kind="action" colMin="action">
                     <RowActionMenu
                       open={openMenuId === row.id}
                       onOpenChange={(open) => setOpenMenuId(open ? row.id : null)}
@@ -298,18 +295,17 @@ export function CampaignRegistry({
                         if (campaign) onChoose(action, [campaign], trigger);
                       }}
                     />
-                  </td>
-                </tr>
+                  </DatatableCell>
+                </DatatableRow>
               );
             })}
           </tbody>
-        </table>
+        </DatatableTable>
       }
       empty={
         slice.total === 0 ? (
-          <EmptyPlate
+          <DatatableEmpty
             id="campaignRegistryEmpty"
-            className="datatable-empty"
             inset
             label="No matching campaigns"
             note="Nothing matches the current filter or search. Clear the search or set the activation filter back to all campaigns."
@@ -323,7 +319,7 @@ export function CampaignRegistry({
             >
               Clear filters
             </Key>
-          </EmptyPlate>
+          </DatatableEmpty>
         ) : undefined
       }
       footer={

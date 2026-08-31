@@ -17,7 +17,8 @@ is valid only in the design-lab entry graph via `web/src/design-system/lab.ts`.
 Rules:
 
 - Generic typed props only. No fixtures, demo query params, or route-owned
-  business state.
+  business state. Named assignment and lab-wall chrome lives in
+  `web/src/components/work/` or `web/src/design-lab/components/`, not this tree.
 - Production and the isolated lab may import this tree.
 - This tree must not import lab fixtures, lab routes, or lab surfaces.
 - Candidate CSS loads `web/src/styles/shared.css` only. Lab-only demo/surface

@@ -7,16 +7,18 @@ import {
 } from "../api/production-assessment";
 import {
   BackKey,
+  CeremonyArea,
   CeremonyDialog,
+  CeremonyUnavailable,
+  CeremonyWait,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
   Key,
-  OperateArea,
   usePushToast,
 } from "../design-system";
-import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import { SetupOperateArea } from "../components/work/SetupOperateArea";
 import { SetupCeremonyStation } from "../features/assessment/SetupCeremonyStation";
 import { SetupUnsavedLeaveDialog } from "../features/assessment/SetupUnsavedLeaveDialog";
 import { focusSetupSummary, isSetupTitleDirty, setupBlockers, setupNextAction } from "../features/assessment/setupStation";
@@ -183,9 +185,8 @@ export function AssessmentSetupPage({
   const nextAction = setupNextAction(view, title, pending);
 
   return (
-    <OperateArea
-      className="workspace-area work-plane record-plane record-plane--setup"
-      frameClassName="record-frame"
+    <SetupOperateArea
+      frame="record"
       label="Setup and readiness"
       title={view.has_activated_cohort ? "Activated cohort" : "Setup and readiness"}
       description={nextAction}
@@ -272,6 +273,6 @@ export function AssessmentSetupPage({
         onSaveAndLeave={saveAndLeave}
         onLeaveWithoutSaving={leaveWithoutSaving}
       />
-    </OperateArea>
+    </SetupOperateArea>
   );
 }

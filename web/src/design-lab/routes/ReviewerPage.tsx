@@ -3,14 +3,16 @@ import {
   Announcer,
   BackKey,
   CeremonyDialog,
-  DataTableShell,
   DemoPlate,
-  datatableColMin,
+  DatatableCell,
+  DatatableId,
+  DatatableRow,
+  DatatableStateReadout,
+  DatatableTable,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
-  EmptyPlate,
   FieldTextarea,
   FormField,
   BOUNDED_REASON_PLACEHOLDER,
@@ -20,8 +22,12 @@ import {
   CATALOG_ROUTE,
   REVIEWER_HOME,
   REVIEWER_IDENTITY,
+  ReviewerLedgerOperateArea,
+  ReviewerQueueEmpty,
+  ReviewerQueueOperateArea,
+  ReviewerQueueTableShell,
+  ReviewerSealedReadout,
   SignOutCeremony,
-  StateReadout,
   StaticHeader,
   usePrototypeSignOut,
   type StateIndicatorVariant,
@@ -30,7 +36,7 @@ import { REVIEWER_DEMO_KEYS } from "../data/fixtures/reviewer";
 import type { ReviewSession } from "../data/types";
 import { ManifestPanel, MarginaliaStack, statusLabel } from "../features/reviewer/RecordPanels";
 import { ReviewerDrawerOverlays } from "../features/reviewer/ReviewerDrawerOverlays";
-import { ManagementLayout, OperateArea, SplitBay } from "../../design-system";
+import { ManagementLayout, SplitBay, cx, registryTableHug } from "../../design-system";
 import { boundedReasonError, clearValidationErrorOnValid } from "../../design-system/components/fields";
 import { loadReviewerState, persistReviewerState } from "../features/reviewer/storage";
 import { useAnnouncer } from "../../lib/useAnnouncer";
@@ -357,81 +363,70 @@ export function ReviewerPage() {
       }
     >
       <div className="shell">
-        <OperateArea
-          className="queue-view workspace-area"
+        <ReviewerQueueOperateArea
           label="Review queue"
           title="Review queue"
           description="Sessions awaiting human review — ranked by receipt time."
           hidden={view === "record"}
-          frameClassName="datatable-frame"
-          frameInset="flush"
+          hug={registryTableHug(rows.length)}
         >
-              <DataTableShell
+              <ReviewerQueueTableShell
                 variant="bodyOnly"
-                className="queue-datatable"
                 scrollProps={{ tabIndex: 0, "aria-label": "Review queue rows, scrollable" }}
                 table={
-                  <table className="datatable-table manifest" hidden={rows.length === 0}>
-                    <caption className="visually-hidden">Sessions awaiting human review</caption>
+                  <DatatableTable caption="Sessions awaiting human review" hidden={rows.length === 0} className="manifest">
                     <thead>
                       <tr>
-                        <StaticHeader label="Participant" colMin="id" />
+                        <StaticHeader label="Participant" colMin="compactId" />
                         <StaticHeader label="Campaign" colMin="label" />
-                        <StaticHeader label="Assignment" colMin="label" />
+                        <StaticHeader label="Assignment" colMin="title" className="col-assignment" />
                         <StaticHeader label="Received" colMin="instant" />
                         <StaticHeader label="Confidence" colMin="confidence" />
                         <StaticHeader label="State" colMin="state" />
-                        <th scope="col"><span className="visually-hidden">Action</span></th>
+                        <StaticHeader label="Action" colMin="action" />
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((s) => {
                         const isHot = s.id === hotId && s.reviewStatus === "awaiting";
                         return (
-                          <tr key={s.id} className={`datatable-row${isHot ? " is-hot" : ""}`}>
-                            <td className="col-candidate cell-id" data-label="Participant" {...datatableColMin("id")}>
-                              <button
-                                type="button"
-                                className="datatable-id"
-                                onClick={() => openRecord(s.id)}
-                              >
+                          <DatatableRow key={s.id} className={isHot ? "is-hot" : undefined}>
+                            <DatatableCell kind="id" colMin="compactId" label="Participant" className="col-candidate">
+                              <DatatableId onClick={() => openRecord(s.id)}>
                                 {s.candidate}
-                              </button>
-                            </td>
-                            <td className="cell-content" data-label="Campaign" {...datatableColMin("label")}>{s.campaign}</td>
-                            <td className="col-assignment cell-content" data-label="Assignment" {...datatableColMin("label")}>{s.assignment}</td>
-                            <td className="col-received cell-content" data-label="Received" {...datatableColMin("instant")}>
+                              </DatatableId>
+                            </DatatableCell>
+                            <DatatableCell kind="content" colMin="label" label="Campaign">{s.campaign}</DatatableCell>
+                            <DatatableCell kind="content" colMin="title" label="Assignment" className="col-assignment">{s.assignment}</DatatableCell>
+                            <DatatableCell kind="content" colMin="instant" label="Received" className="col-received">
                               <InstantReadout value={s.received} />
-                            </td>
-                            <td className="col-confidence cell-content" data-label="Confidence" {...datatableColMin("confidence")}>{mean(s).toFixed(2)}</td>
-                            <td className="cell-content" data-label="State" {...datatableColMin("state")}>
-                              <StateReadout
+                            </DatatableCell>
+                            <DatatableCell kind="content" colMin="confidence" label="Confidence" className="col-confidence">{mean(s).toFixed(2)}</DatatableCell>
+                            <DatatableCell kind="content" colMin="state" label="State">
+                              <DatatableStateReadout
                                 variant={statusIndicatorVariant(s.reviewStatus)}
                                 solid={s.reviewStatus === "released" || s.reviewStatus === "escalated" || s.reviewStatus === "awaiting" || s.reviewStatus === "adjusted"}
                                 label={statusLabel(s.reviewStatus)}
-                                className="state-cell"
-                                labelClassName="state-label"
                               />
-                            </td>
-                            <td className="col-action">
+                            </DatatableCell>
+                            <DatatableCell kind="action" colMin="action" label="Action">
                               <Key
                                 variant={isHot && s.reviewStatus !== "released" ? "inspect" : "quiet"}
                                 onClick={() => openRecord(s.id)}
                               >
                                 {s.reviewStatus === "released" ? "View" : isHot ? "Inspect" : "Open"}
                               </Key>
-                            </td>
-                          </tr>
+                            </DatatableCell>
+                          </DatatableRow>
                         );
                       })}
                     </tbody>
-                  </table>
+                  </DatatableTable>
                 }
                 empty={
                   rows.length === 0 ? (
-                    <EmptyPlate
+                    <ReviewerQueueEmpty
                       id="queueEmpty"
-                      className="datatable-empty queue-empty-plate"
                       inset
                       label="Queue clear"
                       note="No sessions are queued for review in this demo state."
@@ -439,18 +434,16 @@ export function ReviewerPage() {
                   ) : undefined
                 }
               />
-        </OperateArea>
+        </ReviewerQueueOperateArea>
 
-        <OperateArea
-          className={`record-view workspace-area${session?.reviewStatus === "released" ? " is-released" : ""}${adjustMode ? " is-adjusting" : ""}`}
+        <ReviewerLedgerOperateArea
+          className={cx(session?.reviewStatus === "released" && "is-released", adjustMode && "is-adjusting")}
           label="Evaluation record"
           title="Examination Transcript — The Overlay Ledger"
           description={session?.sessionLabel}
           hidden={view === "queue"}
-          framed={false}
-          headArrangement="plaque"
           back={<BackKey label="Queue" onClick={returnToQueue} />}
-          headExtra={<StateReadout variant="sealed" solid label="Sealed" className="sealed-mark" />}
+          headExtra={<ReviewerSealedReadout label="Sealed" />}
         >
           {session ? (
             <SplitBay
@@ -605,7 +598,7 @@ export function ReviewerPage() {
               </Key>
             </KeyGroup>
           </footer>
-        </OperateArea>
+        </ReviewerLedgerOperateArea>
       </div>
     </ManagementLayout>
   );

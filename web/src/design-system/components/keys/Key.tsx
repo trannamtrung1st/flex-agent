@@ -38,11 +38,13 @@ export const Key = forwardRef<HTMLButtonElement, {
   ariaDescribedBy?: string;
   tooltip?: string;
   disabledReason?: string;
+  destructive?: boolean;
 }>(function Key({
   variant = "quiet",
   size = "standard",
   waiting,
   truncate,
+  destructive,
   type = "button",
   to,
   disabled,
@@ -73,7 +75,15 @@ export const Key = forwardRef<HTMLButtonElement, {
       ? `${typeof children === "string" ? children : "Action"}. ${disabledReason}`
       : label;
 
-  const cls = cx("key", `key--${variant}`, keySizeClass(size), waiting && "is-waiting", truncate && "key--truncate", className);
+  const cls = cx(
+    "key",
+    `key--${variant}`,
+    keySizeClass(size),
+    waiting && "is-waiting",
+    truncate && "key--truncate",
+    destructive && "key--danger",
+    className,
+  );
   const caption = isTextLabel(children) ? String(children) : undefined;
   const distinctTip = tooltip && caption && tooltip === caption ? undefined : tooltip;
   const truncateTip = truncate ? distinctTip ?? caption : undefined;

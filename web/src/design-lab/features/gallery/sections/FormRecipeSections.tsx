@@ -19,7 +19,12 @@ import {
   FieldNumber,
   FieldTextarea,
   FormField,
+  FormPair,
+  FormPairField,
   FormSection,
+  FormRecipeDialog,
+  FormRecipeDialogWell,
+  FormRecipeOperateArea,
   Grid,
   InstantReadout,
   Key,
@@ -27,12 +32,12 @@ import {
   MM_SS_HINT,
   MM_SS_PLACEHOLDER,
   MM_SS_WARNING_PLACEHOLDER,
-  OperateArea,
-  PlateFoot,
-  ReadoutGrid,
+  AssignmentInstrumentGrid,
   ReadoutGridField,
   ReadoutGridRow,
   SCORE_PLACEHOLDER,
+  SetupCeremony,
+  SetupCeremonyFoot,
   Stack,
 } from "../../../components";
 import { GallerySection, Spec } from "./GallerySection";
@@ -107,14 +112,13 @@ function CommissionRecipe({
   };
 
   return (
-    <OperateArea
-      className="workspace-area work-plane form-recipe"
+    <FormRecipeOperateArea
       label={label}
       title="Create assessment Campaign"
       description="Activity form: Campaign. Configured type: Assessment."
       back={<BackKey label="Activities" type="button" onClick={() => undefined} />}
     >
-      <Stack as="form" gap="6" className="workspace-form setup-ceremony" noValidate onSubmit={onSubmit}>
+      <SetupCeremony as="form" gap="6" noValidate onSubmit={onSubmit}>
         <ErrorSummary title="Correct the following" headingId={summaryId} errors={summaryErrors} />
         <FormField id={titleId} layout="stack" label="Campaign title" error={titleError}>
           {(control) => (
@@ -165,13 +169,13 @@ function CommissionRecipe({
             />
           </Grid>
         </FormSection>
-        <PlateFoot className="setup-ceremony__foot" arrangement="end">
+        <SetupCeremonyFoot arrangement="end">
           <Key type="submit" variant="transmit" size="large">
             Create
           </Key>
-        </PlateFoot>
-      </Stack>
-    </OperateArea>
+        </SetupCeremonyFoot>
+      </SetupCeremony>
+    </FormRecipeOperateArea>
   );
 }
 
@@ -184,22 +188,20 @@ function InstrumentRecipe() {
   );
 
   return (
-    <OperateArea
-      className="workspace-area work-plane form-recipe"
+    <FormRecipeOperateArea
       label="Instrument form recipe"
       title="Record adjustment"
       description="Enrollment-scoped score and timing. Other participants never see this adjustment."
     >
-      <Stack
+      <SetupCeremony
         as="form"
         gap="6"
-        className="workspace-form setup-ceremony"
         noValidate
-        onSubmit={(event) => event.preventDefault()}
+        onSubmit={(event: FormEvent<HTMLFormElement>) => event.preventDefault()}
       >
         <FormSection legend="Timing">
-          <div className="form-row form-row--pair">
-            <FormField id="recipePairLimit" label="Session limit" hint={MM_SS_HINT} layout="pair">
+            <FormPair>
+            <FormPairField id="recipePairLimit" label="Session limit" hint={MM_SS_HINT}>
               {(control) => (
                 <FieldInput
                   {...control}
@@ -208,8 +210,8 @@ function InstrumentRecipe() {
                   onChange={(event) => setLimit(event.target.value)}
                 />
               )}
-            </FormField>
-            <FormField id="recipePairWarning" label="Time warning at" hint={MM_SS_HINT} layout="pair">
+            </FormPairField>
+            <FormPairField id="recipePairWarning" label="Time warning at" hint={MM_SS_HINT}>
               {(control) => (
                 <FieldInput
                   {...control}
@@ -218,8 +220,8 @@ function InstrumentRecipe() {
                   onChange={(event) => setWarning(event.target.value)}
                 />
               )}
-            </FormField>
-          </div>
+            </FormPairField>
+          </FormPair>
         </FormSection>
         <FormSection legend="Adjustment">
           <Stack gap="4">
@@ -251,13 +253,13 @@ function InstrumentRecipe() {
             </FormField>
           </Stack>
         </FormSection>
-        <PlateFoot className="setup-ceremony__foot" arrangement="end">
+        <SetupCeremonyFoot arrangement="end">
           <Key type="submit" variant="transmit">
             Record
           </Key>
-        </PlateFoot>
-      </Stack>
-    </OperateArea>
+        </SetupCeremonyFoot>
+      </SetupCeremony>
+    </FormRecipeOperateArea>
   );
 }
 
@@ -272,14 +274,13 @@ function LedgerRecipe() {
   const [warnings, setWarnings] = useState(true);
 
   return (
-    <OperateArea
-      className="workspace-area work-plane form-recipe"
+    <FormRecipeOperateArea
       label="Ledger form recipe"
       title="Campaign configuration"
       description="Identity and committed sources are display. Title, timing, window, and notes stay editable."
       back={<BackKey label="Activities" type="button" onClick={() => undefined} />}
     >
-      <ReadoutGrid label="Campaign identity" columns={4} className="assignment-instruments">
+      <AssignmentInstrumentGrid label="Campaign identity" columns={4}>
         <ReadoutGridRow label="Identity">
           <ReadoutGridField term="Campaign">CMP-0042</ReadoutGridField>
           <ReadoutGridField term="Enrollment">
@@ -287,7 +288,7 @@ function LedgerRecipe() {
           </ReadoutGridField>
           <ReadoutGridField term="Revision">4</ReadoutGridField>
             <ReadoutGridField term="Activation">
-              <ActivationMark frozen className="readout-grid-state" />
+              <ActivationMark frozen placement="grid" />
             </ReadoutGridField>
         </ReadoutGridRow>
         <ReadoutGridRow label="Timing">
@@ -298,13 +299,12 @@ function LedgerRecipe() {
           <ReadoutGridField term="Eligibility">Open</ReadoutGridField>
           <ReadoutGridField term="Accommodation">None seated</ReadoutGridField>
         </ReadoutGridRow>
-      </ReadoutGrid>
-      <Stack
+      </AssignmentInstrumentGrid>
+      <SetupCeremony
         as="form"
         gap="6"
-        className="workspace-form setup-ceremony"
         noValidate
-        onSubmit={(event) => event.preventDefault()}
+        onSubmit={(event: FormEvent<HTMLFormElement>) => event.preventDefault()}
       >
         <FormField
           id="recipeMixTitle"
@@ -354,8 +354,8 @@ function LedgerRecipe() {
         <Grid gap="6" minItemWidth="panel">
           <FormSection legend="Timing and attempts">
             <Stack gap="4">
-              <div className="form-row form-row--pair">
-                <FormField id="recipeMixLimit" label="Session limit" hint={MM_SS_HINT} layout="pair">
+              <FormPair>
+                <FormPairField id="recipeMixLimit" label="Session limit" hint={MM_SS_HINT}>
                   {(control) => (
                     <FieldInput
                       {...control}
@@ -364,8 +364,8 @@ function LedgerRecipe() {
                       onChange={(event) => setLimit(event.target.value)}
                     />
                   )}
-                </FormField>
-                <FormField id="recipeMixWarning" label="Time warning at" hint={MM_SS_HINT} layout="pair">
+                </FormPairField>
+                <FormPairField id="recipeMixWarning" label="Time warning at" hint={MM_SS_HINT}>
                   {(control) => (
                     <FieldInput
                       {...control}
@@ -374,8 +374,8 @@ function LedgerRecipe() {
                       onChange={(event) => setWarning(event.target.value)}
                     />
                   )}
-                </FormField>
-              </div>
+                </FormPairField>
+              </FormPair>
               <Grid gap="4" minItemWidth="compact">
                 <FormField id="recipeMixAttempts" label="Max attempts" layout="stack">
                   {(control) => (
@@ -474,13 +474,13 @@ function LedgerRecipe() {
             </FormField>
           </Stack>
         </FormSection>
-        <PlateFoot className="setup-ceremony__foot" arrangement="split" secondary={<Key type="button">Save draft</Key>}>
+        <SetupCeremonyFoot arrangement="split" secondary={<Key type="button">Save draft</Key>}>
           <Key type="submit" variant="transmit">
             Record
           </Key>
-        </PlateFoot>
-      </Stack>
-    </OperateArea>
+        </SetupCeremonyFoot>
+      </SetupCeremony>
+    </FormRecipeOperateArea>
   );
 }
 
@@ -489,8 +489,8 @@ function AccommodationDialogRecipe() {
   const [reason, setReason] = useState("Extended reading time for this enrollment only.");
 
   return (
-    <div className="form-recipe-dialog-well">
-      <form className="form-recipe-dialog" noValidate onSubmit={(event) => event.preventDefault()}>
+    <FormRecipeDialogWell>
+      <FormRecipeDialog onSubmit={(event) => event.preventDefault()}>
         <DialogPlate width="wide">
           <DialogPlateHead title="Record accommodation" titleId="recipeDialogTitle" />
           <DialogPlateBody>
@@ -538,8 +538,8 @@ function AccommodationDialogRecipe() {
             }
           />
         </DialogPlate>
-      </form>
-    </div>
+      </FormRecipeDialog>
+    </FormRecipeDialogWell>
   );
 }
 

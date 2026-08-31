@@ -1,6 +1,10 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Key } from "../keys/Key";
 
+/** Hull chrome and generic layout hosts. Domain surfaces sit inside these. */
+export const BULKHEAD_INERT_SELECTOR =
+  ".command-strip, .console-foot, .layout-management__shell, .composition-split";
+
 function bulkheadFocusable(root: HTMLElement) {
   return [
     ...root.querySelectorAll<HTMLElement>(
@@ -44,7 +48,7 @@ export function Bulkhead({
     document.body.classList.add("is-bulkhead-open");
     const inert = [
       ...document.querySelectorAll<HTMLElement>(
-        ".command-strip, .console-foot, .layout-management__shell, .queue-view, .record-view .operate-head, .record-grid, .composition-split",
+        BULKHEAD_INERT_SELECTOR,
       ),
     ];
     inert.forEach((el) => el.setAttribute("inert", ""));

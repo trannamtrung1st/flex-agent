@@ -1,9 +1,11 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
-import { IconButton, Key } from "../keys";
+import { IconButton } from "../keys";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
 import { selectShellStyle, type SelectPopoverConfig } from "../select/selectShell";
-import { useDismissOnOutsidePointer } from "../select/useDismissOnOutsidePointer";
+import { SelectPanelFoot } from "../select/SelectPanelFoot";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { DateGlyph, TimeGlyph } from "./TemporalGlyphs";
 import {
   WEEKDAYS,
@@ -105,7 +107,7 @@ export function DateTimePicker({
   const cells = useMemo(() => calendarCells(view.year, view.month), [view.month, view.year]);
   const selectedIso = parseIsoDate(date) ? date : "";
 
-  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => {
+  useOverlayDismiss(open, [rootRef, panelRef], () => {
     setOpen(false);
   }, { labelId, controlId: id });
 
@@ -238,6 +240,7 @@ export function DateTimePicker({
         `select-shell--temporal select-shell--${mode}`,
         frozen ? "is-frozen" : undefined,
         invalid ? "is-invalid" : undefined,
+        withSeconds ? "has-seconds" : undefined,
       ]
         .filter(Boolean)
         .join(" ")}
@@ -265,15 +268,25 @@ export function DateTimePicker({
         </span>
         <ChevronGlyph className="dropdown-chevron chevron-glyph" />
       </button>
-      <AnchoredOverlay open={open} triggerRef={triggerRef} tokenSourceRef={rootRef} floatingRef={panelRef} align="stretch">
+      <AnchoredOverlay open={open} triggerRef={triggerRef} tokenSourceRef={rootRef} floatingRef={panelRef} align="start" size={false} lockMinWidthToTrigger={false}>
         {({ ref, style, overlayClassName }) => (
       <div
         ref={ref}
         id={panelId}
         style={style}
-        className={`datetime-popover select-popover popover-surface menu-surface${mode === "datetime" ? " datetime-popover--split" : ""} ${overlayClassName}`}
+        className={overlayPlateClass(
+          `datetime-popover datetime-popover--${mode}`,
+          mode === "datetime" && "datetime-popover--split",
+          overlayClassName,
+        )}
         role="dialog"
         aria-label={dialogLabel}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          close(true);
+        }}
       >
         {mode !== "time" ? (
           <div className="datetime-calendar">
@@ -424,26 +437,27 @@ export function DateTimePicker({
             </div>
           </div>
         ) : null}
-        <div className="multiselect-foot datetime-foot">
-          <div className="datetime-foot-actions">
-            {mode !== "time" ? (
-              <button className="clear-action" type="button" onClick={commitNow}>
-                Now
+        <SelectPanelFoot
+          className="datetime-foot"
+          leading={(
+            <div className="datetime-foot-actions">
+              {mode !== "time" ? (
+                <button className="clear-action" type="button" onClick={commitNow}>
+                  Now
+                </button>
+              ) : null}
+              <button
+                className="clear-action"
+                type="button"
+                disabled={!value}
+                onClick={() => onChange("")}
+              >
+                Clear
               </button>
-            ) : null}
-            <button
-              className="clear-action"
-              type="button"
-              disabled={!value}
-              onClick={() => onChange("")}
-            >
-              Clear
-            </button>
-          </div>
-          <Key variant="quiet" size="compact" onClick={() => close(true)}>
-            Done
-          </Key>
-        </div>
+            </div>
+          )}
+          onDone={() => close(true)}
+        />
       </div>
         )}
       </AnchoredOverlay>

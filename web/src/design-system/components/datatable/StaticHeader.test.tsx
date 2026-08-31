@@ -18,4 +18,18 @@ describe("StaticHeader", () => {
     expect(head.querySelector(".col-head")).toHaveTextContent("Participant");
     expect(head.querySelector("button.col-key")).toBeNull();
   });
+
+  it("emits col-state for session state columns", () => {
+    render(
+      <table>
+        <thead>
+          <tr>
+            <StaticHeader label="Session state" colMin="state" />
+          </tr>
+        </thead>
+      </table>,
+    );
+
+    expect(screen.getByRole("columnheader", { name: "Session state" })).toHaveClass("col-state");
+  });
 });

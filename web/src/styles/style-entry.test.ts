@@ -64,6 +64,7 @@ describe("candidate style entry graph", () => {
     expect(shared).toContain('@import "./tokens.css"');
     expect(shared).not.toContain("demo.css");
     expect(shared).not.toContain("./surfaces/");
+    expect(shared).toContain('./components/work-plates.css');
   });
 
   it("keeps demo-plate selectors out of shared component family sheets", () => {
@@ -78,6 +79,7 @@ describe("candidate style entry graph", () => {
   it("pins management operate chrome and scrolls one work body", () => {
     const layouts = readFileSync(join(srcRoot, "styles/components/layouts.css"), "utf8");
     const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const admin = readFileSync(join(srcRoot, "styles/surfaces/admin-console.css"), "utf8");
     const managementMain = layouts.match(/\.layout-management__main \{[^}]+\}/)?.[0] ?? "";
     const ceremonyMain = layouts.match(
       /\.layout-management__main:has\(\.work-plane--ceremony\) \{[^}]+\}/,
@@ -103,17 +105,23 @@ describe("candidate style entry graph", () => {
     expect(appShell).toMatch(
       /\.workspace-area\.registry-wall--hug > \.operate-scroll \{[^}]*overflow-y:\s*auto/,
     );
+    expect(admin).toMatch(
+      /\.campaigns-wall\.registry-wall--hug > \.operate-scroll,\s*\.wall\.registry-wall--hug > \.operate-scroll \{[^}]*overflow-y:\s*auto/,
+    );
     expect(appShell).toMatch(
       /@media \(max-width: 1080px\)[^{]*\{[^}]*\.workspace-area:has\(\.bays\) > \.operate-scroll \{[^}]*overflow:\s*visible/,
     );
     expect(layouts).not.toMatch(
       /\.layout-management__main:has\(\.record-view\),\s*\.layout-management__main:has\(\.record-plane--setup\),\s*\.layout-management__main:has\(\.bays\)/,
     );
+    expect(layouts).not.toMatch(/\.campaigns-wall/);
+    expect(layouts).not.toMatch(/composition-inset \.wall/);
   });
 
   it("does not open a horizontal scrollport on etched plates", () => {
     const plates = readFileSync(join(srcRoot, "styles/components/plates.css"), "utf8");
     const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const workPlates = readFileSync(join(srcRoot, "styles/components/work-plates.css"), "utf8");
     const frameCut = plates.match(/\.frame-cut \{[^}]+\}/)?.[0] ?? "";
     const frameNode = plates.match(/\.frame-in > \.frame-node \{[^}]+\}/)?.[0] ?? "";
     const workspaceScroll = appShell.match(
@@ -147,7 +155,7 @@ describe("candidate style entry graph", () => {
       /\.workspace-area\.record-plane--setup \.frame-scroll \{[^}]+\}/,
     )?.[0] ?? "";
     const ceremonyInnerScroll = appShell.match(/\.create-ceremony__scroll \{[^}]+\}/)?.[0] ?? "";
-    const setupCeremony = appShell.match(/\.setup-ceremony \{[^}]+\}/)?.[0] ?? "";
+    const setupCeremony = workPlates.match(/\.setup-ceremony \{[^}]+\}/)?.[0] ?? "";
     expect(recordPlaneBay).toMatch(/overflow:\s*hidden/);
     expect(recordPlaneBay).not.toMatch(/overflow-y:\s*auto/);
     expect(appShell).not.toMatch(
@@ -156,13 +164,16 @@ describe("candidate style entry graph", () => {
     expect(recordPlaneSetupScroll).toMatch(/overflow:\s*hidden/);
     expect(ceremonyInnerScroll).toMatch(/overflow-y:\s*auto/);
     expect(ceremonyInnerScroll).toMatch(/scrollbar-gutter:\s*stable/);
-    expect(appShell).toMatch(
+    expect(workPlates).toMatch(
       /\.workspace-form\.setup-ceremony > \.setup-ceremony__foot,\s*\.setup-ceremony > \.setup-ceremony__foot \{[^}]*margin-block-start:\s*var\(--plate-foot-pad-block\)/,
     );
     expect(setupCeremony).toMatch(/display:\s*flex/);
     expect(setupCeremony).toMatch(/flex-direction:\s*column/);
     expect(appShell).toMatch(
-      /\.workspace-area > \.operate-scroll > \.composition-grid\[data-flow-fit="fill"\],\s*\.workspace-area > \.operate-scroll > \.assignment-bays \{[^}]*flex:\s*0 0 auto/,
+      /\.workspace-area > \.operate-scroll > \.composition-grid\[data-flow-fit="fill"\] \{[^}]*flex:\s*0 0 auto/,
+    );
+    expect(workPlates).toMatch(
+      /\.workspace-area > \.operate-scroll > \.assignment-bays \{[^}]*flex:\s*0 0 auto/,
     );
     expect(appShell).toMatch(
       /\.workspace-area\.record-plane--setup > \.operate-scroll,\s*\.workspace-area\.record-plane--setup > \.workspace-alert \{[^}]*width:\s*min\(100%,\s*52rem\)/,
@@ -170,7 +181,7 @@ describe("candidate style entry graph", () => {
     expect(appShell).not.toMatch(
       /\.workspace-area\.record-plane > \.operate-scroll,\s*\.workspace-area\.record-plane > \.workspace-alert \{[^}]*width:\s*min\(100%,\s*52rem\)/,
     );
-    expect(appShell).toMatch(
+    expect(workPlates).toMatch(
       /\.frame-scroll > \.assignment-instruments,\s*\.setup-ceremony > \.assignment-instruments \{[^}]*margin-block-end:\s*var\(--form-group-gap\)/,
     );
     expect(ceremonyFrame).toMatch(/flex:\s*0 1 auto/);
@@ -180,7 +191,7 @@ describe("candidate style entry graph", () => {
     expect(plates).toMatch(/\.operate-column--hug\[data-hug-measure="auto"\]\s*\{[^}]*--operate-hug-w:\s*max-content/);
     expect(plates).toMatch(/\.operate-column--hug\[data-hug-measure="md"\]\s*\{[^}]*--operate-column-max:\s*520px/);
     expect(plates).toMatch(
-      /\.operate-column--hug\[data-hug-measure="auto"\]\s+\.empty-plate--inset\s*\{[^}]*grid-template-columns:\s*7px minmax\(0,\s*48ch\)/,
+      /\.operate-column--hug\[data-hug-measure="auto"\]\s+\.empty-plate--inset\s*\{[^}]*grid-template-columns:\s*7px max-content/,
     );
     expect(plates).toMatch(
       /\.operate-column--hug\[data-hug-measure="auto"\]\s+\.wait-plate--inset\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\)/,
@@ -189,7 +200,7 @@ describe("candidate style entry graph", () => {
       /@media \(min-width: 721px\)[^{]*\{[^}]*\.operate-column--hug\[data-hug-measure="auto"\]\s+\.wait-plate--inset\s+\.wait-plate-label\s*\{[^}]*white-space:\s*nowrap/,
     );
     expect(plates).toMatch(
-      /\.operate-column--hug\[data-hug-measure="auto"\]:has\(\.wait-plate--inset\)\s*\{[^}]*--operate-hug-w:\s*min\(100%,\s*var\(--operate-column-max\)\)/,
+      /\.operate-column--hug\[data-hug-measure="auto"\]:has\(\.wait-plate--inset\)\s*\{[^}]*--operate-hug-w:\s*var\(--operate-column-max\)/,
     );
     expect(plates).not.toMatch(
       /\.operate-column--hug\[data-hug-measure="auto"\]:is\(:has\(\.wait-plate--inset\), :has\(\.empty-plate--inset\)\)/,
@@ -201,6 +212,9 @@ describe("candidate style entry graph", () => {
       /\.operate-column--hug\[data-hug-measure="auto"\]:has\(\.empty-plate--inset\) \.ceremony-empty\s*\{[^}]*width:\s*100%/,
     );
     expect(plates).toMatch(
+      /\.operate-column--hug\[data-hug-measure="auto"\]\s+\.empty-plate-note\s*\{[^}]*max-width:\s*48ch/,
+    );
+    expect(plates).toMatch(
       /\.workspace-area \.operate-column--hug\s*>\s*\.operate-head \.operate-head-copy \.page-desc\s*\{[^}]*white-space:\s*normal/,
     );
     expect(appShell).not.toMatch(
@@ -208,6 +222,9 @@ describe("candidate style entry graph", () => {
     );
     expect(appShell).toMatch(
       /\.workspace-area > \.operate-scroll > \.bays \{[^}]*flex:\s*1 1 auto/,
+    );
+    expect(appShell).toMatch(
+      /@media \(max-width: 720px\)[\s\S]*?\.work-plane--ceremony > \.operate-column--hug\[data-hug-measure="auto"\] \.empty-plate--inset \{[^}]*grid-template-columns:\s*7px minmax\(0,\s*1fr\)/,
     );
   });
 
@@ -221,10 +238,28 @@ describe("candidate style entry graph", () => {
     expect(workWellBody).toMatch(/overflow:\s*visible/);
     expect(workWellBody).not.toMatch(/overflow-y:\s*auto/);
     expect(guidedWorkWellBody).toMatch(/overflow-y:\s*auto/);
+    expect(guidedWorkWellBody).toMatch(/scrollbar-gutter:\s*stable/);
+  });
+
+  it("keeps stacked-well empty plates as inset readouts, not clipped cards", () => {
+    const plates = readFileSync(join(srcRoot, "styles/components/plates.css"), "utf8");
+    const inset = plates.match(
+      /\.empty-plate--inset,\s*\.work-well\[data-seat="stack"\] \.empty-plate \{[^}]+\}/,
+    )?.[0] ?? "";
+
+    expect(inset).toMatch(/border:\s*none/);
+    expect(inset).toMatch(/clip-path:\s*none/);
+    expect(inset).toMatch(/background:\s*transparent/);
+    expect(inset).toMatch(/padding:\s*0/);
+    expect(inset).not.toMatch(/padding:\s*2px/);
+    expect(plates).toMatch(
+      /\.work-well\[data-seat="stack"\] \.work-well__section > ul:not\(\.intake-item-list\) > li \{[^}]*padding-inline-start:\s*calc\(7px \+ 12px\)/,
+    );
   });
 
   it("clips filling table operate panes and restores hug lists to operate-scroll", () => {
     const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const admin = readFileSync(join(srcRoot, "styles/surfaces/admin-console.css"), "utf8");
     const home = readFileSync(join(srcRoot, "styles/surfaces/participant-home.css"), "utf8");
     const fillingTableScroll = appShell.match(
       /\.operate-scroll:has\(\.datatable-scroll\) \{[^}]+\}/,
@@ -238,6 +273,23 @@ describe("candidate style entry graph", () => {
     expect(appShell).toMatch(
       /\.workspace-area\.registry-wall--hug > \.operate-scroll \{[^}]*overflow-y:\s*auto/,
     );
+    expect(admin).toMatch(
+      /\.campaigns-wall\.registry-wall--hug > \.operate-scroll,\s*\.wall\.registry-wall--hug > \.operate-scroll \{[^}]*overflow-y:\s*auto/,
+    );
+    const hugTable = appShell.match(
+      /\.registry-wall--hug \.datatable-frame \.datatable,\s*\.registry-wall--hug \.datatable \{[^}]+\}/,
+    )?.[0] ?? "";
+    const hugScroll = appShell.match(
+      /\.registry-wall--hug \.datatable-frame \.datatable-scroll,\s*\.registry-wall--hug \.datatable-scroll \{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(hugTable).toMatch(/flex:\s*0 1 auto/);
+    expect(hugTable).toMatch(/min-height:\s*0/);
+    expect(hugTable).not.toMatch(/flex:\s*0 0 auto/);
+    expect(hugScroll).toMatch(/flex:\s*0 1 auto/);
+    expect(hugScroll).toMatch(/min-height:\s*0/);
+    expect(hugScroll).toMatch(/overflow-y:\s*auto/);
+    expect(hugScroll).not.toMatch(/flex:\s*0 0 auto/);
+    expect(hugScroll).not.toMatch(/overflow-y:\s*visible/);
     expect(home).toMatch(
       /@media \(max-width: 1080px\)[^{]*\{[^}]*html\[data-surface="participant-home"\] \.bay-plates \{[^}]*overflow-y:\s*visible/,
     );
@@ -274,6 +326,40 @@ describe("candidate style entry graph", () => {
     expect(scroll).toMatch(/overflow-x:\s*auto/);
   });
 
+  it("keeps the datatable header rail compact and full-width of the scrollport", () => {
+    const datatable = readFileSync(join(srcRoot, "styles/components/datatable.css"), "utf8");
+    const root = datatable.match(/\.datatable \{[^}]+\}/)?.[0] ?? "";
+    const table = datatable.match(/\.datatable-table \{[^}]+\}/)?.[0] ?? "";
+    const th = datatable.match(/\.datatable-table thead th \{[^}]+\}/)?.[0] ?? "";
+    const colKey = datatable.match(/\.col-key \{[^}]+\}/)?.[0] ?? "";
+    const colHead = datatable.match(/\.col-head \{[^}]+\}/)?.[0] ?? "";
+    const colState = datatable.match(/\.datatable-table th\.col-state \{[^}]+\}/)?.[0] ?? "";
+
+    expect(root).toMatch(/--datatable-head-height:\s*36px/);
+    expect(table).toMatch(/width:\s*100%/);
+    expect(table).toMatch(/min-width:\s*100%/);
+    expect(th).toMatch(/padding:\s*0/);
+    expect(th).toMatch(/height:\s*var\(--datatable-head-height\)/);
+    expect(colKey).toMatch(/white-space:\s*nowrap/);
+    expect(colHead).toMatch(/white-space:\s*nowrap/);
+    expect(colState).not.toMatch(/padding:\s*10px/);
+    expect(datatable).toMatch(/\.datatable-table th\.col-state \.col-head \{[^}]*justify-content:\s*center/);
+  });
+
+  it("pins the datatable sticky header rail across horizontal scroll", () => {
+    const datatable = readFileSync(join(srcRoot, "styles/components/datatable.css"), "utf8");
+    const scroll = datatable.match(/\.datatable-scroll \{[^}]+\}/)?.[0] ?? "";
+    const hiddenRail = datatable.match(
+      /\.datatable-scroll:has\(\.datatable-table\[hidden\]\) \{[^}]+\}/,
+    )?.[0] ?? "";
+
+    expect(scroll).toMatch(/background-image:/);
+    expect(scroll).toMatch(/linear-gradient\(var\(--ground-deep\), var\(--ground-deep\)\)/);
+    expect(scroll).toMatch(/background-size:/);
+    expect(hiddenRail).toMatch(/background-image:\s*none/);
+    expect(datatable).not.toMatch(/\.datatable-scroll::before \{[^}]*left:\s*0/);
+  });
+
   it("lets overlay dialog-body own vertical scroll when it hosts a table", () => {
     const overlays = readFileSync(join(srcRoot, "styles/components/overlays.css"), "utf8");
     const host = String.raw`:is\(\.dialog-body, \.ceremony-body\):has\(\.datatable-scroll\)`;
@@ -282,7 +368,10 @@ describe("candidate style entry graph", () => {
     const rows = overlays.match(new RegExp(`${host} \\.datatable-scroll \\{[^}]+\\}`))?.[0] ?? "";
     const toolbar = overlays.match(new RegExp(`${host} \\.datatable-toolbar \\{[^}]+\\}`))?.[0] ?? "";
 
-    expect(clip).toMatch(/overflow-y:\s*auto/);
+    expect(overlays).toMatch(/\.dialog-body \{[^}]*scrollbar-gutter:\s*auto/);
+    expect(overlays).toMatch(/\.dialog-body \{[^}]*scrollbar-width:\s*auto/);
+    expect(overlays).not.toMatch(/:is\(\.dialog-body, \.ceremony-body\) \{[^}]*scrollbar-gutter:\s*stable/);
+    expect(clip).toMatch(/padding-inline-end:\s*var\(--space-3\)/);
     expect(clip).not.toMatch(/overflow-y:\s*clip/);
     expect(clip).not.toMatch(/overflow:\s*hidden/);
     expect(fill).toMatch(/flex:\s*0 0 auto/);
@@ -424,13 +513,14 @@ describe("candidate style entry graph", () => {
     );
 
     const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const workPlates = readFileSync(join(srcRoot, "styles/components/work-plates.css"), "utf8");
     const operateHead = appShell.match(/\.operate-head\s*\{[^}]+\}/)?.[0] ?? "";
     expect(operateHead).toMatch(/gap:\s*var\(--field-label-gap\)/);
     expect(appShell).not.toMatch(/\.workspace-form \.key\s*\{[^}]*margin-top:\s*4px/);
     const workspaceSectionFollow = appShell.match(/\.workspace-section \+ \.workspace-section\s*\{[^}]+\}/)?.[0] ?? "";
     expect(workspaceSectionFollow).toMatch(/padding-top:\s*var\(--operate-bay-gap\)/);
 
-    const assignmentHead = appShell.match(/\.assignment-head\s*\{[^}]+\}/)?.[0] ?? "";
+    const assignmentHead = workPlates.match(/\.assignment-head\s*\{[^}]+\}/)?.[0] ?? "";
     expect(assignmentHead).toMatch(/gap:\s*var\(--operate-bay-gap\)/);
     expect(assignmentHead).toMatch(/padding-bottom:\s*var\(--form-group-gap\)/);
 
@@ -438,6 +528,16 @@ describe("candidate style entry graph", () => {
     const journeyHead = journey.match(/\.assignment-head\s*\{[^}]+\}/)?.[0] ?? "";
     expect(journeyHead).toMatch(/gap:\s*var\(--operate-bay-gap\)/);
     expect(journeyHead).toMatch(/padding-bottom:\s*var\(--form-group-gap\)/);
+
+    const adminConsole = readFileSync(join(srcRoot, "styles/surfaces/admin-console.css"), "utf8");
+    const campaignContext = adminConsole.match(/\.campaign-context\.campaigns-readout-band\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(campaignContext).not.toMatch(/margin:\s*0\s+0\s+14px/);
+    expect(campaignContext).not.toMatch(/margin-bottom:\s*14px/);
+    const sampleAdvisory = adminConsole.match(/\.sample-wall\s*>\s*\.advisory\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(sampleAdvisory).not.toMatch(/margin:\s*0\s+0\s+14px/);
+    expect(adminConsole).toMatch(
+      /@media \(max-width: 1080px\)[\s\S]*\.wall > :not\(:first-child\),\s*\.campaigns-wall > :not\(:first-child\)\s*\{[^}]*margin-top:\s*var\(--operate-bay-gap\)/,
+    );
 
     const demo = readFileSync(join(srcRoot, "styles/components/demo.css"), "utf8");
     const demoHead = demo.match(/\.operate-head\s*\{[^}]+\}/)?.[0] ?? "";
@@ -457,6 +557,60 @@ describe("candidate style entry graph", () => {
     expect(primitives).toMatch(/\.composition-grid\s*\{[^}]*auto-fit/);
   });
 
+  it("keeps portaled overlays below hull chrome and does not lift an open trigger", () => {
+    const temporal = readFileSync(join(srcRoot, "styles/components/temporal.css"), "utf8");
+    const overlays = readFileSync(join(srcRoot, "styles/components/overlays.css"), "utf8");
+    const chrome = readFileSync(join(srcRoot, "styles/components/chrome.css"), "utf8");
+    const overlayStack = overlays.match(/\.floating-overlay \{[^}]+\}/)?.[0] ?? "";
+    const strip = chrome.match(/\.command-strip \{[^}]+\}/)?.[0] ?? "";
+
+    expect(temporal).not.toMatch(/select-shell--temporal:has\([^)]*aria-expanded="true"[^)]*\)\s*\{[^}]*z-index:\s*46/);
+    expect(overlayStack).toMatch(/z-index:\s*55/);
+    expect(strip).toMatch(/z-index:\s*70/);
+    expect(strip).toMatch(/background:\s*var\(--ground-deep\)/);
+  });
+
+  it("gives every select and menu overlay a closed hairline bezel and quieter inner dividers", () => {
+    const demo = readFileSync(join(srcRoot, "styles/components/demo.css"), "utf8");
+    const temporal = readFileSync(join(srcRoot, "styles/components/temporal.css"), "utf8");
+    const menus = readFileSync(join(srcRoot, "styles/components/menus.css"), "utf8");
+    const overlays = readFileSync(join(srcRoot, "styles/components/overlays.css"), "utf8");
+    const datatable = readFileSync(join(srcRoot, "styles/components/datatable.css"), "utf8");
+    const chrome = readFileSync(join(srcRoot, "styles/components/chrome.css"), "utf8");
+
+    expect(menus).toMatch(/\.menu-surface,\s*\n\.option-menu \{[^}]*border:\s*1px solid var\(--hairline\)/);
+    expect(menus).toMatch(/\.menu-row,\s*\n\.option-menu li,\s*\n\.command-menu-item \{[^}]*border-bottom:\s*1px solid var\(--hairline-dim\)/);
+    expect(menus).toMatch(/\.select-popover \{[^}]*border:\s*1px solid var\(--hairline\)/);
+    expect(menus).not.toMatch(/\.select-popover \{[^}]*border-top:\s*none/);
+    expect(menus).not.toMatch(/border-bottom-color:\s*transparent/);
+    expect(menus).not.toMatch(/\.floating-overlay--above\.select-popover \.option-menu li:last-child/);
+    expect(overlays).not.toMatch(/:has\(\.multiselect-foot, \.select-popover-foot\)/);
+    expect(overlays).not.toMatch(/\.floating-overlay--above\.select-popover \{[^}]*border-top:\s*none/);
+    expect(datatable).not.toMatch(/border-bottom-color:\s*transparent/);
+    expect(datatable).not.toMatch(/\.floating-overlay--above\.select-popover \.command-menu-item:last-child/);
+    expect(chrome).not.toMatch(/border-bottom-color:\s*transparent/);
+    expect(temporal).not.toMatch(
+      /\.datetime-popover\.floating-overlay \{[^}]*border-top:\s*1px solid var\(--hairline\)/,
+    );
+    expect(temporal).not.toMatch(/\.calendar-head \{[^}]*border-top:/);
+    expect(temporal).not.toMatch(/\.time-wheel-labels \{[^}]*border-top:/);
+    expect(temporal).toMatch(/\.datetime-popover \{[^}]*--panel-inset:\s*inset 0 0 0 transparent;/);
+    expect(temporal).not.toMatch(/\.datetime-popover[^{]*\{[^}]*border-top:\s*none/);
+
+    expect(demo).toMatch(
+      /\.console-foot \.select-shell--field,\s*\.demo-plate \.select-shell--field \{[^}]*--select-popover-max-height:\s*var\(--select-popover-max-height-foot\)/,
+    );
+    expect(demo).not.toMatch(/border-top-color:\s*transparent/);
+    expect(demo).not.toMatch(/\.select-popover[\s\S]*bottom:\s*100%/);
+    expect(temporal).not.toMatch(
+      /\.console-foot \.select-shell--temporal[\s\S]*border-bottom-color:\s*transparent/,
+    );
+    expect(datatable).not.toMatch(/\.datatable-foot \.select-popover[\s\S]*bottom:\s*100%/);
+    expect(datatable).not.toMatch(
+      /\.datatable-foot \.toolbar-seg:has\(\.seg-key\[aria-expanded="true"\]\) \{[^}]*z-index:\s*32/,
+    );
+  });
+
   it("does not keep a combined styles index the candidate can import", () => {
     expect(existsSync(join(srcRoot, "styles/index.css"))).toBe(false);
   });
@@ -469,6 +623,58 @@ describe("candidate style entry graph", () => {
         .map((specifier) => `${relative(srcRoot, file)} imports lab-owned stylesheet '${specifier}'`);
     });
     expect(violations).toEqual([]);
+  });
+
+  it("keeps one-surface assignment, setup, and lab-wall hug paint off generic app-shell and plates", () => {
+    const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const plates = readFileSync(join(srcRoot, "styles/components/plates.css"), "utf8");
+    const workPlates = readFileSync(join(srcRoot, "styles/components/work-plates.css"), "utf8");
+    const admin = readFileSync(join(srcRoot, "styles/surfaces/admin-console.css"), "utf8");
+    const reviewer = readFileSync(join(srcRoot, "styles/surfaces/reviewer-console.css"), "utf8");
+
+    expect(plates).not.toMatch(/assignment-plate-keys/);
+    expect(appShell).not.toMatch(/\.assignment-head\s*\{/);
+    expect(appShell).not.toMatch(/\.assignment-bays\s*\{/);
+    expect(appShell).not.toMatch(/\.setup-ceremony\s*\{/);
+    expect(appShell).not.toMatch(/\.campaigns-wall\.registry-wall--hug/);
+    expect(appShell).not.toMatch(/\.queue-view\.registry-wall--hug/);
+    expect(appShell).not.toMatch(/assignment-board--hug/);
+
+    expect(workPlates).toMatch(/\.assignment-head\s*\{/);
+    expect(workPlates).toMatch(/\.assignment-bays\s*\{/);
+    expect(workPlates).toMatch(/\.setup-ceremony\s*\{/);
+    expect(workPlates).toMatch(/\.workspace-area\.assignment-board--hug/);
+    expect(admin).toMatch(
+      /\.campaigns-wall\.registry-wall--hug > \.operate-scroll,\s*\.wall\.registry-wall--hug > \.operate-scroll \{[^}]*overflow-y:\s*auto/,
+    );
+    expect(reviewer).toMatch(/\.queue-view\.registry-wall--hug > \.operate-scroll > \.datatable-frame\.frame-cut \{[^}]*flex:\s*0 1 auto/);
+  });
+
+  it("does not export enrollment result marks from the generic design-system barrel", () => {
+    const barrel = readFileSync(join(srcRoot, "design-system/components/index.ts"), "utf8");
+    const state = readFileSync(join(srcRoot, "design-system/components/state/index.ts"), "utf8");
+    expect(barrel).not.toMatch(/recordResultMark/);
+    expect(state).not.toMatch(/recordResultMark/);
+  });
+
+  it("does not export OperateAreaHost from production barrels", () => {
+    for (const rel of [
+      "design-system/index.ts",
+      "design-system/components/index.ts",
+      "design-system/components/plates/index.ts",
+    ]) {
+      const barrel = readFileSync(join(srcRoot, rel), "utf8");
+      expect(barrel, rel).not.toMatch(/OperateAreaHost/);
+    }
+  });
+
+  it("does not export lab-only datatable expand chrome from the generic barrel", () => {
+    const barrel = readFileSync(join(srcRoot, "design-system/components/index.ts"), "utf8");
+    const datatable = readFileSync(join(srcRoot, "design-system/components/datatable/index.ts"), "utf8");
+    const table = readFileSync(join(srcRoot, "design-system/components/datatable/DatatableTable.tsx"), "utf8");
+    for (const source of [barrel, datatable, table]) {
+      expect(source).not.toMatch(/DatatableIdCell|DatatableExpandButton|DatatableDetailRow|DatatableDetailBody|useDatatableDetailGutter/);
+    }
   });
 
   it("draws hot keys with a clipped hairline, not a sliced rectangular border", () => {

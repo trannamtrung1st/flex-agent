@@ -12,6 +12,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
 describe("ProductionEnrollmentDetailPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -132,7 +138,15 @@ describe("ProductionEnrollmentDetailPage", () => {
       "href",
       "/activities/act-1/cohorts/coh-1/enrollments",
     );
-    expect(screen.getByRole("heading", { name: "Enrollment actions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Enrollment actions" })).toHaveAttribute("data-title-role", "plate");
+    expect(screen.getByRole("heading", { name: "Accommodations" })).toHaveAttribute("data-title-role", "plate");
+    expect(screen.getByRole("heading", { name: "History" })).toHaveAttribute("data-title-role", "plate");
+    expect(screen.getByRole("heading", { name: "Enrollment actions" }).closest(".work-well__head")).toHaveAttribute(
+      "data-mark",
+      "title",
+    );
+    expect(screen.getByRole("article", { name: "Enrollment actions" })).toHaveAttribute("data-seat", "stack");
+    expect(screen.getByRole("article", { name: "Enrollment actions" })).toHaveAttribute("data-inset", "flush");
     const operateScroll = operate.querySelector(":scope > .operate-scroll");
     expect(operateScroll).toBeTruthy();
     const wellBodies = [...document.querySelectorAll(".record-plane .work-well__body")];
@@ -142,7 +156,11 @@ describe("ProductionEnrollmentDetailPage", () => {
     }
     expect(screen.getByRole("button", { name: "Suspend Enrollment" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Request accommodation" })).toBeInTheDocument();
-    expect(screen.getByText("No accommodations")).toBeInTheDocument();
+    const accommodations = screen.getByRole("article", { name: "Accommodations" });
+    expect(accommodations.querySelector(".frame-cut")).toBeNull();
+    expect(accommodations.querySelector(".empty-plate")).toBeNull();
+    expect(within(accommodations).getByText("No accommodation history for this Enrollment.").tagName).toBe("P");
+    expect(accommodations.querySelector(".work-well__section > ul")).toBeNull();
     expect(screen.queryByText("2026-08-01T00:00:00Z")).not.toBeInTheDocument();
     expect(screen.getByText(/Assigned/)).toBeInTheDocument();
     const history = screen.getByRole("article", { name: "History" });
@@ -267,6 +285,21 @@ describe("ProductionEnrollmentDetailPage", () => {
 
     expect(await screen.findByRole("button", { name: "Approve exception" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reject exception" })).toBeInTheDocument();
+    const accommodations = screen.getByRole("article", { name: "Accommodations" });
+    expect(within(accommodations).queryByText("No accommodations")).not.toBeInTheDocument();
+    expect(within(accommodations).queryByText("No accommodation history for this Enrollment.")).not.toBeInTheDocument();
+    expect(accommodations.querySelector(".empty-plate")).toBeNull();
+    const accommodationList = accommodations.querySelector(".work-well__section > ul");
+    expect(accommodationList).not.toBeNull();
+    expect(accommodationList?.querySelectorAll(":scope > li")).toHaveLength(1);
+    expect(accommodationList?.textContent).toMatch(/Approval required/i);
+    expect(accommodationList?.textContent).toMatch(/Fairness exception/i);
+    expect(accommodations.querySelector(".frame-cut")).toBeNull();
+    const history = screen.getByRole("article", { name: "History" });
+    expect(history.querySelector(".empty-plate")).toBeNull();
+    expect(within(history).getByText("No enrollment history is available.").tagName).toBe("P");
+    expect(history.querySelector(".work-well__section > ol")).toBeNull();
+    expect(within(history).queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("keeps the request dialog open and shows the failure in the plate", async () => {
@@ -471,18 +504,19 @@ describe("ProductionEnrollmentDetailPage", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Close Enrollment" }));
-    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/close"))).toBe(false);
+    expect(fetchMock.mock.calls.some((call) => requestUrl(call[0]).includes("/close"))).toBe(false);
     const dialog = await screen.findByRole("dialog", { name: "Close this Enrollment?" });
     expect(within(dialog).getByText(/No new Submission intake or Attempt start/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Activity or enrollment end/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Close Enrollment" }));
     await waitFor(() => {
       const closeCall = fetchMock.mock.calls.find((call) => {
-        const url = String(call[0]);
+        const url = requestUrl(call[0]);
         return url.includes("/enrollments/enr-1/close") && call[1]?.method === "POST";
       });
       expect(closeCall).toBeDefined();
-      expect(JSON.parse(String(closeCall?.[1]?.body))).toEqual(
+      const body = closeCall?.[1]?.body;
+      expect(JSON.parse(typeof body === "string" ? body : "")).toEqual(
         expect.objectContaining({ reason_code: "activity_or_enrollment_end" }),
       );
     });

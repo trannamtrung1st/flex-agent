@@ -130,15 +130,25 @@ local origin).
 | Candidate UI | `http://localhost:5274` | HTTP success **and** `:18080` healthy; candidate overlay + `VITE_DEV_API_PROXY=http://127.0.0.1:18080` for OIDC |
 | Design lab | `http://localhost:5275` | HTTP success on `/design-lab/` (also try `127.0.0.1` if bound there) |
 
-After candidate overlay work, return the API to the canonical `RedirectUri` before
-`:18080` sign-in or Playwright (`pnpm compose:reset` or equivalent; see
-`docs/contributing/development-harness.md`).
+After candidate overlay work, return the API to the canonical `RedirectUri`
+with `pnpm compose:api:canonical` (API only; no reseed). Use
+`pnpm compose:reset` only when a fresh stack is acceptable. See
+`docs/contributing/development-harness.md` (synthetic sign-in).
 
 If the probe succeeds, navigate there. If the port is busy but the probe fails,
 report the blocker; do not tear down the user's stack. If nothing is listening,
 start only the documented command for that origin (never a fallback port).
 Prefer `:5274` when Compose SPA may lag `web/` source; prefer `:18080` for
 canonical OIDC. Never reuse a live stack for `pnpm verify:oidc`.
+
+For authenticated product UI, sign in with the synthetic Compose users. Do not
+stop at **Sign in required**. Read
+`docs/contributing/development-harness.md` (Synthetic sign-in) and
+`tests/Browser/FlexAgent.Oidc.Playwright/helpers/oidc.ts`. Match
+`pnpm compose:status` `redirect-uri` to `:18080` or `:5274`. Switch a healthy
+stack with `pnpm compose:api:canonical` / `pnpm compose:api:candidate` — never
+`compose:up` / `compose:candidate` over a live profile. Do not screenshot the
+Keycloak password form or record passwords in `.work/`.
 
 For every UI-affecting change when that origin can run:
 

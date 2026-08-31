@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gallerySectionItems, gallerySections } from "./gallerySections";
+import { gallerySectionItems, gallerySections, resolveGallerySectionHash } from "./gallerySections";
 
 describe("gallerySections", () => {
   it("lists Keys and Key group under Foundations", () => {
@@ -11,6 +11,7 @@ describe("gallerySections", () => {
       "keys",
       "key-group",
       "pane",
+      "work-well",
       "frame",
       "assignment-plate",
     ]);
@@ -61,7 +62,8 @@ describe("gallerySections", () => {
     expect(orders.indexOf("typography")).toBeLessThan(orders.indexOf("keys"));
     expect(orders.indexOf("keys")).toBeLessThan(orders.indexOf("key-group"));
     expect(orders.indexOf("key-group")).toBeLessThan(orders.indexOf("pane"));
-    expect(orders.indexOf("pane")).toBeLessThan(orders.indexOf("frame"));
+    expect(orders.indexOf("pane")).toBeLessThan(orders.indexOf("work-well"));
+    expect(orders.indexOf("work-well")).toBeLessThan(orders.indexOf("frame"));
     expect(orders.indexOf("frame")).toBeLessThan(orders.indexOf("assignment-plate"));
     expect(orders.indexOf("assignment-plate")).toBeLessThan(orders.indexOf("strip"));
   });
@@ -75,12 +77,12 @@ describe("gallerySections", () => {
       "composition-split",
       "composition-container",
       "composition-inset",
-      "composition-recipes",
     ]);
     const orders = gallerySectionItems.map((item) => item.id);
     expect(orders.indexOf("layout-reference")).toBeLessThan(orders.indexOf("composition-stack"));
-    expect(orders.indexOf("composition-recipes")).toBeLessThan(orders.indexOf("form-recipes"));
+    expect(orders.indexOf("composition-inset")).toBeLessThan(orders.indexOf("form-recipes"));
     expect(orders.indexOf("form-recipes")).toBeLessThan(orders.indexOf("form"));
+    expect(orders).not.toContain("composition-recipes");
   });
 
   it("registers File intake after Form controls", () => {
@@ -115,5 +117,12 @@ describe("gallerySections", () => {
       "layout-live-session",
       "layout-reference",
     ]);
+  });
+
+  it("aliases retired composition-recipes hashes to form-recipes", () => {
+    expect(resolveGallerySectionHash("composition-recipes")).toBe("form-recipes");
+    expect(resolveGallerySectionHash("#composition-recipes")).toBe("form-recipes");
+    expect(resolveGallerySectionHash("form-recipes")).toBe("form-recipes");
+    expect(resolveGallerySectionHash("not-a-section")).toBeNull();
   });
 });

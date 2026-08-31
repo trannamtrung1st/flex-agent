@@ -13,7 +13,7 @@ export type TableControllerOptions<T, K extends string = string> = {
 
 /**
  * Shared table sort/filter/page math. Domain match and sort-value
- * extractors stay in the consumer (`tableLogic`, `campaignRegistryLogic`).
+ * extractors stay in the consumer (`enrollment/tableLogic`, `campaignRegistryLogic`).
  */
 export function sortAndFilterRows<T, K extends string>(
   rows: readonly T[],

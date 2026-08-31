@@ -6,6 +6,7 @@ export {
 } from "./Gangway";
 export { BreadcrumbNav, type BreadcrumbNavItem } from "./BreadcrumbNav";
 export { IndexRail, type IndexRailGroup } from "./IndexRail";
+export { PhaseSpine, type PhaseSpineNode, type PhaseSpineNodeState } from "./PhaseSpine";
 export {
   hashNavigationStrategy,
   routeNavigationStrategy,

@@ -45,8 +45,11 @@ Production never serves the lab.
 Production modules must not import `src/design-lab` or `.work/resources`.
 Shared visual implementations are owned by
 `web/src/design-system/` plus `web/src/lib/` and `web/src/styles/shared.css`.
-Design-lab modules may import that shared tree, `web/src/styles/design-lab.css`,
-and synthetic fixtures only inside the design-lab entry graph. See ADR-021
+Design-lab modules may import that shared tree, production-safe domain
+composition (`web/src/components/work/`, `web/src/content/`, named assessment
+readouts used by Deck clones), `web/src/styles/design-lab.css`, and synthetic
+fixtures only inside the design-lab entry graph. They must not import
+production pages, API clients, or auth/query hooks. See ADR-021
 `FE-RESET-1`–`FE-RESET-6`. The lab route namespace is `/design-lab/*`.
 
 Production SPA HTTP contract readiness (host `FlexAgent.Api`, not the synthetic
@@ -90,6 +93,7 @@ App composition root (main.tsx)
             Feature pages (slot content only)
             feature query/mutation hooks
               typed/domain API clients (web/src/api/)
+                browser-safe wire types (web/src/contracts/v1.ts, v2.ts)
                 fetchJson / native fetch
 ```
 
@@ -108,7 +112,8 @@ the matching layout.
 
 - `web/src/api/` remains React-free except existing provider components. It
   owns CSRF, credentials, generation guards, `ProductionApiError`, command
-  execution, and domain outcome interpretation.
+  execution, and domain outcome interpretation. Wire shapes come from
+  `web/src/contracts/` (browser-safe `v1.ts` / `v2.ts` only).
 - Feature Query keys and hooks live under `web/src/features/<capability>/`.
   Hooks compose API clients; they do not call `fetch` and do not infer
   authorization from keys or cached payloads.
@@ -117,7 +122,9 @@ the matching layout.
 - Reusable Shipboard primitives (`keys`, `fields`, `feedback`, `navigation`,
   layout primitives, and closed layout families) live in `web/src/design-system/`.
   Production app composition (auth shell, route-derived breadcrumbs, API wiring)
-  lives in `web/src/components/` and must not be imported from the design lab.
+  lives in `web/src/components/` except `work/`, which is shared domain chrome
+  the design lab may import. Shell, pages, API clients, and auth/query hooks
+  remain lab-forbidden (ADR-021 `FE-RESET-2`).
 
 ## State ownership
 
@@ -272,8 +279,19 @@ Tailwind, CSS-in-JS, Axios, or Zustand.
 
 ## Intentionally unmigrated surfaces
 
-These remain outside the first Query/form slice and keep their current owners
-until a later task applies ADR-019 without weakening their contracts:
+These remain outside the **first ADR-019 Query/form slice**. They are not a
+claim that production UX is missing: Home, Activities, setup, Enrollment, and
+My Work are rebuilt Shipboard pages. Keep current state owners until a later
+task applies ADR-019 without weakening their contracts:
+
+- `AssessmentSetupPage` and Assessment setup workflow beyond Activities create
+- Enrollment pages
+- My work pages
+- Submission, Review, Result, and Release pages
+- Remaining effect-based HTTP pages not listed as migrated
+- `SessionPage`, `sessionRuntimeView`, SSE/`EventSource` lifecycle, streamed
+  or transient runtime state, pending command identity, reconciliation,
+  reconnect behavior, and Session isolation
 
 - `AssessmentSetupPage` and Assessment setup workflow beyond Activities create
 - Enrollment pages

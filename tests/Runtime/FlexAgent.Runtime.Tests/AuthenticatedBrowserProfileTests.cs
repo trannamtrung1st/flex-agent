@@ -135,6 +135,57 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
+    public void Seed_binds_every_realm_participant_account_with_matching_display_label()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(RealmPath()));
+        var seed = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "deploy",
+            "compose",
+            "authenticated-browser",
+            "seed.sql"));
+
+        var participantUsers = document.RootElement.GetProperty("users").EnumerateArray()
+            .Select(item => item)
+            .Where(item =>
+            {
+                var username = item.GetProperty("username").GetString();
+                return username == "demo.participant"
+                    || (username?.StartsWith("demo.participant", StringComparison.Ordinal) == true
+                        && username.Length > "demo.participant".Length
+                        && int.TryParse(username["demo.participant".Length..], out _));
+            })
+            .ToArray();
+
+        Assert.Equal(31, participantUsers.Length);
+
+        foreach (var user in participantUsers)
+        {
+            var username = user.GetProperty("username").GetString()!;
+            var subject = user.GetProperty("id").GetString()!;
+            var displayLabel = $"{user.GetProperty("firstName").GetString()} {user.GetProperty("lastName").GetString()}";
+            Assert.Contains(subject, seed, StringComparison.Ordinal);
+            Assert.Contains(displayLabel, seed, StringComparison.Ordinal);
+            if (username == "demo.participant")
+            {
+                Assert.Contains("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab", seed, StringComparison.Ordinal);
+            }
+            else
+            {
+                var number = int.Parse(username["demo.participant".Length..], System.Globalization.CultureInfo.InvariantCulture);
+                Assert.Contains(
+                    $"e2000000-0000-4000-8000-{number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)}",
+                    seed,
+                    StringComparison.Ordinal);
+                Assert.Contains(
+                    $"a3000000-0000-4000-8000-{number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)}",
+                    seed,
+                    StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
     public void Seed_binds_the_exact_gateway_identity_and_fail_closed_fixtures()
     {
         var seed = File.ReadAllText(Path.Combine(
@@ -160,6 +211,26 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("generate_series(1, 30)", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
+    }
+
+    [Fact]
+    public void Demo_work_seed_keeps_assignable_candidates_on_keycloak_participants_only()
+    {
+        var demoWork = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "deploy",
+            "compose",
+            "authenticated-browser",
+            "seed-demo-work.sql"));
+
+        Assert.Contains("DELETE FROM actor_organization_grants", demoWork, StringComparison.Ordinal);
+        Assert.Contains("actor_id::text LIKE 'f1000000-%'", demoWork, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "format('f1000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,\n    1,\n    'assessment.enrollment.receive'",
+            demoWork,
+            StringComparison.Ordinal);
+        Assert.Contains("'Demo Participant'", demoWork, StringComparison.Ordinal);
+        Assert.DoesNotContain("Morgan Ellis", demoWork, StringComparison.Ordinal);
     }
 
     [Fact]

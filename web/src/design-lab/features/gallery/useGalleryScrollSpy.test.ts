@@ -149,4 +149,137 @@ describe("useGalleryScrollSpy", () => {
     expect(result.current.activeId).toBe("typography");
     expect(window.location.hash).toBe("#typography");
   });
+
+  it("aliases a retired composition-recipes hash to form-recipes on load", () => {
+    window.history.replaceState(null, "", "#composition-recipes");
+    const formRecipes = document.getElementById("form-recipes")!;
+    formRecipes.getBoundingClientRect = () => ({
+      top: 40,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 40,
+      toJSON: () => ({}),
+    });
+
+    const { result } = renderHook(() => useGalleryScrollSpy());
+
+    expect(result.current.activeId).toBe("form-recipes");
+    expect(window.location.hash).toBe("#form-recipes");
+  });
+
+  it("rewrites composition-recipes to form-recipes on hashchange", () => {
+    const { result } = renderHook(() => useGalleryScrollSpy());
+
+    act(() => {
+      window.history.replaceState(null, "", "#composition-recipes");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    expect(result.current.activeId).toBe("form-recipes");
+    expect(window.location.hash).toBe("#form-recipes");
+  });
+
+  it("scrolls to the hash target on hashchange and keeps the hash during interim scroll", async () => {
+    const layoutManagement = document.getElementById("layout-management")!;
+    layoutManagement.getBoundingClientRect = () => ({
+      top: 800,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 800,
+      toJSON: () => ({}),
+    });
+    document.getElementById("keys")!.getBoundingClientRect = () => ({
+      top: 50,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 50,
+      toJSON: () => ({}),
+    });
+
+    const { result } = renderHook(() => useGalleryScrollSpy());
+
+    await act(async () => {
+      window.history.replaceState(null, "", "#layout-management");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+
+    expect(window.scrollTo).toHaveBeenCalled();
+    expect(result.current.activeId).toBe("layout-management");
+    expect(window.location.hash).toBe("#layout-management");
+
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(result.current.activeId).toBe("layout-management");
+    expect(window.location.hash).toBe("#layout-management");
+  });
+
+  it("re-anchors the hash target after viewport resize", async () => {
+    const layoutManagement = document.getElementById("layout-management")!;
+    layoutManagement.getBoundingClientRect = () => ({
+      top: 66,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 66,
+      toJSON: () => ({}),
+    });
+
+    window.history.replaceState(null, "", "#layout-management");
+    const { result } = renderHook(() => useGalleryScrollSpy());
+
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+
+    layoutManagement.getBoundingClientRect = () => ({
+      top: 900,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 900,
+      toJSON: () => ({}),
+    });
+    document.getElementById("keys")!.getBoundingClientRect = () => ({
+      top: 50,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 100,
+      x: 0,
+      y: 50,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(result.current.activeId).toBe("layout-management");
+    expect(window.location.hash).toBe("#layout-management");
+    expect(window.scrollTo).toHaveBeenCalled();
+  });
 });

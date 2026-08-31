@@ -2,8 +2,8 @@
 id: repository-baseline-reset
 status: planned
 created: 2026-08-29
-updated: 2026-08-29
-activation_gate: current-frontend-work-complete-and-post-review-ui-baseline-approved
+updated: 2026-08-31
+activation_gate: in-flight-work-reconciled-clean-freeze-and-ui-baseline-approved
 ---
 
 # Goal
@@ -38,16 +38,31 @@ the owner explicitly approves this plan.
 # Activation gates and prerequisites
 
 1. `.work/active/shipboard-production-ux-reset.md` is completed with its
-   verification, independent reviews, remaining host-contract disposition, and
-   owner visual sign-off recorded.
+   verification, remaining host-contract disposition, owner visual sign-off,
+   and an explicit owner-approved disposition for any skipped independent
+   review recorded.
 2. The owner's follow-up UI/UX review and polish is complete. The resulting
    Design System, application UX, representative reference flows, and Design
    Lab specimens have explicit approved-current status in their owning sources.
-3. The exact post-review Git reference and worktree status are recorded. No
-   uncommitted work overlaps a planned rewrite or deletion target.
-4. The owner explicitly activates this task. Then change `status` to
+3. Every non-reset execution cursor is completed, paused, or superseded with
+   its durable truth reconciled. This currently includes
+   `create-assessment-campaign-commission.md`; normalize its nonstandard
+   `in_progress` status before classification.
+4. Concurrent task/artifact cleanup is completed or reverted outside this
+   reset. Reconcile every deletion since readiness reference `ea97a88` from Git
+   so already-removed sources are not silently omitted from classification or
+   treated as Gate-A-approved deletion.
+5. The exact post-review Git reference is committed and pushed or otherwise
+   explicitly accepted by the owner. The index and worktree are clean, except
+   for this task's intentional activation edit, and no untracked artifact or
+   concurrent task overlaps a reset target.
+6. `python3 scripts/check_docs.py`,
+   `python3 scripts/impeccable_context.py check`, and the focused adapter tests
+   pass before any reset rewrite. This separates inherited baseline failures
+   from reset regressions.
+7. The owner explicitly activates this task. Then change `status` to
    `in-progress` and mark exactly one plan step `[>]`.
-5. New feature implementation remains paused until this reset completes. A
+8. New feature implementation remains paused until this reset completes. A
    material product, security/privacy, or architecture ambiguity found during
    execution is resolved in its owning canonical source before dependent
    deletion proceeds.
@@ -127,11 +142,14 @@ system.
   isolation are repeated across these sources.
 - UI/UX authority currently uses six large P0 journey/surface specifications,
   a modular Design System, a retirement ledger, a Design System change record,
-  Design Lab documentation, and frontend architecture decisions. The upcoming
-  owner review may update this set and must finish before the reset begins.
+  Design Lab documentation, current production composition, and frontend
+  architecture decisions. Design System v1.0 remains approved and was reviewed
+  2026-08-31, and the Shipboard owner visual pass was accepted that day. The
+  accepted UI baseline is now a reset input, but its completed uncommitted
+  refactor must be reconciled into the clean activation freeze.
 - `docs/README.md` is both an index and a long maturity/history narrative. It
   currently reports migrations only through `0043`, while the repository has
-  migrations through `0060` plus `0056a`.
+  migrations through `0062` plus the additive `0056a` migration.
 - At least one current requirements implementation matrix still cites a
   `web-legacy` gateway journey even though the implementation and architecture
   assert that `web-legacy/` no longer exists. This is direct evidence that
@@ -159,10 +177,14 @@ system.
 
 ## Current work-planning surface
 
-There are 29 Markdown task files under `.work/active/` before this plan is
-added: 26 `completed`, one owner-superseded `blocked`, one `in-progress`, and
-one `planned`. The directory is therefore mostly project history rather than
-active/planned work.
+The `.work/active/` inventory changed during the 2026-08-31 readiness review:
+it first contained 120 Markdown files, including 114 `completed`, then dropped
+to 55 files while concurrent cleanup remained uncommitted. The latest pass
+found 51 `completed`, no `in-progress`, one substantively complete but
+nonstandard `in_progress`, one owner-superseded `blocked`, and two `planned`
+files. This volatility is itself a no-go signal. Phase 0 must regenerate the
+inventory and compare it with Git so staged or completed deletions remain in
+the classification scope.
 
 The two files under `.work/resources/` are proposal inputs. The multi-channel
 proposal has already been consumed by completed work. The Interaction
@@ -179,8 +201,8 @@ task.
 | Submission | Immutable intake/version lifecycle | API endpoints, migrations `0048`-`0060`/`0056a`, contracts, tests, and production pages exist | Implemented bounded intake slice; Attempt start is absent |
 | Session runtime | Frozen configuration, ordered events, streaming, timer/Worker foundations, audit/evidence handoff | Sessions modules, contracts, migrations `0005`-`0029`, Worker, and production SSE GET exist | Runtime foundation is substantial; hosted start/command/snapshot APIs and end-to-end production Session remain gaps/default-off |
 | Evaluation, review, Result, Release | Distinct auditable outcome chain | Requirements and architecture contracts exist; no corresponding production host modules/endpoints | Planned product behavior / implementation gap |
-| Production UI | Approved post-review UX contract implemented as vertical slices | Current SPA provides auth, Home, Activities, Enrollment, My Work, Submission; unavailable pages represent missing contracts | Partial; legacy behavior must not become UX authority |
-| Design System and Design Lab | Approved shared visual contract and reference specimens | `docs/ui-ux/design-system/**`, `web/src/design-system/**`, and isolated `web/src/design-lab/**` exist | Preserve post-review baseline; lab is evidence, not product behavior |
+| Production UI | Approved post-review UX contract implemented as vertical slices | Current `main` provides the rebuilt SPA and Shipboard slices; additional page/library changes remain uncommitted during this readiness review | Partial and still moving; freeze accepted production composition before reset classification |
+| Design System, production donors, and Design Lab | Approved shared visual contract, current production compositions, Component Deck specimens, and fallback lab journeys | `docs/ui-ux/design-system/**`, `web/src/design-system/**`, production pages, and isolated `web/src/design-lab/**` exist | Preserve the accepted baseline and donor hierarchy; fixtures remain evidence, not product behavior |
 | Voice, Dynamic memory, tools, shared Sessions, general Agent/Harness libraries | Deferred release capabilities | Placeholder specs/design preparation only | Not implemented; do not imply otherwise |
 
 ## Important contradictions and risks
@@ -199,9 +221,22 @@ task.
 - Applied SQL migrations and compatibility fixtures contain legacy ADR labels.
   Their bytes may be checksum-sensitive; treat those labels as non-authoritative
   provenance and do not rewrite immutable files merely to remove an ADR name.
-- The upcoming UI/UX review may rename or reorganize the proposed target UI
-  documents. Execution must use the approved post-review result, not this
-  discovery snapshot or pre-review production behavior.
+- The remaining owner visual review and acceptance may still rename or
+  reorganize the proposed target UI documents. Execution must use the approved
+  post-review result, not this discovery snapshot or unaccepted production
+  behavior.
+- The 2026-08-31 worktree contains hundreds of staged/unstaged changes and
+  untracked paths across governance, documentation, UI, backend, tests, and
+  Playwright evidence. Starting the reset from that moving tree would make
+  authorship, rollback, validation, and deletion safety ambiguous.
+- Canonical UI edits temporarily left generated `DESIGN.md` out of sync during
+  readiness review; the current working state later restored green docs and
+  adapter checks. Re-run them at the freeze so later concurrent changes cannot
+  reintroduce inherited drift.
+- Concurrent cleanup removed or staged removal of task files and Playwright
+  evidence before this reset was activated. Those changes may be valid current
+  work, but Gate A cannot approve them retroactively; their scope, retained
+  evidence, and recovery path must be reconciled before the reset freeze.
 - A repository-wide prose rewrite can accidentally claim unimplemented
   behavior. Every implementation statement needs a code/test/contract check.
 
@@ -383,36 +418,17 @@ New governance wording must preserve this distinction:
 
 ## Remove after durable extraction
 
-Delete these 26 completed task files after their still-current constraints,
-  status, and verification pointers have been reconciled into canonical docs,
-  code/tests, or `docs/current-state.md`:
-
-- `canonical-contract-jcs-foundation.md`
-- `canonical-contract-package.md`
-- `demo-seed-accounts.md`
-- `dotnet-react-workspace-scaffold.md`
-- `frontend-state-form-library-foundation.md`
-- `loopback-provider-logout.md`
-- `multi-channel-agent-output-contract-adoption.md`
-- `oidc-application-session-foundation.md`
-- `oidc-integration-harness-normalization.md`
-- `p0-activity-journey-frontend-realization.md`
-- `p0-assessment-setup-cohort-activation.md`
-- `p0-enrollment-assignment-discovery.md`
-- `p0-enrollment-shared-admission-review-fixes.md`
-- `p0-enrollment-shared-request-quota.md`
-- `p0-participant-timing-accommodations.md`
-- `p0-submission-intake-immutable-versioning.md`
-- `postgres-authorization-configuration-foundation.md`
-- `session-runtime-live-provider-qualification.md`
-- `session-runtime-openrouter-synthetic-qualification.md`
-- `session-runtime-production-http-sse.md`
-- `session-runtime-subject-binding-rehydration.md`
-- `session-runtime-worker-binding-timer-activation.md`
-- `session-runtime-worker-host-wiring.md`
-- `session-runtime-worker-identity-invocation-delegation.md`
-- `structured-agent-runtime-sync.md`
-- `structured-agent-runtime-traceability.md`
+Generate the cleanup manifest from every task present at the Phase 0 freeze and
+every task deleted since readiness reference `ea97a88`; do not rely on the
+obsolete original 26-file list or only on files that still exist. During the
+2026-08-31 review, concurrent cleanup reduced completed files visible in
+`.work/active/` from 114 to 50 and then 51 as paths continued changing.
+Classify each surviving or removed file and
+delete or accept its prior deletion only after its still-current constraint,
+status, and necessary verification pointer has been reconciled into canonical
+docs, code/tests, operational evidence, or `docs/current-state.md`. A completed
+marker alone is not extraction evidence, and bulk deletion by status or glob
+without a manifest is prohibited.
 
 Also remove after reconciliation:
 
@@ -420,6 +436,9 @@ Also remove after reconciliation:
   absorb any current Impeccable governance into skills and current UI docs
 - `shipboard-production-ux-reset.md` — only after it completes and the owner's
   follow-up approved UI baseline has absorbed its durable truth
+- `create-assessment-campaign-commission.md` — only after its pre-activation
+  disposition is recorded and any durable Design System,
+  production-composition, or verification truth is promoted
 - `.work/resources/multi-channel-agent-output-proposal.md` — completed input
   whose approved result already belongs in product/requirements/architecture
 - `.work/resources/text-interaction-controller-proposal.md` — merge still-useful
@@ -495,10 +514,13 @@ classification before production implementation begins:
    responsive, accessibility, security, and lifecycle states through the
    Design System implementation guide and Design Lab catalog.
 2. When an approved category fits, reuse its production-safe Design System
-   implementation and treat the closest approved Design Lab specimen or flow
-   as the composition donor. Adapt content, data, and feature-specific behavior
-   without duplicating CSS, forking an almost-identical component, or treating
-   prototype fixtures as product authority.
+   implementation, clone the closest matching accepted production page
+   composition, and pair it with the governing Component Deck specimen. Use an
+   approved Design Lab journey as the composition donor only when that approved
+   family is not yet production-backed. Adapt content, data, and
+   feature-specific behavior without duplicating CSS, forking an
+   almost-identical component, or treating prototype fixtures as product
+   authority.
 3. When no approved category fits, record the concrete gap and why composition
    of existing patterns is insufficient. Invoke explicit `$impeccable shape`
    for bounded exploration before implementation. Its output is a proposal,
@@ -508,21 +530,30 @@ classification before production implementation begins:
    System contract, production-safe component library, and Design Lab specimen
    catalog before a production page consumes it. Keep genuinely
    feature-specific behavior in its narrower approved UI/UX specification.
-5. Record the classification, selected donor/modules or approved new-pattern
-   decision, adaptations, applicable states, and verification evidence in the
+5. Record the classification, selected production donor, Component Deck
+   specimen, modules, any fallback Lab donor or approved new-pattern decision,
+   adaptations, applicable states, and verification evidence in the
    implementation task.
 
 The governing pre-build sequence is:
 
-> Classify -> reuse and adapt an approved Design System/Lab pattern -> or shape
-> a bounded new proposal with `$impeccable shape` -> approve and establish the
-> reusable pattern -> build the production surface
+> Classify -> clone and adapt the matching accepted production page plus
+> Component Deck specimen -> use an approved Lab journey only when the family
+> is not production-backed -> or shape a bounded new proposal with
+> `$impeccable shape` -> approve and establish the reusable pattern -> build
+> the production surface
+
+Production pages, Component Deck specimens, and Design Lab journeys donate
+composition and presentation only. They never authorize routes, data,
+permissions, lifecycle transitions, release scope, or server behavior; those
+remain owned by approved product, requirements, and UI/UX sources.
 
 Future feature delivery must:
 
 1. confirm the feature against current product scope and approved requirements;
 2. classify every new or changed page/component and record its selected Design
-   System modules, Design Lab donor, states, and adaptations;
+   System modules, accepted production-page donor, Component Deck specimen,
+   any fallback Design Lab donor, states, and adaptations;
 3. reuse and adapt an approved category before proposing a new one;
 4. when no category fits, shape a bounded proposal with explicit
    `$impeccable shape`, approve it, and establish any reusable addition in the
@@ -567,9 +598,24 @@ Future feature delivery must:
 
 - [ ] Verify the activation prerequisites and change this task to
   `in-progress` only after explicit owner instruction.
+- [ ] Finish, pause, or supersede every concurrent execution cursor. Reconcile
+  `shipboard-production-ux-reset.md` and
+  `create-assessment-campaign-commission.md`; normalize every task status to
+  the repository's hyphenated status vocabulary before inventory.
+- [ ] Reconcile the concurrent task/artifact cleanup against `ea97a88`,
+  including paths already absent from the worktree. Either complete it as
+  separately accepted work with retained-evidence proof or restore it; do not
+  inherit an unexplained staged deletion set into the reset.
+- [ ] Restore a green pre-reset baseline for documentation and generated
+  adapters, including regeneration or reconciliation of `DESIGN.md` from its
+  accepted canonical inputs.
 - [ ] Record the inspected Git commit, branch, dirty working-tree paths, staged
   state, untracked paths, concurrent agents/tasks, generated artifacts, and
   exact approved post-review UI/UX baseline.
+- [ ] Require a clean index and worktree at the freeze, except for this task's
+  intentional activation edit. If the owner explicitly accepts a different
+  snapshot, record every included path and why it is safe before proceeding;
+  an unbounded dirty tree is never an accepted baseline.
 - [ ] Do not treat uncommitted or in-progress changes as established baseline
   truth unless the owner explicitly accepts them into reset scope.
 - [ ] Decide and record whether each conflicting in-flight task will complete,
@@ -581,8 +627,9 @@ Future feature delivery must:
 
 ### Phase 0 exit gate
 
-The inspected source, dirty state, concurrent work disposition, exact affected
-paths, immutable exceptions, and Git recovery path are known.
+The inspected source, clean or explicitly bounded accepted state, concurrent
+work disposition, normalized task statuses, exact affected paths, immutable
+exceptions, green baseline validators, and Git recovery path are known.
 
 ## Phase 1 - Classify every material artifact
 
@@ -679,9 +726,11 @@ No historical source has been deleted.
   auditability, and verification requirements.
 - [ ] Encode the pre-build UI pattern-adoption rule in applicable UI/UX,
   frontend, reviewer, tester, implementation-workflow, contributor, and task
-  guidance: classify first; reuse and adapt approved Design System/Lab patterns;
-  use explicit `$impeccable shape` only for a documented gap; approve and
-  establish reusable additions before production use.
+  guidance: classify first; clone and adapt the matching accepted production
+  page plus Component Deck specimen; use a Lab journey only for an approved
+  family without a production donor; use explicit `$impeccable shape` only for
+  a documented gap; approve and establish reusable additions before production
+  use.
 - [ ] Update indexes, `scripts/check_docs.py`, Impeccable adapters/generator
   tests, docs CI/lint scope, toolchain metadata, and path-sensitive
   architecture/build tests.
@@ -797,23 +846,48 @@ until its replacement or retained evidence has been verified.
 
 # Current state
 
-Planned only. Discovery was performed against the 2026-08-29 worktree while
-`shipboard-production-ux-reset.md` is still `in-progress` and has overlapping
-uncommitted changes. No baseline-reset implementation, deletion, broad rewrite,
-or feature work has started.
+Planned only. **Readiness decision on 2026-08-31: NO-GO until the blockers below
+are cleared.** No baseline-reset implementation, deletion, or broad rewrite has
+started.
 
-Planning inspection reference: branch `main`, commit
-`dfd1401e1c18affa0e65b568053ca16986af2e9e`. The worktree was dirty with the
-current Shipboard task; current frontend, style, Vite, Compose/NGINX, SBOM,
-authenticated-browser validation, architecture/runtime-test, and page/unit-test
-changes; nine untracked `.playwright-mcp/page-2026-08-28T17-*.png` artifacts;
-and this untracked reset plan. These in-flight changes are concurrent work, not
-accepted reset baseline truth. Phase 0 must capture the exact post-review state
-again and explicitly complete, pause, supersede, or rebase overlapping work.
+Readiness inspection reference: branch `main`, commit
+`ea97a88bf30a99423f6460099104ef2ba3e161a7`, synchronized with `origin/main` at
+inspection time. The working tree was not an acceptable freeze: inspection
+first observed 576 tracked changes and 31 untracked paths, then 603 tracked
+changes and four untracked paths, and most recently 570 tracked changes with no
+untracked paths as concurrent cleanup continued. Changes span repository
+governance, task files, documentation, migrations/host code, frontend, tests,
+and Playwright evidence. Counts may continue moving while current work remains
+uncommitted and therefore must be regenerated at activation.
 
-Next action after owner review is to leave this task planned until the current
-frontend task and the owner's UI/UX review/polish and baseline approval are
-complete. At activation, rerun discovery against that exact post-review state.
+`shipboard-production-ux-reset.md` is now `completed` with owner visual
+acceptance recorded on 2026-08-31; its UI-baseline prerequisite is satisfied.
+`create-assessment-campaign-commission.md` is substantively complete with all
+completion checks marked, but still uses the invalid status `in_progress`; its
+metadata and durable-truth disposition must be reconciled before the reset.
+`impeccable-frontend-rebuild.md` remains a blocked, owner-superseded historical
+predecessor and is not an active cursor. Concurrent cleanup removed
+`overlay-closed-bezel.md` from the worktree during this review and staged or
+removed many completed tasks and Playwright artifacts; those paths remain
+pre-reset reconciliation inputs through Git.
+
+This plan itself became `MM` while the review was in progress: a concurrent
+cursor staged an intermediate version while the final readiness edits remained
+unstaged. Do not commit or activate from that split index state. After all
+concurrent work stops, intentionally stage the final file once and review its
+complete cached diff.
+
+Design System v1.0 is approved and records a 2026-08-31 review, including the
+current production-page plus Component Deck donor hierarchy. The latest
+readiness preflight passes `scripts/check_docs.py`,
+`scripts/impeccable_context.py check`, and all 15 focused adapter unit tests.
+These gates must pass again against the clean activation freeze.
+
+Next action is to leave this task `planned`, normalize the completed create
+task, finish or revert the concurrent cleanup, reconcile this plan's split
+index state, and produce a clean committed freeze. Then rerun Phase 0 discovery
+and baseline validation against that exact state and obtain explicit
+activation.
 
 # Decisions and interim defaults
 
@@ -851,10 +925,10 @@ complete. At activation, rerun discovery against that exact post-review state.
 
 | Check | Status | Evidence required after execution |
 | --- | --- | --- |
-| Pre-reset documentation baseline: `python3 scripts/check_docs.py` | pending | Record result before validator rewrite |
+| Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed readiness preflight | Passed 2026-08-31 after concurrent canonical UI edits and `DESIGN.md` were reconciled; must pass again at the clean freeze |
 | New documentation validator and link/fragment scan | pending | `python3 scripts/check_docs.py` passes against the new catalog |
 | Markdown lint | pending | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
-| Generated adapter consistency | pending | `python3 scripts/impeccable_context.py check` or current equivalent plus unit tests passes; `PRODUCT.md`/`DESIGN.md` regenerated |
+| Generated adapter consistency | passed readiness preflight | `python3 scripts/impeccable_context.py check` and 15 focused adapter unit tests passed 2026-08-31; must pass again at the clean freeze |
 | Historical-authority scan | pending | No live docs/harness requirement for ADRs, supersession chains, retirement/change records, migration diaries, or completed-task retention; allowlisted immutable artifacts reported separately |
 | Path and terminology scan | pending | No stale deleted doc path, `web-legacy` current claim, old UI authority, or obsolete terminology remains |
 | Requirements integrity | pending | Seven P0 specs/cataloged current behavior, unique `REQ-*`/`AC-*`, no scope loss, no placeholder files required |
@@ -863,7 +937,7 @@ complete. At activation, rerun discovery against that exact post-review state.
 | Current-state audit | pending | Module/endpoint/migration/schema/route/test inventory agrees with `docs/current-state.md`; intended, implemented, temporary legacy, approved planned, gap, and default-off behavior are explicit |
 | Work hygiene | pending | `.work/active/` contains only in-progress or explicitly planned tasks; no completed/blocked/cancelled/superseded files or duplicate proposal resources |
 | Skill/rule parity | pending | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
-| UI pattern-adoption governance | pending | Applicable guidance requires a recorded pre-build classification; sampled UI tasks select approved Design System modules and Design Lab donors or document, shape, approve, and establish a genuine new reusable pattern before production use |
+| UI pattern-adoption governance | pending | Applicable guidance requires a recorded pre-build classification; sampled UI tasks select approved Design System modules, a matching accepted production-page donor, and a Component Deck specimen, use a Lab journey only when the family lacks a production donor, or document, shape, approve, and establish a genuine new reusable pattern before production use |
 | Focused script tests | pending | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'`, docs-validator tests added by the reset, and frontend-isolation script tests pass |
 | Frontend verification | pending | `pnpm verify:web` passes; Design Lab/production isolation and approved reference specimens remain intact |
 | .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` (or current equivalents) pass |
@@ -877,13 +951,24 @@ Execution may split expensive checks into focused and full gates, but may not
 claim completion from searches or Markdown links alone. UI screenshots are
 required only if execution changes rendered UI; source-only documentation
 consolidation does not itself claim visual verification. The approved
-post-review UI/Design Lab artifacts must nevertheless remain green.
+post-review UI, production donor, Component Deck, and fallback Design Lab
+artifacts must nevertheless remain green.
 
 # Blockers
 
-- Current blocker: `shipboard-production-ux-reset.md` is still in progress.
-- Current blocker: the owner-requested follow-up UI/UX review, polish, and
-  Design System/UI baseline approval has not yet occurred.
+- Cleared prerequisite: `shipboard-production-ux-reset.md` is completed with
+  owner visual sign-off; Design System v1.0 remains approved and current.
+- Cleared prerequisite: documentation, generated adapter, and focused adapter
+  unit checks pass in the current working state.
+- Current blocker: `create-assessment-campaign-commission.md` is substantively
+  complete but still has nonstandard `in_progress` metadata. Normalize and
+  reconcile it before activation.
+- Current blocker: concurrent task/artifact cleanup is uncommitted and the
+  worktree remains materially dirty, so there is no stable freeze or reviewed
+  deletion manifest yet.
+- Current blocker: this plan is split between staged and unstaged versions
+  (`MM`) because concurrent staging occurred during the review; reconcile and
+  review one final cached version before activation.
 - Approval blocker: this plan requires explicit owner approval before
   activation.
 
@@ -898,9 +983,11 @@ post-review UI/Design Lab artifacts must nevertheless remain green.
 - [ ] Feature delivery follows UX architecture and approved patterns before
   production vertical slices.
 - [ ] Every new or meaningfully changed page/component is classified before
-  implementation; existing Design System/Lab patterns are reused and adapted,
-  while genuine gaps follow the bounded Impeccable proposal, approval, and
-  shared-pattern establishment path.
+  implementation; existing Design System modules, accepted production-page
+  compositions, and Component Deck specimens are cloned and adapted, with Lab
+  journeys used only for families without production donors, while genuine
+  gaps follow the bounded Impeccable proposal, approval, and shared-pattern
+  establishment path.
 - [ ] Important rationale survives as current constraints/invariants; runtime
   product auditability and immutable compatibility artifacts are preserved.
 - [ ] Historical decision, retirement, change-record, phase-diary, placeholder,

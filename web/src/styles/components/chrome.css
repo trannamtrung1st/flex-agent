@@ -5,12 +5,10 @@
   display: flex;
   align-items: stretch;
   min-height: 48px;
+  position: relative;
+  z-index: 70;
   border-bottom: 1px solid var(--hairline-dim);
-  background: transparent;
-}
-
-.command-strip:has(.strip-profile-key[aria-expanded="true"]) {
-  z-index: 90;
+  background: var(--ground-deep);
 }
 
 .strip-brand {
@@ -341,7 +339,6 @@
 
 .strip-profile--rail .strip-profile-key[aria-expanded="true"] {
   border-color: var(--hairline);
-  border-bottom-color: transparent;
   background: var(--teal-glow);
 }
 

@@ -24,8 +24,15 @@ header.page-strip {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 40;
+  z-index: 70;
   background: var(--ground-deep);
+}
+
+/* Catalog copies are not hull chrome. Shared `.command-strip` stacking
+   (70) is for production / Deck `page-strip` above overlays (55). A
+   specimen at that layer paints over the fixed header and sticky index. */
+.deck .command-strip {
+  z-index: auto;
 }
 
 /* ═══ Deck rail (grid in layouts.css) ════════════════════════════ */
@@ -203,7 +210,7 @@ header.page-strip {
 
 .spec--wide { width: 100%; }
 
-#pane .work-well__body {
+#work-well .work-well__body {
   overflow: visible;
 }
 
@@ -515,10 +522,27 @@ header.page-strip {
 .pane-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 22px;
+  align-items: start;
+  gap: 36px 34px;
+  margin-bottom: 36px;
 }
 
 .pane-grid .spec { width: 100%; }
+
+#pane .pane-grid > .spec[data-flow-gap="2.5"] {
+  --flow-gap: var(--space-3);
+}
+
+#pane .pane-grid > .spec:has(.protocol-plate) {
+  width: auto;
+  max-width: min(100%, 11rem);
+  justify-self: start;
+}
+
+#pane .pane-grid > .spec .spec-tag {
+  padding-top: 4px;
+  max-width: 22rem;
+}
 
 .pane-demo {
   width: 100%;
@@ -941,6 +965,7 @@ header.page-strip {
   overflow-x: clip;
   overflow-y: clip;
   overscroll-behavior: auto;
+  scrollbar-gutter: auto;
 }
 
 [data-theme="light"] #form-recipes .form-recipe-dialog-well {
@@ -1383,7 +1408,7 @@ header.page-strip {
   min-width: 100%;
   height: auto;
   min-height: 0;
-  overflow: visible;
+  overflow: clip;
 }
 
 .layout-spec .skip-link {
@@ -1405,25 +1430,106 @@ header.page-strip {
 .layout-spec .layout-reference {
   height: auto;
   max-height: none;
-  min-height: 0;
-  overflow: visible;
+  min-height: 28rem;
+  overflow: clip;
 }
 
-.layout-spec .layout-management__main,
+.layout-spec .layout-management {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-spec .layout-management__shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.layout-spec .layout-management__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-spec .layout-management__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-spec .layout-management__main > .composition-inset {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-spec .layout-management__main > .layout-slot {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 4.5rem;
+  min-width: 0;
+  width: 100%;
+  height: auto;
+}
+
+.layout-spec .layout-guided__bay,
+.layout-spec .layout-session__bay {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .layout-spec .layout-guided__main,
-.layout-spec .layout-session__main,
+.layout-spec .layout-session__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
 .layout-spec .layout-guided .phase-rail,
 .layout-spec .layout-session .rail {
-  overflow: visible;
-  flex: none;
-  min-height: auto;
-  height: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.layout-spec [data-layout="guided-task"] .phase-rail-scroll,
+.layout-spec [data-layout="live-session"] .rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+  overflow-y: clip;
+  overscroll-behavior: auto;
+}
+
+.layout-spec .layout-session__examiner,
+.layout-spec .layout-session .agent-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  align-self: stretch;
 }
 
 .layout-spec .operate-scroll,
 .layout-spec .workspace-area,
-.layout-spec .phase-rail-scroll,
-.layout-spec .rail-scroll,
 .layout-spec .work-well__body,
 .layout-spec .bay-plates,
 .layout-spec .create-ceremony__scroll,
@@ -1441,14 +1547,59 @@ header.page-strip {
   overflow-y: clip;
 }
 
-.layout-spec [data-layout="guided-task"] .phase-rail-scroll > .layout-slot,
-.layout-spec [data-layout="guided-task"] .layout-guided__main > .layout-slot,
-.layout-spec [data-layout="live-session"] .rail-scroll > .layout-slot,
-.layout-spec [data-layout="live-session"] .layout-session__main > .layout-slot,
-.layout-spec [data-layout="live-session"] .agent-panel > .layout-slot {
-  flex: none;
+.layout-spec [data-layout="guided-task"] .phase-rail-scroll > .layout-slot--rail,
+.layout-spec [data-layout="live-session"] .rail-scroll > .layout-slot--rail {
+  flex: 1 1 auto;
   align-self: stretch;
+  min-height: 8rem;
   height: auto;
+}
+
+.layout-spec [data-layout="guided-task"] .layout-guided__main > .layout-slot,
+.layout-spec [data-layout="live-session"] .layout-session__main > .layout-slot {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 4.5rem;
+  height: auto;
+}
+
+.layout-spec [data-layout="live-session"] .agent-panel > .layout-slot--examiner {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 8rem;
+  height: auto;
+}
+
+.layout-spec [data-layout="guided-task"] .layout-guided__actions .layout-slot--foot,
+.layout-spec [data-layout="live-session"] .layout-session__composer .layout-slot--foot {
+  flex: none;
+  height: auto;
+  min-height: 2.75rem;
+}
+
+.layout-spec [data-layout="management"] .record-view {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  padding-inline: 0;
+  padding-block-end: 0;
+}
+
+.layout-spec [data-layout="management"] .record-view > .operate-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+  overflow-y: clip;
+}
+
+.layout-spec [data-layout="management"] .record-view > .operate-scroll > .layout-slot--foot {
+  flex: none;
+  height: auto;
+  min-height: 2.75rem;
 }
 
 .layout-slot {
@@ -1492,6 +1643,12 @@ header.page-strip {
 .layout-spec .workspace-area {
   overflow-x: clip;
   overflow-y: clip;
+}
+
+/* Ceremony specimens must fill the seated main bay so hug centering applies on both axes. */
+.layout-spec .workspace-area.work-plane--ceremony {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .layout-spec .workspace-area .operate-head {

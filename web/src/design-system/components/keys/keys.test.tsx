@@ -19,6 +19,18 @@ function expectIconKeyLayout(button: HTMLElement) {
   expect(button).not.toHaveStyle({ justifyContent: "center" });
 }
 
+describe("Key", () => {
+  it("adds the danger modifier when destructive is set on a quiet key", () => {
+    render(<Key variant="quiet" destructive>Delete</Key>);
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("key--quiet", "key--danger");
+  });
+
+  it("styles destructive transmit commit keys with danger stroke", () => {
+    render(<Key variant="transmit" size="large" destructive>Revoke</Key>);
+    expect(screen.getByRole("button", { name: "Revoke" })).toHaveClass("key--transmit", "key--danger", "key--large");
+  });
+});
+
 describe("KeyGroup", () => {
   it("groups keys as an Inline cluster with a shared role", () => {
     render(
@@ -225,6 +237,54 @@ describe("TooltipHost focus-visible", () => {
     expect(plaque.parentElement).toBe(document.querySelector("dialog"));
   });
 
+  it("does not stretch a dialog-portaled plaque to the plate height", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const overlaysCss = readFileSync(join(here, "../../../styles/components/overlays.css"), "utf8");
+    const openDialog = overlaysCss.match(/\.dialog\[open\] \{[^}]+\}/)?.[0] ?? "";
+    const plaque = overlaysCss.match(/\.tip-plaque \{[^}]+\}/)?.[0] ?? "";
+    const floating = overlaysCss.match(/\.floating-overlay \{[^}]+\}/)?.[0] ?? "";
+    expect(openDialog).toMatch(/display:\s*block/);
+    expect(openDialog).not.toMatch(/display:\s*flex/);
+    expect(overlaysCss).toMatch(/\.dialog-stage \{/);
+    expect(plaque).toMatch(/height:\s*max-content/);
+    expect(floating).toMatch(/height:\s*max-content/);
+  });
+
+  it("does not light a disabled activate key on hover", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const keysCss = readFileSync(join(here, "../../../styles/components/keys.css"), "utf8");
+    expect(keysCss).toMatch(/\.key--activate:hover:not\(:disabled\)/);
+    expect(keysCss).toMatch(/\.key--activate:hover:not\(:disabled\)::before/);
+    expect(keysCss).not.toMatch(/\.key--activate:hover, \.key--activate:focus-visible \{/);
+  });
+
+  it("keeps plaque chrome to the hairline so umbra does not smear dialog feet", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const overlaysCss = readFileSync(join(here, "../../../styles/components/overlays.css"), "utf8");
+    const plaque = overlaysCss.match(/\.tip-plaque \{[^}]+\}/)?.[0] ?? "";
+    expect(plaque).toMatch(/box-shadow:\s*none/);
+    expect(plaque).not.toMatch(/10px 28px/);
+  });
+
+  it("hugs plaque copy instead of stretching to the trigger width", () => {
+    render(
+      <TooltipHost tip="Frozen at cohort activation">
+        <button type="button">Harness snapshot</button>
+      </TooltipHost>,
+    );
+    const host = screen.getByRole("button").closest(".tip-host") as HTMLElement;
+    host.getBoundingClientRect = () => ({
+      x: 40, y: 80, top: 80, left: 40, right: 280, bottom: 112, width: 240, height: 32, toJSON() { return {}; },
+    });
+    fireEvent.mouseEnter(host);
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    const plaque = screen.getByRole("tooltip");
+    expect(plaque.style.minWidth).not.toBe("240px");
+    expect(plaque.style.width).toBe("");
+  });
+
   it("shifts a value plaque inward from the right viewport edge", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 400 });
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 400 });
@@ -246,8 +306,8 @@ describe("TooltipHost focus-visible", () => {
       window.dispatchEvent(new Event("resize"));
     });
     const left = Number.parseFloat(plaque.style.left);
-    expect(left + 240).toBeLessThanOrEqual(392);
-    expect(left).toBeGreaterThanOrEqual(8);
+    expect(left + 240).toBeLessThanOrEqual(400);
+    expect(left).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -340,6 +400,18 @@ describe("TooltipHost linger and selection", () => {
     fireEvent.mouseEnter(screen.getByRole("button", { name: "Two" }).closest(".tip-host")!);
     expect(screen.getAllByRole("tooltip")).toHaveLength(1);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Second plaque");
+  });
+
+  it("hides immediately on external scroll without waiting for linger", () => {
+    render(
+      <TooltipHost tip="Frozen at cohort activation">
+        <button type="button">Harness snapshot</button>
+      </TooltipHost>,
+    );
+    fireEvent.mouseEnter(screen.getByRole("button").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 });
 

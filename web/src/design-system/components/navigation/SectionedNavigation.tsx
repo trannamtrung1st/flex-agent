@@ -118,10 +118,12 @@ export function SectionedNavigation<TItem>({
 
   useEffect(() => {
     if (currentGroupIndex < 0 || currentGroupKey == null) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- route changes must reopen the active catalog group */
     setOpenIndex(currentGroupIndex);
     setOpenKeys((current) => (
       current[currentGroupKey] ? current : { ...current, [currentGroupKey]: true }
     ));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [currentGroupIndex, currentGroupKey]);
   const listClass = variant === "gangway" ? "gangway-list" : variant === "index" ? "nav-list deck-index" : "nav-list";
 
@@ -158,7 +160,7 @@ export function SectionedNavigation<TItem>({
         );
 
         if (collapsible) {
-          const open = forceExpanded || (accordion ? openIndex === groupIndex : openKeys[key] !== false);
+          const open = forceExpanded || (accordion ? openIndex === groupIndex : openKeys[key]);
 
           return (
             <details
@@ -176,7 +178,7 @@ export function SectionedNavigation<TItem>({
                     setOpenIndex((current) => (current === groupIndex ? -1 : groupIndex));
                     return;
                   }
-                  setOpenKeys((current) => ({ ...current, [key]: current[key] === false }));
+                  setOpenKeys((current) => ({ ...current, [key]: !current[key] }));
                 }}
               />
               {items}

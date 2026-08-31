@@ -11,6 +11,7 @@ export const gallerySections = [
       { id: "keys", label: "Keys" },
       { id: "key-group", label: "Key group" },
       { id: "pane", label: "Pane" },
+      { id: "work-well", label: "Work well" },
       { id: "frame", label: "Etched frame" },
       { id: "assignment-plate", label: "Assignment plate" },
     ],
@@ -84,7 +85,6 @@ export const gallerySections = [
       { id: "composition-split", label: "Split bay" },
       { id: "composition-container", label: "Container" },
       { id: "composition-inset", label: "Inset" },
-      { id: "composition-recipes", label: "Recipes" },
     ],
   },
   {
@@ -124,4 +124,21 @@ export function gallerySectionItem(id: GallerySectionId) {
 
 export function gallerySectionIndex(id: GallerySectionId) {
   return gallerySectionItems.findIndex((item) => item.id === id);
+}
+
+/** Retired deck hashes that should open a current section. */
+export const gallerySectionHashAliases = {
+  "composition-recipes": "form-recipes",
+} as const satisfies Partial<Record<string, GallerySectionId>>;
+
+const gallerySectionIdSet = new Set<GallerySectionId>(
+  gallerySectionItems.map((item) => item.id),
+);
+
+export function resolveGallerySectionHash(hash: string): GallerySectionId | null {
+  const id = hash.startsWith("#") ? hash.slice(1) : hash;
+  if (!id) return null;
+  if (gallerySectionIdSet.has(id as GallerySectionId)) return id as GallerySectionId;
+  const alias = gallerySectionHashAliases[id as keyof typeof gallerySectionHashAliases];
+  return alias ?? null;
 }

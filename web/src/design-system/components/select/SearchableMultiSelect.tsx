@@ -1,9 +1,10 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, stepVisibleIndex } from "./selectLogic";
-import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { useSearchableSelect } from "./useSearchableSelect";
 
 export type SearchableMultiSelectOption = {
@@ -74,11 +75,7 @@ export function SearchableMultiSelect({
         ? selected.map((option) => option.label).join(" · ")
         : `${selected.length} ${optionNoun}s selected`;
 
-  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => {
-    const focusWasInside = rootRef.current?.contains(document.activeElement) || panelRef.current?.contains(document.activeElement);
-    close(false);
-    if (focusWasInside) requestAnimationFrame(() => triggerRef.current?.focus());
-  });
+  useOverlayDismiss(open, [rootRef, panelRef], () => close(false));
 
   const move = (step: number) => {
     const next = stepVisibleIndex(visibleIndices, focusIdx, step);
@@ -143,7 +140,7 @@ export function SearchableMultiSelect({
         panelId={resolvedPanelId}
         panelRef={ref}
         style={style}
-        className={`multiselect-panel dropdown-menu select-popover popover-surface option-menu ${overlayClassName}`}
+        className={overlayPlateClass("multiselect-panel", "dropdown-menu", overlayClassName)}
         searchId={resolvedSearchId}
         searchRef={searchRef}
         searchValue={search}

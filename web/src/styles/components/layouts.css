@@ -108,9 +108,7 @@
   flex-direction: column;
 }
 
-.layout-management__main > .composition-inset .workspace-area,
-.layout-management__main > .composition-inset .wall,
-.layout-management__main > .composition-inset .campaigns-wall {
+.layout-management__main > .composition-inset .workspace-area {
   padding: 0;
 }
 
@@ -120,7 +118,10 @@
   padding-block-start: var(--space-3);
 }
 
-.layout-management__main > .work-plane--ceremony {
+.layout-management__main > .work-plane--ceremony,
+.layout-management__main > .composition-inset > .work-plane--ceremony {
+  flex: 1 1 auto;
+  min-height: 0;
   padding-block: clamp(1.5rem, 8vh, 4.75rem);
   padding-inline: var(--shell-main-inset-inline);
 }
@@ -129,8 +130,9 @@
   padding-top: 8px;
 }
 
-.layout-management__main:has(.breadcrumb-nav) .work-plane--ceremony {
-  padding-top: clamp(1.25rem, 5vh, 3rem);
+.layout-management__main:has(.breadcrumb-nav) > .work-plane--ceremony,
+.layout-management__main:has(.breadcrumb-nav) > .composition-inset > .work-plane--ceremony {
+  padding-block: clamp(1.25rem, 5vh, 3rem);
 }
 
 @media (max-width: 1080px) {
@@ -550,9 +552,10 @@
   }
 }
 
-/* ToastHost is a sibling of the layout; inset the default bottom-center
-   strip past gangway/rail and above a viewport-fixed guided-task foot.
-   Shells override with ToastHost offsetInline / offsetBlock. */
+/* ToastHost is a sibling of the layout; inset the default top-center
+   strip past gangway/rail. Bottom placements can add offsetBlock above a
+   viewport-fixed guided-task foot. Shells override with ToastHost
+   offsetInline / offsetBlock. */
 html:has(.layout-management:not([data-nested]) .gangway:not(.is-collapsed)) .toast-dock:is([data-placement$="-start"], [data-placement$="-center"]) {
   --toast-dock-offset-inline: 248px;
 }

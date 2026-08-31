@@ -10,8 +10,6 @@ export type AdminOutletContext = {
   setCampaignId: (id: string | null) => void;
   announce: (message: string) => void;
   pushToast: (notice: { label: string; copy: string; attention?: boolean }) => void;
-  sealing: boolean;
-  setSealing: (sealing: boolean) => void;
 };
 
 export function useAdminContext() {

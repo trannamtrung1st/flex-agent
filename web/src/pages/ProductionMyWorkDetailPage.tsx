@@ -13,6 +13,10 @@ import {
   submissionFailureCopy,
   type MyWorkSubmissionV2,
 } from "../api/production-submission";
+import { AssignmentRecordReadout } from "../components/work/AssignmentRecordReadout";
+import { AssignmentHead } from "../components/work/AssignmentHead";
+import { AssignmentStatusReadout } from "../components/work/AssignmentStatusReadout";
+import { IntakeItemList } from "../components/work/IntakeItemList";
 import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import {
   ACCOMMODATION_CONSEQUENCE_COPY,
@@ -31,20 +35,19 @@ import {
   FieldFile,
   FieldTextarea,
   FormField,
-  DIRECT_TEXT_PLACEHOLDER,
   GuidedTaskFoot,
   Inline,
   InstantReadout,
   Key,
   ReadoutList,
   Stack,
-  StateReadout,
   usePushToast,
   WaitPlate,
   WorkWell,
   WorkWellHead,
   WorkWellSection,
 } from "../design-system";
+import { DIRECT_TEXT_PLACEHOLDER } from "../content/fieldCopy";
 import { AssignmentSpine, type AssignmentStationView } from "../components/work/AssignmentSpine";
 import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
 import { SubmissionVersionList } from "../components/work/SubmissionVersionList";
@@ -124,30 +127,22 @@ function AssignmentHeading({
   released: boolean;
 }) {
   return (
-    <header className="assignment-head">
-      <div className="assignment-ident">
-        <h1 className="assignment-title">{title}</h1>
-        {meta ? <p className="assignment-meta">{meta}</p> : null}
-      </div>
-      <dl className="status-readout" aria-label="Assignment status">
-        <div className="status-item">
-          <dt>Phase</dt>
-          <dd>{phase}</dd>
-        </div>
-        <div className="status-item">
-          <dt>Record</dt>
-          <dd>
-            <StateReadout
+    <AssignmentHead
+      title={title}
+      meta={meta}
+      status={(
+        <AssignmentStatusReadout
+          phase={phase}
+          record={(
+            <AssignmentRecordReadout
               variant={released ? "sealed" : "rest"}
               solid={released}
               label={record}
-              className="assignment-record"
-              labelClassName="assignment-record-label"
             />
-          </dd>
-        </div>
-      </dl>
-    </header>
+          )}
+        />
+      )}
+    />
   );
 }
 
@@ -282,12 +277,10 @@ export function ProductionMyWorkDetailPage() {
     ? assignment.activity_title
     : undefined;
   const recordMark = (
-    <StateReadout
+    <AssignmentRecordReadout
       variant={released ? "sealed" : "rest"}
       solid={released}
       label={recordLabel}
-      className="assignment-record"
-      labelClassName="assignment-record-label"
     />
   );
 
@@ -471,14 +464,14 @@ export function ProductionMyWorkDetailPage() {
                 Eligibility: {eligibility}. Accommodation: {consequence}.
               </p>
               {intake && intake.items.length > 0 ? (
-                <ul className="intake-item-list" aria-label="Received intake items">
-                  {intake.items.map((item) => (
-                    <li className="intake-item-row" key={item.item_id}>
-                      <span>{intakeItemLabel(item.category, item.filename)}</span>
-                      <span>{formatByteLimit(item.byte_count)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <IntakeItemList
+                  label="Received intake items"
+                  items={intake.items.map((item) => ({
+                    id: item.item_id,
+                    label: intakeItemLabel(item.category, item.filename),
+                    detail: formatByteLimit(item.byte_count),
+                  }))}
+                />
               ) : null}
             </Stack>
           </WorkWellSection>

@@ -7,7 +7,7 @@ import {
   type ProductionSourceOption,
 } from "../api/production-assessment";
 import { FlexQueryProvider, createFlexQueryClient } from "../api/query-client";
-import { CAMPAIGN_TITLE_PLACEHOLDER } from "../design-system/components/fields/fieldFormat";
+import { CAMPAIGN_TITLE_PLACEHOLDER } from "../content/fieldCopy";
 import { assessmentKeys } from "../features/assessment/queryKeys";
 import { AssessmentCampaignCreatePage } from "./AssessmentCampaignCreatePage";
 
@@ -67,6 +67,7 @@ describe("AssessmentCampaignCreatePage", () => {
       "placeholder",
       CAMPAIGN_TITLE_PLACEHOLDER,
     );
+    expect(screen.getByLabelText("Campaign title")).not.toHaveClass("field-input--uppercase");
     const region = screen.getByRole("region", { name: "Create assessment Campaign" });
     expect(region).toHaveClass("record-plane", "record-plane--setup");
     expect(region.querySelector(".frame-cut")).toContainElement(screen.getByLabelText("Campaign title"));

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { To } from "react-router-dom";
-import { cx } from "../../../lib/cx";
 import { WaitPlate } from "../feedback/WaitPlate";
 import { Key } from "../keys";
 import { EmptyPlate } from "./EtchedFrame";
@@ -60,8 +59,9 @@ export function CeremonyArea({
     <OperateArea
       composition="hug"
       hugMeasure={hugMeasure}
-      className={cx("workspace-area", "work-plane", "work-plane--ceremony", danger && "workspace-area--danger")}
-      frameClassName="ceremony-frame"
+      bay="ceremony"
+      danger={danger}
+      frame="ceremony"
       label={label}
       title={title}
       description={description}

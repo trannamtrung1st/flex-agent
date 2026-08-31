@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { AssignmentPlate, Grid, Key, OperateArea } from "../design-system";
+import { AssignmentPlate } from "../components/work/AssignmentPlate";
+import { CeremonyUnavailable, Grid, Key, OperateArea } from "../design-system";
 import { useProductionApi } from "../api/production-api";
-import { CeremonyUnavailable } from "../components/shell/SessionChrome";
 import {
   PRODUCTION_DESTINATIONS,
   isProductionDestinationOpen,
@@ -45,7 +45,7 @@ function DestinationPlate({
     <AssignmentPlate
       label={destination.label}
       rows={[
-        { term: "Purpose", value: note, className: "readout--title" },
+        { term: "Purpose", value: note, emphasis: "title" },
         { term: "Availability", value: "Available" },
       ]}
       action={(
@@ -82,7 +82,6 @@ export function ProductionHomePage() {
 
   return (
     <OperateArea
-      className="workspace-area work-plane"
       framed={false}
       label="Home"
       title="Home"

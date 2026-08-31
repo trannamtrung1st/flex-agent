@@ -148,11 +148,12 @@ canonical browser-visible origin is `http://localhost:18080`; it must provide:
   `id_token_hint` when local logout completes so Keycloak 26 skips the
   pre-logout confirmation and redirects back to the SPA automatically.
 
-The candidate dev overlay (`pnpm compose:candidate`) switches the API
-`RedirectUri` to `http://localhost:5274/auth/callback`. Recreate the API with
-the canonical profile (`pnpm compose:reset` or equivalent) before canonical
-`:18080` sign-in or Playwright acceptance.
-accepted MFA evidence, grant, descriptor, route, or dependency is missing. It
+The candidate dev overlay (`pnpm compose:candidate`) starts a **fresh** stack
+with `RedirectUri` `http://localhost:5274/auth/callback`. On an already-healthy
+profile, switch only the API with `pnpm compose:api:candidate` /
+`pnpm compose:api:canonical` (no secret regeneration). Recreate the API with
+the canonical profile before canonical `:18080` sign-in. The profile must fail
+closed if accepted MFA evidence, grant, descriptor, route, or dependency is missing. It
 must not use `/browser`, provider roles, browser-supplied scope, or a relaxed
 Production authentication policy as authority. Test credentials remain
 synthetic fixture data and must not appear in screenshots, logs, tracked task

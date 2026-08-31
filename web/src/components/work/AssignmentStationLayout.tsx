@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import {
   Alert,
   GuidedTaskLayout,
   ProfileMenu,
+  RailHomeLink,
   operatorAccountActions,
 } from "../../design-system";
 import { useProductionApi } from "../../api/production-api";
@@ -43,16 +43,11 @@ export function AssignmentStationLayout({
       brandSuffix="Assignment Station"
       brandExtras={(
         <>
-          <Link className="rail-home-link" to="/my-work">
-            <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-              <path d="M6.5 1.5 L3 5 L6.5 8.5" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="square" />
-            </svg>
-            My work
-          </Link>
+          <RailHomeLink to="/my-work">My work</RailHomeLink>
           <ProfileMenu
             identity={identity}
             actions={operatorAccountActions(theme, toggleTheme, () => { void logout(); })}
-            className="strip-profile--rail"
+            placement="rail"
           />
         </>
       )}

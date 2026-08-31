@@ -11,10 +11,11 @@ import {
   type ProductionSourceOption,
   type ProductionSourceRef,
 } from "../api/production-assessment";
-import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import {
   BackKey,
-  CAMPAIGN_TITLE_PLACEHOLDER,
+  CeremonyArea,
+  CeremonyUnavailable,
+  CeremonyWait,
   DropdownSelect,
   ErrorSummary,
   FieldInput,
@@ -22,12 +23,13 @@ import {
   FormSection,
   Grid,
   Key,
-  OperateArea,
-  PlateFoot,
   Stack,
   StateReadout,
   type ErrorSummaryItem,
 } from "../design-system";
+import { CAMPAIGN_TITLE_PLACEHOLDER } from "../content/fieldCopy";
+import { SetupCeremony, SetupCeremonyFoot, SetupCeremonyScroll } from "../components/work/SetupCeremony";
+import { SetupOperateArea } from "../components/work/SetupOperateArea";
 import {
   createSourceEligibilityMode,
   inheritedSourceCategories,
@@ -254,9 +256,8 @@ export function AssessmentCampaignCreatePage({
   ];
 
   return (
-    <OperateArea
-      className="workspace-area work-plane record-plane record-plane--setup"
-      frameClassName="record-frame"
+    <SetupOperateArea
+      frame="record"
       label="Create assessment Campaign"
       title="Create assessment Campaign"
       description="Activity form: Campaign. Configured type: Assessment."
@@ -267,40 +268,36 @@ export function AssessmentCampaignCreatePage({
       } : undefined}
     >
       {missingCategory ? null : (
-        <Stack
+        <SetupCeremony
           as="form"
-          gap="none"
-          className="workspace-form setup-ceremony"
-          onSubmit={(event) => {
-            void form.handleSubmit((values) => {
-              if (createMutation.isPending) {
-                return;
-              }
+          onSubmit={form.handleSubmit((values) => {
+            if (createMutation.isPending) {
+              return;
+            }
 
-              const latestSources = queryClient.getQueryData<{ sources: ProductionSourceOption[] }>(
-                assessmentKeys.sourceOptions(),
-              )?.sources ?? sources;
-              const chosen = resolveSelectedSources(latestSources, values.sources, REQUIRED_SOURCE_CATEGORIES);
-              if (Object.keys(chosen).length !== REQUIRED_SOURCE_CATEGORIES.length) {
-                form.setError("root", {
-                  type: "manual",
-                  message: "Selected sources are no longer available. Choose current options.",
-                });
-                requestAnimationFrame(() => {
-                  document.getElementById(summaryId)?.focus();
-                });
-                return;
-              }
-
-              createMutation.mutate({ title: values.title, sources: chosen });
-            }, () => {
+            const latestSources = queryClient.getQueryData<{ sources: ProductionSourceOption[] }>(
+              assessmentKeys.sourceOptions(),
+            )?.sources ?? sources;
+            const chosen = resolveSelectedSources(latestSources, values.sources, REQUIRED_SOURCE_CATEGORIES);
+            if (Object.keys(chosen).length !== REQUIRED_SOURCE_CATEGORIES.length) {
+              form.setError("root", {
+                type: "manual",
+                message: "Selected sources are no longer available. Choose current options.",
+              });
               requestAnimationFrame(() => {
                 document.getElementById(summaryId)?.focus();
               });
-            })(event);
-          }}
+              return;
+            }
+
+            createMutation.mutate({ title: values.title, sources: chosen });
+          }, () => {
+            requestAnimationFrame(() => {
+              document.getElementById(summaryId)?.focus();
+            });
+          })}
         >
-          <Stack gap="6" className="create-ceremony__scroll">
+          <SetupCeremonyScroll>
           {summaryErrors.length > 0 ? (
             <ErrorSummary title="Correct the following" headingId={summaryId} errors={summaryErrors} />
           ) : null}
@@ -359,14 +356,14 @@ export function AssessmentCampaignCreatePage({
               ))}
             </Grid>
           </FormSection>
-          </Stack>
-          <PlateFoot className="setup-ceremony__foot" arrangement="end">
+          </SetupCeremonyScroll>
+          <SetupCeremonyFoot arrangement="end">
             <Key type="submit" variant="transmit" size="large" disabled={createMutation.isPending} waiting={createMutation.isPending}>
               {createMutation.isPending ? "Creating…" : "Create"}
             </Key>
-          </PlateFoot>
-        </Stack>
+          </SetupCeremonyFoot>
+        </SetupCeremony>
       )}
-    </OperateArea>
+    </SetupOperateArea>
   );
 }

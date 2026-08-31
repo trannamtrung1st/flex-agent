@@ -18,8 +18,9 @@ COMMAND=""
 OVERLAYS=()
 
 usage() {
-  echo "Usage: $0 [--overlay candidate] [--mode canonical|candidate] [--project-name NAME] [up|down|reset|status|validate|seed]"
+  echo "Usage: $0 [--overlay candidate] [--mode canonical|candidate] [--project-name NAME] [up|down|reset|status|validate|seed|recreate-api]"
   echo "Set FLEXAGENT_SEED_DEMO_WORK=0 to skip demo-work list fixtures (default: 1)."
+  echo "recreate-api force-recreates only the API (RedirectUri). It does not regenerate secrets or reseed."
 }
 
 require_docker() {
@@ -138,6 +139,25 @@ seed() {
 status() {
   run_compose ps
   curl -sf "${ORIGIN}/auth/session" >/dev/null && echo "session-endpoint:ok" || echo "session-endpoint:down"
+  local redirect
+  redirect="$(run_compose exec -T api printenv HumanAuthentication__RedirectUri 2>/dev/null || true)"
+  if [[ -n "${redirect}" ]]; then
+    echo "redirect-uri:${redirect}"
+  else
+    echo "redirect-uri:unavailable"
+  fi
+}
+
+recreate_api() {
+  require_docker
+  if [[ ! -f "${GENERATED_DIR}/secrets/oidc-client-secret" ]]; then
+    echo "recreate-api refuses to mint a new OIDC client secret. Generated fixtures are missing; use compose:up only for a fresh stack." >&2
+    exit 1
+  fi
+  run_compose up -d --no-deps --force-recreate api
+  wait_ready
+  echo "api-recreated mode=${MODE}"
+  status
 }
 
 up() {
@@ -183,7 +203,7 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
-    up|down|reset|status|validate|seed)
+    up|down|reset|status|validate|seed|recreate-api)
       COMMAND="$1"
       shift
       ;;
@@ -201,4 +221,5 @@ case "${COMMAND:-up}" in
   reset) reset ;;
   status) status ;;
   seed) seed ;;
+  recreate-api) recreate_api ;;
 esac

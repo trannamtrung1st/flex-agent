@@ -146,7 +146,7 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(document.querySelector('[data-layout="guided-task"]')).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My work" })).toHaveAttribute("href", "/my-work");
-    expect(screen.getByRole("heading", { name: "Submission" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Submission" })).toHaveAttribute("data-title-role", "task");
     expect(screen.getByText(/Direct text up to 4,000 bytes/)).toBeInTheDocument();
     expect(screen.getByText(/Eligibility: Open/)).toBeInTheDocument();
     expect(screen.getByLabelText("Assignment status")).toHaveTextContent("Active");

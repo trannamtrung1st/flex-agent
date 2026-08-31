@@ -103,7 +103,7 @@ describe("design lab routes", () => {
   it("opens the Review Console queue on OperateArea", () => {
     renderLab("/design-lab/reviewer-console");
     expect(screen.getByRole("heading", { name: "Review queue" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Review queue" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Review queue" })).toHaveClass("registry-wall--hug");
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
     expect(document.querySelector(".datatable-frame.frame-cut")).toHaveClass("frame-cut--flush");
   });

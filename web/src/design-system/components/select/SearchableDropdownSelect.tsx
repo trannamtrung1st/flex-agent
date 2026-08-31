@@ -1,10 +1,11 @@
 import { useId, useMemo, useRef, type KeyboardEvent } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
 import { SearchableSelectPanel } from "./SearchableSelectPanel";
 import { filterOptionIndices, optionNounCount, pinIndex, stepVisibleIndex } from "./selectLogic";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
-import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { useSearchableSelect } from "./useSearchableSelect";
 
 export function SearchableDropdownSelect({
@@ -65,7 +66,7 @@ export function SearchableDropdownSelect({
     return pinIndex(filtered, options.indexOf(value));
   }, [caseSensitive, options, search, value]);
 
-  useDismissOnOutsidePointer(open, [rootRef, panelRef], () => close(), { labelId, controlId: id });
+  useOverlayDismiss(open, [rootRef, panelRef], () => close(), { labelId, controlId: id });
 
   const selectOption = (opt: string) => {
     onChange(opt);
@@ -152,7 +153,7 @@ export function SearchableDropdownSelect({
         open={open}
         panelRef={ref}
         style={style}
-        className={`searchable-select-panel multiselect-panel dropdown-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
+        className={overlayPlateClass("searchable-select-panel", "multiselect-panel", "dropdown-menu", overlayClassName)}
         searchId={searchId}
         searchRef={searchRef}
         searchValue={search}
@@ -172,7 +173,6 @@ export function SearchableDropdownSelect({
           setFocusIdx(-1);
         }}
         onSearchKeyDown={onSearchKeyDown}
-        footClassName="searchable-select-foot"
         doneLabel="Close"
         onDone={() => close(true)}
       >

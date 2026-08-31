@@ -1,29 +1,52 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import {
-  CeremonyDialog,
-  DialogPlate,
-  DialogPlateBody,
-  DialogPlateFooter,
-  DialogPlateHead,
+  CampaignCeremonyBody,
+  CampaignCeremonyConfigGrid,
+  CampaignCeremonyFootActions,
+  CampaignCeremonyFootRow,
+  CampaignCeremonyFooter,
+  CampaignCeremonyHead,
+  CampaignCeremonyNote,
+  CampaignCeremonyDialog,
+  CampaignCeremonyPlate,
   DropdownSelect,
   EllipsisKey,
+  ErrorSummary,
   FieldInput,
   FormField,
   FormSection,
+  FrozenLine,
   Grid,
   Key,
-  KeyGroup,
   COOLDOWN_PLACEHOLDER,
   MAX_ATTEMPTS_PLACEHOLDER,
   MM_SS_HINT,
   MM_SS_PLACEHOLDER,
   MM_SS_WARNING_PLACEHOLDER,
   Stack,
+  type ErrorSummaryItem,
 } from "../../components";
 import type { Campaign } from "../../data/types";
 import { campaignSchema, type CampaignForm } from "./campaignSchema";
+
+const READINESS_SUMMARY_ID = "config-readiness-summary";
+
+const FIELD_HREFS = {
+  sessionLimit: "#sessionLimit",
+  timeWarning: "#timeWarning",
+  maxAttempts: "#maxAttempts",
+  cooldown: "#cooldown",
+} as const;
+
+function readinessSummaryErrors(errors: FieldErrors<CampaignForm>): ErrorSummaryItem[] {
+  return (Object.keys(FIELD_HREFS) as Array<keyof typeof FIELD_HREFS>).flatMap((field) => {
+    const message = errors[field]?.message;
+    if (!message) return [];
+    return [{ message: String(message), href: FIELD_HREFS[field] }];
+  });
+}
 
 export function CampaignConfigDialog({
   open,
@@ -56,29 +79,41 @@ export function CampaignConfigDialog({
     setReadinessCopy("");
   }, [campaign.id, form, open]);
 
+  useEffect(() => {
+    if (readiness !== "blocked") return;
+    let inner = 0;
+    const outer = window.requestAnimationFrame(() => {
+      inner = window.requestAnimationFrame(() => {
+        document.getElementById(READINESS_SUMMARY_ID)?.focus();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(outer);
+      window.cancelAnimationFrame(inner);
+    };
+  }, [readiness, form.formState.submitCount]);
+
   const harness = form.watch("harness");
   const agent = form.watch("agent");
+  const blockedErrors = readiness === "blocked" ? readinessSummaryErrors(form.formState.errors) : [];
 
   return (
-    <CeremonyDialog open={open} onClose={onClose} labelledBy="configTitle" id="configDialog" variant="ceremony">
+    <CampaignCeremonyDialog open={open} onClose={onClose} labelledBy="configTitle" id="configDialog">
         <form
           onSubmit={(event) => event.preventDefault()}
           noValidate
         >
-          <DialogPlate width="wide" className={`ceremony-plate${campaign.frozen ? " is-frozen" : ""}`}>
-            <DialogPlateHead
-              title="Campaign Configuration"
-              titleId="configTitle"
-              marker={false}
-              className="ceremony-head"
-              titleClassName="ceremony-title"
-            >
-            <span className="ceremony-trace" aria-hidden="true">
-              <span className="ceremony-trace-node" />
-            </span>
-            </DialogPlateHead>
-            <DialogPlateBody className="ceremony-body">
+          <CampaignCeremonyPlate frozen={campaign.frozen}>
+            <CampaignCeremonyHead title="Campaign Configuration" titleId="configTitle" />
+            <CampaignCeremonyBody>
             <Stack gap="6">
+            {blockedErrors.length > 0 ? (
+              <ErrorSummary
+                title="Readiness blocked"
+                headingId={READINESS_SUMMARY_ID}
+                errors={blockedErrors}
+              />
+            ) : null}
             <FormSection legend="Agent and Harness">
               <Grid gap="4" minItemWidth="control">
                 <FormField id="harnessSelect" label="Harness" layout="stack" labelAssociatesControl={false}>
@@ -110,7 +145,7 @@ export function CampaignConfigDialog({
               </Grid>
             </FormSection>
             <FormSection legend="Timing and attempts">
-              <Grid gap="4" minItemWidth="control" className="ceremony-config-grid">
+              <CampaignCeremonyConfigGrid>
                 <FormField
                   id="sessionLimit"
                   label="Session limit"
@@ -170,27 +205,27 @@ export function CampaignConfigDialog({
                     />
                   )}
                 </FormField>
-              </Grid>
+              </CampaignCeremonyConfigGrid>
             </FormSection>
-            {campaign.frozen ? <p className="frozen-line">Configuration frozen at activation</p> : null}
-            {readinessCopy ? <p className="ceremony-note" role="status">{readinessCopy}</p> : null}
-            <p className="ceremony-note">
+            {campaign.frozen ? <FrozenLine>Configuration frozen at activation</FrozenLine> : null}
+            </Stack>
+            <CampaignCeremonyNote>
               {confirming
                 ? "Confirm activation. This design lab freezes local state only; production revalidates and activates on the server."
                 : "Save a draft and check readiness before activation. Browser frozen state is never authority."}
-            </p>
-            </Stack>
-            </DialogPlateBody>
-            <DialogPlateFooter className="ceremony-foot">
-            <Stack gap="3" className="ceremony-foot-actions">
+            </CampaignCeremonyNote>
+            </CampaignCeremonyBody>
+            <CampaignCeremonyFooter>
+            <CampaignCeremonyFootActions>
+            {readinessCopy ? <CampaignCeremonyNote role="status">{readinessCopy}</CampaignCeremonyNote> : null}
               {confirming ? (
-                <KeyGroup className="ceremony-foot-row" aria-label="Configuration step">
+                <CampaignCeremonyFootRow aria-label="Configuration step">
                   <Key id="cancelKey" type="button" onClick={() => setConfirming(false)}>
                     Back
                   </Key>
-                </KeyGroup>
+                </CampaignCeremonyFootRow>
               ) : (
-                <KeyGroup className="ceremony-foot-row" aria-label="Draft actions">
+                <CampaignCeremonyFootRow aria-label="Draft actions">
                   <Key id="cancelKey" type="button" onClick={onClose}>
                     Cancel
                   </Key>
@@ -209,16 +244,16 @@ export function CampaignConfigDialog({
                       Save draft
                     </EllipsisKey>
                   ) : null}
-                </KeyGroup>
+                </CampaignCeremonyFootRow>
               )}
               {campaign.frozen ? (
-                <KeyGroup className="ceremony-foot-row" aria-label="Activation status">
+                <CampaignCeremonyFootRow aria-label="Activation status">
                   <EllipsisKey id="activateKey" variant="activate" type="button" disabled>
                     Activated
                   </EllipsisKey>
-                </KeyGroup>
+                </CampaignCeremonyFootRow>
               ) : confirming ? (
-                <KeyGroup className="ceremony-foot-row" aria-label="Activation commit">
+                <CampaignCeremonyFootRow aria-label="Activation commit">
                   <EllipsisKey
                     id="activateKey"
                     variant="activate"
@@ -232,9 +267,9 @@ export function CampaignConfigDialog({
                   >
                     Activate campaign
                   </EllipsisKey>
-                </KeyGroup>
+                </CampaignCeremonyFootRow>
               ) : (
-                <KeyGroup className="ceremony-foot-row" aria-label="Readiness and activation">
+                <CampaignCeremonyFootRow aria-label="Readiness and activation">
                   <EllipsisKey
                     id="readinessKey"
                     type="button"
@@ -247,7 +282,7 @@ export function CampaignConfigDialog({
                         },
                         () => {
                           setReadiness("blocked");
-                          setReadinessCopy("Readiness blocked. Resolve field errors before activation.");
+                          setReadinessCopy("");
                         },
                       )();
                     }}
@@ -260,16 +295,19 @@ export function CampaignConfigDialog({
                     type="button"
                     disabled={readiness !== "ready"}
                     disabledReason={readiness !== "ready" ? "Check readiness before activation" : undefined}
-                    onClick={() => setConfirming(true)}
+                    onClick={() => {
+                      setConfirming(true);
+                      setReadinessCopy("");
+                    }}
                   >
                     Confirm activation
                   </EllipsisKey>
-                </KeyGroup>
+                </CampaignCeremonyFootRow>
               )}
-            </Stack>
-            </DialogPlateFooter>
-          </DialogPlate>
+            </CampaignCeremonyFootActions>
+            </CampaignCeremonyFooter>
+          </CampaignCeremonyPlate>
         </form>
-    </CeremonyDialog>
+    </CampaignCeremonyDialog>
   );
 }

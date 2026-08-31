@@ -1,4 +1,6 @@
-import { AssignmentPlate, Key, StateReadout } from "../../design-system";
+import { AssignmentPlate } from "./AssignmentPlate";
+import { AssignmentRecordReadout } from "./AssignmentRecordReadout";
+import { Key } from "../../design-system";
 import type { AssignmentSummaryV1 } from "../../api/production-enrollment";
 import { campaignDeadlineCopy, formatCampaignInstant } from "../../lib/campaign-timezone";
 import { enrollmentStatusCopy } from "../../lib/enrollment-presentation";
@@ -27,20 +29,18 @@ export function AssignmentWorkPlate({ item }: { item: AssignmentSummaryV1 }) {
       released={released}
       rows={[
         { term: "Campaign", value: item.activity_title ?? item.enrollment_id },
-        { term: "Assignment", value: item.task_title ?? "Task not titled", className: "readout--title" },
+        { term: "Assignment", value: item.task_title ?? "Task not titled", emphasis: "title" },
         { term: "Deadline", value: assignmentDeadlineCopy(item) },
         {
           term: "Record",
           value: (
-            <StateReadout
+            <AssignmentRecordReadout
               variant={released ? "sealed" : "rest"}
               solid={released}
               label={enrollmentStatusCopy(item.status)}
-              className="assignment-record"
-              labelClassName="assignment-record-label"
             />
           ),
-          className: "readout--record",
+          emphasis: "inline",
         },
       ]}
       action={

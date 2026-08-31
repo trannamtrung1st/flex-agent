@@ -29,12 +29,16 @@ import {
   wordsFromCode,
   type EnrollmentLifecycleOperation,
 } from "../lib/enrollment-presentation";
-import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
+import { AssignmentInstrumentGrid } from "../components/work/AssignmentInstrumentGrid";
+import { AssignmentRecordReadout } from "../components/work/AssignmentRecordReadout";
+import { AcknowledgmentGate } from "../components/work/AcknowledgmentGate";
 import {
-  AcknowledgmentGate,
   Alert,
   BackKey,
+  CeremonyArea,
   CeremonyDialog,
+  CeremonyUnavailable,
+  CeremonyWait,
   CompactId,
   DateTimePicker,
   DialogPlate,
@@ -49,12 +53,10 @@ import {
   Key,
   KeyGroup,
   OperateArea,
-  ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
   ReadoutList,
   Stack,
-  StateReadout,
   usePushToast,
   WorkWell,
   WorkWellHead,
@@ -216,7 +218,7 @@ export function ProductionEnrollmentDetailPage() {
 
   return (
     <OperateArea
-      className="workspace-area work-plane record-plane"
+      bay="record"
       framed={false}
       label="Enrollment"
       title={detail.enrollment.display_label}
@@ -224,7 +226,7 @@ export function ProductionEnrollmentDetailPage() {
       back={<BackKey to={`/activities/${activityId}/cohorts/${cohortId}/enrollments`} label="Participants" />}
     >
       <Stack gap="6">
-        <ReadoutGrid label="Enrollment identity" columns={4} className="assignment-instruments">
+        <AssignmentInstrumentGrid label="Enrollment identity" columns={4}>
           <ReadoutGridRow label="Identity">
             <ReadoutGridField term="Participant">{detail.enrollment.display_label}</ReadoutGridField>
             <ReadoutGridField term="Enrollment">
@@ -232,12 +234,10 @@ export function ProductionEnrollmentDetailPage() {
             </ReadoutGridField>
             <ReadoutGridField term="Revision">{String(detail.enrollment.revision)}</ReadoutGridField>
             <ReadoutGridField term="Record">
-              <StateReadout
+              <AssignmentRecordReadout
                 variant={record.variant}
                 solid={record.solid}
                 label={statusCopy}
-                className="assignment-record"
-                labelClassName="assignment-record-label"
               />
             </ReadoutGridField>
           </ReadoutGridRow>
@@ -247,10 +247,11 @@ export function ProductionEnrollmentDetailPage() {
             <ReadoutGridField term="Effective exclusive end">{timing ? effectiveEnd : "—"}</ReadoutGridField>
             <ReadoutGridField term="Accommodation">{timing ? consequence : "—"}</ReadoutGridField>
           </ReadoutGridRow>
-        </ReadoutGrid>
+        </AssignmentInstrumentGrid>
         {error && !confirmOpen && !lifecycleConfirm ? <Alert variant="danger" title="Update did not complete">{error}</Alert> : null}
         <WorkWell
           live={false}
+          seat="stack"
           label="Enrollment actions"
           head={<WorkWellHead title="Enrollment actions" ident="Lifecycle stays on the server." />}
         >
@@ -272,13 +273,13 @@ export function ProductionEnrollmentDetailPage() {
                     <Key variant="quiet" disabled={pending} onClick={() => mutate("restore")}>Restore Enrollment</Key>
                   ) : null}
                   {actions.includes("close") ? (
-                    <Key variant="quiet" className="key--danger" disabled={pending} onClick={() => {
+                    <Key variant="quiet" destructive disabled={pending} onClick={() => {
                       setError(null);
                       setLifecycleConfirm("close");
                     }}>Close Enrollment</Key>
                   ) : null}
                   {actions.includes("revoke") ? (
-                    <Key variant="quiet" className="key--danger" disabled={pending} onClick={() => {
+                    <Key variant="quiet" destructive disabled={pending} onClick={() => {
                       setError(null);
                       setLifecycleConfirm("revoke");
                     }}>Revoke Enrollment</Key>
@@ -302,7 +303,7 @@ export function ProductionEnrollmentDetailPage() {
             </Stack>
           </WorkWellSection>
         </WorkWell>
-        <WorkWell live={false} label="Accommodations" head={<WorkWellHead title="Accommodations" ident="Policy-bounded requests. The cohort baseline stays frozen until the server grants a replacement." />}>
+        <WorkWell live={false} seat="stack" label="Accommodations" head={<WorkWellHead title="Accommodations" ident="Policy-bounded. Baseline stays frozen until granted." />}>
           <WorkWellSection>
             {timing && timing.history.length > 0 ? (
               <ul>
@@ -388,15 +389,11 @@ export function ProductionEnrollmentDetailPage() {
                 ))}
               </ul>
             ) : (
-              <EmptyPlate
-                inset
-                label="No accommodations"
-                note="No accommodation history for this Enrollment."
-              />
+              <p>No accommodation history for this Enrollment.</p>
             )}
           </WorkWellSection>
         </WorkWell>
-        <WorkWell live={false} label="History" head={<WorkWellHead title="History" ident="Prior enrollment states remain inspectable." />}>
+        <WorkWell live={false} seat="stack" label="History" head={<WorkWellHead title="History" ident="Prior states remain inspectable." />}>
           <WorkWellSection>
             {detail.history.length > 0 ? (
               <ol>
@@ -417,11 +414,7 @@ export function ProductionEnrollmentDetailPage() {
                 ))}
               </ol>
             ) : (
-              <EmptyPlate
-                inset
-                label="No history"
-                note="No enrollment history is available."
-              />
+              <p>No enrollment history is available.</p>
             )}
           </WorkWellSection>
         </WorkWell>
@@ -461,7 +454,7 @@ export function ProductionEnrollmentDetailPage() {
               <Key
                 variant="transmit"
                 size="large"
-                className="key--danger"
+                destructive
                 waiting={pending}
                 disabled={pending || !lifecycleConfirm}
                 onClick={() => {
@@ -527,7 +520,7 @@ export function ProductionEnrollmentDetailPage() {
               )}
               <AcknowledgmentGate
                 id={fairnessId}
-                className="control-line"
+                presentation="inline"
                 checked={fairnessException}
                 onChange={setFairnessException}
               >

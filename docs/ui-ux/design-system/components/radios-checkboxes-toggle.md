@@ -2,7 +2,10 @@
 
 Radios, checkboxes, and breakers share hairline anatomy and **teal selection**.
 Acknowledgment (consent/ceremony) is the **amber commitment** checkbox. Do not
-swap the voices.
+swap the voices. Implement that control with `AcknowledgmentGate` in
+`web/src/components/work/` (a `ControlLine` that owns `.briefing-ack` /
+`.ack-mark`). Do not add acknowledgment presentation to generic field
+primitives.
 
 ## Checkbox (acknowledgment)
 

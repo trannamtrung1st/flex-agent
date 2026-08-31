@@ -177,7 +177,6 @@ html[data-surface="participant-journey"] {
 .demo-plate:has(.select-trigger[aria-expanded="true"]) {
   position: relative;
   clip-path: none;
-  z-index: 40;
 }
 
 .demo-note {

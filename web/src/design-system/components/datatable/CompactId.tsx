@@ -27,6 +27,8 @@ export function CompactId({
       className={className}
       tipOnlyWhenTruncated={!logicallyTruncated}
       truncationRef={logicallyTruncated ? undefined : compactRef}
+      placementRef={compactRef}
+      openOnPress
     >
       <span ref={compactRef} className="compact-id" tabIndex={focusable ? 0 : undefined}>
         <span aria-hidden={logicallyTruncated || undefined}>{shown}</span>

@@ -1,4 +1,5 @@
 import { datatableColMin, type DatatableColMin } from "./datatableColMin";
+import { cx } from "../../../lib/cx";
 
 export function StaticHeader({
   label,
@@ -10,7 +11,15 @@ export function StaticHeader({
   className?: string;
 }) {
   return (
-    <th scope="col" className={className} {...(colMin ? datatableColMin(colMin) : {})}>
+    <th
+      scope="col"
+      className={cx(
+        colMin === "action" && "col-action",
+        colMin === "state" && "col-state",
+        className,
+      )}
+      {...(colMin ? datatableColMin(colMin) : {})}
+    >
       <span className="col-head">{label}</span>
     </th>
   );

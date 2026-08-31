@@ -15,6 +15,7 @@ export {
 } from "./operator";
 export { BrandHomeLink, BrandMark, PRODUCT_NAME, RailBrand, StripBrand } from "./Brand";
 export { CommandStrip, type CommandStripNavItem } from "./CommandStrip";
+export { AssignmentHead } from "../../../components/work/AssignmentHead";
 export { Advisory, Announcer, ConsoleFoot, OperateHead } from "../../../design-system/components/chrome/OperateHead";
 export { ProfileMenu } from "../../../design-system/components/chrome/ProfileMenu";
 export { LabThemeToggle } from "./LabThemeToggle";

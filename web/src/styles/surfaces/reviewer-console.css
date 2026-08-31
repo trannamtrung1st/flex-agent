@@ -86,6 +86,19 @@ body {
   min-width: 0;
 }
 
+.queue-view.registry-wall--hug > .operate-scroll > .datatable-frame.frame-cut {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.queue-view:not(.registry-wall--hug) .datatable-frame .datatable,
+.queue-view:not(.registry-wall--hug) .datatable-frame .datatable-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* shared datatable cells omit left pad for dense admin walls; the docket
    needs it so row washes (hot/hover) breathe off the first column text */
 .queue-datatable .manifest thead .col-head,
@@ -104,9 +117,25 @@ body {
 }
 
 .manifest .col-assignment {
-  max-width: 28ch;
-  white-space: normal;
   color: var(--text);
+}
+
+/* Compact participant ids hug; assignment titles take leftover width. */
+.queue-datatable .datatable-table thead th:not(.col-select):first-child {
+  width: 1%;
+}
+
+.queue-datatable .datatable-table thead th.col-assignment {
+  width: auto;
+}
+
+.queue-datatable .datatable-table tbody td.cell-id {
+  width: 1%;
+  min-width: var(--datatable-col-min);
+}
+
+.queue-datatable .datatable-table tbody td.col-assignment {
+  width: auto;
 }
 
 .manifest .col-received { color: var(--label); }
@@ -116,6 +145,10 @@ body {
 /* .state-cell, .state-label, and .state-node families come from the shared component family sheets */
 
 .manifest .col-action { text-align: right; white-space: nowrap; }
+
+.queue-datatable .manifest thead th.col-action .col-head {
+  justify-content: flex-end;
+}
 
 .queue-datatable .datatable-scroll:has(.datatable-table[hidden]) {
   display: flex;
@@ -682,57 +715,6 @@ body {
 
 @media (max-width: 720px) /* bp.compact */ {
   .record-view { padding-right: 0; }
-
-  /* the short docket re-lays as labeled cards instead of taking the
-     shared datatable's horizontal scroll (which suits 100-row walls) */
-  .queue-view .datatable-scroll { overflow-x: hidden; }
-  .queue-view .datatable-scroll::before { content: none; }
-  .queue-view .datatable-table { min-width: 0; }
-  .queue-view .datatable-table tbody td {
-    width: auto;
-    min-width: 0;
-  }
-
-  .manifest thead { display: none; }
-  .manifest tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-    gap: 12px;
-    padding: 14px 10px;
-    border-bottom: 1px solid var(--hairline-dim);
-    line-height: normal;
-  }
-  .queue-datatable .manifest tbody td {
-    padding-left: 0;
-  }
-  .manifest tbody td {
-    padding: 0;
-    border: none;
-    white-space: normal;
-    height: auto;
-    line-height: 1.35;
-  }
-  /* card layout separates cells with grid gaps: priority wash only, no row-hover click cue */
-  .manifest .datatable-row:hover td,
-  .manifest .datatable-row.is-hot td { background: transparent; }
-  .manifest .datatable-row.is-hot { background: rgba(226, 163, 60, 0.05); }
-  .manifest td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    font-size: var(--microlabel-font-size);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--teal);
-    opacity: 0.85;
-    margin-bottom: 4px;
-  }
-  .manifest .col-assignment { max-width: none; }
-  .manifest .col-action {
-    grid-column: 1 / -1;
-    text-align: left;
-    margin-top: 2px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

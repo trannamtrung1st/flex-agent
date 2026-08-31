@@ -1,3 +1,4 @@
+export { CampaignsOperateArea, EnrollmentWallOperateArea, FormRecipeOperateArea, HomeBoardOperateArea, ReviewerLedgerOperateArea, ReviewerQueueOperateArea, SampleWallOperateArea } from "./operate";
 export { ActionMenuGlyph, ChevronGlyph, DocumentGlyph, OperatorGlyph, TransmitChevron } from "../../design-system/components/glyphs";
 export { Alert, ErrorSummary, WaitPanel, WaitPlate, type ErrorSummaryItem } from "../../design-system/components/feedback";
 export {
@@ -18,6 +19,7 @@ export {
   ADMINISTRATOR_IDENTITY,
   Advisory,
   Announcer,
+  AssignmentHead,
   BrandHomeLink,
   BrandMark,
   CATALOG_NAV,
@@ -45,22 +47,36 @@ export {
 export {
   Bulkhead,
   CeremonyDialog,
+  CampaignCeremonyBody,
+  CampaignCeremonyConfigGrid,
+  CampaignCeremonyDialog,
+  CampaignCeremonyFootActions,
+  CampaignCeremonyFootRow,
+  CampaignCeremonyFooter,
+  CampaignCeremonyHead,
+  CampaignCeremonyNote,
+  CampaignCeremonyPlate,
   DialogPlate,
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
+  FormRecipeDialog,
+  FormRecipeDialogWell,
   NativeDialog,
   SignOutCeremony,
   ToastDock,
   ToastHost,
   usePushToast,
   useToasts,
-  type CeremonyDialogVariant,
   type ToastDockPlacement,
   type ToastNotice,
 } from "./overlays";
 export {
+  AssignmentBay,
+  AssignmentBays,
   AssignmentPlate,
+  AssignmentInstrumentGrid,
+  AssignmentRecordReadout,
   CeremonyArea,
   CeremonyEmpty,
   CeremonyUnavailable,
@@ -69,12 +85,25 @@ export {
   EmptyPlate,
   EtchedFrame,
   OperateArea,
+  registryTableHug,
   PlateFoot,
   PlateStatusMark,
+  SetupCeremony,
+  SetupCeremonyFoot,
+  SetupCeremonyScroll,
+  SetupOperateArea,
+  FrozenLine,
+  InPlateHost,
+  ProtocolPlate,
+  StatusBay,
+  StatusBays,
   WorkWell,
   WorkWellHead,
+  WorkWellHint,
+  WorkWellReleasedSeal,
   WorkWellSection,
 } from "./plates";
+export { LiveSessionLayout, type LiveSessionLayoutProps } from "./layouts/LiveSessionLayout";
 export {
   Container,
   Grid,
@@ -88,17 +117,16 @@ export {
   type LayoutJustify,
   type LayoutSpace,
 } from "../../design-system/components/layout";
+export { AcknowledgmentGate } from "../../components/work/AcknowledgmentGate";
+export { RecordSeal, StageBars } from "./state/SessionMarks";
+export { recordResultMark } from "./state/recordResultMark";
 export {
-  AcknowledgmentGate,
-  ActivationMark,
-  RecordSeal,
-  StageBars,
   StateIndicator,
   StateReadout,
   StateRing,
-  recordResultMark,
   type StateIndicatorVariant,
 } from "../../design-system/components/state";
+export { ActivationMark } from "./state/ActivationMark";
 export {
   Breaker,
   ControlLine,
@@ -109,6 +137,15 @@ export {
   FormField,
   FormSection,
   RadioGroup,
+  MM_SS_EXTENSION_PLACEHOLDER,
+  MM_SS_HINT,
+  MM_SS_PATTERN,
+  MM_SS_PLACEHOLDER,
+  MM_SS_WARNING_PLACEHOLDER,
+  SCORE_PLACEHOLDER,
+  mmSsError,
+} from "../../design-system/components/fields";
+export {
   ACCOMMODATION_VALUE_PLACEHOLDER,
   ADJUSTED_RATIONALE_PLACEHOLDER,
   BOUNDED_REASON_PLACEHOLDER,
@@ -118,15 +155,11 @@ export {
   COOLDOWN_PLACEHOLDER,
   DIRECT_TEXT_PLACEHOLDER,
   MAX_ATTEMPTS_PLACEHOLDER,
-  MM_SS_EXTENSION_PLACEHOLDER,
-  MM_SS_HINT,
-  MM_SS_PATTERN,
-  MM_SS_PLACEHOLDER,
-  MM_SS_WARNING_PLACEHOLDER,
-  SCORE_PLACEHOLDER,
+  SEARCH_ID_PLACEHOLDER,
+  SEARCH_NAME_OR_ID_PLACEHOLDER,
+  SEARCH_TITLE_OR_ID_PLACEHOLDER,
   SETUP_RESOLVED_NOTE,
-  mmSsError,
-} from "../../design-system/components/fields";
+} from "../../content/fieldCopy";
 export {
   AreaGroupList,
   BreadcrumbNav,
@@ -179,17 +212,22 @@ export {
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
+  ActionHeader,
+  DatatableActions,
+  DatatableCell,
+  DatatableEmpty,
+  DatatableId,
+  DatatableRow,
+  DatatableStateReadout,
+  DatatableTable,
+  SelectHeader,
   datatableColMin,
   SortableHeader,
   StaticHeader,
   ToolbarReadout,
   ToolbarSearch,
-  SEARCH_ID_PLACEHOLDER,
-  SEARCH_NAME_OR_ID_PLACEHOLDER,
-  SEARCH_TITLE_OR_ID_PLACEHOLDER,
   pageRows,
   sortAndFilterRows,
-  useDatatableDetailGutter,
   useTableController,
   type SortDirection,
 } from "../../design-system/components/datatable";
@@ -205,3 +243,17 @@ export {
   type ActionResult,
   type TableAction,
 } from "../../design-system/patterns/TableActions";
+export { FormDemoField } from "./fields/FormDemoField";
+export { FormPair, FormPairField } from "./fields/FormPair";
+export {
+  DatatableDetailBody,
+  DatatableDetailField,
+  DatatableDetailKeys,
+  DatatableDetailReadouts,
+  DatatableDetailRow,
+  DatatableExpandButton,
+  DatatableIdCell,
+  useDatatableDetailGutter,
+} from "./datatable";
+export { ReviewerQueueEmpty, ReviewerQueueTableShell } from "./reviewer/ReviewerQueueTable";
+export { ReviewerSealedReadout } from "./reviewer/ReviewerSealedReadout";

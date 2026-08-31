@@ -46,15 +46,17 @@ error summary, not on `variant="warning"`.
 Instrument slip (`ToastDock` / `ToastHost`). Placement is a component prop
 (`placement`: `bottom-center` | `bottom-start` | `bottom-end` |
 `top-center` | `top-start` | `top-end`). The production default is
-**bottom-center** so both start-aligned and trailing `PlateFoot` keys stay
-clear. Optional `offsetInline` and `offsetBlock` (CSS lengths) add clearance
+**top-center** for now. Optional `offsetInline` and `offsetBlock` (CSS lengths) add clearance
 for a gangway, instrument rail, or hull/action foot; they set
 `--toast-dock-offset-inline` and `--toast-dock-offset-block` on the dock.
 On center placements, `offsetInline` insets the centering strip from the
 inline-start (work bay after a gangway), not a corner. Management and
-guided-task layouts supply those offsets when the host does not. Compact
-(≤720px) stretches the dock to the viewport inline edges and keeps
-`offsetBlock` so the slip sits **above** a fixed foot, not over it.
+guided-task layouts supply inline offsets when the host does not. The dock
+paints above hull chrome (`command-strip` / Deck `page-strip`, `z-index` 70)
+at `z-index` 75 and below bulkhead (`80`). Top placements use the default
+inset only and may cover hull chrome — receipts are short-lived. Compact
+(≤720px) stretches the dock to the viewport inline edges. Bottom placements also keep `offsetBlock` so the slip sits
+**above** a fixed foot, not over it.
 
 Notched hairline, 320ms reveal (cut under reduced motion). System voice teal;
 attention voice amber. Default linger is 4200ms (`useToasts`); leave fade is
@@ -66,7 +68,9 @@ polite live region. Do not toast protected content or authorization internals.
 - Decision-relevant errors that block a task also appear inline or in an error
   summary, not only as a toast.
 - Transient action receipts (assign, save, lifecycle, accepted Submission
-  version) use toast. Standing page conditions (missing sources, remaining
+  version) use toast when the action is on the page. Receipts for actions
+  inside an open modal sit in that ceremony’s pinned foot — the page toast
+  dock cannot paint above the dialog top layer. Standing page conditions (missing sources, remaining
   registry pages) use OperateArea `advisory`. Blocking failures and still-true
   work outcomes (activated cohort, in-well capability notes) use `Alert`.
 - Production management and guided-task shells, and the design-lab Admin

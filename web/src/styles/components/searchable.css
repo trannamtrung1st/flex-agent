@@ -24,15 +24,6 @@
   overflow: hidden;
 }
 
-.searchable-disclosure-options {
-  max-height: 224px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline-dim) transparent;
-  list-style: none;
-}
-
 .searchable-disclosure-options li {
   display: flex;
   align-items: flex-start;
@@ -46,8 +37,8 @@
   cursor: pointer;
   border-bottom: 1px solid var(--hairline-dim);
   font-size: var(--select-option-size);
-  letter-spacing: var(--select-option-tracking);
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--label);
   transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
 }
@@ -73,23 +64,21 @@
   margin-top: calc((var(--select-option-line-height) * 1em - 1px) / 2);
 }
 
-.searchable-disclosure-foot {
-  justify-content: flex-end;
-}
-
 .select-shell--context.searchable-disclosure .searchable-disclosure-panel {
   overflow: hidden;
   max-height: none;
 }
 
 .multiselect-options,
-.searchable-select-options {
+.searchable-select-options,
+.searchable-disclosure-options {
   max-height: 224px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-dim) transparent;
   list-style: none;
+  border-bottom: 1px solid var(--hairline-dim);
 }
 
 .searchable-select-options li {
@@ -105,8 +94,8 @@
   cursor: pointer;
   border-bottom: 1px solid var(--hairline-dim);
   font-size: var(--select-option-size);
-  letter-spacing: var(--select-option-tracking);
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--label);
   transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
 }
@@ -130,10 +119,6 @@
 .searchable-select-options li[aria-selected="true"]::before {
   flex-shrink: 0;
   margin-top: calc((var(--select-option-line-height) * 1em - 1px) / 2);
-}
-
-.searchable-select-foot {
-  justify-content: flex-end;
 }
 
 .multiselect-search {
@@ -190,9 +175,9 @@
   color: var(--label);
   cursor: pointer;
   font-size: var(--select-option-size);
-  letter-spacing: var(--select-option-tracking);
+  letter-spacing: 0.02em;
   line-height: var(--select-option-line-height);
-  text-transform: uppercase;
+  text-transform: none;
   white-space: normal;
   overflow-wrap: anywhere;
   transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
@@ -233,6 +218,7 @@
 
 .multiselect-empty {
   padding: 18px 14px;
+  border-bottom: 1px solid var(--hairline-dim);
   color: var(--label-dim);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
@@ -246,7 +232,17 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.multiselect-panel .multiselect-foot,
+.searchable-select-panel .multiselect-foot,
+.searchable-disclosure-panel .multiselect-foot {
+  border-top: none;
+}
+
+.multiselect-foot--trailing {
+  justify-content: flex-end;
 }
 
 .clear-action {

@@ -16,7 +16,10 @@ export function ReadoutGrid({
   className?: string;
 }) {
   return (
-    <div className={cx("readout-grid", `readout-grid--columns-${columns}`, className)} aria-label={label}>
+    <div
+      className={cx("readout-grid", `readout-grid--columns-${columns}`, className)}
+      aria-label={label}
+    >
       {children}
     </div>
   );

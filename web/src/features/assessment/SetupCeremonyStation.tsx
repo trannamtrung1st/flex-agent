@@ -6,17 +6,16 @@ import {
   FormField,
   FormSection,
   Grid,
-  CAMPAIGN_TITLE_PLACEHOLDER,
   Key,
   KeyGroup,
-  PlateFoot,
-  ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
   Stack,
-  StateReadout,
 } from "../../design-system";
-import { cx } from "../../lib/cx";
+import { CAMPAIGN_TITLE_PLACEHOLDER } from "../../content/fieldCopy";
+import { AssignmentInstrumentGrid } from "../../components/work/AssignmentInstrumentGrid";
+import { SetupCeremony, SetupCeremonyFoot, SetupCeremonyScroll } from "../../components/work/SetupCeremony";
+import { SetupTrackReadout } from "./SetupTrackReadout";
 import type { AssessmentSetupView } from "../../api/production-assessment";
 import { sourceCategoryLabel } from "./campaignCreatePresentation";
 import {
@@ -73,20 +72,20 @@ export function SetupCeremonyTracks({
 }) {
   const tracks = setupTracks(view, title, pending);
   return (
-    <ReadoutGrid label="Setup tracks" columns={4} className="assignment-instruments">
+    <AssignmentInstrumentGrid label="Setup tracks" columns={4}>
       <ReadoutGridRow label="Local through cohort">
         {tracks.map((track) => (
           <ReadoutGridField key={track.id} term={track.term}>
-            <StateReadout
+            <SetupTrackReadout
               variant={track.variant}
               solid={track.solid}
               label={track.value}
-              className={track.now ? "setup-track-now" : undefined}
+              now={track.now}
             />
           </ReadoutGridField>
         ))}
       </ReadoutGridRow>
-    </ReadoutGrid>
+    </AssignmentInstrumentGrid>
   );
 }
 
@@ -148,9 +147,9 @@ export function SetupCeremonyStation({
   ) : null;
 
   return (
-    <Stack gap="none" className={cx("setup-ceremony", view.has_activated_cohort && "is-frozen")}>
+    <SetupCeremony frozen={view.has_activated_cohort}>
       <SetupCeremonyTracks view={view} title={title} pending={pending} />
-      <Stack gap="6" className="create-ceremony__scroll">
+      <SetupCeremonyScroll>
         {summary ? (
           <ErrorSummary headingId={summary.headingId} title={summary.title} errors={summary.errors} />
         ) : null}
@@ -300,17 +299,16 @@ export function SetupCeremonyStation({
             />
           </Grid>
         </FormSection>
-      </Stack>
+      </SetupCeremonyScroll>
       {draftKeys || primary ? (
-        <PlateFoot
-          className="setup-ceremony__foot"
+        <SetupCeremonyFoot
           arrangement={primary && draftKeys ? "split" : primary ? "end" : "start"}
           secondary={primary && draftKeys ? draftKeys : undefined}
           primary={primary && draftKeys ? primary : undefined}
         >
           {primary && draftKeys ? null : primary ?? draftKeys}
-        </PlateFoot>
+        </SetupCeremonyFoot>
       ) : null}
-    </Stack>
+    </SetupCeremony>
   );
 }

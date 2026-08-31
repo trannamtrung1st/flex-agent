@@ -27,19 +27,11 @@ body {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  --frame-content-pad-block-start: var(--space-4);
-  --frame-content-pad-block-end: var(--space-4);
-  --frame-content-pad-inline-start: var(--space-4);
-  --frame-content-pad-inline-end: var(--space-3);
 }
 
 .bay {
   min-height: 0;
-  padding:
-    var(--frame-content-pad-block-start)
-    var(--frame-content-pad-inline-end)
-    var(--frame-content-pad-block-end)
-    var(--frame-content-pad-inline-start);
+  padding: var(--form-group-gap);
   border-right: 1px solid var(--hairline-dim);
 }
 
@@ -55,7 +47,7 @@ body {
   letter-spacing: 0.22em;
   text-align: center;
   color: var(--teal);
-  margin: 0 0 var(--frame-content-pad-block-end) 0;
+  margin: 0 0 var(--form-group-gap) 0;
   flex-shrink: 0;
 }
 
@@ -65,38 +57,60 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 0 var(--frame-content-pad-inline-end) 2px 0;
+  padding: 0 0 2px;
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-dim) transparent;
 }
 
-.bay-plates::-webkit-scrollbar { width: 6px; }
-.bay-plates::-webkit-scrollbar-track { background: transparent; }
-.bay-plates::-webkit-scrollbar-thumb {
+.bay-plates::-webkit-scrollbar,
+.bays .assignment-plate .readout-stack--horizon::-webkit-scrollbar { width: 6px; }
+.bay-plates::-webkit-scrollbar-track,
+.bays .assignment-plate .readout-stack--horizon::-webkit-scrollbar-track { background: transparent; }
+.bay-plates::-webkit-scrollbar-thumb,
+.bays .assignment-plate .readout-stack--horizon::-webkit-scrollbar-thumb {
   background: var(--hairline-dim);
   border: 1px solid transparent;
   background-clip: padding-box;
   border-radius: 5px;
 }
-.bay-plates::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
+.bay-plates::-webkit-scrollbar-thumb:hover,
+.bays .assignment-plate .readout-stack--horizon::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
 
 .bays .assignment-plate {
   flex: 1 1 auto;
   min-height: 0;
 }
 
+.bays .assignment-plate .assignment-plate-in {
+  min-height: 0;
+}
+
 .bays .assignment-plate .readout-stack--horizon {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
 }
 
 .bays .assignment-plate .readout--horizon {
   flex: 1 1 0;
 }
 
+.bays .assignment-plate .assignment-plate-keys {
+  flex-shrink: 0;
+}
+
 /* dense board: any stacked bay switches every plate to content height so
    lone plates do not stretch beside crowded neighbors */
 .bays--dense .assignment-plate { flex: 0 0 auto; }
-.bays--dense .readout--horizon { flex: none; }
+.bays--dense .assignment-plate .readout-stack--horizon {
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+.bays--dense .assignment-plate .readout--horizon { flex: none; }
 .bays--dense .assignment-plate-keys { min-height: 0; padding-top: 14px; }
 .bays--dense .assignment-plate-keys--empty { display: none; }
 
@@ -171,11 +185,7 @@ body {
   .bays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
 
   .bay {
-    padding:
-      var(--frame-content-pad-block-start)
-      var(--frame-content-pad-inline-start)
-      var(--frame-content-pad-block-end)
-      var(--frame-content-pad-inline-start);
+    padding: var(--form-group-gap);
     border-bottom: 1px solid var(--hairline-dim);
   }
   .bay:nth-child(2n) { border-right: none; }
@@ -211,6 +221,11 @@ body {
     overflow-y: visible;
     overscroll-behavior: auto;
     padding-right: 0;
+  }
+
+  html[data-surface="participant-home"] .bays .assignment-plate .readout-stack--horizon {
+    overflow: visible;
+    overscroll-behavior: auto;
   }
 }
 

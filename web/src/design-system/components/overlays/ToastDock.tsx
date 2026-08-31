@@ -29,7 +29,7 @@ export type ToastDockProps = {
 
 export function ToastDock({
   toasts,
-  placement = "bottom-center",
+  placement = "top-center",
   offsetInline,
   offsetBlock,
   className,
@@ -95,7 +95,7 @@ export type ToastHostProps = {
 /** Production shells and lab Admin mount `ToastHost`. Deck specimens may use local `useToasts`. */
 export function ToastHost({
   children,
-  placement = "bottom-center",
+  placement = "top-center",
   offsetInline,
   offsetBlock,
 }: ToastHostProps) {

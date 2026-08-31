@@ -31,11 +31,7 @@ export function useMyWorkList(enabled: boolean) {
   }, [client, enabled]);
 
   useEffect(() => {
-    if (!enabled) {
-      setItems(null);
-      setError(null);
-      return;
-    }
+    if (!enabled) return;
     const signal = { cancelled: false };
     void load(signal);
     return () => {
@@ -43,5 +39,11 @@ export function useMyWorkList(enabled: boolean) {
     };
   }, [enabled, load]);
 
-  return { items, error, pending, setPending, load };
+  return {
+    items: enabled ? items : null,
+    error: enabled ? error : null,
+    pending,
+    setPending,
+    load,
+  };
 }

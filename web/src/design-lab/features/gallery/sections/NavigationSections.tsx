@@ -178,21 +178,23 @@ export function NavigationSections() {
 
       <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Shared in-bay trail (BreadcrumbNav). Production gangway indexes omit it. Nested records keep Home plus reachable destinations — not a URL-segment dump, not a second gangway, and not the BackKey row. Ancestors stay linked; the current crumb is plain text with aria-current.">
         <Spec wide tag="primitive · Home / current">
-          <BreadcrumbNav items={[{ label: "My work", current: true }]} />
+          <BreadcrumbNav homeHref="/shared/gallery" items={[{ label: "My work", current: true }]} />
         </Spec>
         <Spec wide tag="nested record · Activities / Setup">
           <BreadcrumbNav
+            homeHref="/shared/gallery"
             items={[
-              { label: "Activities", href: "/activities" },
+              { label: "Activities", href: "/shared/gallery#breadcrumbs" },
               { label: "Setup and readiness", current: true },
             ]}
           />
         </Spec>
         <Spec wide tag="nested child · Setup / Participants">
           <BreadcrumbNav
+            homeHref="/shared/gallery"
             items={[
-              { label: "Activities", href: "/activities" },
-              { label: "Setup and readiness", href: "/activities/act-1/setup" },
+              { label: "Activities", href: "/shared/gallery#breadcrumbs" },
+              { label: "Setup and readiness", href: "/shared/gallery#breadcrumbs" },
               { label: "Participants", current: true },
             ]}
           />

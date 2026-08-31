@@ -85,16 +85,16 @@
 
   /* Select popover width — defaults for .select-shell--*; override per shell */
   --select-popover-offset-x-field: 0;
-  --select-popover-offset-x-context: -1px;
-  --select-popover-offset-x-toolbar: -1px;
+  --select-popover-offset-x-context: 0;
+  --select-popover-offset-x-toolbar: 0;
   --select-popover-width-field: 100%;
   --select-popover-min-width-field: 100%;
   --select-popover-max-width-field: 100%;
-  --select-popover-min-width-context: calc(100% + 2px);
+  --select-popover-min-width-context: 100%;
   --select-popover-max-width-context: min(28rem, 54vw);
-  --select-popover-min-width-toolbar: max(calc(100% + 2px), 16rem);
+  --select-popover-min-width-toolbar: max(100%, 16rem);
   --select-popover-max-width-toolbar: min(24rem, calc(100vw - 24px));
-  --select-popover-min-width-toolbar-foot: max(calc(100% + 2px), 148px);
+  --select-popover-min-width-toolbar-foot: max(100%, 148px);
   --select-popover-max-height-scroll: min(280px, 50vh);
   --select-popover-max-height-foot: min(240px, 42vh);
 

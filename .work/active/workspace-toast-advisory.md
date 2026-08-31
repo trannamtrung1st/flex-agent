@@ -19,7 +19,7 @@ Mount production toasts and apply the design-system feedback rungs consistently:
 
 ## In
 
-- Production `ToastHost` on `ProductionAppShell` (management and guided-task); default dock `bottom-center`
+- Production `ToastHost` on `ProductionAppShell` (management and guided-task); default dock `top-center` (was `bottom-center`; see toast default change Aug 2026)
 - Enrollment assign receipt → toast; assign/update errors stay Alert in the work body
 - Activities missing sources → OperateArea `advisory`
 - Setup draft save receipt → toast; cohort activated / provenance Alerts unchanged

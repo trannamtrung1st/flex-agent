@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
-  AcknowledgmentGate,
   Announcer,
   DemoPlate,
   Key,
@@ -14,7 +12,11 @@ import {
   TransmitChevron,
   usePrototypeSignOut,
 } from "../components";
-import { GuidedTaskFoot, GuidedTaskLayout, PlateStatusMark, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../design-system";
+import { AssignmentStatusReadout } from "../../components/work/AssignmentStatusReadout";
+import { AssignmentHead } from "../../components/work/AssignmentHead";
+import { AcknowledgmentGate } from "../../components/work/AcknowledgmentGate";
+import { GuidedTaskFoot, GuidedTaskLayout, PlateStatusMark, RailHomeLink, Stack, WorkWell, WorkWellHead, WorkWellHint, WorkWellSection } from "../../design-system";
+import { ProtocolPlate, WorkWellReleasedSeal } from "../components/plates";
 import { JOURNEY_DEMO_KEYS, JOURNEY_DEMOS, JOURNEY_PHASES, type JourneyDemo } from "../data/fixtures/journey";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
@@ -65,13 +67,8 @@ export function JourneyPage() {
       brandSuffix="Assignment Station"
       brandExtras={
         <>
-          <Link className="rail-home-link" to={PARTICIPANT_HOME}>
-            <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-              <path d="M6.5 1.5 L3 5 L6.5 8.5" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="square" />
-            </svg>
-            Home
-          </Link>
-          <ProfileMenu identity={PARTICIPANT_IDENTITY} actions={actions} className="strip-profile--rail" />
+          <RailHomeLink to={PARTICIPANT_HOME}>Home</RailHomeLink>
+          <ProfileMenu identity={PARTICIPANT_IDENTITY} actions={actions} placement="rail" />
         </>
       }
       instruments={
@@ -108,34 +105,27 @@ export function JourneyPage() {
               </p>
             }
           />
-          <div className="protocol-plate pane pane--dim pane--br">
-            <span className="protocol-label">Protocol</span>
-            <span className="protocol-value">V7.3.1</span>
-          </div>
+          <ProtocolPlate label="Protocol" value="V7.3.1" />
         </>
       }
       heading={
-        <header className="assignment-head">
-          <div className="assignment-ident">
-            <h1 className="assignment-title">Real-time Inventory &amp; Order Management at Scale</h1>
-            <p className="assignment-meta">Activity · Text examination · Session 07 · FXA-7C19-2A07</p>
-          </div>
-          <dl className="status-readout" aria-label="Assignment status">
-            <div className="status-item">
-              <dt>Phase</dt>
-              <dd>{status.statusPhase}</dd>
-            </div>
-            <div className="status-item">
-              <dt>Record</dt>
-              <dd>
-                <StateIndicator
-                  variant={nodeMod === "live" ? "live" : nodeMod === "sealed" ? "sealed" : "rest"}
-                />
-                {status.statusRecord}
-              </dd>
-            </div>
-          </dl>
-        </header>
+        <AssignmentHead
+          title="Real-time Inventory & Order Management at Scale"
+          meta="Activity · Text examination · Session 07 · FXA-7C19-2A07"
+          status={(
+            <AssignmentStatusReadout
+              phase={status.statusPhase}
+              record={(
+                <>
+                  <StateIndicator
+                    variant={nodeMod === "live" ? "live" : nodeMod === "sealed" ? "sealed" : "rest"}
+                  />
+                  {status.statusRecord}
+                </>
+              )}
+            />
+          )}
+        />
       }
       actions={
         <>
@@ -259,7 +249,7 @@ function Well({
           <p className="instrument-value">Not implemented in this prototype. Production will accept permitted file types here.</p>
         </div>
         {isCurrent ? (
-          <p className="work-well__hint">Submit a version. Attempt readiness is server-authoritative and is not granted from this control.</p>
+          <WorkWellHint>Submit a version. Attempt readiness is server-authoritative and is not granted from this control.</WorkWellHint>
         ) : null}
       </WorkWell>
     );
@@ -350,18 +340,7 @@ function Well({
   return (
     <WorkWell
       revealing
-      head={
-        <WorkWellHead gap="none">
-          <svg className="work-well__seal" viewBox="0 0 52 52" aria-hidden="true">
-            <circle cx="26" cy="26" r="24" />
-            <path d="M15 27l8 8 15-17" />
-          </svg>
-          <Stack gap="2">
-            <h2 className="work-well__title">Result released</h2>
-            <p className="work-well__ident">Synthetic published-result specimen</p>
-          </Stack>
-        </WorkWellHead>
-      }
+      head={<WorkWellHead seal={<WorkWellReleasedSeal />} title="Result released" ident="Synthetic published-result specimen" />}
     >
       <WorkWellSection>
         <p>

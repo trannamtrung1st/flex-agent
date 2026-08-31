@@ -193,33 +193,13 @@ input:focus-visible + .select-mark {
 .seg-value { color: var(--label); font-variant-numeric: tabular-nums; }
 .seg-key:hover .seg-value, .seg-key:focus-visible .seg-value { color: inherit; }
 
-/* pagination foot sits on the pane edge — menus open upward so the
-   listbox is never clipped by the pane's clip-path below the foot */
+/* Pagination foot: shorter listbox token. Overlay is a closed plate;
+   do not lift the in-flow mark over hull/overlay. */
 .datatable-foot .toolbar-seg { z-index: 1; }
-
-.datatable-foot .toolbar-seg:has(.seg-key[aria-expanded="true"]) {
-  z-index: 32;
-}
 
 .datatable-foot .select-shell--toolbar {
   --select-popover-min-width: var(--select-popover-min-width-toolbar-foot);
   --select-popover-max-height: var(--select-popover-max-height-foot);
-}
-
-/* Portaled panels ignore this: placeFloating owns flip. Kept for any
-   in-flow leftover that still uses .select-popover under the foot. */
-.datatable-foot .select-popover {
-  top: auto;
-  bottom: 100%;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline-dim);
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline-dim) transparent;
-  box-shadow: var(--panel-inset), 0 -10px 28px rgba(2, 9, 14, 0.62);
-}
-
-.datatable-foot .select-popover li:first-child {
-  border-top: none;
 }
 
 .toolbar-seg--search { margin-left: 14px; }
@@ -232,8 +212,8 @@ input:focus-visible + .select-mark {
   font-family: var(--font-mono);
   font-size: 0.66rem;
   line-height: 1;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
 }
@@ -263,6 +243,7 @@ input:focus-visible + .select-mark {
   --datatable-col-min-count: 5.5rem;
   --datatable-col-min-rev: 4rem;
   --datatable-col-min-confidence: 7.5rem;
+  --datatable-col-min-title: 24rem;
   --datatable-col-min-action: 3rem;
   display: flex;
   flex-direction: column;
@@ -446,7 +427,6 @@ input:focus-visible + .select-mark {
 .key.command-menu-trigger.is-open:focus-visible {
   color: var(--teal);
   border-color: var(--teal);
-  border-bottom-color: transparent;
   background: var(--teal-glow);
 }
 
@@ -455,7 +435,7 @@ input:focus-visible + .select-mark {
   color: var(--teal);
 }
 
-/* Action menu shell — same connected popover seam as selects; menu
+/* Action menu shell — same closed overlay plate as selects; menu
    semantics (commands, reasons, separators) stay on the rows. */
 .menu-shell {
   position: relative;
@@ -486,19 +466,9 @@ input:focus-visible + .select-mark {
   width: 100%;
 }
 
-.menu-shell:has([aria-expanded="true"]) .command-menu-trigger,
-.menu-shell:has([aria-expanded="true"]) .key.command-menu-trigger,
-.menu-shell:has([aria-expanded="true"]) .strip-profile-key {
-  border-bottom-color: transparent;
-}
-
 .menu-popover {
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-dim) transparent;
-}
-
-.menu-popover > :first-child {
-  border-top: 1px solid var(--hairline-dim);
 }
 
 .menu-popover--fixed {
@@ -587,6 +557,20 @@ input:focus-visible + .select-mark {
   padding: 0 var(--datatable-scroll-gutter);
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-dim) transparent;
+  /* Header fill lives on the scrollport padding box so it stays the visible
+     width (including gutters) while columns travel. A sticky ::before with
+     left: 0 ate the inline gutter; negative-margin rails scroll away. */
+  --datatable-sticky-rail-fill: var(--datatable-sticky-rail, var(--datatable-head-height));
+  background-image:
+    linear-gradient(var(--hairline), var(--hairline)),
+    linear-gradient(var(--ground-deep), var(--ground-deep));
+  background-size:
+    100% 1px,
+    100% var(--datatable-sticky-rail-fill);
+  background-position:
+    0 calc(var(--datatable-sticky-rail-fill) - 1px),
+    0 0;
+  background-repeat: no-repeat;
 }
 
 /* body-only keeps the shared 18px side gutter; only a hair of floor so
@@ -595,30 +579,13 @@ input:focus-visible + .select-mark {
   padding-bottom: 4px;
 }
 
-/* full-width sticky rail: spans the scrollport (including side gutters) and
-   stays fixed on horizontal scroll — th box-shadow only travels with columns */
-.datatable-scroll::before {
-  content: "";
-  position: sticky;
-  top: 0;
-  display: block;
-  box-sizing: border-box;
-  height: var(--datatable-sticky-rail, var(--datatable-head-height));
-  margin-left: calc(-1 * var(--datatable-scroll-gutter));
-  margin-right: calc(-1 * var(--datatable-scroll-gutter));
-  margin-bottom: calc(-1 * var(--datatable-sticky-rail, var(--datatable-head-height)));
-  background: var(--ground-deep);
-  border-bottom: 1px solid var(--hairline);
-  z-index: 4;
-  pointer-events: none;
-}
-
-.datatable-scroll:has(.datatable-table[hidden])::before {
-  content: none;
+.datatable-scroll:has(.datatable-table[hidden]) {
+  background-image: none;
 }
 
 .datatable-table {
   width: 100%;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--datatable-body-font-size);
@@ -650,6 +617,7 @@ input:focus-visible + .select-mark {
 .datatable-table [data-col-min="count"] { --datatable-col-min: var(--datatable-col-min-count); }
 .datatable-table [data-col-min="rev"] { --datatable-col-min: var(--datatable-col-min-rev); }
 .datatable-table [data-col-min="confidence"] { --datatable-col-min: var(--datatable-col-min-confidence); }
+.datatable-table [data-col-min="title"] { --datatable-col-min: var(--datatable-col-min-title); }
 .datatable-table [data-col-min="action"] { --datatable-col-min: var(--datatable-col-min-action); }
 
 .datatable-table thead th {
@@ -657,6 +625,7 @@ input:focus-visible + .select-mark {
   top: 0;
   z-index: 5;
   box-sizing: border-box;
+  height: var(--datatable-head-height);
   min-height: var(--datatable-head-height);
   background: var(--ground-deep);
   border-bottom: none;
@@ -695,15 +664,19 @@ input:focus-visible + .select-mark {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 10px 10px 0;
+  box-sizing: border-box;
+  height: var(--datatable-head-height);
+  padding: 0 10px 0 0;
   border: 0;
   background: transparent;
   cursor: pointer;
   font-family: var(--font-mono);
   font-weight: 500;
   font-size: var(--datatable-body-font-size);
+  line-height: 1;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--teal);
   opacity: 0.85;
   text-align: left;
@@ -747,27 +720,29 @@ th[aria-sort="descending"] .col-key { color: var(--text-bright); opacity: 1; }
 .col-head {
   display: flex;
   align-items: center;
-  padding: 10px 10px 10px 0;
+  box-sizing: border-box;
+  height: var(--datatable-head-height);
+  padding: 0 10px 0 0;
   font-family: var(--font-mono);
   font-weight: 500;
   font-size: var(--datatable-body-font-size);
+  line-height: 1;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--teal);
   opacity: 0.85;
   text-align: left;
 }
 
+/* Alignment only. Pad and type live on `.col-head` — extra th padding
+   stacked with the inner head and blew the 36px rail. */
 .datatable-table th.col-state {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: var(--datatable-body-font-size);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
-  opacity: 0.85;
   text-align: center;
-  padding: 10px 10px 10px 0;
+}
+
+.datatable-table th.col-state .col-head {
+  justify-content: center;
 }
 
 .datatable-table tbody td {
@@ -876,8 +851,18 @@ th[aria-sort="descending"] .col-key { color: var(--text-bright); opacity: 1; }
   outline-offset: 3px;
 }
 
-td.cell-content > .tip-host:has(.compact-id) {
-  vertical-align: middle;
+/* CompactId hit area spans the full row; vertical padding on the cell would
+   stack with tip-host min-height and blow past --datatable-row-height. */
+.datatable-table tbody td.cell-content:has(.compact-id) {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.datatable-table tbody td.cell-content:has(.compact-id) > .tip-host {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--datatable-row-height);
 }
 
 .datatable-row.is-expanded td { background: rgba(60, 192, 191, 0.04); }

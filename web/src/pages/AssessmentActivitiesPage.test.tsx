@@ -106,6 +106,7 @@ describe("AssessmentActivitiesPage", () => {
     expect(screen.getByText("Nothing matches the current search. Clear the search to restore the registry.")).toBeInTheDocument();
     const clear = screen.getByRole("button", { name: "Clear search" });
     expect(clear.closest(".datatable-empty")).not.toBeNull();
+    expect(clear.closest(".work-plane")).toHaveClass("registry-wall--hug");
     fireEvent.click(clear);
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
@@ -115,8 +116,25 @@ describe("AssessmentActivitiesPage", () => {
     renderActivities();
     const empty = await screen.findByText("No activities are available.");
     expect(empty.closest(".frame-cut")).toHaveClass("datatable-frame", "frame-cut--flush");
-    expect(empty.closest(".work-plane")).toHaveClass("registry-wall");
-    expect(empty.closest(".work-plane")).not.toHaveClass("registry-wall--hug");
+    expect(empty.closest(".work-plane")).toHaveClass("registry-wall", "registry-wall--hug");
+  });
+
+  it("fills the registry bay when more than four activities are loaded", async () => {
+    renderActivities({
+      activities: [1, 2, 3, 4, 5].map((n) => activityRow({
+        activity_id: `act-${n}`,
+        title: `Campaign ${n}`,
+      })),
+    });
+    const campaign = await screen.findByRole("link", { name: /Campaign 1/ });
+    expect(screen.getByRole("searchbox", { name: "Search campaign title or ID" })).toHaveClass("seg-search");
+    expect(campaign.closest(".work-plane")).toHaveClass("registry-wall");
+    expect(campaign.closest(".work-plane")).not.toHaveClass("registry-wall--hug");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search campaign title or ID" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(await screen.findByText("No matching activities")).toBeInTheDocument();
+    expect(document.querySelector(".work-plane")).toHaveClass("registry-wall--hug");
   });
 
   it("explains a missing required source category and withholds create", async () => {

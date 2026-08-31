@@ -2,7 +2,9 @@
 
 ## Status
 
-**Approved — 2026-08-28**
+**Approved — 2026-08-28; amended 2026-08-31** for design-lab outbound
+imports of production-safe domain composition after generic design-system
+demotion.
 
 ## Owners and approvers
 
@@ -74,9 +76,15 @@ commands (`dev:design-lab`, `build:design-lab`, `verify:design-lab`,
 
 Production modules must not import `src/design-lab`, `.work/resources`, or any
 retired `web-legacy` path. Design-lab modules may import `design-system`,
-`lib`, shared styles, and lab modules only. `design-system` must never import
-the design lab. Production may use layout families `management`,
-`guided-task`, and `live-session`. `reference` remains design-lab only.
+`lib`, shared styles, lab modules, and production-safe domain composition used
+to clone production pages (`web/src/components/work/`, `web/src/content/`, and
+named assessment readouts such as `SetupTrackReadout`). They must not import
+the production entry graph, pages, API clients, auth/query hooks, or other
+`features/` modules. `design-system` must never import the design lab.
+Production may use layout families `management`, `guided-task`, and
+`live-session`. `reference` remains design-lab only. The lab
+`LiveSessionLayout` implementation may own `data-layout="live-session"` until
+that family is promoted into `design-system/patterns/layouts/`.
 
 ADR-019 Query, form, Lucide, native `fetch`, typed/domain clients, CSRF,
 generation guards, one in-memory QueryClient per tree, protected cache purge,
@@ -141,6 +149,8 @@ unchanged. Design-system v1.0 remains visual authority.
   [UI/UX index](../../ui-ux/README.md),
   [design system v1.0](../../ui-ux/design-system/README.md)
 - Supersedes: ADR-020 dual-build production pointer, cutover-from-legacy, and
-  `web-legacy/` as a live runtime. Does not supersede ADR-020 design-lab
-  isolation rules restated here as `FE-RESET-2`.
+  `web-legacy/` as a live runtime. Design-lab isolation is restated here as
+  `FE-RESET-2` (amended 2026-08-31 for production-safe domain composition).
+  Historical ADR-020 `FE-TRANS-3` / `FE-TRANS-4` sentences that forbid every
+  lab import from `web/src/components/` or `features/` yield to `FE-RESET-2`.
 - Does not supersede: ADR-019

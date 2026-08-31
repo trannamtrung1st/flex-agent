@@ -82,7 +82,7 @@ export function NativeDialog({
       onKeyDownCapture={onKeyDownCapture}
       onKeyUpCapture={onKeyUpCapture}
     >
-      {children}
+      <div className="dialog-stage">{children}</div>
     </dialog>
   );
 }

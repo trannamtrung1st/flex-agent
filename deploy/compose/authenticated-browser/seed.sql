@@ -90,10 +90,12 @@ INSERT INTO identity_human_display_profiles (
 VALUES (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
-    'Synthetic Participant',
+    'Demo Participant',
     CLOCK_TIMESTAMP(),
     CLOCK_TIMESTAMP())
-ON CONFLICT (organization_id, actor_id) DO NOTHING;
+ON CONFLICT (organization_id, actor_id) DO UPDATE
+SET display_label = EXCLUDED.display_label,
+    updated_at = EXCLUDED.updated_at;
 
 -- Numbered extras: demo.admin1–5 and demo.participant1–30 (Keycloak ids d2000000 / e2000000).
 INSERT INTO actors (id, created_at)
@@ -163,11 +165,13 @@ INSERT INTO identity_human_display_profiles (
 SELECT
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid,
-    format('Synthetic Participant %s', gs.i),
+    format('Demo Participant %s', gs.i),
     CLOCK_TIMESTAMP(),
     CLOCK_TIMESTAMP()
 FROM generate_series(1, 30) AS gs(i)
-ON CONFLICT (organization_id, actor_id) DO NOTHING;
+ON CONFLICT (organization_id, actor_id) DO UPDATE
+SET display_label = EXCLUDED.display_label,
+    updated_at = EXCLUDED.updated_at;
 
 INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
 VALUES

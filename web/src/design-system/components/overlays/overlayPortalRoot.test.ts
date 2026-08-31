@@ -13,7 +13,17 @@ describe("overlayPortalRoot", () => {
     dialog.remove();
   });
 
-  it("falls back to document.body outside a dialog", () => {
+  it("uses the application root so hull chrome can stack above the overlay", () => {
+    const root = document.createElement("div");
+    root.id = "root";
+    const host = document.createElement("span");
+    root.append(host);
+    document.body.append(root);
+    expect(overlayPortalRoot(host)).toBe(root);
+    root.remove();
+  });
+
+  it("falls back to document.body outside a dialog when there is no application root", () => {
     const host = document.createElement("span");
     document.body.append(host);
     expect(overlayPortalRoot(host)).toBe(document.body);
@@ -29,5 +39,11 @@ describe("useFloatingPlacement viewport binding", () => {
       "const visualViewport = window.visualViewport",
     ]);
     expect(source).not.toMatch(/const visual = window\.visualViewport/);
+  });
+
+  it("seeds an unplaced overlay at the origin so the first measure cannot inherit a flex static-position box", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "AnchoredOverlay.tsx"), "utf8");
+    expect(source).toMatch(/visibility:\s*"hidden", top: 0, left: 0/);
   });
 });

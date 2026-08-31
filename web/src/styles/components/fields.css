@@ -106,8 +106,8 @@
   background: rgba(2, 9, 14, 0.55);
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
   transition: border-color 180ms var(--ease-out);
@@ -115,6 +115,10 @@
 
 .field-input--narrow { width: 84px; }
 .field-input--wide { width: 100%; }
+.field-input--uppercase {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
 .field-input[type="number"] {
   appearance: textfield;

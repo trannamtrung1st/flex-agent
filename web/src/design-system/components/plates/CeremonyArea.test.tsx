@@ -72,6 +72,24 @@ describe("CeremonyUnavailable", () => {
     expect(lightDanger).toContain("var(--danger-glow)");
   });
 
+  it("hugs auto empty wells to the note track instead of stretching to the wait cap", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const plates = readFileSync(join(here, "../../../styles/components/plates.css"), "utf8");
+    expect(plates).toMatch(
+      /\.operate-column--hug\[data-hug-measure="auto"\]\s+\.empty-plate--inset\s*\{[^}]*grid-template-columns:\s*7px max-content/,
+    );
+    expect(plates).not.toMatch(
+      /\.operate-column--hug\[data-hug-measure="auto"\]:is\(:has\(\.wait-plate--inset\), :has\(\.empty-plate--inset\)\)/,
+    );
+    expect(plates).toMatch(
+      /\.operate-column--hug\[data-hug-measure="auto"\]:has\(\.wait-plate--inset\)\s*\{[^}]*--operate-hug-w:\s*var\(--operate-column-max\)/,
+    );
+    const appShell = readFileSync(join(here, "../../../styles/app-shell.css"), "utf8");
+    expect(appShell).toMatch(
+      /@media \(max-width: 720px\)[\s\S]*?\.work-plane--ceremony > \.operate-column--hug\[data-hug-measure="auto"\] \.empty-plate--inset \{[^}]*grid-template-columns:\s*7px minmax\(0,\s*1fr\)/,
+    );
+  });
+
   it("centers the recovery key across the empty well, not the note start edge", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const appShell = readFileSync(join(here, "../../../styles/app-shell.css"), "utf8");
@@ -84,6 +102,24 @@ describe("CeremonyUnavailable", () => {
 });
 
 describe("CeremonyArea", () => {
+
+  it("fills the management main slot so hug centering applies on both axes", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const layouts = readFileSync(join(here, "../../../styles/components/layouts.css"), "utf8");
+    const gallery = readFileSync(join(here, "../../../styles/surfaces/gallery.css"), "utf8");
+    expect(layouts).toMatch(
+      /\.layout-management__main > \.work-plane--ceremony,\s*\.layout-management__main > \.composition-inset > \.work-plane--ceremony \{[^}]*flex:\s*1\s*1\s*auto/,
+    );
+    expect(layouts).toMatch(
+      /\.layout-management__main > \.work-plane--ceremony,\s*\.layout-management__main > \.composition-inset > \.work-plane--ceremony \{[^}]*min-height:\s*0/,
+    );
+    expect(gallery).toMatch(
+      /\.layout-spec \.workspace-area\.work-plane--ceremony \{[^}]*flex:\s*1\s*1\s*auto/,
+    );
+    expect(layouts).toMatch(
+      /\.layout-management__main:has\(\.breadcrumb-nav\) > \.work-plane--ceremony,\s*\.layout-management__main:has\(\.breadcrumb-nav\) > \.composition-inset > \.work-plane--ceremony \{[^}]*padding-block:/,
+    );
+  });
 
   it("seats an inset wait plate in the hug ceremony well", () => {
     render(

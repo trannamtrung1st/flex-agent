@@ -47,7 +47,10 @@ Fieldset legends are unreliable flex items: group gap is
 `legend { margin-block-end: var(--form-group-gap) }`, not `Stack` gap alone.
 The group mark is a 2px `--hairline` rule under the legend words, not a full-width bay rule, rail, or pad
 on the fieldset. Sibling `FormSection`s in a `Stack` use `--operate-bay-gap`.
-Do not add a plate or `.form-divider`. `Grid` of FormSections is not a stack;
+Stacked nested-record `WorkWell seat="stack"` uses that same title-owned mark
+and `titleRole="plate"`; pane-seated wells do not (`seat="pane"` span + frame
+insets, `titleRole="task"`, or `inset="flush"` when parent `frame-in` already
+pads). Do not add a plate or `.form-divider`. `Grid` of FormSections is not a stack;
 keep `Grid` gap. `gap="none"` is only for fused instrument groups (one plate,
 shared hairline).
 
@@ -153,6 +156,7 @@ timezone rules in governing specs win over decorative date formats (`PC-11`).
 | Examiner / inspector plate | 280–320px (session examiner column is 320px) |
 | Reading column | 68–78ch; ~680–800px |
 | Dialog narrow / default / wide | 412 / 520 / 680px |
+| Campaign configuration ceremony (fill-grid) | 840px (`--dialog-w` on `.dialog-plate--wide.ceremony-plate`; `min` with `100vw - 48px`). Lab `CampaignCeremonyPlate` owns that class bundle; generic `DialogPlate` wide stays 680px. |
 | Standard content max | fills shell; setup/create ceremony hugs the form column (52rem). Unframed stacked nested records fill the main landmark |
 | Full workspace | fills remaining width |
 

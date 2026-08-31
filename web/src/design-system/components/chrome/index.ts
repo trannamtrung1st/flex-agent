@@ -9,3 +9,4 @@ export { BrandHomeLink, BrandMark, PRODUCT_NAME, RailBrand, StripBrand } from ".
 export { CommandStrip, type CommandStripNavItem, type CommandStripProps } from "./CommandStrip";
 export { Advisory, Announcer, ConsoleFoot, OperateHead } from "./OperateHead";
 export { ProfileMenu } from "./ProfileMenu";
+export { RailHomeLink } from "./RailHomeLink";

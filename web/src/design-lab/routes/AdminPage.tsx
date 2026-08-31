@@ -24,7 +24,7 @@ import { useSurface } from "../lib/useSurface";
 
 export function AdminPage() {
   return (
-    <ToastHost placement="bottom-center">
+    <ToastHost>
       <AdminPageBody />
     </ToastHost>
   );
@@ -35,7 +35,6 @@ function AdminPageBody() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState(() => createCampaigns());
-  const [sealing, setSealing] = useState(false);
   const { message, announce } = useAnnouncer();
   const pushToast = usePushToast();
   const { actions, signOutOpen, setSignOutOpen } = usePrototypeSignOut();
@@ -99,8 +98,6 @@ function AdminPageBody() {
     setCampaignId,
     announce,
     pushToast,
-    sealing,
-    setSealing,
   };
 
   return (

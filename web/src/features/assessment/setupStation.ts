@@ -1,6 +1,6 @@
 import type { AssessmentSetupView } from "../../api/production-assessment";
 import type { ErrorSummaryItem, StateIndicatorVariant } from "../../design-system";
-import { SETUP_RESOLVED_NOTE } from "../../design-system/components/fields/fieldFormat";
+import { SETUP_RESOLVED_NOTE } from "../../content/fieldCopy";
 import { ABSENT_INSTANT_MARK, formatViewerInstant } from "../../lib/format";
 import { sourceRevisionCaption } from "./campaignCreatePresentation";
 

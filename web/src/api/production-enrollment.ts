@@ -75,6 +75,9 @@ export function createEnrollmentIdempotencyKey(): string {
   return `enr-${crypto.randomUUID()}`;
 }
 
+/** Local demo fixture has 31 assignable participants; API maximum is 50. */
+export const PARTICIPANT_OPTIONS_PAGE_LIMIT = 50;
+
 function withCursor(path: string, cursor?: string | null): string {
   if (!cursor) return path;
   return `${path}?cursor=${encodeURIComponent(cursor)}`;
@@ -82,12 +85,13 @@ function withCursor(path: string, cursor?: string | null): string {
 
 export function createProductionEnrollmentClient(fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>) {
   return {
-    listCandidates(activityId: string, cohortId: string, cursor?: string | null) {
+    listCandidates(activityId: string, cohortId: string, cursor?: string | null, limit?: number) {
+      const query = new URLSearchParams();
+      if (cursor) query.set("cursor", cursor);
+      if (limit !== undefined) query.set("limit", String(limit));
+      const suffix = query.size > 0 ? `?${query.toString()}` : "";
       return fetchJson<CandidatePageV1>(
-        withCursor(
-          `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options`,
-          cursor,
-        ),
+        `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options${suffix}`,
       );
     },
     listEnrollments(activityId: string, cohortId: string, cursor?: string | null) {

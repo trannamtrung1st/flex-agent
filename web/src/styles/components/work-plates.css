@@ -1,0 +1,207 @@
+/* Assignment work plates, heads, bays, setup ceremony, and record marks.
+   Domain paint, not generic plate grammar. */
+
+.assignment-plate {
+  --cut: var(--notch);
+  display: flex;
+  min-width: 0;
+}
+
+.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-block-start: 6px;
+  padding-inline: 0;
+  padding-block-end: 0;
+}
+
+.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in:has(.plate-foot) {
+  padding-block-end: 0;
+}
+
+.assignment-plate-in > :not(.plate-foot) {
+  padding-inline: var(--frame-inset-inline);
+}
+
+.assignment-plate--released > .frame-in {
+  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
+}
+
+[data-theme="light"] .assignment-plate > .frame-in {
+  background: var(--panel-sheen), var(--ground-deep);
+}
+
+.assignment-plate .assignment-plate-keys {
+  min-height: 58px;
+  margin-top: auto;
+  padding-block-start: var(--plate-foot-pad-block);
+  padding-block-end: var(--frame-inset-block-end);
+  padding-inline: var(--frame-inset-inline);
+}
+
+.assignment-plate-keys--empty {
+  min-height: 24px;
+}
+
+.assignment-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignment-record-label {
+  color: var(--text);
+}
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  .assignment-plate-keys .key {
+    width: auto;
+    justify-content: unset;
+  }
+}
+
+.workspace-area > .operate-scroll > .assignment-bays {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.assignment-board > .frame-in > .frame-scroll,
+.assignment-station-board > .frame-in > .frame-scroll {
+  padding: 0;
+  overflow: visible;
+}
+
+.assignment-instruments {
+  margin-block: 0;
+}
+
+.frame-scroll > .assignment-instruments,
+.setup-ceremony > .assignment-instruments {
+  flex-shrink: 0;
+  margin-block-end: var(--form-group-gap);
+}
+
+.assignment-instruments .readout-grid-row {
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.assignment-bays {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.assignment-bay {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-block: var(--space-2) var(--space-4);
+}
+
+.assignment-bay-head {
+  flex-shrink: 0;
+  margin: 0 0 14px;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  color: var(--label);
+}
+
+.assignment-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--operate-bay-gap);
+  padding-bottom: var(--form-group-gap);
+  border-bottom: 1px solid var(--hairline-dim);
+  flex-shrink: 0;
+}
+
+.assignment-title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  color: var(--text-bright);
+  font-weight: 400;
+  max-width: 42ch;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.assignment-meta {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  color: var(--label);
+}
+
+.workspace-area.assignment-board--hug {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.workspace-area.assignment-board--hug > .frame-cut,
+.workspace-area.assignment-board--hug > .operate-scroll > .frame-cut {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.workspace-form.setup-ceremony > .setup-ceremony__foot,
+.setup-ceremony > .setup-ceremony__foot {
+  flex-shrink: 0;
+  margin-block-start: var(--plate-foot-pad-block);
+}
+
+.setup-ceremony .select-shell--field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.workspace-area.record-plane--setup .readout-grid-field:has(.setup-track-now) dt {
+  color: var(--text-bright);
+  opacity: 1;
+}
+
+.setup-ceremony {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.setup-ceremony__foot {
+  flex-shrink: 0;
+  margin-block-start: auto;
+}
+
+@media (max-width: 720px) {
+  .assignment-head {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .setup-ceremony__foot .key--activate {
+    width: 100%;
+  }
+
+  .setup-ceremony__foot[data-arrangement="split"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .setup-ceremony__foot .plate-foot-slot--primary {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+}

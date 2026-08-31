@@ -41,7 +41,7 @@ export function SetupUnsavedLeaveDialog({
               <Key variant="quiet" disabled={busy} onClick={onClose}>
                 Stay on page
               </Key>
-              <Key variant="quiet" className="key--danger" disabled={busy} onClick={onLeaveWithoutSaving}>
+              <Key variant="quiet" destructive disabled={busy} onClick={onLeaveWithoutSaving}>
                 Leave without saving
               </Key>
             </KeyGroup>

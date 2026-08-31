@@ -15,6 +15,9 @@ import {
   FieldNumber,
   FieldTextarea,
   FormField,
+  FormDemoField,
+  FormPair,
+  FormPairField,
   FormSection,
   CAMPAIGN_TITLE_PLACEHOLDER,
   Key,
@@ -274,17 +277,17 @@ export function InputSections() {
 
   return (
     <>
-      <GallerySection id="form" title="Form controls" note="Parts catalog. Clone whole OperateArea compositions from Form recipes above. Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Ceremony, create, and dialogs use FormField layout=stack (label over slot, --field-label-gap / 10px). Titled clusters use FormSection: plate-title legend with a 2px hairline underline under the name only, then --form-group-gap to the fields. Horizon rows remain .form-row / .form-demo-row. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
+      <GallerySection id="form" title="Form controls" note="Parts catalog. Clone whole OperateArea compositions from Form recipes above. Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Ceremony, create, and dialogs use FormField layout=stack (label over slot, --field-label-gap / 10px). Titled clusters use FormSection: plate-title legend with a 2px hairline underline under the name only, then --form-group-gap to the fields. Horizon rows remain .form-row / .form-demo-row. Pair rows use FormPair plus FormPairField (.field-pair), not FormField layout=pair. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
         <div className="spec-row spec-row--fields">
           <Spec tag=".field-input · text slot · example placeholder">
-            <FormField id="demoText" label="Callsign" className="form-demo-row">
+            <FormDemoField id="demoText" label="Callsign">
               {(controlProps) => (
-                <FieldInput {...controlProps} type="text" placeholder={CALLSIGN_PLACEHOLDER} />
+                <FieldInput {...controlProps} type="text" casing="uppercase" placeholder={CALLSIGN_PLACEHOLDER} />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".field-number · authored inc/dec">
-            <FormField id="demoNumber" label="Score" className="form-demo-row">
+            <FormDemoField id="demoNumber" label="Score">
               {(controlProps) => (
                 <FieldNumber
                   {...controlProps}
@@ -297,7 +300,7 @@ export function InputSections() {
                   onChange={(event) => setScore(event.target.value)}
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
         <div className="spec-row spec-row--fields">
@@ -373,12 +376,11 @@ export function InputSections() {
         </div>
         <div className="form-demo-grid form-demo-grid--states">
           <Spec tag=".field-input · type mm:ss — clear it to see amber validation">
-            <FormField
+            <FormDemoField
               id="demoLimit"
               label="Session limit"
               hint={MM_SS_HINT}
               error={invalid ? mmSsError("Session limit") : undefined}
-              className="form-demo-row"
             >
               {(controlProps) => (
                 <FieldInput
@@ -388,34 +390,33 @@ export function InputSections() {
                   onChange={(event) => setLimit(event.target.value)}
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag="disabled + .field-hint — helper before error in aria-describedby">
-            <FormField
+            <FormDemoField
               id="demoDisabled"
               label="Cooldown"
               hint="Until the next attempt window opens."
-              className="form-demo-row"
             >
               {(controlProps) => (
                 <FieldInput {...controlProps} value="24H" placeholder={COOLDOWN_PLACEHOLDER} disabled />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".field-input.is-frozen · control etch — sealed records use readout, not this slot">
-            <FormField id="demoFrozen" label="Session limit" className="form-demo-row">
+            <FormDemoField id="demoFrozen" label="Session limit">
               {(controlProps) => (
                 <FieldInput {...controlProps} value="60:00" placeholder={MM_SS_PLACEHOLDER} frozen />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".field-number.is-frozen · stepper withdrawn">
-            <FormField id="demoFrozenNumber" label="Committed score" className="form-demo-row">
+            <FormDemoField id="demoFrozenNumber" label="Committed score">
               {(controlProps) => <FieldNumber {...controlProps} value={3} placeholder={SCORE_PLACEHOLDER} frozen />}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".select-shell.is-frozen · chevron withdrawn">
-            <FormField id="demoFrozenDrop" label="Harness" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoFrozenDrop" label="Harness" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <DropdownSelect
                   id={controlProps.id}
@@ -427,18 +428,17 @@ export function InputSections() {
                   frozen
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
         <Spec wide tag=".form-row--pair · .field-pair — two fields, one horizon">
           <div className="form-demo-pair">
-            <div className="form-row form-row--pair">
-              <FormField
+            <FormPair>
+              <FormPairField
                 id="demoPairLimit"
                 label="Session limit"
                 hint={MM_SS_HINT}
                 error={pairLimitInvalid ? mmSsError("Session limit") : undefined}
-                layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
@@ -448,13 +448,12 @@ export function InputSections() {
                     onChange={(event) => setPairLimit(event.target.value)}
                   />
                 )}
-              </FormField>
-              <FormField
+              </FormPairField>
+              <FormPairField
                 id="demoPairWarning"
                 label="Time warning at"
                 hint={MM_SS_HINT}
                 error={pairWarningInvalid ? mmSsError("Time warning", MM_SS_WARNING_PLACEHOLDER) : undefined}
-                layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
@@ -464,8 +463,8 @@ export function InputSections() {
                     onChange={(event) => setPairWarning(event.target.value)}
                   />
                 )}
-              </FormField>
-            </div>
+              </FormPairField>
+            </FormPair>
           </div>
         </Spec>
         <Spec wide tag=".field-group · .field-stack · locked stack vs .field-textarea--resize-y">
@@ -511,11 +510,11 @@ export function InputSections() {
         </Spec>
         <div className="spec-row spec-row--selects">
           <Spec tag=".select-shell--field · fills column · popover matches trigger">
-            <FormField id="demoDropKey" label="Harness" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoDropKey" label="Harness" labelAssociatesControl={false}>
               {(_, { labelId }) => (
                 <DropdownSelect id="demoDropKey" valueId="demoDropValue" labelId={labelId} value={harness} options={harnesses.slice(0, 3)} onChange={setHarness} />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".select-shell--context · min-width match · max-width grow">
             <SearchableDisclosureMenu label="Campaign context" value={campaigns.find((item) => item.id === context)?.label ?? ""} selectedId={context} options={campaigns.slice(0, 3)} onSelect={setContext} ariaLabel="Select campaign context" />
@@ -531,10 +530,9 @@ export function InputSections() {
             />
           </Spec>
           <Spec tag="DropdownSelect clearable · nullable value · unframed Clear">
-            <FormField
+            <FormDemoField
               id="demoOptionalOwner"
               label="Escalation owner"
-              className="form-demo-row"
               labelAssociatesControl={false}
             >
               {(_, { labelId }) => (
@@ -549,12 +547,12 @@ export function InputSections() {
                   onChange={setOptionalOwner}
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
         <div className="spec-row spec-row--marks">
           <Spec tag="AcknowledgmentGate · amber = commitment voice">
-            <AcknowledgmentGate id="demoAck" className="control-line" checked={acked} onChange={setAcked}>
+            <AcknowledgmentGate id="demoAck" presentation="inline" checked={acked} onChange={setAcked}>
               I acknowledge the session rules and consent terms.
             </AcknowledgmentGate>
           </Spec>
@@ -585,7 +583,7 @@ export function InputSections() {
       <GallerySection id="datetime" title="Date & time" note="Field-slot triggers with authored calendar and chrono plates — not native browser pickers. The trigger shrinks to the mark; the plate keeps its own instrument width. Selected day is a rectangular teal inset bezel; today is a circular teal ring on the numeral. Time wheels keep option-menu hairline and teal-glass hover, but selected is the inset bezel — the 7×1px tick stays on menus and nav. Session mark uses HH/MM; Sync mark opts into HH/MM/SS via withSeconds. Amber still owns invalid; frozen etches the committed mark.">
         <div className="spec-row spec-row--temporal-times">
           <Spec tag=".select-shell--time · HH/MM wheels · tabular 24h · Clear / Done">
-            <FormField id="demoTime" label="Session mark" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoTime" label="Session mark" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <TimePicker
                   id={controlProps.id}
@@ -596,10 +594,10 @@ export function InputSections() {
                   onChange={setSessionMark}
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".select-shell--time · HH/MM/SS wheels · withSeconds · Clear / Done">
-            <FormField id="demoTimeSeconds" label="Sync mark" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoTimeSeconds" label="Sync mark" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <TimePicker
                   id={controlProps.id}
@@ -611,12 +609,12 @@ export function InputSections() {
                   withSeconds
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
         <div className="spec-row spec-row--temporal-dates">
           <Spec tag=".select-shell--date · calendar grid · Monday start · Now / Clear / Done">
-            <FormField id="demoDate" label="Cohort deadline" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoDate" label="Cohort deadline" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <DatePicker
                   id={controlProps.id}
@@ -628,11 +626,11 @@ export function InputSections() {
                   now="2026-08-26"
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
         <Spec wide tag=".select-shell--datetime · calendar + chrono · Now / Clear / Done">
-          <FormField id="demoDateTime" label="Activation at" className="form-demo-row" labelAssociatesControl={false}>
+          <FormDemoField id="demoDateTime" label="Activation at" labelAssociatesControl={false}>
             {(controlProps, { labelId }) => (
               <DateTimePicker
                 id={controlProps.id}
@@ -645,15 +643,14 @@ export function InputSections() {
                 now="2026-08-26"
               />
             )}
-          </FormField>
+          </FormDemoField>
         </Spec>
         <div className="form-demo-grid form-demo-grid--states">
           <Spec tag="empty + .field-error · amber bezel">
-            <FormField
+            <FormDemoField
               id="demoDateInvalid"
               label="Window start"
               error={windowStart ? undefined : "Enter a window start — pick a date from the calendar."}
-              className="form-demo-row"
               labelAssociatesControl={false}
             >
               {(controlProps, { labelId }) => (
@@ -667,10 +664,10 @@ export function InputSections() {
                   now="2026-08-26"
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
           <Spec tag=".select-shell--date.is-frozen · post-activation etch">
-            <FormField id="demoDateFrozen" label="Opened on" className="form-demo-row" labelAssociatesControl={false}>
+            <FormDemoField id="demoDateFrozen" label="Opened on" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <DatePicker
                   id={controlProps.id}
@@ -681,7 +678,7 @@ export function InputSections() {
                   now="2026-08-26"
                 />
               )}
-            </FormField>
+            </FormDemoField>
           </Spec>
         </div>
       </GallerySection>

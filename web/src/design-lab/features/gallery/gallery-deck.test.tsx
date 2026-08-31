@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MemoryRouter } from "react-router-dom";
-import { SETUP_RESOLVED_NOTE } from "../../../design-system/components/fields/fieldFormat";
+import { SETUP_RESOLVED_NOTE } from "../../../content/fieldCopy";
 import { GalleryDeck } from "./GalleryDeck";
 import { gallerySectionItems } from "./gallerySections";
 
@@ -30,6 +30,13 @@ describe("GalleryDeck", () => {
       (section) => section.id,
     );
     expect(renderedIds).toEqual(gallerySectionItems.map((item) => item.id));
+  });
+
+  it("rewrites a retired composition-recipes hash to form-recipes", () => {
+    window.history.replaceState(null, "", "#composition-recipes");
+    renderGalleryDeck();
+    expect(window.location.hash).toBe("#form-recipes");
+    expect(document.getElementById("composition-recipes")).toBeNull();
   });
 
   it("renders Compact ID specimens with a truncated registry value", () => {
@@ -215,12 +222,32 @@ describe("GalleryDeck", () => {
 
   it("shows work-well section labels without a leading tick specimen", () => {
     renderGalleryDeck();
+    const well = document.getElementById("work-well")!;
+    expect(within(well).getByRole("heading", { name: "Work well" })).toBeInTheDocument();
+    expect(within(well).getByRole("heading", { name: "Enrollment actions" })).toBeInTheDocument();
+    expect(within(well).getByRole("heading", { name: "History" })).toBeInTheDocument();
+    expect(within(well).getByRole("heading", { name: "Assignment briefing" })).toBeInTheDocument();
+    expect(within(well).getByRole("heading", { name: "What you are completing" })).toBeInTheDocument();
+    expect(within(well).getByRole("heading", { name: "Before you begin" })).toBeInTheDocument();
+    expect(well.querySelector(".work-well[data-seat=\"stack\"] .work-well__head[data-mark=\"title\"]")).not.toBeNull();
+    expect(well.querySelector(".work-well[data-seat=\"stack\"]")).toHaveAttribute("data-inset", "flush");
+    expect(well.querySelector(".work-well[data-seat=\"pane\"] .work-well__head[data-mark=\"span\"]")).not.toBeNull();
+    expect(well.querySelector(".work-well[data-seat=\"pane\"]")).toHaveAttribute("data-inset", "flush");
+    expect(within(well).getByRole("heading", { name: "Enrollment actions" })).toHaveAttribute("data-title-role", "plate");
+    expect(within(well).getByRole("heading", { name: "Assignment briefing" })).toHaveAttribute("data-title-role", "task");
+    expect(within(well).getByRole("heading", { name: "Plate title" })).toHaveAttribute("data-title-role", "plate");
+    expect(within(well).getByRole("heading", { name: "Task title" })).toHaveAttribute("data-title-role", "task");
+    expect(within(well).getByRole("heading", { name: "Task title" }).closest(".work-well")).toHaveAttribute("data-seat", "stack");
+    expect(well.querySelector(".work-well__section ul")).not.toBeNull();
+    expect(well.querySelector(".work-well__section ol")).not.toBeNull();
     const pane = document.getElementById("pane")!;
-    expect(within(pane).getByRole("heading", { name: "Assignment briefing" })).toBeInTheDocument();
-    expect(within(pane).getByRole("heading", { name: "What you are completing" })).toBeInTheDocument();
-    expect(within(pane).getByRole("heading", { name: "Before you begin" })).toBeInTheDocument();
-    expect(pane.querySelector(".work-well__section ul")).not.toBeNull();
-    expect(pane.querySelector(".work-well__section ol")).not.toBeNull();
+    const galleryCss = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../styles/surfaces/gallery.css"),
+      "utf8",
+    );
+    expect(galleryCss).toMatch(/\.pane-grid \{[^}]*gap:\s*36px 34px/);
+    expect(galleryCss).toMatch(/#pane \.pane-grid > \.spec\[data-flow-gap="2\.5"\]/);
+    expect(pane.querySelector(".protocol-plate")?.closest(".pane-grid")).not.toBeNull();
   });
 
   it("renders Key group as a dedicated section", () => {
@@ -238,13 +265,16 @@ describe("GalleryDeck", () => {
     const keysIdx = labels.indexOf("Keys");
     const keyGroupIdx = labels.indexOf("Key group");
     const paneIdx = labels.indexOf("Pane");
+    const workWellIdx = labels.indexOf("Work well");
     expect(within(index).getByRole("link", { name: "Keys" })).toHaveAttribute("href", "#keys");
     expect(within(index).getByRole("link", { name: "Key group" })).toHaveAttribute("href", "#key-group");
+    expect(within(index).getByRole("link", { name: "Work well" })).toHaveAttribute("href", "#work-well");
     expect(typeIdx).toBeLessThan(typographyIdx);
     expect(typographyIdx).toBeLessThan(keysIdx);
     expect(keysIdx).toBeLessThan(keyGroupIdx);
     expect(keyGroupIdx).toBeLessThan(paneIdx);
-    expect(paneIdx).toBeLessThan(labels.indexOf("Etched frame"));
+    expect(paneIdx).toBeLessThan(workWellIdx);
+    expect(workWellIdx).toBeLessThan(labels.indexOf("Etched frame"));
     expect(labels.indexOf("Etched frame")).toBeLessThan(labels.indexOf("Assignment plate"));
     expect(within(index).getByRole("link", { name: "Assignment plate" })).toHaveAttribute("href", "#assignment-plate");
     expect(screen.queryByRole("group", { name: "Keys" })).not.toBeInTheDocument();
@@ -256,7 +286,8 @@ describe("GalleryDeck", () => {
     expect(within(section).getByRole("heading", { name: "Assignment plate" })).toBeInTheDocument();
     const plate = within(section).getByRole("article", { name: "Activities" });
     expect(plate).toHaveClass("assignment-plate", "frame-cut");
-    expect(within(plate).getByRole("link", { name: "Open Activities" })).toHaveAttribute("href", "/activities");
+    expect(within(plate).getByRole("button", { name: "Open Activities" })).toBeInTheDocument();
+    expect(within(plate).queryByRole("link", { name: "Open Activities" })).not.toBeInTheDocument();
     expect(within(section).getByRole("article", { name: "Campaign A" })).toHaveClass("assignment-plate--released");
   });
 
@@ -297,13 +328,37 @@ describe("GalleryDeck", () => {
     expect(galleryCss).toContain('[data-layout="guided-task"] .phase-rail-scroll > .layout-slot');
     expect(galleryCss).toContain('[data-layout="guided-task"] .layout-guided__main > .layout-slot');
     expect(galleryCss).toContain('[data-layout="live-session"] .layout-session__main > .layout-slot');
-    expect(galleryCss).toMatch(/\.layout-spec \.phase-rail-scroll,\s*\.layout-spec \.rail-scroll/);
+    expect(galleryCss).toMatch(
+      /\[data-layout="guided-task"\] \.phase-rail-scroll,\s*\.layout-spec \[data-layout="live-session"\] \.rail-scroll/,
+    );
     expect(galleryCss).toMatch(/\.layout-spec \.operate-scroll/);
-    const slotStretch = galleryCss.match(
-      /\[data-layout="guided-task"\] \.phase-rail-scroll > \.layout-slot,[\s\S]*?\{[^}]+\}/,
+    const railScrollStretch = galleryCss.match(
+      /\[data-layout="guided-task"\] \.phase-rail-scroll,[\s\S]*?\{[^}]+\}/,
     )?.[0] ?? "";
-    expect(slotStretch).toMatch(/flex:\s*none/);
-    expect(slotStretch).not.toMatch(/min-height:\s*0/);
+    expect(railScrollStretch).toMatch(/flex:\s*1\s+1\s+auto/);
+    expect(railScrollStretch).toMatch(/overflow-y:\s*clip/);
+    const railSlotStretch = galleryCss.match(
+      /\[data-layout="guided-task"\] \.phase-rail-scroll > \.layout-slot--rail,[\s\S]*?\{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(railSlotStretch).toMatch(/flex:\s*1\s+1\s+auto/);
+    const slotStretch = galleryCss.match(
+      /\[data-layout="guided-task"\] \.layout-guided__main > \.layout-slot,[\s\S]*?\{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(slotStretch).toMatch(/flex:\s*1\s+1\s+auto/);
+    expect(slotStretch).not.toMatch(/flex:\s*none/);
+    expect(galleryCss).toMatch(/\.layout-spec \.layout-management__main > \.layout-slot/);
+    expect(galleryCss).toMatch(/min-height:\s*28rem/);
+    expect(galleryCss).toContain('[data-layout="management"] .record-view > .operate-scroll');
+    const managementSplitScroll = galleryCss.match(
+      /\[data-layout="management"\] \.record-view > \.operate-scroll \{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(managementSplitScroll).toMatch(/flex:\s*1\s+1\s+auto/);
+    expect(managementSplitScroll).toMatch(/overflow-y:\s*clip/);
+    const managementSplitFoot = galleryCss.match(
+      /\[data-layout="management"\] \.record-view > \.operate-scroll > \.layout-slot--foot \{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(managementSplitFoot).toMatch(/flex:\s*none/);
+    expect(managementSplitFoot).toMatch(/min-height:\s*2\.75rem/);
   });
 
   it("constrains management work-bay variants to title, description, optional back, and body", () => {
@@ -329,49 +384,53 @@ describe("GalleryDeck", () => {
     expect(within(record).getByRole("heading", { level: 1, name: "Campaign Record" })).toBeInTheDocument();
     expect(within(record).getByRole("button", { name: "Campaigns" })).toBeInTheDocument();
     expect(within(record).getByText("Configuration and activation for CAMP-2204 / Shoreline Operations.")).toBeInTheDocument();
-    expect(within(record).getByRole("region", { name: "Campaign configuration" })).toHaveTextContent("CAMP-2204");
-    expect(within(record).getByRole("region", { name: "Campaign configuration" }).querySelector(".frame-cut")).toBeNull();
-    expect(within(record).getByLabelText("Campaign record").closest(".frame-cut")).toBeNull();
+    const recordOperate = within(record).getByRole("region", { name: "Campaign configuration" });
+    expect(recordOperate).toHaveTextContent("CAMP-2204");
+    expect(recordOperate.querySelector(".frame-cut")).toBeNull();
+    expect(recordOperate).toHaveClass("record-plane");
+    expect(recordOperate).not.toHaveClass("record-plane--setup");
+    const recordGrid = within(record).getByLabelText("Campaign record");
+    expect(recordGrid.closest(".frame-cut")).toBeNull();
+    expect(recordGrid.parentElement).toHaveAttribute("data-flow-gap", "6");
+    expect(recordGrid.parentElement).toContainElement(within(record).getByRole("article", { name: "Configuration" }));
+    expect(within(record).getByRole("heading", { name: "Configuration" }).closest(".work-well__head")).toHaveAttribute(
+      "data-mark",
+      "title",
+    );
+    expect(within(record).getByRole("heading", { name: "Configuration" })).toHaveAttribute("data-title-role", "plate");
+    expect(within(record).getByRole("article", { name: "Configuration" })).toHaveAttribute("data-seat", "stack");
 
     const setup = document.getElementById("layout-management-setup")!;
-    expect(within(setup).getAllByRole("heading", { level: 1, name: "Setup and readiness" })).toHaveLength(2);
+    expect(setup.querySelectorAll(".layout-spec")).toHaveLength(1);
+    expect(within(setup).getByRole("heading", { level: 1, name: "Setup and readiness" })).toBeInTheDocument();
+    expect(within(setup).queryByRole("heading", { name: "Activated cohort" })).not.toBeInTheDocument();
+    expect(within(setup).queryByRole("heading", { name: "Readiness blocked" })).not.toBeInTheDocument();
     expect(within(setup).queryByText("Activity")).not.toBeInTheDocument();
     const setupTrails = within(setup).getAllByRole("navigation", { name: "Breadcrumb" });
-    expect(setupTrails).toHaveLength(3);
+    expect(setupTrails).toHaveLength(1);
     expect(within(setupTrails[0]).getByRole("link", { name: "Activities" })).toHaveClass("text-link");
     expect(within(setupTrails[0]).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
-    expect(within(setupTrails[1]).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
-    expect(within(setupTrails[2]).getByText("Activated cohort")).toHaveAttribute("aria-current", "page");
-    const setupTracks = within(setup).getAllByLabelText("Setup tracks");
-    expect(setupTracks).toHaveLength(3);
-    expect(within(setup).getAllByRole("group", { name: "Task and Submission requirements" })[0].parentElement).toHaveAttribute(
+    const setupTracks = within(setup).getByLabelText("Setup tracks");
+    expect(within(setup).getByRole("group", { name: "Task and Submission requirements" }).parentElement).toHaveAttribute(
       "data-flow-gap",
       "6",
     );
-    expect(setup.querySelector(".frame-cut")).toContainElement(setupTracks[0]);
-    expect(setupTracks[0].closest(".create-ceremony__scroll")).toBeNull();
+    expect(within(setup).queryByRole("group", { name: "Agent and Harness" })).not.toBeInTheDocument();
+    expect(within(setup).queryByRole("group", { name: "Memory and capabilities" })).not.toBeInTheDocument();
+    expect(setup.querySelector(".frame-cut")).toContainElement(setupTracks);
+    expect(setupTracks.closest(".create-ceremony__scroll")).toBeNull();
     expect(setup.querySelector(".readout-grid--columns-4")).toBeTruthy();
-    expect(within(setup).getAllByRole("button", { name: "Save draft" })[0].closest(".create-ceremony__scroll")).toBeNull();
-    expect(within(setup).getAllByRole("button", { name: "Check readiness" })).toHaveLength(2);
+    expect(within(setup).getByRole("button", { name: "Save draft" }).closest(".create-ceremony__scroll")).toBeNull();
+    expect(within(setup).getByRole("button", { name: "Check readiness" })).toBeInTheDocument();
     expect(within(setup).queryByRole("button", { name: "Activate cohort" })).not.toBeInTheDocument();
-    expect(within(setup).getByRole("heading", { name: "Readiness blocked" })).toBeInTheDocument();
-    const timezone = within(setup).getAllByRole("textbox", { name: "Timezone" })[1];
-    expect(within(setup).getByRole("link", { name: "Set a valid session window." })).toHaveAttribute(
-      "href",
-      `#${timezone.getAttribute("id")}`,
+    expect(within(setup).queryByRole("link", { name: "Assign Participants" })).not.toBeInTheDocument();
+    const resolvedNote = within(setup).getByText(SETUP_RESOLVED_NOTE);
+    expect(resolvedNote).toHaveClass("advisory-copy");
+    expect(resolvedNote.closest(".workspace-alert-body")).toBeNull();
+    expect(within(setup).getByRole("textbox", { name: "Campaign title" })).toHaveValue("Shoreline Operations");
+    expect(within(setup).getByRole("textbox", { name: "Campaign title" })).not.toHaveAccessibleDescription(
+      SETUP_RESOLVED_NOTE,
     );
-    const resolvedNotes = within(setup).getAllByText(SETUP_RESOLVED_NOTE);
-    expect(resolvedNotes).toHaveLength(3);
-    expect(resolvedNotes[0]).toHaveClass("advisory-copy");
-    expect(resolvedNotes[0].closest(".workspace-alert-body")).toBeNull();
-    expect(resolvedNotes[1].closest(".workspace-alert-body")).toBeNull();
-    expect(resolvedNotes[2].closest(".workspace-alert-body")).toBeTruthy();
-    expect(within(setup).getByRole("heading", { level: 1, name: "Activated cohort" })).toBeInTheDocument();
-    expect(within(setup).getByRole("link", { name: "Assign Participants" })).toBeInTheDocument();
-    expect(within(setup).getByRole("link", { name: "Assign Participants" }).closest(".create-ceremony__scroll")).toBeNull();
-    for (const memory of within(setup).getAllByRole("textbox", { name: "Memory" })) {
-      expect(memory).not.toHaveAccessibleDescription(SETUP_RESOLVED_NOTE);
-    }
 
     const empty = document.getElementById("layout-management-empty")!;
     expect(within(empty).queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
@@ -380,7 +439,9 @@ describe("GalleryDeck", () => {
     expect(within(empty).queryByRole("button", { name: "Campaigns" })).not.toBeInTheDocument();
 
     const ceremony = document.getElementById("layout-management-ceremony")!;
-    expect(within(ceremony).queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+    expect(ceremony.querySelector(".spec-row--layout-contain")).toBeNull();
+    expect(within(ceremony).getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(within(ceremony).getByRole("link", { name: "My work" }).getAttribute("href")).toMatch(/#layout-management-ceremony$/);
     expect(within(ceremony).getByRole("heading", { level: 1, name: "This destination is not available" })).toBeInTheDocument();
     expect(ceremony.querySelector(".operate-column--hug")).toHaveAttribute("data-hug-measure", "auto");
     expect(within(ceremony).getByText("The current authorized relationship cannot use this locator.")).toBeInTheDocument();
@@ -421,14 +482,11 @@ describe("GalleryDeck", () => {
     expect(within(split).getByText("Decision bar")).toBeInTheDocument();
   });
 
-  it("seats page-level wait as a hug ceremony wait-plate beside the inline wait panel", () => {
+  it("keeps the wait-panel section inline-only; management loading owns page-level CeremonyWait", () => {
     renderGalleryDeck();
     const waitPanel = document.getElementById("wait-panel")!;
     expect(within(waitPanel).getByText("Loading activities…").closest(".loading-panel")).toHaveAttribute("role", "status");
-    const waitPlate = within(waitPanel).getByText("Establishing session context…").closest("[role='status']");
-    expect(waitPlate).toHaveClass("wait-plate", "wait-plate--inset", "ceremony-wait");
-    expect(waitPanel.querySelector(".operate-column--hug")).toHaveAttribute("data-hug-measure", "auto");
-    expect(waitPlate?.closest(".work-plane--ceremony")).toBeTruthy();
+    expect(waitPanel.querySelector(".work-plane--ceremony")).toBeNull();
   });
 
   it("renders shared BreadcrumbNav index and nested trails", () => {
@@ -438,11 +496,11 @@ describe("GalleryDeck", () => {
     const trails = within(section).getAllByRole("navigation", { name: "Breadcrumb" });
     expect(trails).toHaveLength(3);
     expect(within(trails[0]!).getByText("My work")).toHaveAttribute("aria-current", "page");
-    expect(within(trails[1]!).getByRole("link", { name: "Activities" })).toHaveAttribute("href", "/activities");
+    expect(within(trails[0]!).getByRole("link", { name: "Home" }).getAttribute("href")).toMatch(/\/shared\/gallery$/);
+    expect(within(trails[1]!).getByRole("link", { name: "Activities" }).getAttribute("href")).toMatch(/#breadcrumbs$/);
     expect(within(trails[1]!).getByText("Setup and readiness")).toHaveAttribute("aria-current", "page");
-    expect(within(trails[2]!).getByRole("link", { name: "Setup and readiness" })).toHaveAttribute(
-      "href",
-      "/activities/act-1/setup",
+    expect(within(trails[2]!).getByRole("link", { name: "Setup and readiness" }).getAttribute("href")).toMatch(
+      /#breadcrumbs$/,
     );
     expect(within(trails[2]!).getByText("Participants")).toHaveAttribute("aria-current", "page");
     expect(trails[0]!.querySelector("a")?.className).toMatch(/text-link/);
@@ -496,7 +554,6 @@ describe("GalleryDeck", () => {
       "composition-split",
       "composition-container",
       "composition-inset",
-      "composition-recipes",
     ] as const;
     for (const id of compositionIds) {
       const section = document.getElementById(id);
@@ -510,23 +567,18 @@ describe("GalleryDeck", () => {
     expect(screen.getByRole("heading", { name: "Split bay" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Container" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Inset" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Composition recipes" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Composition recipes" })).toBeNull();
+    expect(document.getElementById("composition-recipes")).toBeNull();
     expect(document.getElementById("composition-stack")?.querySelector(".composition-stack")).toBeTruthy();
     expect(document.getElementById("composition-split")?.querySelector(".composition-split")).toBeTruthy();
     const splitBaySection = document.getElementById("composition-split")!;
     expect(splitBaySection.querySelectorAll(".composition-split-demo")).toHaveLength(2);
     expect(splitBaySection.querySelector(".composition-split-demo .layout-slot")).toBeTruthy();
     expect(splitBaySection.querySelector(".composition-split-demo .composition-demo-tile")).toBeNull();
-    expect(document.getElementById("composition-recipes")?.querySelector(".composition-stack")).toBeTruthy();
     expect(document.querySelector(".deck-sec")).toHaveClass("composition-stack");
     expect(document.querySelector(".spec--wide")).toHaveClass("composition-stack");
     expect(document.querySelector(".spec--wide")).toHaveAttribute("data-flow-align", "stretch");
     expect(document.querySelector(".chip")).toHaveClass("composition-stack");
-    expect(screen.getByRole("group", { name: "Recipe actions" })).toHaveClass("composition-inline");
-    expect(screen.getByRole("group", { name: "Recipe actions" }).parentElement).toHaveAttribute(
-      "data-flow-wrap",
-      "false",
-    );
     expect(
       screen.getByRole("button", { name: "Confirm activation after readiness checks complete" }),
     ).toHaveClass("key--truncate");
@@ -537,7 +589,6 @@ describe("GalleryDeck", () => {
       "data-flow-min",
       "control",
     );
-    expect(screen.getByRole("group", { name: "Participant channels" })).toBeInTheDocument();
     const galleryCss = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "../../../styles/surfaces/gallery.css"),
       "utf8",
@@ -549,6 +600,7 @@ describe("GalleryDeck", () => {
     renderGalleryDeck();
     const form = document.getElementById("form")!;
     expect(within(form).getByRole("textbox", { name: "Callsign" })).toHaveAttribute("type", "text");
+    expect(within(form).getByRole("textbox", { name: "Callsign" })).toHaveClass("field-input--uppercase");
     expect(within(form).getByRole("spinbutton", { name: "Score" })).toHaveAttribute("type", "number");
     const score = within(form).getByRole("spinbutton", { name: "Score" }).closest(".field-number") as HTMLElement;
     expect(score).toBeTruthy();
@@ -561,6 +613,7 @@ describe("GalleryDeck", () => {
     const stackedTitles = within(form).getAllByRole("textbox", { name: "Campaign title" });
     expect(stackedTitles).toHaveLength(2);
     expect(stackedTitles[0].closest(".field-stack")).toBeTruthy();
+    expect(stackedTitles[0]).not.toHaveClass("field-input--uppercase");
     expect(stackedTitles[0]).not.toHaveClass("is-frozen");
     expect(stackedTitles[1]).toHaveClass("is-frozen");
     expect(stackedTitles[1].closest(".field-stack")).toBeTruthy();

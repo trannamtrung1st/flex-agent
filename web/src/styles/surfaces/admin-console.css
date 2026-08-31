@@ -34,6 +34,26 @@ body {
   width: 100%;
 }
 
+.campaigns-wall.registry-wall--hug,
+.wall.registry-wall--hug {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.campaigns-wall.registry-wall--hug > .operate-scroll,
+.wall.registry-wall--hug > .operate-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.campaigns-wall.registry-wall--hug > .operate-scroll > .campaigns-registry-frame.frame-cut,
+.wall.registry-wall--hug > .operate-scroll > .wall-frame.frame-cut {
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+}
+
 .campaigns-wall .col-action { text-align: right; white-space: nowrap; }
 
 .campaigns-unavailable {
@@ -81,13 +101,8 @@ body {
   align-self: flex-start;
   flex-shrink: 0;
   flex-wrap: nowrap;
-  margin: 0 0 14px;
   border: 1px solid var(--hairline-dim);
   background: rgba(2, 9, 14, 0.28);
-}
-
-.campaign-context.campaigns-readout-band:has(.select-trigger[aria-expanded="true"]) {
-  z-index: 45;
 }
 
 .campaign-context > .toolbar-seg,
@@ -189,7 +204,6 @@ body {
 
 .sample-wall > .advisory {
   flex-shrink: 0;
-  margin: 0 0 14px;
 }
 
 .sample-frame.frame-cut {
@@ -257,16 +271,23 @@ body {
   );
   background: var(--panel-sheen), var(--panel-depth), var(--ground);
   box-shadow: var(--panel-inset);
-  padding: 34px 44px 30px;
+  padding: 0;
+}
+
+/* Campaign configuration carries four timing instruments on one row. */
+.dialog-plate--wide.ceremony-plate {
+  --dialog-w: 840px;
 }
 
 .ceremony-head {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
   flex-shrink: 0;
-  padding-bottom: 24px;
+  padding-block-start: var(--space-6);
+  padding-inline: var(--space-6);
+  padding-bottom: var(--space-6);
 }
 
 .ceremony-title {
@@ -305,15 +326,30 @@ body {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Overlay thumb sits on the plate edge; content keeps --space-6. */
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  padding-inline: var(--space-6);
+  padding-block-end: var(--space-6);
+}
+
+/* Plate max-height leftover stays in the form bay so content rhythm
+   remains --space-6 with or without a pinned receipt band. */
+.ceremony-body > .composition-stack {
+  flex: 1 1 auto;
 }
 
 .ceremony-body > .composition-stack > .form-divider {
   margin: 0;
 }
 
+.ceremony-config-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .ceremony-config-grid .field-input {
   width: 100%;
-  max-width: 108px;
+  max-width: none;
 }
 
 /* .form-row, .field-label, .form-divider, the .dropdown selector
@@ -322,14 +358,23 @@ body {
 .ceremony-note {
   font-size: 0.74rem;
   color: var(--label-dim);
-  max-width: 52ch;
-  padding: 4px 0 8px;
+}
+
+/* Sibling of the bay stack, not a gap-6 child: top air matches hairline air. */
+.ceremony-body > .ceremony-note {
+  margin-block-start: var(--space-6);
+  max-width: none;
 }
 
 .ceremony-foot {
   flex-shrink: 0;
-  padding-block-start: var(--plate-foot-pad-block);
+  padding: var(--space-6);
   border-block-start: 1px solid var(--hairline-dim);
+}
+
+/* Receipt shares the action stack gap so it reads as one foot cluster. */
+.ceremony-foot-actions > .ceremony-note {
+  max-width: none;
 }
 
 .ceremony-foot-actions {
@@ -427,8 +472,13 @@ body {
   .campaigns-readout-field + .campaigns-readout-field { padding-left: 0; }
   .campaign-context.campaigns-readout-band {
     width: 100%;
-    margin-bottom: 14px;
     border: 1px solid var(--hairline-dim);
+  }
+
+  /* Block-layout walls drop composition-stack gap; restore bay rhythm between strata. */
+  .wall > :not(:first-child),
+  .campaigns-wall > :not(:first-child) {
+    margin-top: var(--operate-bay-gap);
   }
   .campaign-context > .toolbar-seg,
   .campaign-context > .searchable-disclosure {
@@ -461,7 +511,9 @@ body {
 }
 
 @media (max-width: 720px) /* bp.compact */ {
-  .ceremony-plate { padding: 26px 22px 24px; }
+  .ceremony-config-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
   .ceremony-foot-row.key-group {
     grid-template-columns: 1fr;

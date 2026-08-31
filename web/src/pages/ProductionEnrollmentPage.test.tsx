@@ -108,6 +108,45 @@ describe("ProductionEnrollmentPage", () => {
     expect(screen.queryByRole("dialog", { name: "Assign Participant" })).not.toBeInTheDocument();
   });
 
+  it("fills the registry bay when more than four Participants are loaded", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [1, 2, 3, 4, 5].map((n) => ({
+            enrollment_id: `enr-${n}`,
+            participant_actor_id: `p-${n}`,
+            display_label: `Participant ${n}`,
+            status: "active",
+            revision: 1,
+            assigned_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+            visibility: "administrator",
+            permitted_actions: [],
+          })),
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    const link = await screen.findByRole("link", { name: "Participant 1" });
+    expect(link.closest(".work-plane")).toHaveClass("registry-wall");
+    expect(link.closest(".work-plane")).not.toHaveClass("registry-wall--hug");
+    expect(document.querySelector(".datatable-frame .frame-scroll > .datatable")).toBeTruthy();
+    expect(document.querySelector(".datatable-frame .frame-scroll > .composition-stack")).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search participant, enrollment, or status" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(await screen.findByText("No matching Participants")).toBeInTheDocument();
+    expect(document.querySelector(".work-plane")).toHaveClass("registry-wall--hug");
+  });
+
   it("assigns from a dialog table that still lists Participants already on the roster", async () => {
     stubAuthenticatedFetch((url) => {
       if (url.includes("/participant-options")) {
@@ -318,6 +357,7 @@ describe("ProductionEnrollmentPage", () => {
 
     expect(await screen.findByText("No Participants assigned")).toBeInTheDocument();
     expect(document.querySelector(".datatable-empty")).toHaveClass("datatable-empty", "empty-plate--inset");
+    expect(document.querySelector(".registry-wall")).toHaveClass("registry-wall--hug");
     expect(document.querySelector(".registry-wall--empty")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Assign" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Casey Candidate" }));
@@ -359,6 +399,7 @@ describe("ProductionEnrollmentPage", () => {
     });
     expect(await screen.findByText("No matching Participants")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear search" }).closest(".datatable-empty")).not.toBeNull();
+    expect(document.querySelector(".registry-wall")).toHaveClass("registry-wall--hug");
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     expect(await screen.findByRole("link", { name: "Pat Participant" })).toBeInTheDocument();
   });

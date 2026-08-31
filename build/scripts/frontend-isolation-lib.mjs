@@ -9,6 +9,9 @@ const DESIGN_LAB_OUTBOUND_REPO_PREFIXES = [
   "web/src/design-system/",
   "web/src/lib/",
   "web/src/styles/",
+  "web/src/components/work/",
+  "web/src/content/",
+  "web/src/features/assessment/SetupTrackReadout",
 ];
 
 const CANDIDATE_HTML_MODULE_ENTRY = "/src/main.tsx";
@@ -375,7 +378,7 @@ export function productionReferenceLayoutViolations(relativePath, content) {
   return violations;
 }
 
-const LAYOUT_ROOT_ALLOW = /(?:^|\/)(?:design-system\/patterns\/layouts\/|design-lab\/features\/gallery\/sections\/)/;
+const LAYOUT_ROOT_ALLOW = /(?:^|\/)(?:design-system\/patterns\/layouts\/|design-lab\/components\/layouts\/|design-lab\/features\/gallery\/sections\/)/;
 const LAYOUT_ROOT_ATTR = /data-layout=["'](management|guided-task|live-session|reference)["']/;
 
 export function layoutRootAttributeViolations(relativePath, content) {

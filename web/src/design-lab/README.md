@@ -15,12 +15,14 @@ Route namespace: `/design-lab/*` (no `/prototypes` alias). Dev server:
 | Disposition | Meaning | Location |
 | --- | --- | --- |
 | **promote** | Production-safe shared foundation, component, or pattern | `web/src/lib/`, `web/src/styles/`, `web/src/design-system/` |
-| **surface donor** | Lab visual composition for shells not yet production-backed | `app/`, `routes/`, `features/` (except gallery), `pages/` if present |
+| **surface donor** | Lab visual composition for shells not yet production-backed | `app/`, `routes/`, `features/` (except gallery), `components/enrollment/`, `components/operate/`, … |
 | **lab-only** | Fixtures, demo controls, gallery, synthetic behavior, future/reference | `data/`, `lib/useDemoParam.ts`, `lib/useSurface.ts`, gallery, remaining `components/` |
 
 Promoted modules are imported from `web/src/design-system/` and `web/src/lib/`.
 Lab routes must use the same shared layout families as production
-(`ManagementLayout`, `GuidedTaskLayout`, `LiveSessionLayout`). Import
+(`ManagementLayout`, `GuidedTaskLayout`). `LiveSessionLayout` is the live-session
+family shell and lives in `web/src/design-lab/components/layouts/` until a
+production session route exists. Import
 `ReferenceLayout` from `web/src/design-system/lab.ts`. Do not hand-build outer
 chrome in a route module. Router assignment wraps each lab route in
 `LayoutAssignment` from the route-layout manifest.

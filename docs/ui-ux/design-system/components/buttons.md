@@ -8,7 +8,9 @@ production copy.
 
 Implementation: `web/src/design-system/components/keys/`. Gallery: `keys`,
 `key-group`. `Key` variants (`quiet`, `transmit`, `open`, `begin`, `activate`,
-`inspect`, `release`, `back`) are Shipboard skins. `BackKey`, `IconButton`,
+`inspect`, `release`, `back`) are Shipboard skins. Pass `destructive` on quiet
+keys (and other variants when styled) instead of authoring `key--danger`.
+`BackKey`, `IconButton`,
 and `EllipsisKey` are named keys, not a second button family. Presentational
 `ThemeToggle` lives here; production shell may wrap it with the theme hook.
 

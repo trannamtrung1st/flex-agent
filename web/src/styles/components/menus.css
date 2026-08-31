@@ -35,10 +35,14 @@
   font-size: var(--select-option-size);
   letter-spacing: var(--select-option-tracking);
   line-height: var(--select-option-line-height);
-  text-transform: uppercase;
   color: var(--label);
   border-bottom: 1px solid var(--hairline-dim);
   transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.menu-row,
+.command-menu-item {
+  text-transform: uppercase;
 }
 
 .menu-row:hover,
@@ -98,6 +102,8 @@
   padding-inline: var(--select-option-padding-inline);
   cursor: pointer;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 .option-menu li:last-child { border-bottom: none; }
@@ -114,7 +120,7 @@
 }
 
 /* Shared select anatomy: trigger composition varies by use, while
-   every listbox keeps one connected popover and padding-driven row rhythm.
+   every listbox keeps one closed overlay plate and padding-driven row rhythm.
    Width tokens live in tokens.css; override on .select-shell inline
    or per-surface via --select-popover-* custom properties. */
 .select-shell {
@@ -162,35 +168,10 @@
   max-width: var(--select-popover-max-width);
   max-height: var(--select-popover-max-height);
   z-index: 40;
-  border-top: none;
+  border: 1px solid var(--hairline);
   box-sizing: border-box;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-/* Seam between trigger and first row — matches option-menu row dividers */
-.select-popover li:first-child {
-  border-top: 1px solid var(--hairline-dim);
-}
-
-.select-shell--context:has(.select-trigger[aria-expanded="true"]),
-.select-shell--toolbar:has(.select-trigger[aria-expanded="true"]) {
-  border-bottom-color: transparent;
-}
-
-.select-shell--field:has(.select-trigger[aria-expanded="true"]) .select-trigger--field {
-  border-bottom-color: transparent;
-}
-
-.select-shell--field.is-overlay-above:has(.select-trigger[aria-expanded="true"]) .select-trigger--field {
-  border-bottom-color: var(--hairline);
-  border-top-color: transparent;
-}
-
-.select-shell--context.is-overlay-above:has(.select-trigger[aria-expanded="true"]),
-.select-shell--toolbar.is-overlay-above:has(.select-trigger[aria-expanded="true"]) {
-  border-bottom-color: var(--hairline);
-  border-top-color: transparent;
 }
 
 .select-shell--context .select-popover,
@@ -371,8 +352,8 @@
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--text-bright);
 }
 

@@ -38,21 +38,34 @@ function alignedLeft(trigger: OverlayRect, width: number, align: OverlayAlign) {
   return trigger.left;
 }
 
+function connector(trigger: OverlayRect, left: number, width: number) {
+  return clamp(trigger.left + trigger.width / 2 - left, 0, Math.max(0, width));
+}
+
+function panelWidth(trigger: OverlayRect, floatingWidth: number, align: OverlayAlign, maxBox?: number) {
+  const width = align === "stretch" ? Math.max(trigger.width, floatingWidth) : floatingWidth;
+  return maxBox == null ? width : Math.min(width, maxBox);
+}
+
 export function placeFloating({
   trigger,
   floating,
   viewport,
-  padding = 8,
+  padding = 0,
   offset = 0,
   preferredSide,
   align,
   size = false,
 }: PlaceFloatingInput): PlaceFloatingResult {
   const maxBox = Math.max(0, viewport.width - padding * 2);
-  const width = Math.min(align === "stretch" ? trigger.width : floating.width, maxBox);
+  const width = panelWidth(trigger, floating.width, align, maxBox);
   const maxLeft = viewport.width - padding - width;
   const left = clamp(alignedLeft(trigger, width, align), padding, Math.max(padding, maxLeft));
 
+  // Attach if the preferred side fits the full panel; else flip only when
+  // the opposite side also fits fully. Otherwise pin flush to the viewport
+  // (no inset). Covering the trigger is allowed. Do not shrink to the leftover
+  // gap beside the trigger.
   const spaceAbove = trigger.top - padding - offset;
   const spaceBelow = viewport.height - padding - (trigger.top + trigger.height) - offset;
   const fitsTop = floating.height <= spaceAbove;
@@ -61,21 +74,22 @@ export function placeFloating({
   let side: OverlaySide = preferredSide;
   if (preferredSide === "top" && !fitsTop && fitsBottom) side = "bottom";
   else if (preferredSide === "bottom" && !fitsBottom && fitsTop) side = "top";
-  else if (!fitsTop && !fitsBottom) side = spaceBelow >= spaceAbove ? "bottom" : "top";
 
-  const available = side === "top" ? spaceAbove : spaceBelow;
-  const maxHeight = size && floating.height > available ? Math.max(0, available) : undefined;
-  const height = maxHeight ?? floating.height;
+  const viewportBox = Math.max(0, viewport.height - padding * 2);
+  let height = floating.height;
+  let maxHeight: number | undefined;
+  if (size && height > viewportBox) {
+    height = viewportBox;
+    maxHeight = height;
+  }
 
-  const top = side === "top"
+  const attachedTop = side === "top"
     ? trigger.top - offset - height
     : trigger.top + trigger.height + offset;
 
   const minTop = padding;
   const maxTop = viewport.height - padding - height;
-  const clampedTop = clamp(top, minTop, Math.max(minTop, maxTop));
-
-  const connector = clamp(trigger.left + trigger.width / 2 - left, 0, Math.max(0, width));
+  const clampedTop = clamp(attachedTop, minTop, Math.max(minTop, maxTop));
 
   return {
     top: clampedTop,
@@ -83,6 +97,6 @@ export function placeFloating({
     side,
     width: align === "stretch" ? width : undefined,
     maxHeight,
-    connector,
+    connector: connector(trigger, left, width),
   };
 }

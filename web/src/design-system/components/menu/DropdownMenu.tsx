@@ -8,6 +8,8 @@ import {
   type Ref,
 } from "react";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { enabledMenuItems, stepMenuIndex } from "./dropdownMenuLogic";
 
 export type DropdownMenuAlign = "start" | "end" | "stretch";
@@ -96,23 +98,14 @@ export function DropdownMenu({
   const focusFirstRef = useRef(false);
   const generatedId = useId();
   const panelId = menuId ?? generatedId;
+  void _placement;
 
   const close = useCallback(() => {
     onOpenChange(false);
     triggerRef.current?.focus();
   }, [onOpenChange]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      onOpenChange(false);
-      triggerRef.current?.focus();
-    };
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open, onOpenChange]);
+  useOverlayDismiss(open, [triggerRef, menuRef], () => onOpenChange(false));
 
   useEffect(() => {
     if (!open) return;
@@ -193,7 +186,7 @@ export function DropdownMenu({
           <div
             ref={ref}
             id={panelId}
-            className={`menu-popover select-popover popover-surface menu-surface command-menu menu-popover--fixed ${overlayClassName}${panelClassName ? ` ${panelClassName}` : ""}`}
+            className={overlayPlateClass("menu-popover", "command-menu", "menu-popover--fixed", overlayClassName, panelClassName)}
             role="menu"
             aria-labelledby={labelledBy}
             aria-label={label}

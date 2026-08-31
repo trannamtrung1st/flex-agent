@@ -61,6 +61,52 @@ describe("CompactId", () => {
     expect(screen.getByText("a1000000…000007").closest(".compact-id")).not.toHaveAttribute("tabindex");
   });
 
+  it("opens the value plaque on press so a narrow table cell does not depend on hover", () => {
+    render(<CompactId value={UUID} />);
+    fireEvent.pointerDown(screen.getByText("a1000000…000007").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(UUID);
+  });
+
+  it("centers the value plaque on the compact glyphs, not the stretched table host", () => {
+    render(<CompactId value={UUID} />);
+    const host = screen.getByText("a1000000…000007").closest(".tip-host") as HTMLElement;
+    const glyphs = screen.getByText("a1000000…000007").closest(".compact-id") as HTMLElement;
+    host.getBoundingClientRect = () => ({
+      x: 0, y: 80, top: 80, left: 0, right: 400, bottom: 112, width: 400, height: 32, toJSON() { return {}; },
+    });
+    glyphs.getBoundingClientRect = () => ({
+      x: 16, y: 88, top: 88, left: 16, right: 136, bottom: 104, width: 120, height: 16, toJSON() { return {}; },
+    });
+    fireEvent.mouseEnter(host);
+    const plaque = screen.getByRole("tooltip");
+    plaque.getBoundingClientRect = () => ({
+      x: 0, y: 0, top: 0, left: 0, right: 120, bottom: 32, width: 120, height: 32, toJSON() { return {}; },
+    });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(Number.parseFloat(plaque.style.left)).toBe(16);
+  });
+
+  it("gives the compact-id host the full table-cell hit area without inflating row height", () => {
+    const css = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../../../styles/components/datatable.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.datatable-table tbody td\.cell-content:has\(\.compact-id\)\s*\{[^}]*padding-top:\s*0/,
+    );
+    expect(css).toMatch(
+      /\.datatable-table tbody td\.cell-content:has\(\.compact-id\)\s*\{[^}]*padding-bottom:\s*0/,
+    );
+    expect(css).toMatch(
+      /\.datatable-table tbody td\.cell-content:has\(\.compact-id\)\s*>\s*\.tip-host\s*\{[^}]*width:\s*100%/,
+    );
+    expect(css).toMatch(
+      /\.datatable-table tbody td\.cell-content:has\(\.compact-id\)\s*>\s*\.tip-host\s*\{[^}]*min-height:\s*var\(--datatable-row-height\)/,
+    );
+  });
+
   it("seats the value plaque inside an open modal dialog", () => {
     render(
       <NativeDialog open onClose={() => undefined} className="dialog" labelledBy="title">
@@ -72,5 +118,13 @@ describe("CompactId", () => {
     const plaque = screen.getByRole("tooltip");
     expect(plaque).toHaveTextContent(UUID);
     expect(plaque.parentElement).toBe(document.querySelector("dialog"));
+  });
+
+  it("hides the value plaque on external scroll", () => {
+    render(<CompactId value={UUID} />);
+    fireEvent.mouseEnter(screen.getByText("a1000000…000007").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 });

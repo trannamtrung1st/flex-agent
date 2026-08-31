@@ -37,7 +37,9 @@ Use unit/integration suites for broad repeatability and browser E2E for critical
 For every relevant UI state, attach first: probe the origin this work needs
 (`docs/contributing/development-harness.md`, Attach to a running local origin)
 and reuse it when healthy. Do not start a second listener or run
-`pnpm compose:up` over a healthy stack.
+`pnpm compose:up` over a healthy stack. For authenticated product journeys,
+complete synthetic OIDC sign-in
+(`docs/contributing/development-harness.md`, Synthetic sign-in).
 
 1. Use the project `playwright` MCP server to navigate and interact.
 2. Use accessibility snapshots for names, roles, landmarks, and keyboard paths.

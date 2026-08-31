@@ -35,20 +35,63 @@ Do not use v0.1 Deep-Space styling as the target look.
    specimen ([visual evidence](README.md#visual-evidence)); do not invent
    chrome or copy lab fixtures. Select one closed-set
    layout family from [layouts](components/layouts.md); do not compose outer
-   chrome in a page module. Inside the chosen family, compose slot content with
+   chrome in a page module. `LiveSessionLayout` is the live-session family shell
+   and lives in the design lab until a production session route exists. Inside the chosen family, compose slot content with
    [layout primitives](components/layout-primitives.md) (`Stack`, `Inline`,
    `Grid`, `Container`, `Inset`, `SplitBay`) instead of one-off flex/grid/spacing CSS.
    Inner page/form rhythm uses control / group / bay tokens (`--field-label-gap`,
    `--form-group-gap`, `--operate-bay-gap`): `OperateArea` owns bay strata
-   (head / context / advisory / optional frame); titled field clusters use
+   (head / context / advisory / optional frame) and host class grammar via
+   `bay` / `hug` / `danger` (do not pass `className="workspace-area…"`). Closed
+   `bay` set: `workspace` (default), `record`, `registry`, `ceremony`. That set
+   is frozen: do not add bays, do not demote `CeremonyArea`, do not rename
+   leftover CSS (`.readout--record`, `create-ceremony__scroll`), and do not wrap
+   session inner hull or gallery `spec-row`. Setup/create
+   uses `SetupOperateArea` (`record-plane--setup`). Lab walls, home board, and
+   reviewer queue/ledger use `OperateAreaHost` for host/head/frame class strings,
+   `head`, `gap`, and reveal/seal. Deck form recipes use `FormRecipeOperateArea`
+   (owned `form-recipe` on `OperateArea`). `hug` is `"registry"` only on production
+   `bay="registry"`. Empty assignment boards use
+   `AssignmentBoardOperateArea` / `HomeBoardOperateArea` `hug="board"`.
+   Lab registry walls and the review queue own `registry-wall--hug` on those
+   wrappers. Setup ceremony shells live
+   in `web/src/components/work/`. Lab campaign fill-grid
+   overlays compose `CampaignCeremonyPlate` (not `DialogPlate` presentation)
+   and `CampaignCeremonyConfigGrid` for the timing field row (not
+   `Grid` `className="ceremony-config-grid"`). Campaign fill overlays use
+   `CampaignCeremonyDialog` for `.ceremony` / `.ceremony-cut` (not
+   `CeremonyDialog` variants). Briefing acknowledgement uses
+   `AcknowledgmentGate` in `web/src/components/work/`. Lab Home/Session marks
+   (`RecordSeal`, `StageBars`) and `WorkWellReleasedSeal` live in the design
+   lab; `WorkWellHead` `seal` is an optional node slot.
+   Product field copy lives in `web/src/content/fieldCopy.ts` (including datatable
+   search placeholders). Lab enrollment/Deck expand rows use
+   `design-lab/components/datatable/` (not the production barrel). Production
+   pages do not pass `hostClassName` / `frameClassName` / `headClassName` and do not
+   import `OperateAreaHost`. Registry
+   tables use `hug={registryTableHug(visibleCount)}` (0–4 visible matching rows hug,
+   including empty and search-empty) on production `OperateArea` and on lab
+   registry wrappers. Titled field clusters use
    `FormSection`. The group mark is a 2px `--hairline` underline under the
    legend words, not a fieldset rail or pad. Sibling sections use bay `Stack` gap. Do not use a plate or
-   `.form-divider`. `gap="none"` is only for fused plates.
+   `.form-divider`. Stacked nested-record wells use `WorkWell seat="stack"`
+   (flush, title mark, `titleRole="plate"`); pane-seated wells keep `seat="pane"`
+   (`titleRole="task"`). Layout-primitive `gap="none"` is only for fused plates.
+   `OperateArea` bay gap stays `6` except hug columns and
+   `ReviewerLedgerOperateArea` (`gap="none"` for the plaque ledger).
    Shells wrap main content in an even `Inset` when `contain` is true
    (management and reference catalog default on; hull shells and the Component
    Deck default off). That pad is not a max-width column.
    Clone floating plaques, menus, and select popovers from `AnchoredOverlay`
-   / `placeFloating`. Do not CSS-position a new overlay against its trigger.
+   / `placeFloating` (open-time flip if the opposite side fully fits, else
+   pin to the viewport edge; no inset; re-place on
+   resize only). Dismiss on pointer outside the composite, focus leaving it,
+   or external scroll; ignore scroll inside the overlay. Do not lock ordinary
+   page scroll. Portal through `overlayPortalRoot` (`<dialog>` when inside
+   one, else `#root`). Hull chrome (`command-strip`, Deck `page-strip`)
+   stacks above the overlay. Catalog copies of `command-strip` inside the Deck
+   `.deck` do not use that hull layer. Do not CSS-position a new overlay against its
+   trigger, and do not lift an open trigger above chrome.
 
 ## Foundation index
 
@@ -100,7 +143,7 @@ are visual evidence; the module is the contract.
 | Foundations | `colors` | [colors](foundation/colors.md) |
 | Foundations | `type`, `typography` | [typography](foundation/typography.md) |
 | Foundations | `keys`, `key-group` | [buttons](components/buttons.md), [button groups](components/button-group.md) |
-| Foundations | `pane`, `frame`, `assignment-plate` | [plates](components/cards.md) (`pane` includes the WorkWell section-label vs list-tick specimen; `assignment-plate` is the destination / assignment tile) |
+| Foundations | `pane`, `work-well`, `frame`, `assignment-plate` | [plates](components/cards.md) (`work-well` `seat="stack"` vs `seat="pane"`; `titleRole` plate vs task; `assignment-plate` visual contract; implementation is `AssignmentPlate` in `web/src/components/work/`) |
 | Navigation | `nav-rail` | [sidebars](components/sidebars.md) (`.nav-rail` grammar; `IndexRail` on the reference shell) |
 | Navigation | `strip`, `gangway`, `drawer`, `footer` | [layouts](components/layouts.md), [sidebars](components/sidebars.md) |
 | Navigation | `breadcrumbs` | [sidebars](components/sidebars.md) |
@@ -111,15 +154,15 @@ are visual evidence; the module is the contract.
 | Data | `compact-id` | [tables](components/tables.md), [technical metadata](product/technical-metadata.md), [tooltips](components/tooltips-popovers.md) |
 | Data | `item-list` | [lists](components/lists.md) (`ItemList` · `renderItem` · `loadMore.trigger` button or end) |
 | Data | `datatable`, `datatable-scroll` | [tables](components/tables.md), [pagination](components/pagination.md) |
-| Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) (`alert` includes in-form frozen-cluster provenance; production and lab Admin mount `ToastHost`; default dock `bottom-center`) |
+| Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) (`alert` includes in-form frozen-cluster provenance; production and lab Admin mount `ToastHost`; default dock `top-center`) |
 | Feedback | `tooltip` | [tooltips](components/tooltips-popovers.md) |
 | Feedback | `error-summary` | [error summary](components/error-summary.md) |
-| Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md) |
+| Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md). Deck `wait` also shows lab `StageBars` (session hull mark, not a design-system primitive) |
 | Shells | `layout-*` | [layouts](components/layouts.md) |
-| Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (`composition-recipes` are specimen recipes, not a fifth primitive) |
+| Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (Stack, Inline, Grid, SplitBay, Container, Inset; combine on `form-recipes`, not a Recipes section) |
 | Overlays & input | `form-recipes` | [inputs](components/inputs.md), [error summary](components/error-summary.md), [layout primitives](components/layout-primitives.md), [plates](components/cards.md), [modals](components/modals.md) |
-| Overlays & input | `form`, `file`, `datetime` | [inputs](components/inputs.md), [attachments](product/attachments.md) |
-| Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) (`placeFloating`; live `DropdownSelect` plus row-grammar specimen) |
+| Overlays & input | `form`, `file`, `datetime` | [inputs](components/inputs.md), [attachments](product/attachments.md); datetime plate: [dropdown](components/dropdown.md#overlay-plate) |
+| Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) (`overlayPlateClass`, `placeFloating` + `useOverlayDismiss`; live `DropdownSelect` plus row-grammar specimen) |
 | Overlays & input | `dialog` | [modals](components/modals.md) |
 
 ## Product-pattern index
@@ -159,8 +202,9 @@ specification authorize it.
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, status, motion
-- Components: plates (`OperateArea` clip vs grouping: Enrollment stacked
-  record unframed; setup/create ceremony framed at 52rem), keys, inputs,
+- Components: plates (`OperateArea` `bay`: Enrollment stacked record
+  `record` unframed; setup/create `SetupOperateArea` with `frame="record"` at
+  52rem; administrator registries `registry` with `frame="registry"`), keys, inputs,
   selection, error summary, tables, pagination, modals, readout grid
 - Product: empty/loading, technical metadata, protected content, attachments
   where Enrollment lists require them

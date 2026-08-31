@@ -24,6 +24,25 @@ describe("FormField", () => {
     expect(container.firstElementChild).toHaveClass("field-stack");
   });
 
+  it("does not treat form-demo-row as a layout replacement", () => {
+    const { container } = render(
+      <FormField id="demo" label="Callsign" className="form-demo-row">
+        {(controlProps) => <input {...controlProps} />}
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass("form-row", "form-demo-row");
+  });
+
+  it("lets lab specimens replace the layout host", () => {
+    const { container } = render(
+      <FormField id="demo" label="Callsign" hostClassName="form-demo-row">
+        {(controlProps) => <input {...controlProps} />}
+      </FormField>,
+    );
+    expect(container.firstElementChild).toHaveClass("form-demo-row");
+    expect(container.firstElementChild).not.toHaveClass("form-row");
+  });
+
   it("merges stack layout with gallery modifier classes", () => {
     const { container } = render(
       <FormField id="demo" label="Adjusted rationale" layout="stack" className="form-demo-stack">
@@ -43,6 +62,13 @@ describe("FormField", () => {
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveAttribute("aria-describedby", "demoError");
     expect(screen.getByText("Enter a bounded reason.")).toHaveAttribute("id", "demoError");
+  });
+
+  it("does not own pair layout on the generic field", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "FormField.tsx"), "utf8");
+    expect(source).not.toMatch(/"pair"/);
+    expect(source).not.toContain("field-pair");
   });
 
   it("treats hints as sentence-case helpers, not microlabels", () => {

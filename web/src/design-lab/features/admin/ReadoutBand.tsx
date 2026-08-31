@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { ActivationMark } from "../../../design-system/components/state/ActivationMark";
-
-export { ActivationMark } from "../../../design-system/components/state/ActivationMark";
+import { ActivationMark } from "../../components/state/ActivationMark";
 
 export function ReadoutBand({
   label,

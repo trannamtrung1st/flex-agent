@@ -7,7 +7,7 @@ import { EmptyPlate, EtchedFrame, PlateFoot } from "./EtchedFrame";
 describe("EtchedFrame", () => {
   it("defaults to padded inset", () => {
     const { container } = render(
-      <EtchedFrame className="campaigns-frame">
+      <EtchedFrame className="specimen-frame">
         <p>Readout</p>
       </EtchedFrame>,
     );
@@ -152,28 +152,27 @@ describe("EtchedFrame", () => {
       /:has\(\+ \.plate-foot:not\(\[data-hairline="false"\]\)\)/,
     );
     expect(platesCss).toMatch(
-      /\.assignment-plate\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in \{[^}]*padding-inline:\s*0/,
+      /\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in:has\(\.plate-bleed\) \{[^}]*padding-inline:\s*0/,
     );
     expect(platesCss).toMatch(
-      /\.assignment-plate \.assignment-plate-keys \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
+      /\.plate-bleed > :not\(\.plate-foot\) \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
     );
     expect(platesCss).toMatch(
-      /\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in:has\(\.setup-ceremony\),\s*\.frame-cut:not\(\.frame-cut--flush\) > \.frame-in:has\(\.in-plate-host\) \{[^}]*padding-inline:\s*0/,
+      /\.plate-bleed > \.plate-foot \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
     );
-    expect(platesCss).toMatch(
-      /\.setup-ceremony > :not\(\.plate-foot\),\s*\.in-plate-host > :not\(\.plate-foot\) \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
-    );
-    expect(platesCss).toMatch(
-      /\.setup-ceremony > \.plate-foot,\s*\.in-plate-host > \.plate-foot \{[^}]*padding-inline:\s*var\(--frame-inset-inline\)/,
-    );
+    expect(platesCss).not.toMatch(/:has\(\.setup-ceremony\)/);
+    expect(platesCss).not.toMatch(/:has\(\.in-plate-host\)/);
     expect(platesCss).not.toMatch(/\.work-well > \.work-well__foot \{[^}]*border-(?:top|block-start):/);
     expect(platesCss).toMatch(
       /:has\(\+ \.plate-foot:not\(\[data-hairline="false"\]\)\):not\(\.dialog-body\):not\(\.work-well__body\):not\(\.create-ceremony__scroll\) \{[^}]*padding-block-end:\s*var\(--plate-foot-pad-block\)/,
     );
+    expect(platesCss).not.toMatch(/\.work-well > \.work-well__foot \{[^}]*border-(?:top|block-start):/);
     expect(platesCss).toMatch(
-      /\.assignment-plate \.assignment-plate-keys \{[^}]*padding-block-start:\s*var\(--plate-foot-pad-block\)/,
+      /\.frame-cut--flush \{[^}]*--frame-content-pad-inline-start:\s*var\(--space-4\)/,
     );
-    expect(platesCss).not.toMatch(/\.assignment-plate \.assignment-plate-keys \{[^}]*padding-block-start:\s*10px/);
+    expect(platesCss).toMatch(
+      /\.frame-cut--flush \{[^}]*--frame-content-pad-inline-end:\s*var\(--space-3\)/,
+    );
   });
 
   it("clips half-beads on the inner pane and scrolls payload separately", () => {
@@ -198,5 +197,18 @@ describe("EmptyPlate", () => {
   it("marks in-frame absence as an inset well", () => {
     render(<EmptyPlate inset label="No current assignments" note="There is no assigned work." />);
     expect(screen.getByText("No current assignments").closest(".empty-plate")).toHaveClass("empty-plate--inset");
+  });
+
+  it("applies layout modifiers through className while inset uses the prop", () => {
+    render(
+      <EmptyPlate
+        inset
+        className="empty-plate--separated"
+        label="No cohort records loaded"
+        note="Frozen configuration at cohort activation is the fairness baseline."
+      />,
+    );
+    const plate = screen.getByText("No cohort records loaded").closest(".empty-plate");
+    expect(plate).toHaveClass("empty-plate--inset", "empty-plate--separated");
   });
 });

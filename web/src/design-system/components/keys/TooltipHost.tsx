@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cx } from "../../../lib/cx";
 import { overlayPortalRoot } from "../overlays/overlayPortalRoot";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { useFloatingPlacement } from "../overlays/AnchoredOverlay";
 import { useTruncated } from "./useTruncated";
 
@@ -17,17 +18,23 @@ export function TooltipHost({
   tip,
   tipOnlyWhenTruncated,
   truncationRef,
+  placementRef,
   children,
   className,
   tone = "label",
+  openOnPress = false,
 }: {
   tip?: string;
   tipOnlyWhenTruncated?: boolean;
   truncationRef?: RefObject<HTMLElement | null>;
+  /** Optical trigger for `placeFloating`. Hover, press, and dismiss still use the host. */
+  placementRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
   className?: string;
   /** `value` preserves case and tracking so identifiers stay copy-readable. */
   tone?: TooltipTone;
+  /** Opens on primary press as well as hover (table CompactId; no extra tab stop). */
+  openOnPress?: boolean;
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const plaqueRef = useRef<HTMLSpanElement>(null);
@@ -35,18 +42,20 @@ export function TooltipHost({
   const selectingRef = useRef(false);
   const pointerInsideRef = useRef(false);
   const [open, setOpen] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const truncated = useTruncated(truncationRef ?? { current: null }, Boolean(tipOnlyWhenTruncated && truncationRef));
   const effectiveTip = tipOnlyWhenTruncated ? (truncated ? tip : undefined) : tip;
   const watchTip = Boolean(tip);
   const owner = useRef({});
   const { style: plaqueStyle, side } = useFloatingPlacement({
     open,
-    triggerRef: hostRef,
+    triggerRef: placementRef ?? hostRef,
     floatingRef: plaqueRef,
     preferredSide: "top",
     align: "center",
     offset: 10,
     size: false,
+    lockMinWidthToTrigger: false,
   });
 
   const clearHideTimer = useCallback(() => {
@@ -64,8 +73,11 @@ export function TooltipHost({
       openPlaqueOwner = null;
       dismissOpenPlaque = null;
     }
+    setPortalRoot(null);
     setOpen(false);
   }, [clearHideTimer]);
+
+  useOverlayDismiss(open, [hostRef, plaqueRef], closePlaque, { pointer: false, focus: false, scroll: true });
 
   const show = useCallback(() => {
     if (!effectiveTip) return;
@@ -76,8 +88,9 @@ export function TooltipHost({
     dismissOpenPlaque = closePlaque;
     pointerInsideRef.current = true;
     clearHideTimer();
+    setPortalRoot(overlayPortalRoot((placementRef ?? hostRef).current));
     setOpen(true);
-  }, [clearHideTimer, closePlaque, effectiveTip]);
+  }, [clearHideTimer, closePlaque, effectiveTip, hostRef, placementRef]);
 
   const hideNow = useCallback((related?: EventTarget | null) => {
     if (selectingRef.current) return;
@@ -153,12 +166,17 @@ export function TooltipHost({
         className={cx("tip-host", className)}
         onMouseEnter={show}
         onMouseLeave={scheduleHide}
+        onPointerDown={(event) => {
+          if (!openOnPress) return;
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          show();
+        }}
         onFocusCapture={showForFocusVisible}
         onBlurCapture={(e) => hideNow(e.relatedTarget)}
       >
         {children}
       </span>
-      {open && effectiveTip
+      {open && effectiveTip && portalRoot
         ? createPortal(
             <span
               ref={plaqueRef}
@@ -177,7 +195,7 @@ export function TooltipHost({
             >
               {effectiveTip}
             </span>,
-            overlayPortalRoot(hostRef.current),
+            portalRoot,
           )
         : null}
     </>

@@ -9,7 +9,10 @@ import {
   usePrototypeSignOut,
   CATALOG_ROUTE,
 } from "../components";
-import { AssignmentPlate, InstantReadout, Key, ManagementLayout, OperateArea, Stack } from "../../design-system";
+import { InstantReadout, Key, ManagementLayout } from "../../design-system";
+import { HomeBoardOperateArea } from "../components/operate";
+import { StatusBay, StatusBays } from "../components/plates";
+import { AssignmentPlate } from "../../components/work/AssignmentPlate";
 import { HOME_BAYS, HOME_DEMO, HOME_DEMO_KEYS } from "../data/fixtures/home";
 import type { HomeEnrollment } from "../data/types";
 import { useAnnouncer } from "../../lib/useAnnouncer";
@@ -82,8 +85,8 @@ export function HomePage() {
         </>
       }
     >
-      <OperateArea
-        className={entries.length === 0 ? "workspace-area board assignment-board--hug" : "workspace-area board"}
+      <HomeBoardOperateArea
+        hug={entries.length === 0 ? "board" : undefined}
         label="Assigned work by record state"
         title="Assigned work"
         description="Open assignments and released records for this participant."
@@ -98,27 +101,25 @@ export function HomePage() {
         }
       >
         {entries.length === 0 ? null : (
-          <div className={`bays${dense ? " bays--dense" : ""}`}>
+          <StatusBays dense={dense}>
             {HOME_BAYS.map((bay) => {
               const plates = entries.filter((e) => e.bay === bay.id);
               return (
-                <Stack as="section" className="bay" gap="none" aria-labelledby={`bay-${bay.id}`} key={bay.id}>
-                  <h2 className="bay-head" id={`bay-${bay.id}`}>
-                    {bay.label}
-                  </h2>
-                  <Stack gap="4" className="bay-plates">
-                    {plates.length ? plates.map((entry) => (
-                      <StatusBayPlate key={entry.campaign} entry={entry} />
-                    )) : (
-                      <p className="bay-empty">No enrollments in this bay</p>
-                    )}
-                  </Stack>
-                </Stack>
+                <StatusBay
+                  key={bay.id}
+                  id={bay.id}
+                  label={bay.label}
+                  empty={plates.length ? undefined : "No enrollments in this bay"}
+                >
+                  {plates.length ? plates.map((entry) => (
+                    <StatusBayPlate key={entry.campaign} entry={entry} />
+                  )) : undefined}
+                </StatusBay>
               );
             })}
-          </div>
+          </StatusBays>
         )}
-      </OperateArea>
+      </HomeBoardOperateArea>
     </ManagementLayout>
   );
 }
@@ -131,12 +132,12 @@ function StatusBayPlate({ entry }: { entry: HomeEnrollment }) {
       released={released}
       rows={[
         { term: "Campaign", value: entry.campaign },
-        { term: "Assignment", value: entry.title, className: "readout--title" },
+        { term: "Assignment", value: entry.title, emphasis: "title" },
         { term: "Deadline", value: deadlineValue(entry) },
         { term: "Phase", value: entry.phase },
         {
           term: "Record",
-          className: "readout--record",
+          emphasis: "inline",
           value: (
             <>
               {entry.record}

@@ -3,15 +3,17 @@ import {
   ActivationMark,
   BackKey,
   EmptyPlate,
+  FrozenLine,
+  InPlateHost,
   Key,
-  OperateArea,
+  registryTableHug,
   PlateFoot,
   ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
-  Stack,
   useTableActionRunner,
 } from "../../components";
+import { CampaignsOperateArea, CampaignsUnavailableWell } from "../../components/operate";
 import { EMPTY_SELECTION, removeIds } from "../../../design-system/patterns/tableSelection";
 import type { Campaign, CampaignRegistryState } from "../../data/types";
 import type { CampaignForm } from "./campaignSchema";
@@ -31,7 +33,7 @@ const EMPTY_REGISTRY: CampaignRegistryState = {
 };
 
 export function CampaignsArea() {
-  const { campaigns, campaign, campaignId, setCampaigns, setCampaignId, announce, pushToast, sealing, setSealing } = useAdminContext();
+  const { campaigns, campaign, campaignId, setCampaigns, setCampaignId, announce, pushToast } = useAdminContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [registry, setRegistry] = useState<CampaignRegistryState>(EMPTY_REGISTRY);
   const runner = useTableActionRunner<Campaign>("campaignSelectAll");
@@ -98,16 +100,14 @@ export function CampaignsArea() {
 
   if (!campaignId) {
     return (
-      <OperateArea
-        className="campaigns-wall"
+      <CampaignsOperateArea
+        variant="registry"
         label="Campaign registry"
         title="Campaign Registry"
         description="Find a campaign, then open its record to inspect or configure."
-        headClassName="campaigns-head"
         titleTabIndex={-1}
-        frameClassName="datatable-frame campaigns-registry-frame"
-        frameInset="flush"
         revealing
+        hug={registryTableHug(matchingCampaignIds(campaigns.map(toRegistryRow), registry).length)}
       >
         <CampaignRegistry
             rows={campaigns.map(toRegistryRow)}
@@ -128,21 +128,20 @@ export function CampaignsArea() {
               onConfirm: runner.confirm,
             }}
           />
-      </OperateArea>
+      </CampaignsOperateArea>
     );
   }
 
   if (!campaign) {
     return (
-      <OperateArea
-        className="campaigns-wall"
+      <CampaignsOperateArea
+        variant="plain"
         label="Campaign unavailable"
         title="Campaign Record"
         description="No campaign matches this address."
-        headClassName="campaigns-head"
         back={<BackKey label="Campaigns" onClick={backToRegistry} />}
       >
-        <div className="campaigns-unavailable">
+        <CampaignsUnavailableWell>
           <EmptyPlate
             inset
             label="Campaign not found"
@@ -150,8 +149,8 @@ export function CampaignsArea() {
           >
             <Key onClick={backToRegistry}>Back to campaigns</Key>
           </EmptyPlate>
-        </div>
-      </OperateArea>
+        </CampaignsUnavailableWell>
+      </CampaignsOperateArea>
     );
   }
 
@@ -161,25 +160,20 @@ export function CampaignsArea() {
     setCampaigns((list) =>
       list.map((c) => (c.id === campaign.id ? { ...c, frozen: true, config: values } : c)),
     );
-    setSealing(true);
-    window.setTimeout(() => setSealing(false), 800);
     announce(`Campaign ${campaign.id} activated in this design lab. Local freeze is not server authority.`);
   };
 
   return (
     <>
-      <OperateArea
-        className="campaigns-wall"
+      <CampaignsOperateArea
+        variant="record"
         label="Campaign configuration"
         title="Campaign Record"
         description={`Configuration and activation for ${campaign.id} / ${campaign.name}.`}
-        headClassName="campaigns-head"
-        frameClassName="campaigns-frame"
         revealing
-        sealing={sealing}
         back={<BackKey label="Campaigns" onClick={backToRegistry} />}
       >
-          <Stack gap="none" className="in-plate-host">
+          <InPlateHost>
           <ReadoutGrid label="Campaign record">
             <ReadoutGridRow label="Campaign summary">
               <ReadoutGridField term="Campaign" span={3}>
@@ -187,7 +181,7 @@ export function CampaignsArea() {
               </ReadoutGridField>
               <ReadoutGridField term="Enrollments">{campaign.rows.length}</ReadoutGridField>
               <ReadoutGridField term="Activation" span={2}>
-                <ActivationMark frozen={campaign.frozen} className="readout-grid-state" />
+                <ActivationMark frozen={campaign.frozen} placement="grid" />
               </ReadoutGridField>
             </ReadoutGridRow>
             <ReadoutGridRow label="Campaign configuration">
@@ -201,15 +195,15 @@ export function CampaignsArea() {
           </ReadoutGrid>
           {campaign.frozen ? (
             <PlateFoot arrangement="start">
-              <p className="frozen-line">Configuration frozen at activation</p>
+              <FrozenLine>Configuration frozen at activation</FrozenLine>
             </PlateFoot>
           ) : (
             <PlateFoot>
               <Key onClick={() => setDialogOpen(true)}>Configure campaign</Key>
             </PlateFoot>
           )}
-          </Stack>
-      </OperateArea>
+          </InPlateHost>
+      </CampaignsOperateArea>
       <CampaignConfigDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -218,7 +212,6 @@ export function CampaignsArea() {
           setCampaigns((list) =>
             list.map((c) => (c.id === campaign.id ? { ...c, config: values } : c)),
           );
-          announce(`Draft saved for ${campaign.id}. Local freeze is not authority.`);
         }}
         onActivate={activate}
       />

@@ -12,7 +12,7 @@ Flex Agent.
 | **Approvers** | Product Lead, UI/UX Lead |
 | **Version** | 1.0 |
 | **Effective date** | 2026-08-27 |
-| **Last reviewed** | 2026-08-30 |
+| **Last reviewed** | 2026-08-31 |
 | **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
 | **Related decisions** | `DS-DEC-3`–`DS-DEC-7` retained; `DS-DEC-1`, `DS-DEC-2`, `DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` added; `DS-PROP-1` superseded by `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |

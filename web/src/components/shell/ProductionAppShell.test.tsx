@@ -64,7 +64,7 @@ describe("ProductionAppShell operator disclosure", () => {
     expect(screen.queryByText("ORG")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /light theme|dark theme/i })).not.toBeInTheDocument();
     expect(document.querySelector(".toast-dock")).toHaveAttribute("aria-live", "polite");
-    expect(document.querySelector(".toast-dock")).toHaveAttribute("data-placement", "bottom-center");
+    expect(document.querySelector(".toast-dock")).toHaveAttribute("data-placement", "top-center");
     expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
 

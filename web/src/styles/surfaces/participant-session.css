@@ -609,7 +609,13 @@ html[data-surface="participant-session"] {
   padding-top: 20px;
   border-top: 1px solid var(--hairline-dim);
 }
-.briefing-note { font-size: 0.64rem; color: var(--label-dim); letter-spacing: 0.06em; max-width: 30ch; }
+.briefing-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.64rem;
+  color: var(--label-dim);
+  letter-spacing: 0.06em;
+}
 
 /* ═══ Session complete state ═════════════════════════════════════ */
 
@@ -741,7 +747,6 @@ html[data-surface="participant-session"] {
     overscroll-behavior: contain;
   }
   .briefing-foot { flex-direction: column; align-items: stretch; flex-shrink: 0; margin-top: 16px; padding-top: 16px; }
-  .briefing-note { max-width: none; }
   .complete-plate { padding: 28px 18px 24px; margin: 24px auto; }
   .complete-keys { margin-top: 22px; }
   .complete-keys .key--begin { width: 100%; min-width: 0; }

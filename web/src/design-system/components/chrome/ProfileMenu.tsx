@@ -10,11 +10,13 @@ export function ProfileMenu({
   identity,
   actions,
   ariaLabel,
+  placement = "strip",
   className,
 }: {
   identity: OperatorIdentity;
   actions: OperatorAction[];
   ariaLabel?: string;
+  placement?: "strip" | "rail";
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -26,7 +28,7 @@ export function ProfileMenu({
       ? `Operator menu, ${role.toLowerCase()} ${named}`
       : `Operator menu, ${role.toLowerCase() || named}`
   );
-  const rail = Boolean(className?.includes("strip-profile--rail"));
+  const rail = placement === "rail";
   const standard = actions.filter((action) => action.intent !== "signout");
   const signOut = actions.filter((action) => action.intent === "signout");
 
@@ -45,7 +47,7 @@ export function ProfileMenu({
       focusOnOpen={false}
       labelledBy={triggerId}
       label="Operator menu"
-      className={cx("strip-profile", className)}
+      className={cx("strip-profile", rail && "strip-profile--rail", className)}
       panelClassName="strip-profile-menu"
       trigger={(bind) => (
         <button

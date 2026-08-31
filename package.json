@@ -24,7 +24,9 @@
     "compose:reset": "bash build/scripts/authenticated-browser-profile.sh reset",
     "compose:status": "bash build/scripts/authenticated-browser-profile.sh status",
     "compose:validate": "bash build/scripts/authenticated-browser-profile.sh validate",
-    "compose:candidate": "bash build/scripts/authenticated-browser-profile.sh --overlay candidate up"
+    "compose:candidate": "bash build/scripts/authenticated-browser-profile.sh --overlay candidate up",
+    "compose:api:canonical": "bash build/scripts/authenticated-browser-profile.sh recreate-api",
+    "compose:api:candidate": "bash build/scripts/authenticated-browser-profile.sh --overlay candidate recreate-api"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "6.0.0"

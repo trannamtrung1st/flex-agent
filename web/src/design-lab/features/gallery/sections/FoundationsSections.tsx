@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
-import { ActionMenuGlyph, AssignmentPlate, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup, StateReadout } from "../../../components";
+import { ActionMenuGlyph, AssignmentPlate, AssignmentRecordReadout, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup, ProtocolPlate } from "../../../components";
 import { Inline, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
 
@@ -227,7 +227,7 @@ export function FoundationsSections() {
         </div>
       </GallerySection>
 
-      <GallerySection id="pane" title="Pane" note={<>The world's one surface: hairline bezel, sheen over dark glass, inset edge-light and vignette. Cut any corner with <span className="code">--cut-tl / --cut-tr / --cut-br / --cut-bl</span>; set the glass with <span className="code">--pane-fill</span>. Work-well and session-briefing section labels are teal microlabels with no leading tick; the 7×1px tick is the unordered-list bullet only.</>}>
+      <GallerySection id="pane" title="Pane" note={<>The world's one surface: hairline bezel, sheen over dark glass, inset edge-light and vignette. Cut any corner with <span className="code">--cut-tl / --cut-tr / --cut-br / --cut-bl</span>; set the glass with <span className="code">--pane-fill</span>.</>}>
         <div className="pane-grid">
           {[
             ["pane pane--tl pane-demo", "Top cut", ".pane .pane--tl"],
@@ -237,16 +237,74 @@ export function FoundationsSections() {
           ].map(([className, label, tag]) => (
             <Spec key={label} tag={tag}><div className={className}><span className="pane-demo-label">{label}</span></div></Spec>
           ))}
+          <Spec tag=".protocol-plate · .pane--dim .pane--br">
+            <ProtocolPlate label="Protocol" value="V7.3.1" />
+          </Spec>
         </div>
-        <Spec tag=".protocol-plate · .pane--dim .pane--br">
-          <div className="protocol-plate pane pane--dim pane--br">
-            <span className="protocol-label">Protocol</span>
-            <span className="protocol-value">V7.3.1</span>
-          </div>
+      </GallerySection>
+
+      <GallerySection
+        id="work-well"
+        title="Work well"
+        note={<>Seated task article. <span className="code">seat=&quot;stack&quot;</span> is the unframed nested-record well: flush inset and a 2px <span className="code">--hairline</span> under the title + ident cluster (max-content, not wrap-to-title). Title size is <span className="code">WorkWellHead titleRole</span> (<span className="code">plate</span> / <span className="code">task</span>), inferred from seat. <span className="code">seat=&quot;pane&quot;</span> fills a bezel: span mark and frame insets, or <span className="code">inset=&quot;flush&quot;</span> when parent <span className="code">frame-in</span> already pads. Do not pick mark by taste. Section labels are teal microlabels with no leading tick; the 7×1px tick is the unordered-list bullet only.</>}
+      >
+        <Spec wide tag="WorkWell · seat=stack · titleRole=plate">
+          <WorkWell
+            seat="stack"
+            live={false}
+            label="Enrollment actions"
+            head={<WorkWellHead title="Enrollment actions" ident="Lifecycle stays on the server." />}
+          >
+            <WorkWellSection>
+              <KeyGroup aria-label="Enrollment commands">
+                <Key variant="open">Request accommodation</Key>
+              </KeyGroup>
+            </WorkWellSection>
+          </WorkWell>
         </Spec>
-        <Spec wide tag="WorkWell · section label without tick · ul 7×1px bullets">
+        <Spec wide tag="WorkWell · seat=stack · titleRole=plate · short title">
+          <WorkWell
+            seat="stack"
+            live={false}
+            label="History"
+            head={<WorkWellHead title="History" ident="Prior states remain inspectable." />}
+          >
+            <WorkWellSection>
+              <ol>
+                <li data-sequence="1">Absent → Active (Assigned)</li>
+              </ol>
+            </WorkWellSection>
+          </WorkWell>
+        </Spec>
+        <div className="spec-row">
+          <Spec tag="WorkWellHead · titleRole=plate">
+            <WorkWell
+              seat="stack"
+              live={false}
+              label="Plate title"
+              head={<WorkWellHead title="Plate title" ident="H2 / FormSection group." />}
+            >
+              <WorkWellSection>
+                <p>Inferred from seat=stack. Pass titleRole only to override.</p>
+              </WorkWellSection>
+            </WorkWell>
+          </Spec>
+          <Spec tag="WorkWellHead · titleRole=task">
+            <WorkWell
+              seat="stack"
+              live={false}
+              label="Task title"
+              head={<WorkWellHead titleRole="task" title="Task title" ident="Explicit override on stack." />}
+            >
+              <WorkWellSection>
+                <p>Same stack seat as the plate specimen; larger seated-task plaque.</p>
+              </WorkWellSection>
+            </WorkWell>
+          </Spec>
+        </div>
+        <Spec wide tag="WorkWell · seat=pane · titleRole=task · inset=flush inside frame-in · section label without tick · ul 7×1px bullets">
           <EtchedFrame>
-            <WorkWell head={<WorkWellHead title="Assignment briefing" ident="Enrollment specimen · not a live record" />}>
+            <WorkWell seat="pane" inset="flush" head={<WorkWellHead title="Assignment briefing" ident="Enrollment specimen · not a live record" />}>
               <WorkWellSection>
                 <h3>What you are completing</h3>
                 <p>A text examination on a frozen cohort configuration. Section labels carry their own weight.</p>
@@ -281,10 +339,10 @@ export function FoundationsSections() {
           <AssignmentPlate
             label="Activities"
             rows={[
-              { term: "Purpose", value: "Create and resume Assessment Campaign drafts for this organization.", className: "readout--title" },
+              { term: "Purpose", value: "Create and resume Assessment Campaign drafts for this organization.", emphasis: "title" },
               { term: "Availability", value: "Available" },
             ]}
-            action={<Key variant="open" to="/activities" ariaLabel="Open Activities">Open</Key>}
+            action={<Key variant="open" ariaLabel="Open Activities" onClick={() => undefined}>Open</Key>}
           />
         </Spec>
         <Spec wide tag="AssignmentPlate · released assignment">
@@ -293,14 +351,14 @@ export function FoundationsSections() {
             released
             rows={[
               { term: "Campaign", value: "Campaign A" },
-              { term: "Assignment", value: "Case study", className: "readout--title" },
+              { term: "Assignment", value: "Case study", emphasis: "title" },
               {
                 term: "Record",
-                value: <StateReadout variant="sealed" solid label="Released" className="assignment-record" labelClassName="assignment-record-label" />,
-                className: "readout--record",
+                value: <AssignmentRecordReadout variant="sealed" solid label="Released" />,
+                emphasis: "inline",
               },
             ]}
-            action={<Key variant="open" to="/my-work/enr-1" ariaLabel="Open Campaign A">Open</Key>}
+            action={<Key variant="open" ariaLabel="Open Campaign A" onClick={() => undefined}>Open</Key>}
           />
         </Spec>
       </GallerySection>

@@ -3,8 +3,6 @@ import {
   ActionMenuGlyph,
   Advisory,
   Alert,
-  CeremonyArea,
-  CeremonyWait,
   EmptyPlate,
   ErrorSummary,
   IconButton,
@@ -30,7 +28,7 @@ export function FeedbackSections({
 
   return (
     <>
-      <GallerySection id="toast" title="Toast" note="Instrument slips. ToastDock / ToastHost take placement (bottom-center, bottom-start, bottom-end, top-center, top-start, top-end) plus optional offsetInline and offsetBlock. Production defaults to bottom-center so start and trailing PlateFoot keys stay clear. Compact widths stretch above the docked foot, not over it.">
+      <GallerySection id="toast" title="Toast" note="Instrument slips. ToastDock / ToastHost take placement (bottom-center, bottom-start, bottom-end, top-center, top-start, top-end) plus optional offsetInline and offsetBlock. Production defaults to top-center for now. The dock paints above hull chrome (z-index 75) at the default inset and may cover the strip. Compact widths stretch the dock to viewport inline edges; bottom placements keep offsetBlock above a fixed foot.">
         <div className="spec-row">
           <Spec tag=".toast"><Key id="toastSystemKey" onClick={() => pushToast({ label: "Link", copy: "Submission v2 preserved. Earlier versions remain on record." })}>Fire system slip</Key></Spec>
           <Spec tag=".toast--attention"><Key id="toastAttentionKey" onClick={() => pushToast({ label: "Time warning", copy: "10 minutes remain in this session.", attention: true })}>Fire attention slip</Key></Spec>
@@ -72,7 +70,7 @@ export function FeedbackSections({
 
       <GallerySection id="empty" title="Empty state" note="The empty state is still an instrument, never bare text.">
         <Spec wide center tag=".empty-plate · label · note"><EmptyPlate label="No assigned sessions" note="Nothing is waiting on you. When an administrator assigns an assessment it will rack into the Open bay." /></Spec>
-        <Spec wide tag=".empty-plate--inset + --separated · dashed horizon after seated content"><EmptyPlate className="empty-plate--inset empty-plate--separated" label="No cohort records loaded" note="Frozen configuration at cohort activation is the fairness baseline. This plate will not invent cohort membership or accommodations." /></Spec>
+        <Spec wide tag=".empty-plate--inset + --separated · dashed horizon after seated content"><EmptyPlate inset className="empty-plate--separated" label="No cohort records loaded" note="Frozen configuration at cohort activation is the fairness baseline. This plate will not invent cohort membership or accommodations." /></Spec>
       </GallerySection>
 
       <GallerySection id="wait" title="Wait & progress" note="Loading is an instrument, never a spinner. Teal is the system voice; amber stays on the current stage only. Skeleton lines are dashed absence — the record that has not arrived. Reduced motion holds the geometry still.">
@@ -92,19 +90,10 @@ export function FeedbackSections({
         </div>
       </GallerySection>
 
-      <GallerySection id="wait-panel" title="Wait panel" note="Inline protected-loading status for occupied keys and toolbars: wait-mark plus polite live region text. Page-level wait uses CeremonyWait inside CeremonyArea, not a stretched etched well.">
+      <GallerySection id="wait-panel" title="Wait panel" note="Inline protected-loading status for occupied keys and toolbars: wait-mark plus polite live region text. Page-level wait lives under Shells → Management loading (#layout-management-loading): CeremonyWait inside CeremonyArea in management chrome, not a bare Spec frame.">
         <Spec tag=".loading-panel · role=status"><WaitPanel label="Loading activities…" /></Spec>
-        <Spec wide tag="CeremonyWait · hug column · inset wait-plate">
-          <CeremonyArea
-            label="Establishing session"
-            title="Establishing session"
-            description="Confirming the production application session for this organization."
-          >
-            <CeremonyWait label="Establishing session context…" />
-          </CeremonyArea>
-        </Spec>
       </GallerySection>
-      <ToastDock toasts={toasts} placement="bottom-center" offsetInline="234px" />
+      <ToastDock toasts={toasts} offsetInline="234px" />
     </>
   );
 }

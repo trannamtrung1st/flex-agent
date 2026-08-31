@@ -1,11 +1,17 @@
 import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 export type FieldWidth = "standard" | "narrow" | "wide";
+export type FieldCasing = "authored" | "uppercase";
 export type FieldTextareaResize = "none" | "vertical" | "both";
 
 function fieldWidthClass(width?: FieldWidth) {
   if (width === "narrow") return "field-input--narrow";
   if (width === "wide") return "field-input--wide";
+  return undefined;
+}
+
+function fieldCasingClass(casing?: FieldCasing) {
+  if (casing === "uppercase") return "field-input--uppercase";
   return undefined;
 }
 
@@ -16,6 +22,7 @@ function isAriaInvalid(value: InputHTMLAttributes<HTMLInputElement>["aria-invali
 function fieldControlClass({
   base,
   width,
+  casing,
   invalid,
   frozen,
   className,
@@ -23,6 +30,7 @@ function fieldControlClass({
 }: {
   base: string;
   width?: FieldWidth;
+  casing?: FieldCasing;
   invalid?: boolean;
   frozen?: boolean;
   className?: string;
@@ -31,6 +39,7 @@ function fieldControlClass({
   return [
     base,
     fieldWidthClass(width),
+    fieldCasingClass(casing),
     invalid || isAriaInvalid(ariaInvalid) ? "is-invalid" : undefined,
     frozen ? "is-frozen" : undefined,
     className,
@@ -43,12 +52,14 @@ export const FieldInput = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement> & {
     width?: FieldWidth;
+    /** Token slots only. Default preserves authored case (titles, names, captions). */
+    casing?: FieldCasing;
     invalid?: boolean;
     frozen?: boolean;
     /** Format example. Required; never a substitute for the visible label. */
     placeholder: string;
   }
->(function FieldInput({ width = "standard", invalid, frozen, className, readOnly, ...props }, ref) {
+>(function FieldInput({ width = "standard", casing = "authored", invalid, frozen, className, readOnly, ...props }, ref) {
   return (
     <input
       {...props}
@@ -57,6 +68,7 @@ export const FieldInput = forwardRef<
       className={fieldControlClass({
         base: "field-input",
         width,
+        casing,
         invalid,
         frozen,
         className,

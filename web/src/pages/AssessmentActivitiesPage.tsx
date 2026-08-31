@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   isAssessmentAccessLoss,
   REQUIRED_SOURCE_CATEGORIES,
@@ -7,26 +6,31 @@ import {
   type ProductionActivitySummary,
   type ProductionSourceOption,
 } from "../api/production-assessment";
-import { CeremonyArea, CeremonyUnavailable, CeremonyWait } from "../components/shell/SessionChrome";
 import { sourceCategoryLabel } from "../features/assessment/campaignCreatePresentation";
 import {
+  CeremonyArea,
+  CeremonyUnavailable,
+  CeremonyWait,
   DataTablePagination,
   DataTableShell,
   DataTableToolbar,
-  datatableColMin,
-  EmptyPlate,
+  DatatableActions,
+  DatatableCell,
+  DatatableEmpty,
+  DatatableId,
+  DatatableRow,
+  DatatableStateReadout,
+  DatatableTable,
   InstantReadout,
   Key,
-  KeyGroup,
   OperateArea,
+  registryTableHug,
   SortableHeader,
-  StateReadout,
   ToolbarReadout,
   ToolbarSearch,
-  SEARCH_TITLE_OR_ID_PLACEHOLDER,
   useTableController,
 } from "../design-system";
-import { cx } from "../lib/cx";
+import { SEARCH_TITLE_OR_ID_PLACEHOLDER } from "../content/fieldCopy";
 import {
   useAssessmentActivitiesQuery,
   useAssessmentSourceOptionsQuery,
@@ -99,34 +103,25 @@ export function AssessmentActivitiesPage({
   const offerCreate = canCreate && !missingCategory;
 
   return (
-    <OperateArea
-      className={cx(
-        "workspace-area",
-        "work-plane",
-        "registry-wall",
-        rows.length > 0 && rows.length <= 4 && "registry-wall--hug",
-      )}
-      frameClassName="datatable-frame registry-frame"
-      frameInset="flush"
-      label="Activities"
-      title="Activities"
-      description="Create and resume Assessment Campaign drafts."
+    <ActivityRegistry
+      rows={rows}
+      offerCreate={offerCreate}
       advisory={canCreate && missingCategory ? {
         label: "Sources",
         copy: `No permitted ${sourceCategoryLabel(missingCategory)} revisions are available. A ready source set is required before a draft can be created.`,
       } : undefined}
-    >
-      <ActivityRegistry rows={rows} offerCreate={offerCreate} />
-    </OperateArea>
+    />
   );
 }
 
 function ActivityRegistry({
   rows,
   offerCreate,
+  advisory,
 }: {
   rows: readonly ProductionActivitySummary[];
   offerCreate: boolean;
+  advisory?: { label: string; copy: string };
 }) {
   const [search, setSearch] = useState("");
   const [sorts, setSorts] = useState<{ key: ActivitySortKey; dir: "asc" | "desc" }[]>([{ key: "title", dir: "asc" }]);
@@ -175,17 +170,24 @@ function ActivityRegistry({
   };
 
   const createAction = offerCreate ? (
-    <div className="datatable-actions" aria-label="Table actions">
-      <KeyGroup className="datatable-actions-keys" justify="end">
-        <Key variant="quiet" size="compact" to="/activities/new">
-          Create
-        </Key>
-      </KeyGroup>
-    </div>
+    <DatatableActions>
+      <Key variant="quiet" size="compact" to="/activities/new">
+        Create
+      </Key>
+    </DatatableActions>
   ) : undefined;
 
   return (
-    <DataTableShell
+    <OperateArea
+      bay="registry"
+      hug={registryTableHug(slice.total)}
+      frame="registry"
+      label="Activities"
+      title="Activities"
+      description="Create and resume Assessment Campaign drafts."
+      advisory={advisory}
+    >
+      <DataTableShell
       toolbar={
         <DataTableToolbar
           ariaLabel="Activities registry controls"
@@ -213,8 +215,7 @@ function ActivityRegistry({
       }
       scrollProps={{ tabIndex: 0, "aria-label": "Campaign rows, scrollable" }}
       table={
-        <table className="datatable-table" hidden={slice.total === 0}>
-          <caption className="visually-hidden">Activities</caption>
+        <DatatableTable caption="Activities" hidden={slice.total === 0}>
           <thead>
             <tr>
               <SortableHeader sortKey="title" sorts={sorts} onSort={handleSort} label="Campaign" colMin="id" />
@@ -226,35 +227,32 @@ function ActivityRegistry({
           <tbody>
             {slice.pageRows.map((row) => {
               return (
-                <tr key={row.activity_id} className="datatable-row">
-                  <td className="cell-id" {...datatableColMin("id")}>
-                    <Link className="datatable-id" to={`/activities/${row.activity_id}/setup`}>
+                <DatatableRow key={row.activity_id}>
+                  <DatatableCell kind="id" colMin="id">
+                    <DatatableId to={`/activities/${row.activity_id}/setup`}>
                       {row.title}
-                    </Link>
-                  </td>
-                  <td className="cell-state" {...datatableColMin("state")}>
-                    <StateReadout
+                    </DatatableId>
+                  </DatatableCell>
+                  <DatatableCell kind="state" colMin="state">
+                    <DatatableStateReadout
                       variant={row.has_activated_cohort ? "sealed" : "rest"}
                       solid={row.has_activated_cohort}
                       label={row.has_activated_cohort ? "Activated" : "Draft"}
-                      className="state-cell"
-                      labelClassName="state-label"
                     />
-                  </td>
-                  <td className="cell-content" {...datatableColMin("instant")}>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="instant">
                     <InstantReadout value={row.updated_at} />
-                  </td>
-                  <td className="cell-content" {...datatableColMin("rev")}>{row.revision_number}</td>
-                </tr>
+                  </DatatableCell>
+                  <DatatableCell kind="content" colMin="rev">{row.revision_number}</DatatableCell>
+                </DatatableRow>
               );
             })}
           </tbody>
-        </table>
+        </DatatableTable>
       }
       empty={
         slice.total === 0 ? (
-          <EmptyPlate
-            className="datatable-empty"
+          <DatatableEmpty
             inset
             label={query ? "No matching activities" : "No activities"}
             note={query
@@ -272,7 +270,7 @@ function ActivityRegistry({
                 Clear search
               </Key>
             ) : null}
-          </EmptyPlate>
+          </DatatableEmpty>
         ) : null
       }
       footer={
@@ -294,5 +292,6 @@ function ActivityRegistry({
         />
       }
     />
+    </OperateArea>
   );
 }

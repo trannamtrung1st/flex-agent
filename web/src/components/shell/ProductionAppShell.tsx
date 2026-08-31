@@ -57,7 +57,7 @@ export function ProductionAppShell() {
 
   if (assigned === "guided-task") {
     return (
-      <ToastHost placement="bottom-center">
+      <ToastHost>
         <LayoutAssignment id="guided-task">
           <Outlet />
         </LayoutAssignment>
@@ -66,7 +66,7 @@ export function ProductionAppShell() {
   }
 
   return (
-    <ToastHost placement="bottom-center">
+    <ToastHost>
       <LayoutAssignment id={assigned}>
         <ManagementLayout
           contain={false}

@@ -295,7 +295,10 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 14px 20px 18px;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--hairline) color-mix(in srgb, var(--ground) 82%, var(--hairline-dim));
+  padding: var(--plate-foot-pad-block) var(--frame-inset-inline);
 }
 
 .bulkhead-body > * { flex-shrink: 0; }

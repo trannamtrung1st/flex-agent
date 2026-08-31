@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronGlyph } from "../glyphs/ChevronGlyph";
 import { AnchoredOverlay } from "../overlays/AnchoredOverlay";
+import { overlayPlateClass } from "../overlays/overlayPlate";
 import { selectShellStyle, type SelectPopoverConfig } from "./selectShell";
-import { useDismissOnOutsidePointer } from "./useDismissOnOutsidePointer";
+import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 
 export function DisclosureMenu({
   label,
@@ -49,7 +50,7 @@ export function DisclosureMenu({
     });
   }, []);
 
-  useDismissOnOutsidePointer(open, [rootRef, menuRef], () => setOpen(false));
+  useOverlayDismiss(open, [rootRef, menuRef], () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
@@ -87,12 +88,12 @@ export function DisclosureMenu({
         <span className="seg-value" id={valueId}>{value}</span>
         <ChevronGlyph />
       </button>
-      <AnchoredOverlay open={open} triggerRef={keyRef} tokenSourceRef={rootRef} floatingRef={menuRef}>
+      <AnchoredOverlay open={open} triggerRef={rootRef} tokenSourceRef={rootRef} floatingRef={menuRef}>
         {({ ref, style, overlayClassName }) => (
       <ul
         ref={ref}
         style={style}
-        className={`seg-menu select-popover popover-surface menu-surface option-menu ${overlayClassName}`}
+        className={overlayPlateClass("seg-menu", "option-menu", overlayClassName)}
         role="listbox"
         id={menuId}
         aria-label={ariaLabel}
@@ -222,7 +223,7 @@ export function DropdownSelect({
     keyRef.current?.focus();
   };
 
-  useDismissOnOutsidePointer(open, [rootRef, overlayRef], () => setOpen(false), { labelId, controlId: id });
+  useOverlayDismiss(open, [rootRef, overlayRef], () => setOpen(false), { labelId, controlId: id });
 
   const focusOption = (idx: number) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='option']") ?? []);
@@ -284,7 +285,7 @@ export function DropdownSelect({
       </button>
       <AnchoredOverlay
         open={open}
-        triggerRef={keyRef}
+        triggerRef={rootRef}
         tokenSourceRef={rootRef}
         floatingRef={overlayRef}
         align={isToolbar ? "start" : "stretch"}
@@ -293,7 +294,7 @@ export function DropdownSelect({
       <div
         ref={ref}
         style={style}
-        className={`${isToolbar ? "seg-menu" : "dropdown-menu"} select-popover popover-surface menu-surface ${overlayClassName}`}
+        className={overlayPlateClass(isToolbar ? "seg-menu" : "dropdown-menu", overlayClassName)}
         hidden={!open}
       >
         <ul

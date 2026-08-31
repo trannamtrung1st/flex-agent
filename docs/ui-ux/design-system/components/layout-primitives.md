@@ -20,7 +20,7 @@ Gallery specimens: Component Deck sections `composition-*` (visual showcase only
 | Readable or form column width | `Container` |
 | Tokenized logical padding | `Inset` |
 | Named start/main/end tracks that stay columns | `SplitBay` |
-| Status Bays or live-session hull columns | Domain / shell CSS, not `Grid`. Status Bay *plates* still use `AssignmentPlate`. |
+| Status Bays or live-session hull columns | Domain / shell CSS, not `Grid`. Status Bays use even `--form-group-gap` around column hairlines. Status Bay *plates* still use `AssignmentPlate` (`web/src/components/work/`). Lab Status Bays live in `web/src/design-lab/components/plates/`. |
 
 Feature pages import primitives from the production design-system barrel. They
 do not import `design-lab` or assemble shells from chrome primitives.
@@ -35,7 +35,8 @@ reorder children, and do not inject `data-layout` or `.layout-*` classes.
 `end`, optional `head` / `foot` / `toolbar` / `overlay`) and is also not a
 layout family. Optional `head` / `foot` span the main and end tracks when a
 composition needs a plaque or bar over the ledger only. The reviewer split
-ledger does not use those slots: `OperateArea` `headArrangement="plaque"` is the
+ledger does not use those slots: `ReviewerLedgerOperateArea` (`OperateHead`
+`arrangement="plaque"`) is the
 full-width `record-head`, `SplitBay` is the three work columns, and the
 decision bar is a sibling of the bay.
 
@@ -78,14 +79,13 @@ same `--shell-main-inset-inline` / `--shell-main-inset-block` tokens through
 Spacing belongs to the parent via `gap` or `Inset`. Do not add spacer nodes or
 arbitrary child margins to fake rhythm.
 
-## Recipes
+## Combining primitives
 
-Component Deck `composition-recipes` shows common inner slots (a `Container
-size="form"` column, a grouped list with trailing open keys). Those are
-specimens of the primitives above, not additional components. Cloneable
-OperateArea forms with real fields live on `form-recipes`. `FormSection`
-legends mark clusters with a 2px `--hairline` underline under the title words
-([inputs](inputs.md)).
+The Component Deck Composition group shows each primitive. Combining them is
+not a fifth specimen. Cloneable OperateArea forms with real fields live on
+`form-recipes`. Retired `#composition-recipes` deck hashes alias to
+`#form-recipes`. `FormSection` legends mark clusters with a 2px `--hairline`
+underline under the title words ([inputs](inputs.md)).
 
 ## Semantic examples
 
@@ -109,20 +109,17 @@ legends mark clusters with a 2px `--hairline` underline under the title words
   <li>Compact key</li>
 </Inline>
 
-<OperateArea
-  className="workspace-area record-view"
+<ReviewerLedgerOperateArea
   label="Evaluation record"
   title="Examination Transcript"
   description="Session 07"
-  framed={false}
-  headArrangement="plaque"
   back={<BackKey label="Queue" onClick={onQueue} />}
 >
   <SplitBay start={<aside>Manifest</aside>} end={<aside>Criteria</aside>}>
     <div>Transcript</div>
   </SplitBay>
   <footer className="decision-bar">{/* note + keys */}</footer>
-</OperateArea>
+</ReviewerLedgerOperateArea>
 ```
 
 ## Accessibility and reflow

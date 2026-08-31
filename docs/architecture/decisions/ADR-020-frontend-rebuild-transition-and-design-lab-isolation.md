@@ -9,7 +9,11 @@ pointer, cutover-from-legacy, and `web-legacy/` as a live runtime.
 **Approved — 2026-08-27; amended 2026-08-27** for the Phase 7.5 design-lab
 route namespace, promoted `web/src/design-system/` ownership, and retirement of
 the raw prototype snapshot before production migration. Design-lab isolation
-rules remain in force as restated by ADR-021 `FE-RESET-2`.
+rules remain in force as restated by ADR-021 `FE-RESET-2`, including the
+2026-08-31 outbound amendment (lab may import `components/work`, `content`,
+and named assessment readouts). Historical `FE-TRANS-3` / `FE-TRANS-4` wording
+below that forbids all `components/` and `features/` lab imports is superseded
+by that restatement.
 
 ## Owners and approvers
 
@@ -95,7 +99,8 @@ modules may import those modules and synthetic fixtures under
 `.work/resources`, or `web-legacy/`. The design lab may import `design-system`,
 `lib`, shared styles, and its own modules; `design-system` must never import
 the design lab. Legacy code must never import the new production tree.
-Architecture tests enforce these directions.
+Architecture tests enforce these directions. Current outbound allowlist is
+ADR-021 `FE-RESET-2` (includes production-safe domain composition).
 
 ### `FE-TRANS-4` — Design-lab isolation
 
@@ -107,6 +112,11 @@ traffic. Lab modules may not import future production `api/`, `features/`,
 `pages/`, `router/`, or `components/` trees under `web/src`. Do not retain a `/prototypes` redirect; Git history preserves the
 former namespace. After Phase 7.5 the verified design lab is the sole local
 visual-composition donor.
+
+> **Current rule:** ADR-021 `FE-RESET-2` (2026-08-31) allows lab imports of
+> `web/src/components/work/`, `web/src/content/`, and named assessment readouts
+> such as `SetupTrackReadout`. Other `components/`, `features/`, `pages/`,
+> `api/`, and `router/` imports remain forbidden.
 
 ### `FE-TRANS-9` — Shared layout library
 

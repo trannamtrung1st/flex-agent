@@ -107,76 +107,19 @@
   padding-block-end: var(--plate-foot-pad-block);
 }
 
-.assignment-plate {
-  --cut: var(--notch);
-  display: flex;
-  min-width: 0;
-}
-
-.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  padding-block-start: 6px;
+/* Fused instrument interiors: full-bleed foot hairline. Domain hosts add `.plate-bleed`. */
+.frame-cut:not(.frame-cut--flush) > .frame-in:has(.plate-bleed) {
   padding-inline: 0;
   padding-block-end: 0;
 }
 
-.assignment-plate.frame-cut:not(.frame-cut--flush) > .frame-in:has(.plate-foot) {
-  padding-block-end: 0;
-}
-
-.assignment-plate-in > :not(.plate-foot) {
+.plate-bleed > :not(.plate-foot) {
   padding-inline: var(--frame-inset-inline);
 }
 
-.assignment-plate--released > .frame-in {
-  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
-}
-
-[data-theme="light"] .assignment-plate > .frame-in {
-  background: var(--panel-sheen), var(--ground-deep);
-}
-
-.assignment-plate .assignment-plate-keys {
-  min-height: 58px;
-  margin-top: auto;
-  padding-block-start: var(--plate-foot-pad-block);
-  padding-block-end: var(--frame-inset-block-end);
-  padding-inline: var(--frame-inset-inline);
-}
-
-.assignment-plate-keys--empty {
-  min-height: 24px;
-}
-
-/* Setup/Create and fused in-plate hosts: full-bleed foot hairline. */
-.frame-cut:not(.frame-cut--flush) > .frame-in:has(.setup-ceremony),
-.frame-cut:not(.frame-cut--flush) > .frame-in:has(.in-plate-host) {
-  padding-inline: 0;
-  padding-block-end: 0;
-}
-
-.setup-ceremony > :not(.plate-foot),
-.in-plate-host > :not(.plate-foot) {
-  padding-inline: var(--frame-inset-inline);
-}
-
-.setup-ceremony > .plate-foot,
-.in-plate-host > .plate-foot {
+.plate-bleed > .plate-foot {
   padding-inline: var(--frame-inset-inline);
   padding-block-end: var(--frame-inset-block-end);
-}
-
-.assignment-record {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.assignment-record-label {
-  color: var(--text);
 }
 
 /* ═══ Guided-task work well (shell slot plate) ═══════════════════ */
@@ -193,6 +136,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
 }
 
 .work-well {
@@ -203,6 +148,9 @@
 
 .work-well__head {
   flex-shrink: 0;
+}
+
+.work-well__head[data-mark="span"] {
   padding:
     var(--frame-inset-block-start)
     var(--frame-inset-inline)
@@ -210,14 +158,53 @@
   border-bottom: 1px solid var(--hairline-dim);
 }
 
+.work-well__head[data-mark="title"] {
+  padding:
+    var(--frame-inset-block-start)
+    var(--frame-inset-inline)
+    0;
+}
+
+.work-well__copy {
+  width: max-content;
+  max-width: 100%;
+  align-self: start;
+}
+
+.work-well__head[data-mark="title"] .work-well__copy {
+  padding-block-end: var(--space-2);
+  border-block-end: 2px solid var(--hairline);
+}
+
+.work-well[data-inset="flush"] .work-well__head {
+  padding-inline: 0;
+}
+
+.work-well[data-inset="flush"] .work-well__head[data-mark="title"] {
+  padding-block-start: 0;
+}
+
+.work-well[data-inset="flush"] .work-well__head[data-mark="span"] {
+  padding-block-start: 0;
+  padding-block-end: var(--space-2);
+}
+
 .work-well__title {
   font-family: var(--font-plaque);
   text-transform: uppercase;
-  font-size: 1.05rem;
-  letter-spacing: 0.2em;
   color: var(--text-bright);
   font-weight: 400;
   margin: 0;
+}
+
+.work-well__head[data-title-role="task"] .work-well__title {
+  font-size: 1.05rem;
+  letter-spacing: 0.2em;
+}
+
+.work-well__head[data-title-role="plate"] .work-well__title {
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
 }
 
 .work-well__ident {
@@ -236,6 +223,20 @@
     var(--frame-inset-block-start)
     var(--frame-inset-inline)
     var(--frame-inset-block-end);
+}
+
+.work-well[data-inset="flush"] .work-well__body {
+  padding-inline: 0;
+  padding-block-start: 0;
+  padding-block-end: 0;
+}
+
+.work-well[data-inset="flush"] .work-well__head + .work-well__body {
+  padding-block-start: var(--form-group-gap);
+}
+
+.work-well__head[data-mark="title"] + .work-well__body {
+  padding-block-start: var(--form-group-gap);
 }
 
 .work-well:has(.work-well__foot) .work-well__body {
@@ -297,6 +298,10 @@
   max-width: var(--content-width-prose);
   padding-inline-start: 18px;
   position: relative;
+}
+
+.work-well[data-seat="stack"] .work-well__section > ul:not(.intake-item-list) > li {
+  padding-inline-start: calc(7px + 12px);
 }
 
 .work-well__section > ol > li {
@@ -371,6 +376,11 @@
   padding-block-end: var(--frame-inset-block-end);
 }
 
+.work-well[data-inset="flush"] > .work-well__foot {
+  padding-inline: 0;
+  padding-block-end: 0;
+}
+
 .work-well > .work-well__foot .briefing-ack {
   width: 100%;
 }
@@ -405,17 +415,17 @@
 }
 
 @media (max-width: 720px) /* bp.compact */ {
-  .work-well__head,
-  .work-well__body,
-  .work-well > .work-well__foot {
+  .work-well:not([data-inset="flush"]) .work-well__head,
+  .work-well:not([data-inset="flush"]) .work-well__body,
+  .work-well:not([data-inset="flush"]) > .work-well__foot {
     padding-inline: var(--space-5);
   }
 
-  .work-well__head {
+  .work-well:not([data-inset="flush"]) .work-well__head {
     padding-top: var(--space-6);
   }
 
-  .work-well__body {
+  .work-well:not([data-inset="flush"]) .work-well__body {
     padding-block-end: var(--space-6);
   }
 }
@@ -432,7 +442,7 @@
 }
 
 @media (max-width: 1080px) /* bp.pageScroll */ {
-  .plate-foot:not(.assignment-plate-keys) .key {
+  .plate-foot .key {
     width: 100%;
     justify-content: center;
   }
@@ -455,7 +465,9 @@
   flex-direction: column;
 }
 
-/* Flush inset: payload meets the etched hairline; surfaces read --frame-content-pad-* */
+/* Flush inset: payload meets the etched hairline; surfaces read --frame-content-pad-*.
+   Inline-end is the overlay-thumb track (--space-3). Hairline-split columns
+   (Status Bays) use even --form-group-gap and must not remap these tokens. */
 .frame-cut--flush {
   --frame-content-pad-block-start: var(--space-4);
   --frame-content-pad-block-end: var(--space-4);
@@ -550,8 +562,10 @@
   line-height: 1.5;
 }
 
-/* Seated inside an etched frame: absence well, not a nested card. */
-.empty-plate--inset {
+/* Seated inside an etched frame, or a stacked nested-record well: absence
+   readout, not a nested clipped card. */
+.empty-plate--inset,
+.work-well[data-seat="stack"] .empty-plate {
   display: grid;
   grid-template-columns: 7px minmax(0, 1fr);
   column-gap: 12px;
@@ -561,7 +575,7 @@
   text-align: left;
   max-width: 52ch;
   width: 100%;
-  padding: 2px 0;
+  padding: 0;
   margin: 0;
   border: none;
   clip-path: none;
@@ -569,27 +583,32 @@
   box-shadow: none;
 }
 
-.empty-plate--inset.empty-plate--separated {
+.empty-plate--inset.empty-plate--separated,
+.work-well[data-seat="stack"] .empty-plate.empty-plate--separated {
   padding-top: 18px;
   border-top: 1px dashed var(--hairline-dim);
 }
 
-.empty-plate--inset .state-node {
+.empty-plate--inset .state-node,
+.work-well[data-seat="stack"] .empty-plate .state-node {
   grid-column: 1;
   grid-row: 1;
   margin: 0.42em 0 0;
 }
 
-.empty-plate--inset > :not(.state-node) {
+.empty-plate--inset > :not(.state-node),
+.work-well[data-seat="stack"] .empty-plate > :not(.state-node) {
   grid-column: 2;
 }
 
-.empty-plate--inset .empty-plate-note {
+.empty-plate--inset .empty-plate-note,
+.work-well[data-seat="stack"] .empty-plate .empty-plate-note {
   text-align: left;
   max-width: 48ch;
 }
 
-.empty-plate--inset .key {
+.empty-plate--inset .key,
+.work-well[data-seat="stack"] .empty-plate .key {
   justify-self: start;
 }
 
@@ -693,7 +712,9 @@
 
 .operate-column--hug[data-hug-measure="auto"] .empty-plate--inset {
   font-size: 0.82rem;
-  grid-template-columns: 7px minmax(0, 48ch);
+  /* max-content, not minmax(0, 48ch): a 0 minimum plus percentage
+     max-width on the note collapses the well to a hairline. */
+  grid-template-columns: 7px max-content;
 }
 
 .operate-column--hug[data-hug-measure="auto"] .wait-plate--inset {
@@ -708,9 +729,10 @@
 }
 
 /* Wait wells keep a definite 36rem cap so a short status label cannot
-   collapse the etched frame. Empty wells hug the note track instead. */
+   collapse the etched frame. Empty wells hug the note and recovery key. */
 .operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) {
-  --operate-hug-w: min(100%, var(--operate-column-max));
+  --operate-hug-w: var(--operate-column-max);
+  max-width: var(--operate-column-max);
 }
 
 .operate-column--hug[data-hug-measure="auto"]:has(.wait-plate--inset) > .frame-cut {
@@ -726,6 +748,10 @@
 .operate-column--hug .empty-plate-note,
 .operate-column--hug .wait-plate-note {
   max-width: min(48ch, 100%);
+}
+
+.operate-column--hug[data-hug-measure="auto"] .empty-plate-note {
+  max-width: 48ch;
 }
 
 /* ═══ Advisory (banner strip) ════════════════════════════════════ */

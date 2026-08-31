@@ -95,13 +95,13 @@ describe("participant instrument bulkheads", () => {
       "utf8",
     );
     expect(platesCss).toMatch(
-      /\.layout-guided__main\s*>\s*\.work-well\s*\{[^}]*flex:\s*1 1 auto/,
+      /\.layout-guided__main\s+\.work-well\s*\{[^}]*flex:\s*1 1 auto/,
     );
     expect(platesCss).toMatch(
-      /\.layout-guided__main\s*>\s*\.work-well\s*\{[^}]*width:\s*100%/,
+      /\.layout-guided__main\s+\.work-well\s*\{[^}]*width:\s*100%/,
     );
     expect(platesCss).toMatch(
-      /\.layout-guided__main\s*>\s*\.work-well\s*\{[^}]*max-width:\s*none/,
+      /\.layout-guided__main\s+\.work-well\s*\{[^}]*max-width:\s*none/,
     );
     expect(platesCss).toMatch(/\.work-well\s*>\s*\.work-well__foot\s*\{[^}]*margin-top:\s*auto/);
     expect(platesCss).toMatch(/\.work-well\s*>\s*\.work-well__foot\s*\{[^}]*padding-block-end:\s*var\(--frame-inset-block-end\)/);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { AcknowledgmentGate } from "../../components/work/AcknowledgmentGate";
 import {
-  AcknowledgmentGate,
   Announcer,
   BrandMark,
   CeremonyDialog,
@@ -14,7 +14,8 @@ import {
   StageBars,
   TransmitChevron,
 } from "../components";
-import { LiveSessionLayout } from "../../design-system";
+import { ProtocolPlate } from "../components/plates";
+import { LiveSessionLayout } from "../components";
 import { arcPath, formatClock, polar } from "../../lib/format";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useStateParam } from "../lib/useDemoParam";
@@ -151,10 +152,7 @@ export function SessionPage() {
                 { term: "Link", value: "Nominal" },
               ]}
             />
-            <div className="protocol-plate pane pane--dim pane--br">
-              <span className="protocol-label">Protocol</span>
-              <span className="protocol-value">V7.3.1</span>
-            </div>
+            <ProtocolPlate label="Protocol" value="V7.3.1" />
         </>
       }
       composer={

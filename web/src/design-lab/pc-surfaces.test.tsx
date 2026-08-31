@@ -98,6 +98,41 @@ describe("PC-01 and PC-02 reviewer decision", () => {
     expect(screen.getByText(/not submitted/i)).toBeInTheDocument();
   });
 
+  it("gives assignment a title floor and seats Action with StaticHeader", () => {
+    renderLab("/design-lab/reviewer-console");
+    const table = screen.getByRole("table", { name: "Sessions awaiting human review" });
+    expect(within(table).getByRole("columnheader", { name: "Participant" })).toHaveAttribute("data-col-min", "compactId");
+    const assignmentHead = within(table).getByRole("columnheader", { name: "Assignment" });
+    expect(assignmentHead).toHaveAttribute("data-col-min", "title");
+    expect(assignmentHead).toHaveClass("col-assignment");
+    expect(within(table).getByRole("cell", { name: /Real-time Inventory/ })).toHaveAttribute("data-col-min", "title");
+    const actionHead = within(table).getByRole("columnheader", { name: "Action" });
+    expect(actionHead).toHaveAttribute("data-col-min", "action");
+    expect(actionHead).toHaveClass("col-action");
+    expect(actionHead.querySelector(".col-head")).toHaveTextContent("Action");
+    expect(actionHead.querySelector(".visually-hidden")).toBeNull();
+    expect(within(table).getByRole("button", { name: "Inspect" }).closest("td")).toHaveAttribute(
+      "data-label",
+      "Action",
+    );
+  });
+
+  it("does not cap assignment at 28ch and gives leftover width to that column", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../styles/surfaces/reviewer-console.css"),
+      "utf8",
+    );
+    expect(css).not.toMatch(/\.manifest \.col-assignment \{[^}]*max-width:\s*28ch/);
+    expect(css).toMatch(/\.queue-datatable \.datatable-table thead th:not\(\.col-select\):first-child \{[^}]*width:\s*1%/);
+    expect(css).toMatch(/\.queue-datatable \.datatable-table thead th\.col-assignment \{[^}]*width:\s*auto/);
+    expect(css).toMatch(/\.queue-datatable \.datatable-table tbody td\.col-assignment \{[^}]*width:\s*auto/);
+    expect(css).toMatch(/\.queue-datatable \.datatable-table tbody td\.cell-id \{[^}]*width:\s*1%/);
+    expect(css).toMatch(/\.queue-datatable \.datatable-table tbody td\.cell-id \{[^}]*min-width:\s*var\(--datatable-col-min\)/);
+    expect(css).not.toMatch(/@container queue-docket/);
+    expect(css).not.toMatch(/\.manifest thead \{ display: none;/);
+    expect(css).not.toMatch(/\.datatable-scroll::before \{ content: none \}/);
+  });
+
   it("shows Received in the viewer timezone with compact zone disclosure", () => {
     renderLab("/design-lab/reviewer-console");
     const received = document.querySelector(".col-received time");
@@ -122,6 +157,12 @@ describe("PC-01 and PC-02 reviewer decision", () => {
     expect(document.getElementById("queueEmpty")).toBeInTheDocument();
     expect(table).toHaveAttribute("hidden");
     expect(table).not.toBeVisible();
+    expect(screen.getByRole("region", { name: "Review queue" })).toHaveClass("registry-wall--hug");
+  });
+
+  it("fills the review queue when more than four sessions are listed", () => {
+    renderLab("/design-lab/reviewer-console?demo=busy");
+    expect(screen.getByRole("region", { name: "Review queue" })).not.toHaveClass("registry-wall--hug");
   });
 
   it("keeps the evaluation record on a full-bleed split bay", async () => {
@@ -188,6 +229,28 @@ describe("PC-05 and PC-06 campaign setup", () => {
     expect(within(dialog).queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
   });
 
+  it("activates a draft campaign without the sealing sweep", async () => {
+    renderLab("/design-lab/admin-console/campaigns?campaign=CMP-0044");
+    fireEvent.click(screen.getByRole("button", { name: "Configure campaign" }));
+    const dialog = screen.getByRole("dialog", { name: /Campaign Configuration/i });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check readiness" }));
+    await waitFor(() => {
+      expect(within(dialog).getByRole("button", { name: /Confirm activation/ })).toBeEnabled();
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Confirm activation/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Activate campaign" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    const main = screen.getByRole("main");
+    expect(within(main).getByText("Frozen at activation")).toBeInTheDocument();
+    const foot = main.querySelector(".plate-foot");
+    expect(foot).toBeTruthy();
+    expect(within(foot as HTMLElement).getByText("Configuration frozen at activation")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Configure campaign" })).not.toBeInTheDocument();
+    expect(document.querySelector(".is-sealing")).toBeNull();
+  });
+
   it("hides configure on frozen campaign records and keeps the frozen line in the plate foot", () => {
     renderLab("/design-lab/admin-console/campaigns?campaign=CMP-0045");
     expect(screen.queryByRole("button", { name: "Configure campaign" })).not.toBeInTheDocument();
@@ -208,6 +271,27 @@ describe("PC-05 and PC-06 campaign setup", () => {
     renderLab("/design-lab/admin-console/enrollments?campaign=CMP-NOPE");
     expect(screen.getByText("Campaign not available")).toBeInTheDocument();
     expect(screen.queryByText(/CMP-NOPE/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Cohort enrollment manifest" })).toHaveClass("registry-wall--hug");
+  });
+
+  it("hugs the campaign registry when search matches four or fewer campaigns", () => {
+    renderLab("/design-lab/admin-console/campaigns");
+    const region = screen.getByRole("region", { name: "Campaign registry" });
+    expect(region).not.toHaveClass("registry-wall--hug");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search campaign title or ID" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(screen.getByRole("region", { name: "Campaign registry" })).toHaveClass("registry-wall--hug");
+  });
+
+  it("hugs the enrollment manifest when search matches four or fewer rows", async () => {
+    renderLab("/design-lab/admin-console/enrollments");
+    const region = await screen.findByRole("region", { name: "Cohort enrollment manifest" });
+    expect(region).not.toHaveClass("registry-wall--hug");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search participant ID" }), {
+      target: { value: "zzz-no-match" },
+    });
+    expect(await screen.findByRole("region", { name: "Cohort enrollment manifest" })).toHaveClass("registry-wall--hug");
   });
 });
 

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, createBrowserRouter, useLocation } from "react-router-dom";
 import { ProtectedAuthSubtree, useProductionApi } from "../api/production-api";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
-import { AccessChangedScreen, CeremonyUnavailable, SessionLoadingScreen, SigningOutScreen } from "../components/shell/SessionChrome";
+import { AccessChangedScreen, SessionLoadingScreen, SigningOutScreen } from "../components/shell/SessionChrome";
 import { ContractUnavailablePage } from "../pages/ContractUnavailablePage";
 import { UnknownDestinationPage } from "../pages/UnknownDestinationPage";
 import { ProductionActivitiesPage } from "../pages/ProductionActivitiesPage";
@@ -15,7 +15,8 @@ import { ProductionHomePage } from "../pages/ProductionHomePage";
 import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage";
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
 import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
-import { GuidedTaskFoot, Key, WorkWell, WorkWellSection } from "../design-system";
+import { AssignmentHead } from "../components/work/AssignmentHead";
+import { CeremonyUnavailable, GuidedTaskFoot, Key, WorkWell, WorkWellSection } from "../design-system";
 import { isProductionDestinationOpen, productionDestinationUnavailableCopy, productionWorkspaceHome } from "./production-navigation";
 import { PRODUCTION_ROUTE_LAYOUTS } from "./production-route-layouts";
 import { layoutIdForPath } from "./route-layout-match";
@@ -42,13 +43,7 @@ export function ProductionDestinationGuard({
     return (
       <AssignmentStationLayout
         instruments={null}
-        heading={(
-          <header className="assignment-head">
-            <div className="assignment-ident">
-              <h1 className="assignment-title">Access denied</h1>
-            </div>
-          </header>
-        )}
+        heading={<AssignmentHead title="Access denied" />}
         actions={(
           <GuidedTaskFoot arrangement="end">
             <Key variant="quiet" to={homeTo}>Return to Home</Key>

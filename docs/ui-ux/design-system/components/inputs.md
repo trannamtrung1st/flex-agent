@@ -69,7 +69,18 @@ validation, and **named Campaign timezone with UTC fallback** (`PC-11`,
 
 Closed marks use `YYYY-MM-DD` and 24h `HH:MM` (optional seconds). Selected day
 and wheel values use teal inset bezels, not amber. `DateTimePicker` popovers
-use the same `placeFloating` path as selects. Gallery: `datetime`.
+use the same `placeFloating` path as selects (flip if the opposite side fits
+the full plate, else pin flush to the viewport): place once, re-place on
+resize, dismiss on pointer-outside, focus-leave, or external scroll, and keep
+inner wheel scroll open. Do not lock ordinary page scroll. Escape restores trigger
+focus. The plate keeps the authored
+instrument width (date 17.5rem, time 10.25rem or 14.5rem with seconds,
+datetime 26.25rem) even when a stacked or dialog trigger stretches to the
+field; do not stretch the plate to the hug mark or to the field slot. The plate
+uses the shared [overlay plate](dropdown.md#overlay-plate): closed `--hairline`
+bezel, `--hairline-dim` inner dividers. Calendar and clock heads keep
+`--hairline-dim` under the title row only; they do not add a second top stroke.
+Datetime plates drop the 1px top inset from `--panel-inset`. Gallery: `datetime`.
 
 ## File intake
 
@@ -103,7 +114,17 @@ the field label.
   margin between the microlabel and the slot. Titled clusters use `FormSection`
   (`--form-group-gap`), not a second field-label margin. The group mark is a
   2px `--hairline` underline under the legend words. Do not pad the fieldset or insert `.form-divider`.
+  Component Deck catalog rows use `FormDemoField` (emits `.form-demo-row`);
+  do not pass `className="form-demo-row"` on production `FormField`. Deck pair
+  rows use lab `FormPair` plus `FormPairField` (`.field-pair`); do not pass
+  `FormField` `layout="pair"`.
 - Pair rows stack at ≤720px without letting a long error drop the neighbor.
 - Width tokens: narrow, standard, wide/full.
+- Value casing: `FieldInput` `casing` is `"authored"` (default: preserve typed
+  case, 0.02em tracking) or `"uppercase"` (token slots such as callsigns: 0.1em
+  tracking). Do not uppercase titles, names, captions, field-select values,
+  option labels, or registry search queries with CSS. Labels and
+  `FormSection` legends stay microlabel/placard uppercase. Command-menu rows
+  and keys stay uppercase.
 - Use `FieldNumber` when the value is a steppable number; keep text (including
   mm:ss and other formatted marks) on `FieldInput`.

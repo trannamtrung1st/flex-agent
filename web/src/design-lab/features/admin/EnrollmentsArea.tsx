@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { DataTable } from "../../components/EnrollmentTable";
-import { Key, OperateArea } from "../../components";
+import { DataTable, matchingEnrollmentIds } from "../../components/enrollment";
+import { Key, registryTableHug } from "../../components";
+import { EnrollmentWallOperateArea } from "../../components/operate";
 import { EMPTY_SELECTION } from "../../../design-system/patterns/tableSelection";
 import { ADMIN_STAGES } from "../../data/fixtures/campaigns";
 import type { DataTableState } from "../../data/types";
@@ -18,7 +19,7 @@ const EMPTY_TABLE: DataTableState = {
 };
 
 export function EnrollmentsArea() {
-  const { campaign, announce, sealing } = useAdminContext();
+  const { campaign, announce } = useAdminContext();
   const [table, setTable] = useState<DataTableState>(EMPTY_TABLE);
   const [tableCampaignId, setTableCampaignId] = useState(campaign?.id ?? null);
 
@@ -36,31 +37,27 @@ export function EnrollmentsArea() {
 
   if (!campaign) {
     return (
-      <OperateArea
-        className="wall"
+      <EnrollmentWallOperateArea
+        variant="plain"
         label="Cohort enrollment manifest"
         title="Enrollment Manifest"
         description="Selecting a campaign for the enrollment records."
-        headClassName="wall-head"
         empty={{
           label: "Campaign not available",
           note: "Select an authorized campaign before inspecting enrollments.",
         }}
+        hug={registryTableHug(0)}
       />
     );
   }
 
   return (
-    <OperateArea
-      className="wall"
+    <EnrollmentWallOperateArea
       label="Cohort enrollment manifest"
       title="Enrollment Manifest"
       description="Cohort enrollment records for the selected Campaign."
-      headClassName="wall-head"
-      frameClassName="datatable-frame wall-frame"
-      frameInset="flush"
       revealing
-      sealing={sealing}
+      hug={registryTableHug(matchingEnrollmentIds(campaign.rows, table).length)}
       context={<CampaignContext />}
     >
       <DataTable
@@ -82,6 +79,6 @@ export function EnrollmentsArea() {
             </Key>
           }
         />
-    </OperateArea>
+    </EnrollmentWallOperateArea>
   );
 }

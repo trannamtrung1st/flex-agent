@@ -1,5 +1,6 @@
 import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
-import { Key } from "../keys/Key";
+import { mergeOverlayRefs } from "../overlays/AnchoredOverlay";
+import { SelectPanelFoot } from "./SelectPanelFoot";
 
 export function SearchableSelectPanel({
   open,
@@ -22,7 +23,6 @@ export function SearchableSelectPanel({
   emptyMessage,
   children,
   footLeading,
-  footClassName,
   onSearchChange,
   onSearchKeyDown,
   onDone,
@@ -50,7 +50,6 @@ export function SearchableSelectPanel({
   emptyMessage: string;
   children: ReactNode;
   footLeading?: ReactNode;
-  footClassName?: string;
   onSearchChange: (value: string) => void;
   onSearchKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onDone: () => void;
@@ -58,10 +57,7 @@ export function SearchableSelectPanel({
 }) {
   return (
     <div
-      ref={(node) => {
-        if (typeof panelRef === "function") panelRef(node);
-        else if (panelRef) panelRef.current = node;
-      }}
+      ref={mergeOverlayRefs(panelRef)}
       id={panelId}
       className={className}
       style={style}
@@ -102,12 +98,7 @@ export function SearchableSelectPanel({
         {children}
       </ul>
       <p className="multiselect-empty" hidden={visibleCount !== 0}>{emptyMessage}</p>
-      <div className={`multiselect-foot${footClassName ? ` ${footClassName}` : ""}`}>
-        {footLeading}
-        <Key variant="quiet" size="compact" onClick={onDone}>
-          {doneLabel}
-        </Key>
-      </div>
+      <SelectPanelFoot leading={footLeading} doneLabel={doneLabel} onDone={onDone} />
     </div>
   );
 }

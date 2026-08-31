@@ -15,7 +15,9 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - Review the live app with the project `playwright` MCP server. Attach first:
   probe the origin this work needs (`docs/contributing/development-harness.md`,
   Attach to a running local origin) and reuse it when healthy. Do not start a
-  second listener or run `pnpm compose:up` over a healthy stack.
+  second listener or run `pnpm compose:up` over a healthy stack. For
+  authenticated product journeys, complete synthetic OIDC sign-in
+  (`docs/contributing/development-harness.md`, Synthetic sign-in).
 - Exercise applicable happy, loading, empty, validation, error/retry, pending, permission, and destructive states.
 - Use accessibility snapshots for structure and keyboard interaction.
 - Take desktop and narrow screenshots, including focus, dialog, and error states.

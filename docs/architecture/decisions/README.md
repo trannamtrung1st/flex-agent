@@ -53,7 +53,7 @@ reproducible synthetic authenticated-browser profile for local verification.
 | [ADR-018](ADR-018-enrollment-request-limit-scope.md) | Approved; amended 2026-08-23 | First Enrollment slice keeps replica-local request limits; the separate replica-independent quota task uses PostgreSQL-backed application admission rather than gateway identity policy or a new cache component |
 | [ADR-019](ADR-019-frontend-state-and-library-boundaries.md) | Approved | TanStack Query for HTTP-backed SPA resources, React Hook Form and Zod for non-trivial forms, Lucide for icons, native `fetch` retained, Zustand/Tailwind/Axios excluded, and realtime Session UI left unmigrated |
 | [ADR-020](ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) | Superseded by ADR-021 for dual-build production pointer | Historical dual-build `web-legacy`/`web` transition; design-lab isolation restated in ADR-021 |
-| [ADR-021](ADR-021-production-frontend-reset-and-single-spa-topology.md) | Approved | One production SPA in `web/`, isolated design-lab entry, fail-closed publication interval, Git-only rollback, no `web-legacy/` runtime |
+| [ADR-021](ADR-021-production-frontend-reset-and-single-spa-topology.md) | Approved | One production SPA in `web/`, isolated design-lab entry, fail-closed publication interval, Git-only rollback, no `web-legacy/` runtime. Amended 2026-08-31: lab may import production-safe domain composition (`components/work`, `content`, named assessment readouts) |
 
 ## Purpose
 
