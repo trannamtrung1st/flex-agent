@@ -346,7 +346,7 @@ docs/
 | `docs/requirements/README.md` and `docs/requirements/features/README.md` | Rewrite | Catalog only approved/current specs and the authoring process for a new prioritized spec; do not require empty future files |
 | Seven approved P0 files under `docs/requirements/features/` | Keep and rewrite | Preserve stable requirements/AC IDs and current observable behavior; remove approval/version history, ADR links, and volatile implementation matrices after migration |
 | `docs/requirements/mvp-operational-defaults.md` | Keep and rewrite | Current cross-cutting limits, retention/lifecycle, recovery, and operational constraints; link to current architecture, not ADR chains |
-| Twelve P1-P3 placeholder feature files | Absorb useful scope then delete | Preserve only unique current product scope in `mvp-scope.md`; create a new spec only when the capability is actually prioritized |
+| Twelve P1-P3 placeholder feature files | Absorb useful scope then delete | Gate A §5.1 is the sentence-level inventory; preserve only those unique sentences and related-decision constraints in `mvp-scope.md` / deferred product-architecture boundaries; create a new spec only when the capability is actually prioritized |
 | New `docs/current-state.md` | Create | Derived, non-normative matrix of intended-source links, implemented surfaces, temporary legacy behavior, approved-plan links, gaps, evidence paths, default-off gates, and current review date; it owns status classification only |
 | `PRODUCT.md`, `DESIGN.md` | Regenerate, keep non-authoritative | Update `scripts/impeccable_context.py` and tests to project from the new canonical source set |
 
@@ -376,7 +376,7 @@ The twelve placeholder deletion candidates are:
 | `docs/architecture/decisions/ADR-001` through `ADR-021` and `decisions/README.md` | Absorb useful current constraints then delete directory | Use an ADR-to-target extraction checklist; no deletion until every still-valid constraint has a current owner and inbound references are migrated |
 | `docs/architecture/README.md` | Rewrite | Route by current architecture concern; explain direct-update policy and when a separate focused contract is justified |
 | `docs/operations/provider-profiles/**` | Rewrite current profiles | Keep current safe configuration, qualification status, privacy boundaries, exact gates, and machine-verifiable evidence pointers |
-| `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase*.md` | Classify at Gate A; consolidate only narrative history | Preserve any evidence still needed to operate, qualify, reproduce, secure, or verify the current profile. Delete only phase narrative duplicated by retained operational or machine-verifiable evidence |
+| `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase*.md` (seven named files in Gate A §5.2) | Classify at Gate A; consolidate only narrative history | Gate A working class: retain-until-Phase-3/5 recheck for each named file. Preserve any evidence still needed to operate, qualify, reproduce, secure, or verify the current profile. Delete only phase narrative duplicated by retained operational or machine-verifiable evidence |
 | `build/toolchain.json` | Amend | Point `governing` to current architecture/workspace sources instead of ADR-008/ADR-010 |
 | Source comments/schema descriptions naming ADRs | Amend where safe | Replace authority claims with the current contract/invariant name; do not churn identifiers required for compatibility |
 | Applied `database/migrations/up/**` and historical migration fixtures | Keep immutable | ADR labels are tolerated non-authoritative provenance; checks must not require byte rewrites |
@@ -1072,20 +1072,127 @@ Effective only in the atomic cutover commit:
 #### 5. Deletion candidates and migration requirements
 
 Execute only in Phase 5 after recheck. Already-deleted `cda9882` paths are
-**not** Gate A deletions.
+**not** Gate A deletions. Named inventories below are the Gate A freeze
+baseline for Phase 3 extract and Phase 5 completeness; bulk deletion by
+status or glob is prohibited.
 
 | Candidate | Knowledge/evidence to migrate first | Surviving evidence |
 | --- | --- | --- |
-| 12 placeholder feature files | Unique deferred-scope sentences → `mvp-scope.md` | Git |
+| 12 placeholder feature files (named in §5.1) | Unique sentences and related-decision constraints → `mvp-scope.md` and product/architecture deferred boundaries; explicit **none** where the body is TBD-only | Git |
 | `docs/architecture/decisions/**` | Matrix in §3; inbound ADR mentions rewritten | Git; immutable ADR tokens remain in migrations |
 | `docs/ui-ux/retired-authority.md` | None as live behavior; Git has retired versions | Git `eb9c398` cited today |
 | `docs/ui-ux/design-system/change-record.md` | Live constraints already in DS modules/README | Git |
 | Original journey files after `flows/` replacements are link-complete | Traceability IDs stay in replacements | Git |
-| 52 completed `.work/active` tasks + `impeccable-frontend-rebuild.md` | Any residual durable constraint → owning spec/code | Git |
+| 52 completed `.work/active` tasks + blocked `impeccable-frontend-rebuild.md` (named in §5.3) | Recheck each named path for residual durable constraint → owning spec/code; **none** if already promoted | Git |
 | `.work/resources/*.md` | Merge controller proposal into planned task or mvp-scope | Git |
-| OpenRouter `synthetic-development-phase*.md` | Only narrative proven redundant after current profile + machine evidence exist | **OQ:** Operations Lead; interim default retain if needed to qualify/reproduce/secure |
+| Seven OpenRouter `synthetic-development-phase*.md` files (named in §5.2) | File-level retain-until-Phase-3/5 recheck; delete only narrative proven redundant after current profile + machine evidence exist | **OQ:** Operations Lead; interim default retain-all |
 | `text-interaction-controller-contract.md` | **OQ:** Product Lead Phase 5; interim default delete if not reconfirmed, keep deferred boundary in product docs | Git |
 | `TODO.md` | Not a spec; optional hygiene, not required deletion | Git |
+
+##### 5.1 Placeholder unique-scope extraction (Phase 3 must absorb; files stay until Phase 5)
+
+Paths are under `docs/requirements/features/`. Unique sentences are those
+that are not `TBD during authoring.` Catalog/source links already owned by
+`docs/requirements/features/README.md` and product docs are not restated as
+new requirements. Confirm-in-product means Phase 3 must keep the meaning in
+`mvp-scope.md` / concept-model deferred boundaries even if it already exists
+there; do not treat the placeholder body as empty.
+
+| Path | Unique sentences to absorb | Related-decision constraints | Migration target |
+| --- | --- | --- | --- |
+| `agent-library-configuration.md` | Implementation remains deferred to P1. Authoring must carry approved `PROP-AGENT-1` into testable persona authoring, revision, preview, validation, honest Agent attribution, real-person impersonation prevention, and later human-likeness extension boundaries. The P0 assessment flow may select existing pre-provisioned Agent revisions but does not gain general Agent authoring. | Approved `PROP-AGENT-1` person-like persona and honest Agent identity boundary | Confirm/absorb in `mvp-scope.md` P1/deferred Agent-library boundary and concept-model `PROP-AGENT-1` / pre-provisioned selection (already present; must not drop) |
+| `harness-library-configuration.md` | **none** (TBD-only body) | **none** | Deferred P1 harness-library name already in mvp-scope/catalog; no extra sentences |
+| `voice-interaction-interruption.md` | **none** (TBD-only body) | ADR-012 defines the interaction-signal/Decision seam but **does not approve** interruptible voice | Confirm in `mvp-scope.md` next-release voice non-goal; architecture: ADR-012 does not authorize this feature |
+| `tool-execution-permissions.md` | **none** (TBD-only body) | ADR-012 defines `request_tool` as a non-authoritative recommendation and tool-result chaining as a new Invocation, but **does not approve** tool execution | Confirm in `mvp-scope.md` next-release tools non-goal; architecture/code-contract: `request_tool` remains non-authoritative |
+| `workflow-stage-configuration.md` | **none** (TBD-only body) | ADR-012 defines trusted workflow triggers and non-authoritative transition proposals, but **does not approve** configurable workflow stages | Confirm deferred configurable stages in `mvp-scope.md`; architecture: ADR-012 does not authorize this feature |
+| `harness-snapshots-comparison-restoration.md` | **none** (TBD-only body) | **none** | Deferred next-release name already in mvp-scope/catalog |
+| `memory-governance-dynamic-mode.md` | **none** (TBD-only body) | **none** | Deferred next-release dynamic memory name already in mvp-scope/catalog |
+| `memory-candidates-learning-approval.md` | **none** (TBD-only body) | **none** | Deferred later-release memory-candidates name already in mvp-scope/catalog |
+| `harness-improvement-proposals.md` | **none** (TBD-only body) | **none** | Deferred later-release harness-improvement name already in mvp-scope/catalog |
+| `shared-multi-participant-sessions.md` | **none** (TBD-only body) | **none** | Deferred later-release shared-sessions name already in mvp-scope/catalog |
+| `calibration-analytics.md` | **none** (TBD-only body) | **none** | Deferred later-release calibration/analytics name already in mvp-scope/catalog |
+| `activity-deployment-forms.md` | **none** (TBD-only body) | **none** | Deferred later-release alternative activity forms name already in mvp-scope/catalog |
+
+##### 5.2 OpenRouter qualified phase files (Gate A working classification)
+
+Directory: `docs/operations/provider-profiles/qualified/openrouter/`.
+Delegated working classification for every file: **retain until Phase 3/5
+recheck** (not narrative-only). Operations OQ may later mark a file
+narrative-only only after the current profile plus machine-verifiable
+evidence are confirmed to duplicate it.
+
+| Path | Gate A disposition |
+| --- | --- |
+| `synthetic-development-phase9-2026-08-20.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase20-2026-08-20.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase21-2026-08-20.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase22-2026-08-20.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase24-2026-08-21.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase27-2026-08-21.md` | retain-until-Phase-3/5 recheck |
+| `synthetic-development-phase28-2026-08-21.md` | retain-until-Phase-3/5 recheck |
+
+##### 5.3 Freeze-complete completed and blocked task deletion-candidate set
+
+Not concurrent cursors. Not this reset. Not the planned controller task.
+Phase 5 must recheck this named set (plus Git recovery), not a status glob.
+Already-deleted 24 tasks from `cda9882` remain in the Phase 0 freeze list
+and are **not** this Gate A set.
+
+**Blocked (1):** `.work/active/impeccable-frontend-rebuild.md`
+
+**Completed (52), freeze 2026-09-01, all under `.work/active/`:**
+`admin-activities-create-route.md`,
+`assign-dialog-datatable-paging.md`,
+`assignment-station-guided-task.md`,
+`breadcrumb-destination-trail.md`,
+`canonical-contract-jcs-foundation.md`,
+`canonical-contract-package.md`,
+`ceremony-unavailable-auth-commit.md`,
+`collapsible-nav-groups.md`,
+`component-owned-class-grammar.md`,
+`create-assessment-campaign-commission.md`,
+`demo-seed-accounts.md`,
+`dotnet-react-workspace-scaffold.md`,
+`enrollment-assign-decisions.md`,
+`enrollment-assign-selector.md`,
+`form-section-sibling-grouping.md`,
+`frontend-build-docker.md`,
+`frontend-state-form-library-foundation.md`,
+`item-list-load-more.md`,
+`loopback-provider-logout.md`,
+`multi-channel-agent-output-contract-adoption.md`,
+`oidc-application-session-foundation.md`,
+`oidc-integration-harness-normalization.md`,
+`p0-activity-journey-frontend-realization.md`,
+`p0-assessment-setup-cohort-activation.md`,
+`p0-enrollment-assignment-discovery.md`,
+`p0-enrollment-shared-admission-review-fixes.md`,
+`p0-enrollment-shared-request-quota.md`,
+`p0-participant-timing-accommodations.md`,
+`p0-submission-intake-immutable-versioning.md`,
+`participant-home-assignment-plates.md`,
+`participants-assign-dialog.md`,
+`postgres-authorization-configuration-foundation.md`,
+`seated-operator-identity.md`,
+`seed-numbered-demo-accounts.md`,
+`session-runtime-live-provider-qualification.md`,
+`session-runtime-openrouter-synthetic-qualification.md`,
+`session-runtime-production-http-sse.md`,
+`session-runtime-subject-binding-rehydration.md`,
+`session-runtime-worker-binding-timer-activation.md`,
+`session-runtime-worker-host-wiring.md`,
+`session-runtime-worker-identity-invocation-delegation.md`,
+`setup-readiness-ceremony-record.md`,
+`setup-readiness-form-sections.md`,
+`setup-readiness-summary-harden.md`,
+`shipboard-production-ux-reset.md`,
+`signin-fail-closed-recovery.md`,
+`sso-logout-id-token-hint.md`,
+`static-header-assign-table.md`,
+`structured-agent-runtime-sync.md`,
+`structured-agent-runtime-traceability.md`,
+`unify-participant-home-my-work.md`,
+`workspace-toast-advisory.md`.
 
 #### 6. Immutable, compatibility, security, and runtime-audit exceptions
 
@@ -1181,7 +1288,7 @@ work**, **temporary-legacy**, **historical**, **generated**, **immutable**.
 | `docs/requirements/features/README.md` | mixed: same catalog pin | Same | Git | same as requirements README | same |
 | `docs/requirements/mvp-operational-defaults.md` | mixed: current ops limits + ADR-linked history | Operational defaults owner | Git | keep-rewrite; relink to architecture not ADR chains | Phase 3 |
 | Seven P0 `docs/requirements/features/{auth-resource-isolation,resolved-session-configuration,assessment-setup,submission-attempts,session-text-lifecycle,evidence-evaluation,review-result-release}.md` | mixed: unique `REQ-*`/`AC-*` + volatile implementation matrices + approval history | Each file remains the REQ/AC owner; matrices queued to derived current-state index | 618 unique ID definitions (see stable-ID map) | keep-rewrite; **do not** treat matrices or shipped UI as new requirements | Phase 3; integrity scan Phase 6 |
-| Twelve P1–P3 placeholders (agent-library, harness-library, voice-interaction-interruption, tool-execution-permissions, workflow-stage-configuration, harness-snapshots-comparison-restoration, memory-governance-dynamic-mode, memory-candidates-learning-approval, harness-improvement-proposals, shared-multi-participant-sessions, calibration-analytics, activity-deployment-forms) | mixed: empty/future scaffold + any unique deferred-scope sentences | Unique scope → `mvp-scope.md`; files stay until Phase 5 after Phase 4 catalog cutover | Git; validator currently requires all 12 | absorb-then-delete candidate; **not** approved specs | Phase 3 extract; Phase 5 delete after Gate A |
+| Twelve P1–P3 placeholders (agent-library, harness-library, voice-interaction-interruption, tool-execution-permissions, workflow-stage-configuration, harness-snapshots-comparison-restoration, memory-governance-dynamic-mode, memory-candidates-learning-approval, harness-improvement-proposals, shared-multi-participant-sessions, calibration-analytics, activity-deployment-forms) | mixed: empty/future scaffold + unique deferred-scope sentences inventoried in Gate A §5.1 | Unique scope → `mvp-scope.md`; files stay until Phase 5 after Phase 4 catalog cutover | Git; validator currently requires all 12; §5.1 extraction table | absorb-then-delete candidate; **not** approved specs | Phase 3 extract per §5.1; Phase 5 delete after Gate A |
 | `docs/current-state.md` | absent | Create as derived non-normative index only | n/a | create in Phase 3 ops leaf; not a behavior owner | Phase 3 |
 | `docs/architecture/README.md` | mixed: index + ADR routing | Current architecture navigation | Git | keep-rewrite | Phase 3 architecture leaf |
 | `docs/architecture/mvp-architecture.md` | mixed: current baseline + ADR/evolution | System architecture owner; absorb ADR-001–018 still-valid constraints | Git | keep-rewrite; do not rename unless Gate A | Phase 3 |
@@ -1196,14 +1303,14 @@ work**, **temporary-legacy**, **historical**, **generated**, **immutable**.
 | `docs/ui-ux/design-system/implementation-guide.md` and modules under `foundation/`, `components/`, `product/` (52 markdown files in design-system tree) | normative shared presentation | Design System modules; later-capability modules must not authorize deferred product scope | Git; DESIGN.md subset of modules | keep/reconcile links; no product-scope widening | Phase 3; isolation tests |
 | `docs/ui-ux/design-system/change-record.md` | historical DS change narrative | Absorb live constraints into module metadata; Git owns evolution | Git; inbound from DS README | delete candidate after absorption | Phase 5 |
 | `docs/operations/provider-profiles/README.md`, `openrouter-synthetic-development.md`, `keycloak-oidc-contract.md`, and `*.example.json` profiles | ops-evidence / current profiles | Operations owner; apply operations-owned ADR rows in Phase 3 ops leaf | Git; qualification tests | keep-rewrite current safe config and evidence pointers | Phase 3 ops; Gate A OpenRouter retention OQ |
-| `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase*.md` (7 files) | mixed: phase narrative + possibly still-needed qualification evidence | Current profile + machine-verifiable evidence; delete only redundant narrative | Git | classify per Gate A OQ; not bulk-delete | Phase 3/5 |
+| `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase*.md` (7 named files in Gate A §5.2) | mixed: phase narrative + possibly still-needed qualification evidence | Current profile + machine-verifiable evidence; delete only redundant narrative | Git | retain-until-Phase-3/5 recheck per named file; not bulk-delete | Phase 3/5 |
 | `docs/contributing/development-harness.md`, `docs/contributing/workspace.md` | guidance | Contributor process; apply contribution ADR rows at Phase 4 | Git | keep; snapshot-first at cutover | Phase 4 |
 | `AGENTS.md`, `.cursor/rules/*.mdc`, `.agents/skills/**/SKILL.md`, `.cursor/skills/**/SKILL.md` | mixed: live governance + ADR/history retention rules | Remain binding through Gate A and Phase 3; cutover Phase 4; keep Codex/Cursor parity | Git | keep; rewrite only at Phase 4 atomic cutover | Phase 4 parity check |
 | `.work/README.md`, `.work/templates/implementation-plan.md` | guidance | Implementation workflow; retention policy changes at Phase 4 | Git | keep | Phase 4 |
 | `.work/active/repository-baseline-reset.md` | active work | This reset cursor | this file | retain through whole-output review | Phase 7; no in-graph delete |
 | `.work/active/text-interaction-controller-contract.md` | planned work (unconfirmed priority) | Product Lead Phase 5 reconfirm or defer into product scope | Git; duplicate `.work/resources/text-interaction-controller-proposal.md` | retain-until-Phase-5 decision | Phase 5 OQ |
-| `.work/active/impeccable-frontend-rebuild.md` | historical blocked/superseded | Durable Impeccable/UI governance already in skills and DS | Git | delete candidate after extraction check | Phase 5 |
-| `.work/active/*.md` other 52 `completed` tasks | historical completed work on active surface | Promote any remaining durable truth into docs/code then remove | Git | delete candidates after extraction; not concurrent cursors | Phase 5 work hygiene |
+| `.work/active/impeccable-frontend-rebuild.md` | historical blocked/superseded | Durable Impeccable/UI governance already in skills and DS | Git | delete candidate after extraction check; named in Gate A §5.3 | Phase 5 |
+| `.work/active/*.md` other 52 `completed` tasks (named in Gate A §5.3) | historical completed work on active surface | Promote any remaining durable truth into docs/code then remove | Git; freeze path list in §5.3 | delete candidates after per-path extraction; not concurrent cursors; not bulk-by-status | Phase 5 work hygiene |
 | `.work/resources/multi-channel-agent-output-proposal.md` | historical consumed proposal | Approved result in product/requirements/architecture | Git | delete candidate after confirm | Phase 5 |
 | `.work/resources/text-interaction-controller-proposal.md` | mixed proposal duplicate of planned task | Merge useful content into planned task or mvp-scope | Git | delete after merge | Phase 5 |
 | `TODO.md` | non-canonical scratch | Open ideas are not requirements; consolidation item restates this reset | Git | do not treat as spec; optional later hygiene | not a Phase 5 deletion unless Gate A names it |
@@ -1330,8 +1437,11 @@ approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
 Current action: independent Gate A focused_output review of the package in
-this task. No canonical rewrite, governance cutover, or deletion until that
-reviewer respond is persisted and copied here.
+this task, after 2026-09-01 evidence revision that named placeholder
+extraction sentences (§5.1), OpenRouter phase files (§5.2), and the
+completed/blocked task freeze set (§5.3). No canonical rewrite, governance
+cutover, or deletion until that reviewer respond is persisted and copied
+here.
 
 # Decisions and interim defaults
 
@@ -1417,7 +1527,8 @@ artifacts must nevertheless remain green.
   paths have accepted dispositions.
 - Cleared Phase 2: Gate A package recorded (target model, extraction matrix,
   deletion migration requirements, immutable exceptions, gaps, rewrite
-  sequence, rollback). Producer has not approved Gate A.
+  sequence, rollback). 2026-09-01 review revision added Gate A §5.1–§5.3
+  named inventories. Producer has not approved Gate A.
 - Current execution blocker: none for packaging. Dependent rewrites wait on
   independent focused_output persist for `item-48819dbb36d9`.
 
