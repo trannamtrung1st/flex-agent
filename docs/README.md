@@ -30,7 +30,7 @@ Documents govern different concerns. A document overrides another **only
 within its area of authority**. Cross-area conflicts require review in the
 governing area — an architecture document must not silently redefine product
 meaning or scope, and a feature spec must not silently override a product
-decision without explicit supersession.
+decision without updating the current product document.
 
 | Concern | Authoritative source | Governs |
 | --- | --- | --- |
@@ -44,10 +44,10 @@ decision without explicit supersession.
 
 - A conflicting architecture decision triggers product or requirements
   review; it does not override product semantics.
-- A feature spec that changes domain meaning requires an updated or
-  superseding product document.
-- Implementation that diverges from governing specs is a defect unless
-  explicitly superseded.
+- A feature spec that changes domain meaning requires an updated current
+  product document.
+- Implementation that diverges from governing specs is a defect unless the
+  governing spec is updated first.
 - Clearly labeled proposals (`Proposed`, open questions with interim
   defaults) inform discussion but do not govern behavior. A `Q-*` interim
   default is working guidance only until decided or promoted to an approved
@@ -57,8 +57,8 @@ Illustrative examples in product documents are not MVP commitments unless
 captured in a feature specification.
 
 Current catalogs, architecture documents, and validators apply the
-snapshot-first model. Git owns historical ADR text, retired UI versions, and
-deleted placeholder scaffolds.
+snapshot-first model. Git owns prior versions of these documents, retired UI
+text, and deleted placeholder scaffolds.
 
 ## Document status
 
@@ -69,7 +69,7 @@ deleted placeholder scaffolds.
 | `Approved` | Authoritative for the governed concern |
 | `Implemented` | Approved and reflected in the product |
 | `Proposed` | Suggested default or option requiring explicit approval |
-| `Superseded` | Replaced by a newer document or version; retained for history |
+| `Superseded` | Transient during replacement; delete the old file after cutover. Git owns the prior text. |
 
 ## Documentation areas
 
@@ -138,5 +138,5 @@ Use terms consistently across all documents. Authoritative definitions: [Concept
 3. Separate confirmed facts, normative requirements, decisions, proposals, assumptions, and deferred scope. Every open question must include an **interim default** with brief rationale; that interim default does not govern behavior until decided.
 4. Link to one authoritative definition instead of copying content across documents.
 5. Use `must` for approved requirements, `should` for recommendations, and `may` for permitted options.
-6. Preserve history; do not silently rewrite approved intent.
+6. Update the current owner in place. Git owns prior versions; do not silently invent a different approved intent.
 7. Use `docs/templates/` for reusable authoring templates; keep authoritative content in area folders (`product/`, `requirements/`, `ui-ux/`, `architecture/`).

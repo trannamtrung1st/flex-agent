@@ -226,7 +226,7 @@ Run documentation validation before pushing doc changes:
 python3 scripts/check_docs.py
 ```
 
-The script validates internal links and heading fragments across the repository root `README.md`, `AGENTS.md`, `docs/`, `.work/`, and Cursor/Codex skills and rules; deprecated terms; duplicate requirement IDs; Mermaid fence balance; the current P0 feature catalog; `docs/current-state.md`; snapshot-first `.work` hygiene; stale historical-authority patterns; and prohibited live policies (ADR/decision-record creation, ADRs as current authority, mandatory completed-task retention, and supersession/change-history maintenance). Placeholder specs, ADR files, and UI retirement ledgers are not required catalog members.
+The script validates internal links and heading fragments across the repository root `README.md`, `AGENTS.md`, `docs/`, `.work/`, and Cursor/Codex skills and rules; deprecated terms; duplicate requirement IDs; Mermaid fence balance; the current P0 feature catalog; `docs/current-state.md`; snapshot-first `.work` hygiene including live task statuses; absence of a live ADR directory and historical catalog files; current architecture owners; stale historical-authority patterns; and prohibited live policies (ADR/decision-record creation, ADRs as current authority, mandatory completed-task retention, and supersession/change-history maintenance). Placeholder specs, ADR files, and UI retirement ledgers are not required catalog members.
 
 GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `AGENTS.md`, `.cursor/rules/`, `.cursor/skills/`, `.agents/skills/`, `.work/README.md`, and `.work/templates/`.
 

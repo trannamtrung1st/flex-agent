@@ -76,6 +76,25 @@ PROHIBITED_POLICY_PATTERNS = [
     "maintainers may clean them up",
     "maintainers can retain completed",
     "keep its file after completion",
+    "newer document or version; retained for history",
+]
+
+LIVE_TASK_STATUSES = {"planned", "in-progress", "completed"}
+FORBIDDEN_TASK_STATUSES = {"blocked", "cancelled", "superseded"}
+TASK_STATUS_PATTERN = re.compile(r"(?m)^status:\s*([A-Za-z0-9_-]+)")
+
+CURRENT_ARCHITECTURE_OWNERS = [
+    "mvp-architecture.md",
+    "backend-module-architecture.md",
+    "session-runtime-contract.md",
+    "evaluation-execution-contract.md",
+    "review-result-release-contract.md",
+    "frontend-architecture.md",
+]
+
+HISTORICAL_CATALOG_PATHS = [
+    Path("docs/ui-ux/retired-authority.md"),
+    Path("docs/architecture/decisions/README.md"),
 ]
 
 STALE_AUTHORITY_ALLOWLIST: set[Path] = set()
@@ -366,6 +385,10 @@ def check_work_hygiene() -> list[str]:
         errors.append(".work/README.md must state that Git owns history")
     if "planned" not in text or "in-progress" not in text:
         errors.append(".work/README.md must keep planned/in-progress tasks in .work/active")
+    if "(and `blocked`)" in text or "`planned`, `in-progress`, `blocked`" in text:
+        errors.append(
+            ".work/README.md must not treat blocked as a live task-file status"
+        )
     if "review" not in text or ("delete" not in text and "deleted" not in text):
         errors.append(
             ".work/README.md must delete completed tasks after required review"
@@ -377,6 +400,65 @@ def check_work_hygiene() -> list[str]:
     ):
         if phrase in text:
             errors.append(f".work/README.md must not instruct '{phrase}'")
+    return errors
+
+
+def check_no_adr_directory() -> list[str]:
+    path = DOCS / "architecture" / "decisions"
+    if path.exists():
+        return [f"live ADR directory must not exist: {path.relative_to(ROOT)}"]
+    return []
+
+
+def check_live_task_statuses() -> list[str]:
+    errors: list[str] = []
+    active = WORK / "active"
+    if not active.exists():
+        return errors
+    for path in sorted(active.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        match = TASK_STATUS_PATTERN.search(text)
+        if not match:
+            errors.append(f"{path.relative_to(ROOT)}: missing status front matter")
+            continue
+        status = match.group(1).lower()
+        if status not in LIVE_TASK_STATUSES:
+            errors.append(
+                f"{path.relative_to(ROOT)}: status '{status}' is not a live "
+                "planned/in-progress/completed task"
+            )
+    return errors
+
+
+def check_architecture_current_catalog() -> list[str]:
+    errors: list[str] = []
+    arch_dir = DOCS / "architecture"
+    readme_path = arch_dir / "README.md"
+    if not readme_path.exists():
+        return ["missing docs/architecture/README.md"]
+    readme = readme_path.read_text(encoding="utf-8")
+    lowered = readme.lower()
+    for name in CURRENT_ARCHITECTURE_OWNERS:
+        owner = arch_dir / name
+        if not owner.exists():
+            errors.append(f"missing current architecture owner {owner.relative_to(ROOT)}")
+        if name not in readme:
+            errors.append(f"docs/architecture/README.md must catalog {name}")
+    if "architecture/decisions" in readme.replace("\\", "/"):
+        errors.append("docs/architecture/README.md must not catalog architecture/decisions")
+    if "adr-001 through adr-021" in lowered:
+        errors.append(
+            "docs/architecture/README.md must not narrate ADR-001 through ADR-021 as the live catalog"
+        )
+    return errors
+
+
+def check_no_historical_catalog_files() -> list[str]:
+    errors: list[str] = []
+    for relative in HISTORICAL_CATALOG_PATHS:
+        path = ROOT / relative
+        if path.exists():
+            errors.append(f"historical catalog file must not remain live: {relative}")
     return errors
 
 
@@ -403,6 +485,10 @@ def main() -> int:
     errors.extend(check_ui_current_catalog())
     errors.extend(check_current_state_index())
     errors.extend(check_work_hygiene())
+    errors.extend(check_no_adr_directory())
+    errors.extend(check_live_task_statuses())
+    errors.extend(check_architecture_current_catalog())
+    errors.extend(check_no_historical_catalog_files())
     errors.extend(check_spec_files_exist())
     errors.extend(check_unlisted_feature_specs())
     errors.extend(check_links(governance_files, anchor_cache))

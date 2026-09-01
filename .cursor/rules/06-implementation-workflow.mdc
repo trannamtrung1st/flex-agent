@@ -21,7 +21,7 @@ Trivial one-step edits (for example, a typo) do not require a task file.
 
 One implementation task normally has one state file. Do not create separate plan, progress, or notes files for the same task.
 
-`.work/` is Git-tracked, snapshot-first, non-authoritative working state so external reviewers can inspect live plans and evidence. `planned` / `in-progress` stay in `.work/active`. A completed task may remain temporarily through its required review, then is deleted once durable truth has been promoted. Completed, cancelled, blocked, and superseded tasks are not current authority; Git owns history. Never record secrets, sensitive data, credentials, or hidden reasoning there. Permanent decisions belong in authoritative artifacts under `docs/`, architecture documents, code, and tests.
+`.work/` is Git-tracked, snapshot-first, non-authoritative working state so external reviewers can inspect live plans and evidence. `planned` / `in-progress` stay in `.work/active`. A completed task may remain temporarily through its required review, then is deleted once durable truth has been promoted. Do not keep cancelled, blocked, or superseded task files. A blocked plan step uses `[!]`; a stalled task is deleted rather than kept as `status: blocked`. Git owns history. Never record secrets, sensitive data, credentials, or hidden reasoning there. Permanent decisions belong in authoritative artifacts under `docs/`, architecture documents, code, and tests.
 
 ## During execution
 

@@ -26,6 +26,14 @@ class CheckDocsCatalogTests(unittest.TestCase):
     def test_current_state_and_work_hygiene(self) -> None:
         self.assertEqual(check_docs.check_current_state_index(), [])
         self.assertEqual(check_docs.check_work_hygiene(), [])
+        self.assertEqual(check_docs.check_live_task_statuses(), [])
+        self.assertEqual(check_docs.check_no_adr_directory(), [])
+        self.assertEqual(check_docs.check_architecture_current_catalog(), [])
+        self.assertEqual(check_docs.check_no_historical_catalog_files(), [])
+
+    def test_live_task_statuses_reject_blocked_files(self) -> None:
+        self.assertIn("blocked", check_docs.FORBIDDEN_TASK_STATUSES)
+        self.assertNotIn("blocked", check_docs.LIVE_TASK_STATUSES)
 
     def test_governance_scan_covers_harness_surfaces(self) -> None:
         files = {path.resolve() for path in check_docs.iter_governance_markdown_files()}

@@ -7,10 +7,11 @@ requirements.
 
 **Snapshot-first:** `planned` / `in-progress` stay in `.work/active`. A
 completed task may remain temporarily through its required review, then is
-deleted once durable truth has been promoted. Cancelled, blocked, and
-superseded tasks are removed from `.work/active` rather than archived there.
-Git owns history. Durable decisions belong in approved documents under
-`docs/`, code, tests, and migrations.
+deleted once durable truth has been promoted. Do not keep cancelled, blocked,
+or superseded task files. A blocked **step** uses `[!]`; a task that is no
+longer progressing is deleted rather than kept as `status: blocked`. Git owns
+history. Durable decisions belong in approved documents under `docs/`, code,
+tests, and migrations.
 
 Permanent truth lives in approved specs under `docs/`, current architecture
 documents, code, tests, migrations, and durable developer documentation such as
@@ -78,7 +79,7 @@ Prefer stable, descriptive names over ticket numbers alone.
 5. **Review** — mark the task completed so required review can inspect the snapshot. The file may remain only through that review.
 6. **Retire** — delete the task file once durable truth is promoted and review is done. Git owns history.
 
-Update the front-matter `status` and `updated` fields as work proceeds (`planned`, `in-progress`, `blocked`, `completed`).
+Update the front-matter `status` and `updated` fields as work proceeds (`planned`, `in-progress`, `completed`). Use `[!]` for a blocked plan step; do not set task `status: blocked`.
 
 ## Progress markers
 
@@ -126,7 +127,7 @@ Tracked for implementation collaboration and external review:
 
 - `.work/README.md`
 - `.work/templates/`
-- `.work/active/`, live `planned` / `in-progress` (and `blocked`) tasks; a `completed` file may remain only through required review, then is deleted
+- `.work/active/`, live `planned` / `in-progress` tasks; a `completed` file may remain only through required review, then is deleted
 - `.work/resources/`, non-authoritative source or proposal material (not
   product, requirements, UI/UX, or architecture authority)
 

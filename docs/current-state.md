@@ -17,7 +17,7 @@ is stale.
 | Gap | Intended in P0 (or named) and not implemented | Owning spec; do not invent behavior |
 
 Status: **Approved** as a derived index. Current governance and catalogs apply
-the snapshot-first model. Git owns historical ADR text and deleted
+the snapshot-first model. Git owns prior document versions and deleted
 placeholder scaffolds.
 
 ## How to read P0 implementation rows
@@ -167,7 +167,7 @@ synthetic pin is not production qualification.
 | P1–P3 deferred capability names | Deferred (not requirements) | Named in [MVP scope](product/mvp-scope.md); no placeholder spec files |
 | Application UX architecture | Intended (Approved v1.0 journeys) | [UI/UX](ui-ux/README.md); [flows](ui-ux/flows/activity-campaign-journey.md) |
 | Design System v1.0 | Intended visual contract | [Design system](ui-ux/design-system/README.md) |
-| Architecture and code contracts | Intended | [Architecture](architecture/README.md); historical ADRs in Git |
+| Architecture and code contracts | Intended | [Architecture](architecture/README.md) |
 | OIDC application session, scoped API, Worker identity | Partial implemented | `IdentityAccess`; Keycloak integration tests; remaining AUTH matrix rows are gaps |
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
@@ -178,7 +178,7 @@ synthetic pin is not production qualification.
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
 | Interaction Controller | Deferred | Product docs; planned (not activated) [text-interaction-controller-contract.md](../.work/active/text-interaction-controller-contract.md) |
 | Home `/` redirect to `/my-work` when My work exists | Temporary legacy vs `IA-MVP-1` target | Production router; intended Home feed still future |
-| Dual-build `web-legacy` | Historical only | Removed; do not restore (ADR-020) |
+| Dual-build `web-legacy` | Historical only | Removed; do not restore. Owner: [frontend architecture](architecture/frontend-architecture.md) |
 | Compose SPA vs `web/` source lag | Temporary legacy | Prefer Vite `:5274` for source UI evidence |
 | Model execution adapter | Default-off | [Provider profiles](operations/provider-profiles/README.md) |
 | OpenRouter synthetic pin | Default-off / qualified synthetic only | [OpenRouter profile](operations/provider-profiles/openrouter-synthetic-development.md) |
@@ -187,20 +187,5 @@ synthetic pin is not production qualification.
 ## Active work
 
 `.work/active/text-interaction-controller-contract.md` is `planned` and not
-activated. The repository baseline reset and snapshot-first harness correction
-are completed and retired from `.work/active`; recover them from Git.
-
-## Phase 3 in-tree review (historical)
-
-Recorded 2026-09-01 while historical sources still remained in the same tree.
-Phase 5 later removed those sources. Not Gate B and not producer self-approval
-of gates.
-
-| Concern | Finding |
-| --- | --- |
-| Product / requirements | Current-tense product docs and P0 specs remain REQ/AC owners; no `docs/current-state.md` restatement of AC text |
-| Architecture | Current architecture docs own technical realization; historical ADRs recover from Git |
-| UI/UX | README owns application UX; six distinct flows are current; originals and retirement ledger recover from Git |
-| Security / privacy | Isolation, deny-by-default, and Release separation remain in intended specs; implementation gaps must not be treated as permission to skip those controls |
-| Operations | ADR-007/008 pointers recorded; OpenRouter seven phase files retained; default-off unchanged |
-| Documentation | README routes exist; adapters regenerated when product/docs fingerprints change |
+activated. Completed reset and harness-correction records are retired from
+`.work/active`; recover them from Git.

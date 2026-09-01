@@ -10,9 +10,8 @@ concept definitions remain in the [concept model](../product/concept-model.md).
 ## Status
 
 **Approved.** Current architecture documents and focused runtime contracts
-own still-valid architecture and code-contract constraints extracted from
-ADR-001 through ADR-021. Historical ADR files are recoverable from Git and
-are **not** the current architecture catalog.
+own the live technical constraints. Prior versions are recoverable from Git
+and are **not** the current architecture catalog.
 
 Current owners:
 
@@ -27,9 +26,8 @@ Current owners:
 | OSS component and provider-profile defaults | [Operations](../operations/README.md) and [provider profiles](../operations/provider-profiles/README.md) |
 | Workspace, toolchain, and verification gates | [Workspace development](../contributing/workspace.md) and [MVP architecture](mvp-architecture.md) |
 
-ADR-020 dual-build `web-legacy` topology is historical only. Do not restore
-it. Design-lab isolation is restated by ADR-021 constraints in frontend
-architecture.
+The dual-build `web-legacy` topology is removed and must not be restored.
+Design-lab isolation is owned by [frontend architecture](frontend-architecture.md).
 
 ## Purpose
 
@@ -86,8 +84,8 @@ Begin architecture documentation when:
 ## Relationship to requirements and decisions
 
 Architecture documents explain how requirements are realized. Current
-architecture and code-contract documents are the live owners. Historical ADR
-text is recoverable from Git.
+architecture and code-contract documents are the live owners. Git owns prior
+versions.
 
 ## Core invariants
 

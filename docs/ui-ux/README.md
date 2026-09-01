@@ -47,8 +47,7 @@ Each representative journey keeps a **distinct document owner** under
 | Approved | Current UI/UX authority for the named concern |
 | Draft | Not authoritative for implementation |
 | In review | Replacement or prepared source; not cutover authority |
-| Superseded | Replaced inside this area; retained only if still in the live tree |
-| Retired | Former authority; recover full text from Git |
+| Retired | Former authority; delete after cutover and recover full text from Git |
 
 Technical topology (single SPA, fail-closed publication, design-lab isolation)
 is governed by [frontend architecture](../architecture/frontend-architecture.md),
