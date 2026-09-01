@@ -667,20 +667,24 @@ extraction target, and no deletion candidate lacks a verified disposition.
 
 ## Phase 2 - Design the target authority and migration model
 
-- [>] Reconcile the target tree in this plan against the post-review baseline;
+- [x] Reconcile the target tree in this plan against the post-review baseline;
   define each source's concern, owner, lifecycle, status, upstream authority,
   and review boundary.
-- [ ] Finalize the consolidation map, governance changes, deletion candidates,
+- [x] Finalize the consolidation map, governance changes, deletion candidates,
   knowledge/evidence migration requirements, current implementation gaps, and
   validation changes.
-- [ ] Define `docs/current-state.md` as a derived status/evidence index. Its
+- [x] Define `docs/current-state.md` as a derived status/evidence index. Its
   intended and planned entries link to their owning canonical specification or
   active task without duplicating normative behavior or planned scope; its
   implemented entries link to code and verified tests.
-- [ ] Produce the exact no-deletion rewrite sequence and rollback/recovery
+- [x] Produce the exact no-deletion rewrite sequence and rollback/recovery
   procedure.
 
 ### Delegated Gate A - Target authority approval
+
+- [>] Request independent TDP focused_output review of this Gate A package
+  (item-b83e84eb7ea0). The producer does not approve. Copy the persisted
+  reviewer respond into the Gate A record before any canonical rewrite.
 
 Before any canonical rewrite, governance cutover, or deletion, obtain independent
 TDP reviewer approval under the owner's 2026-09-01 delegation of:
@@ -944,12 +948,211 @@ Deleted implementation files (4): `web/src/components/content/SafeContent.tsx`,
 
 | Field | Value |
 | --- | --- |
-| Status | pending delegated review |
-| Approved by | Independent TDP reviewer under owner delegation |
-| Approved at | pending |
-| Reviewed Git reference | pending |
-| Decision and scope | pending |
-| Required changes or conditions | Owner delegated intermediate approval on 2026-09-01; all substantive Gate A evidence and blocking-finding requirements remain |
+| Status | package ready; decision pending independent focused_output review |
+| Approved by | Independent TDP reviewer under owner delegation (not the producer) |
+| Approved at | pending persist of reviewer respond |
+| Reviewed Git reference | pending copy from focused_output persist; producer checkpoint is the Phase 2 commit on this task |
+| Decision and scope | pending reviewer; package substance is the sections below plus Phase 0 freeze, Phase 1 manifest, and the Target baseline / Consolidation map already in this task |
+| Required changes or conditions | Owner delegated intermediate approval on 2026-09-01; producer must not treat this package as Gate A approval |
+
+### Gate A package (producer evidence, not approval)
+
+Reviewed against live freeze parent `cda9882` and classification commit
+`f7d490afabbd74bb029a13405ea5823ac4c3ccd8`. This package does not change
+repository authority. Current `AGENTS.md`, skills, rules, catalogs, and
+validators remain binding until Phase 4.
+
+#### 1. Target authority model
+
+After Gate A + Phases 3–4, intended truth, implemented truth, planned work,
+and derived status are separate:
+
+| Layer | Owner | Lifecycle | Status at cutover | Review boundary |
+| --- | --- | --- | --- | --- |
+| Intended product meaning | `docs/product/{README,overview,concept-model,mvp-scope}.md` | Direct update | Approved current-tense product docs | Product Lead |
+| Observable behavior | Seven P0 specs + `docs/requirements/README.md` + `mvp-operational-defaults.md` | Direct update; stable `REQ-*`/`AC-*` | Approved specs; catalogs list only current specs after Phase 4 | Product / BA |
+| Technical realization | `docs/architecture/` excluding `decisions/` after Phase 5 | Direct update; focused contracts when ownership is distinct | Current architecture + code-contracts | Architecture |
+| Application UX | `docs/ui-ux/README.md` | Direct update | Application IA/shell/archetypes | UI/UX |
+| Representative journeys | `docs/ui-ux/flows/*` (six distinct owners; filenames per interim default) | Direct update | Approved v1.0 journeys, not merged | UI/UX per flow |
+| Shared presentation | `docs/ui-ux/design-system/**` Approved v1.0 | Direct update of current rules | Do not reopen baseline without contradiction/a11y/security/missing pattern | UI/UX |
+| Lab evidence | `web/src/design-lab/**` | Isolated | Evidence only; never authorizes routes/permissions/lifecycle/release | Architecture + UI/UX isolation |
+| Derived status | `docs/current-state.md` | Regenerated from owners + inventory | **Non-normative**; stale if it conflicts with an owner | Documentation; not a spec |
+| Implemented truth | `src/**`, `web/src/**` (production), `tests/**`, `contracts/**`, applied migrations | Code/TDD | Never promoted to intended truth by shipping | Engineering |
+| Planned work | `.work/active/` in-progress + explicitly reconfirmed planned | Snapshot-first after Phase 4 | This reset remains until post-review cleanup | Implementation workflow |
+| History | Git | Immutable commits | Not live authority | n/a |
+
+`docs/current-state.md` must only link: intended → spec; planned → active task;
+implemented → code/test/module/endpoint/migration/route. It must not restate
+REQ/AC or architecture contracts. Conflict means the index is wrong.
+
+Replacement sources in Phase 3 stay `Draft` or `In review` and
+**non-authoritative** until Phase 4 cutover. Gate A authorizes that migration
+target only.
+
+#### 2. Reconciled target tree
+
+The **Target baseline structure** in this task is the Gate A file tree, with
+these reconciliations against the 2026-08-31 UI baseline and Phase 1:
+
+- Keep `docs/architecture/mvp-architecture.md` name unless the reviewer
+  requires a clearer current-state filename.
+- Keep six journey documents as separate files under `docs/ui-ux/flows/`.
+  **Interim default filenames:** `activity-campaign-journey.md`,
+  `assessment-campaign-setup.md`, `submission-attempt.md`, `text-session.md`,
+  `evidence-evaluation-human-review.md`, `result-release.md` (same basenames as
+  today). Decision owner: Product/UI/UX Lead at Gate A.
+- Design System modules stay in place; `change-record.md` and
+  `retired-authority.md` leave the live tree only in Phase 5.
+- `docs/architecture/decisions/` stays until Phase 5 after extraction.
+- Placeholder feature files stay until Phase 5 after Phase 4 catalog cutover.
+- Do not add `docs/current-state.md` or README links to it until the Phase 3
+  operations leaf.
+
+#### 3. ADR-001–021 extraction owner matrix
+
+Phase 3 architecture leaf applies **architecture** and **code-contract** rows
+only. **Operations** rows wait for the Phase 3 ops leaf. **Contribution** and
+**verification** rows wait for Phase 4. **Historical only** is not applied as
+a live constraint.
+
+| ADR | Still-valid constraint summary | Extraction owner | Target (Phase) |
+| --- | --- | --- | --- |
+| 001 | Resolved configuration representation, digest, integrity | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 002 | Authorization decision contract, enforcement, delegation, freshness | architecture | `backend-module-architecture.md` + `mvp-architecture.md` (P3 arch) |
+| 003 | Authorization audit ownership, append-only, durability | architecture | `backend-module-architecture.md` (P3 arch) |
+| 004 | Assessment activation baseline, atomicity, idempotency | architecture | `mvp-architecture.md` (P3 arch) |
+| 005 | Atomic Attempt start, submission-version binding, entitlement | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 006 | MVP app/deploy baseline, SPA/API, OIDC, persistence/recovery | architecture | `mvp-architecture.md` (P3 arch) |
+| 007 | OSS-first self-hostable reference deploy, OCI | architecture + operations | `mvp-architecture.md` (P3 arch); deploy/runbook pointers (P3 ops) |
+| 008 | Bounded OSS set, OpenAI-compatible + OpenRouter synthetic profile, Compose | operations + verification | current provider profiles (P3 ops); `build/toolchain.json` governing (P4) |
+| 009 | Session / evaluation / review-result-release contract split | code-contract | the three `docs/architecture/*-contract.md` files (P3 arch) |
+| 010 | .NET/React workspace, JCS, grate, test stack, openai_compatible adapter | contribution + verification | `docs/contributing/workspace.md`, toolchain (P4); stack facts also in `mvp-architecture.md` (P3 arch) |
+| 011 | Durable-before-display streaming, replay, cutoff, backpressure | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 012 | Trusted invocation, structured decision, no-action, provenance | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 013 | Agent next-timer replacement bounds | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 014 | Decision envelope, P0 message-only compatibility | code-contract | `session-runtime-contract.md` (P3 arch) |
+| 015 | Worker timer-lane delegation, reauthorization | architecture + code-contract | `mvp-architecture.md` + session contract (P3 arch) |
+| 016 | Worker workload identity, invocation delegation | architecture + code-contract | same (P3 arch) |
+| 017 | Assessment source descriptors, activation coordinator, fail-closed sources | architecture | `mvp-architecture.md` / backend module (P3 arch) |
+| 018 | Enrollment request-limit vs PostgreSQL admission | architecture | `backend-module-architecture.md` (P3 arch) |
+| 019 | Frontend state/library boundaries (Query, RHF/Zod, no Zustand/Tailwind/Axios) | architecture | `frontend-architecture.md` (P3 arch) |
+| 020 | Dual-build `web-legacy` topology | historical only | Do not restore dual-build; lab isolation restated by 021 |
+| 021 | Single production SPA in `web/`, isolated design-lab, no `web-legacy/` runtime | architecture | `frontend-architecture.md` (P3 arch) |
+
+Missing a still-valid authorization, isolation, audit, atomicity, streaming,
+Worker, or frontend-isolation constraint in extraction is a Gate A blocking
+risk; the reviewer must confirm this matrix before Phase 3.
+
+#### 4. Governance and validator changes (Phase 4 only)
+
+Effective only in the atomic cutover commit:
+
+- Snapshot-first: completed/cancelled/blocked/superseded tasks leave
+  `.work/active/` after durable promotion; Git remains history. Preserve TDD,
+  independent review, security/privacy, Playwright, isolation, runtime-audit,
+  role routing, open-question controls.
+- Pre-build UI pattern-adoption sequence encoded in UI/frontend/reviewer/tester
+  /workflow/contributor guidance.
+- `scripts/check_docs.py`: drop 19-file/tier pins, ADR-021 existence pin, and
+  retirement-ledger catalog pin; require the Gate-A-approved current catalogs,
+  unique IDs, links, and reject stale historical-authority patterns.
+- Specification catalogs and architecture ADR indexes: list current sources
+  only; ADR directory not required after cutover.
+- `docs/ui-ux/README.md`: drop retirement-ledger pin and keep Approved v1.0
+  identification only as still accurate for journeys/DS, or equivalent current
+  catalog wording approved at cutover.
+- `scripts/impeccable_context.py` source lists follow rewritten product/UX
+  inputs; regenerate adapters.
+- `build/toolchain.json` `governing` points at current architecture/workspace
+  docs, not ADR-008/010.
+- Safe comment/schema ADR-as-authority edits; **not** applied migrations.
+- Codex/Cursor skill and rule copies stay semantically mirrored.
+- CI lint scope may include `.work` README/template/active plans.
+
+#### 5. Deletion candidates and migration requirements
+
+Execute only in Phase 5 after recheck. Already-deleted `cda9882` paths are
+**not** Gate A deletions.
+
+| Candidate | Knowledge/evidence to migrate first | Surviving evidence |
+| --- | --- | --- |
+| 12 placeholder feature files | Unique deferred-scope sentences → `mvp-scope.md` | Git |
+| `docs/architecture/decisions/**` | Matrix in §3; inbound ADR mentions rewritten | Git; immutable ADR tokens remain in migrations |
+| `docs/ui-ux/retired-authority.md` | None as live behavior; Git has retired versions | Git `eb9c398` cited today |
+| `docs/ui-ux/design-system/change-record.md` | Live constraints already in DS modules/README | Git |
+| Original journey files after `flows/` replacements are link-complete | Traceability IDs stay in replacements | Git |
+| 52 completed `.work/active` tasks + `impeccable-frontend-rebuild.md` | Any residual durable constraint → owning spec/code | Git |
+| `.work/resources/*.md` | Merge controller proposal into planned task or mvp-scope | Git |
+| OpenRouter `synthetic-development-phase*.md` | Only narrative proven redundant after current profile + machine evidence exist | **OQ:** Operations Lead; interim default retain if needed to qualify/reproduce/secure |
+| `text-interaction-controller-contract.md` | **OQ:** Product Lead Phase 5; interim default delete if not reconfirmed, keep deferred boundary in product docs | Git |
+| `TODO.md` | Not a spec; optional hygiene, not required deletion | Git |
+
+#### 6. Immutable, compatibility, security, and runtime-audit exceptions
+
+Must remain; not historical clutter:
+
+- Organization, activity, participant, session isolation; deny-by-default authz
+- Frozen session configuration and execution manifests
+- Reconstructable events, transcripts, output, interruption/cancel distinctions
+- Evidence/evaluation/revision/result/release distinct objects
+- Memory/learning permission; no uncontrolled learning or harness self-mod
+- Applied `database/migrations/up/**` (through `0062` + `0056a`)
+- OpenAI-compatible example profiles, modules, tests
+- Current qualification/runbook/security verification needed to operate
+- Checksummed toolchain hashes (change `governing` pointers only)
+
+ADR labels inside those immutable bytes stay non-authoritative provenance.
+
+#### 7. Known gaps and concurrent work (honest)
+
+Do not implement these in this reset. Index them in `docs/current-state.md`.
+
+| Area | Classification |
+| --- | --- |
+| Identity/authorization matrices beyond implemented OIDC/scoped API/Worker identity | Partial implemented; remaining matrices are gaps |
+| Agent/Harness library authoring | Not implemented |
+| Attempt start | Gap |
+| Hosted session start/command/snapshot APIs; e2e production Session | Gap / default-off |
+| Evaluation, human review, Result, Release host modules | Intended in P0 specs; **implementation gap** |
+| Voice, dynamic memory, tools, shared sessions | Deferred; placeholders are not requirements |
+| Production UI | Implemented Shipboard slices at `cda9882`; remaining product journeys may still be incomplete vs P0 UX — record from inventory in Phase 3, do not treat readiness-era dirty tree as current |
+| Interaction Controller | Deferred/planned only if Phase 5 reconfirms |
+| Concurrent cursors | Only this reset is `in-progress`; 52 completed + 1 blocked + 1 planned as Phase 1 |
+
+P0 implementation matrices that cite `web-legacy` or stale migration numbers
+are **implemented-status drift**, not permission to restore `web-legacy/`.
+Interim default: code/tests own implemented truth; REQ/AC remain intended
+truth.
+
+#### 8. No-deletion rewrite sequence
+
+Order after Gate A persist is copied into this task:
+
+1. Phase 3 product + requirements + mvp-operational-defaults + README entry
+   points **without** current-state route (`item-3c9cd9e9a2c1`); regenerate
+   PRODUCT.md if those inputs change.
+2. Phase 3 architecture + code-contracts + record remaining matrix rows
+   (`item-a8dbad2a8346`); ADRs stay on disk; catalogs/pins unchanged.
+3. Phase 3 UI README + `docs/ui-ux/flows/` preparations + DS/Lab reconcile
+   (`item-87f71e2b96ef`); keep retirement pin and Approved v1.0; regenerate
+   DESIGN.md if inputs change.
+4. Phase 3 operations ADR rows + create `docs/current-state.md` + add README
+   current-state route + in-tree specialist notes (`item-2e7864079029`).
+5. Phase 4 atomic cutover (`item-7190be5d0f02`).
+6. Phase 5 verified deletions (`item-d8ff5629ae40`).
+
+Steps 2 and 3 may proceed after step 1; step 4 depends on both 2 and 3.
+
+#### 9. Rollback and recovery
+
+| Stage | Recovery |
+| --- | --- |
+| Before Phase 3 | `git checkout` / reset only if owner requests; freeze parent `cda9882`; Phase 0 `f1c2d73`; Phase 1 `f7d490a`; this Gate A package commit |
+| During Phase 3 | Revert the leaf commit; old sources still present; validators still old |
+| After Phase 4 before Phase 5 | Revert the cutover commit to restore old governance; replacement docs remain but become non-effective if validators revert with it — revert cutover as one commit |
+| After Phase 5 | Restore deleted paths from Git by path from the Phase 5 parent; do not reconstruct from memory |
+| Migrations/fixtures | Never revert by rewriting bytes to strip labels; restore whole files from Git if damaged |
+| Do not | `push --force`, hook bypass, or treat Git history as sufficient for operational qualification evidence that was deleted without surviving owner |
 
 ## Classification and deletion manifest
 
@@ -1126,9 +1329,9 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 2 target model and Gate A package, using the Phase 1
-manifest. No canonical rewrite, governance cutover, or deletion until
-delegated Gate A focused_output review is persisted and copied here.
+Current action: independent Gate A focused_output review of the package in
+this task. No canonical rewrite, governance cutover, or deletion until that
+reviewer respond is persisted and copied here.
 
 # Decisions and interim defaults
 
@@ -1212,9 +1415,11 @@ artifacts must nevertheless remain green.
 - Cleared Phase 1: classification/deletion manifest and dependency maps recorded
   in this task; mixed sources have extraction targets; already-deleted `cda9882`
   paths have accepted dispositions.
-- Current execution blocker: none. Next leaf is Phase 2 target model / Gate A
-  package. Do not rewrite canonical sources until delegated Gate A review is
-  persisted.
+- Cleared Phase 2: Gate A package recorded (target model, extraction matrix,
+  deletion migration requirements, immutable exceptions, gaps, rewrite
+  sequence, rollback). Producer has not approved Gate A.
+- Current execution blocker: none for packaging. Dependent rewrites wait on
+  independent focused_output persist for `item-48819dbb36d9`.
 
 # Completion
 
