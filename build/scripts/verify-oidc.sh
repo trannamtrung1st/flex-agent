@@ -18,6 +18,14 @@ mkdir -p "${ARTIFACTS}"
 VITE_PID=""
 CLEANED=0
 
+run_pnpm() {
+  if command -v pnpm >/dev/null 2>&1; then
+    command pnpm "$@"
+  else
+    corepack pnpm "$@"
+  fi
+}
+
 require_prereqs() {
   local missing=()
   if ! command -v docker >/dev/null 2>&1; then
@@ -31,7 +39,7 @@ require_prereqs() {
   if ! command -v curl >/dev/null 2>&1; then
     missing+=("curl")
   fi
-  if ! command -v pnpm >/dev/null 2>&1; then
+  if ! command -v pnpm >/dev/null 2>&1 && ! command -v corepack >/dev/null 2>&1; then
     missing+=("pnpm")
   fi
   if ((${#missing[@]} > 0)); then
@@ -78,9 +86,9 @@ echo "==> Canonical authenticated-browser profile"
 bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" --project-name "${FLEXAGENT_COMPOSE_PROJECT}" up
 
 echo "==> Canonical Playwright OIDC acceptance"
-pnpm --filter @flex-agent/oidc-playwright exec playwright install chromium
+run_pnpm --filter @flex-agent/oidc-playwright exec playwright install chromium
 FLEXAGENT_OIDC_REPORT="${ARTIFACTS}/canonical-playwright.json" \
-  pnpm --filter @flex-agent/oidc-playwright test:canonical
+  run_pnpm --filter @flex-agent/oidc-playwright test:canonical
 python3 "${ROOT}/build/scripts/assert-oidc-case-manifest.py" \
   --report "${ARTIFACTS}/canonical-playwright.json" \
   --require OIDC-E2E-01 OIDC-E2E-02 OIDC-E2E-03 OIDC-E2E-04 OIDC-E2E-05A OIDC-E2E-05B OIDC-E2E-06
@@ -90,7 +98,7 @@ bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" \
   --project-name "${FLEXAGENT_COMPOSE_PROJECT}" \
   --overlay candidate \
   up
-VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274 >/tmp/flex-agent-oidc-vite.log 2>&1 &
+VITE_DEV_API_PROXY=http://127.0.0.1:18080 run_pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274 >/tmp/flex-agent-oidc-vite.log 2>&1 &
 VITE_PID=$!
 attempts=0
 until curl -sf "${FLEXAGENT_OIDC_CANDIDATE_ORIGIN}" >/dev/null; do
@@ -104,7 +112,7 @@ until curl -sf "${FLEXAGENT_OIDC_CANDIDATE_ORIGIN}" >/dev/null; do
 done
 
 FLEXAGENT_OIDC_REPORT="${ARTIFACTS}/candidate-playwright.json" \
-  pnpm --filter @flex-agent/oidc-playwright test:candidate
+  run_pnpm --filter @flex-agent/oidc-playwright test:candidate
 python3 "${ROOT}/build/scripts/assert-oidc-case-manifest.py" \
   --report "${ARTIFACTS}/candidate-playwright.json" \
   --require OIDC-CANDIDATE-01
