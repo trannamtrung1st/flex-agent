@@ -3,7 +3,7 @@
 This directory holds **non-secret**, operator-reviewable examples for installed
 model-provider profiles. It does not select a product-default model.
 
-Current operator index, ADR-007 deploy pointers, ADR-008 default-off rules, and
+Current operator index, reference deploy pointers, default-off rules, and
 OpenRouter phase-file retention:
 [Operations](../README.md).
 

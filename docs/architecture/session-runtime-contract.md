@@ -21,8 +21,8 @@ This contract currently owns resolved-configuration representation and
 integrity, atomic Attempt/Session start and Submission-version binding,
 durable-before-display streaming, structured Agent Invocation/Decision,
 next-timer replacement, the P0 Decision-output envelope, and Worker
-timer-lane plus Invocation-delegation runtime rules extracted from ADR-001,
-ADR-005, and ADR-009/011–016. Historical ADR files are recoverable from Git.
+timer-lane plus Invocation-delegation runtime rules. Prior versions are
+recoverable from Git.
 
 ## Purpose and audience
 

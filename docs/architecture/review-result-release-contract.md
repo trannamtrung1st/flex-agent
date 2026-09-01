@@ -17,7 +17,7 @@ and correction in the MVP assessment workflow.
 | **Governs** | Review case/candidate, revision, decision, Result, Release, visibility, and correction realization |
 
 This contract currently owns the Review/Result/Release realization split
-extracted from ADR-009 (`REV-DEC-*`). Historical ADR files are recoverable from Git.
+(`REV-DEC-*`). Prior versions are recoverable from Git.
 
 This document does not change the
 [Human review and Result Release specification](../requirements/features/review-result-release.md).

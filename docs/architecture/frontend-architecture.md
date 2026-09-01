@@ -45,7 +45,7 @@ Design-lab modules may import that shared tree, production-safe domain
 composition (`web/src/components/work/`, `web/src/content/`, named assessment
 readouts used by Deck clones), `web/src/styles/design-lab.css`, and synthetic
 fixtures only inside the design-lab entry graph. They must not import
-production pages, API clients, or auth/query hooks. See ADR-021
+production pages, API clients, or auth/query hooks. See
 `FE-RESET-1`–`FE-RESET-6`. The lab route namespace is `/design-lab/*`.
 
 Production SPA HTTP contract readiness (host `FlexAgent.Api`, not the synthetic
@@ -120,7 +120,7 @@ the matching layout.
   Production app composition (auth shell, route-derived breadcrumbs, API wiring)
   lives in `web/src/components/` except `work/`, which is shared domain chrome
   the design lab may import. Shell, pages, API clients, and auth/query hooks
-  remain lab-forbidden (ADR-021 `FE-RESET-2`).
+  remain lab-forbidden (`FE-RESET-2`).
 
 ## State ownership
 

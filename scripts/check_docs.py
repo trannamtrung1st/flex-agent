@@ -437,7 +437,6 @@ def check_architecture_current_catalog() -> list[str]:
     if not readme_path.exists():
         return ["missing docs/architecture/README.md"]
     readme = readme_path.read_text(encoding="utf-8")
-    lowered = readme.lower()
     for name in CURRENT_ARCHITECTURE_OWNERS:
         owner = arch_dir / name
         if not owner.exists():
@@ -446,10 +445,21 @@ def check_architecture_current_catalog() -> list[str]:
             errors.append(f"docs/architecture/README.md must catalog {name}")
     if "architecture/decisions" in readme.replace("\\", "/"):
         errors.append("docs/architecture/README.md must not catalog architecture/decisions")
-    if "adr-001 through adr-021" in lowered:
-        errors.append(
-            "docs/architecture/README.md must not narrate ADR-001 through ADR-021 as the live catalog"
-        )
+    extraction_markers = (
+        "adr-001 through adr-021",
+        "historical adr files are recoverable",
+        "after adr extraction",
+    )
+    owner_files = [readme_path, *[arch_dir / name for name in CURRENT_ARCHITECTURE_OWNERS]]
+    for owner in owner_files:
+        if not owner.exists():
+            continue
+        owner_text = owner.read_text(encoding="utf-8").lower()
+        for marker in extraction_markers:
+            if marker in owner_text:
+                errors.append(
+                    f"{owner.relative_to(ROOT)} must not narrate '{marker}' as live catalog provenance"
+                )
     return errors
 
 

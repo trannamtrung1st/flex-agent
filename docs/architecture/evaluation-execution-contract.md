@@ -16,7 +16,7 @@ Evaluation in the MVP assessment workflow.
 | **Governs** | Evaluation request, Evidence locator/seal, evaluator execution, completion, replacement, and review-handoff realization |
 
 This contract currently owns the Evidence and Evaluation realization split
-extracted from ADR-009 (`EVAL-DEC-*`). Historical ADR files are recoverable from Git.
+(`EVAL-DEC-*`). Prior versions are recoverable from Git.
 
 This document does not change the
 [Evidence and Evaluation specification](../requirements/features/evidence-evaluation.md).

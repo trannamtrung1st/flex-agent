@@ -9,10 +9,10 @@ pointers for Flex Agent.
 live operator evidence. This index does not change product meaning, feature
 requirements, or architecture contracts.
 
-Architecture still-valid constraints from ADR-007 and ADR-008 that belong to
-operations live here as **pointers**. Historical ADR files are recoverable
-from Git and are not the current operations catalog. ADR-010 contribution
-and verification rows live in [workspace development](../contributing/workspace.md)
+OSS-first reference-deploy and bounded-profile / default-off constraints that
+belong to operations live here as **pointers**. Prior versions are recoverable
+from Git and are not the current operations catalog. Contribution and
+verification rows live in [workspace development](../contributing/workspace.md)
 and [`build/toolchain.json`](../../build/toolchain.json).
 
 ## What this area does not authorize
@@ -23,11 +23,10 @@ and [`build/toolchain.json`](../../build/toolchain.json).
 - Enabling a model provider, Production, Staging, or real Participant data
 - Deleting qualification phase records that still support the live pin
 
-## ADR-007 — reference deploy pointers
+## Reference deploy pointers
 
 The architecture owner remains
-[MVP architecture — OSS-first](../architecture/mvp-architecture.md#oss-first-and-on-premises-portability)
-and [ADR-007](../architecture/mvp-architecture.md).
+[MVP architecture — OSS-first](../architecture/mvp-architecture.md#oss-first-and-on-premises-portability).
 Operators use these current commands and origins:
 
 | Need | Current pointer |
@@ -44,7 +43,7 @@ account. Kubernetes, Redis, and an external broker remain optional. A
 production-pilot or high-availability claim still requires architecture
 recovery gates and measured evidence; this directory does not certify them.
 
-## ADR-008 — bounded profiles and default-off execution
+## Bounded profiles and default-off execution
 
 Live operator facts stay in
 [provider profiles](provider-profiles/README.md). Current rules this leaf
@@ -59,16 +58,15 @@ records without widening enablement:
 - OpenRouter has a distinct synthetic-development adapter and pin. It is not
   the generic OpenAI-compatible adapter and does not qualify production or
   real Participant data.
-- Docker Compose is the local/CI and synthetic evaluation-pilot orchestrator
-  selected by ADR-008. Exact image digests remain in Compose lock material.
+- Docker Compose is the local/CI and synthetic evaluation-pilot orchestrator.
+  Exact image digests remain in Compose lock material.
 - Each enabled live profile must still pass the applicable quality, privacy,
   security, identity, capacity, license, and operational gates (`GATE-STACK-PROVIDERS`
   and successors) before real use.
 
 ## Qualification evidence retention
 
-Gate A classified the seven named OpenRouter phase files as
-retain-until-Phase-3/5 recheck. This leaf **retains all seven**. They remain
+This leaf **retains all seven**. They remain
 human-readable qualification evidence for the current synthetic pin; they are
 not a second product specification.
 

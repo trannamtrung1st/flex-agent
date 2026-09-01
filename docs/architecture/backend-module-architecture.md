@@ -9,7 +9,7 @@ the MVP modular monolith grows.
 ports-and-adapters rules, authorization-kernel placement, append-only audit
 coupling, Assessment source/activation coordination, and replica-independent
 Enrollment admission constraints. It does not introduce product behavior or replace
-feature specifications. Historical ADR files are recoverable from Git. If this guide
+feature specifications. Prior versions are recoverable from Git. If this guide
 conflicts with product or requirements, stop and record the conflict.
 
 Workspace, toolchain, and CI verification live in

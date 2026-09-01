@@ -16,7 +16,7 @@ of authority; see `docs/README.md#authority-by-concern`.
 - Cross-concern status: derived `docs/current-state.md` (non-normative)
 
 A conflicting architecture document triggers product or requirements review; it does not override
-product semantics. Historical ADR files are recoverable from Git and are not the
+product semantics. Prior architecture text is recoverable from Git and is not the
 current architecture catalog. Do not turn an idea, example, or future capability into an
 MVP requirement. Ask when a material ambiguity remains. Every open question
 must include an **interim default** with a brief rationale. The default is

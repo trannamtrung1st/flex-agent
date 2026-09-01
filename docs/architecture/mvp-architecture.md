@@ -16,10 +16,9 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 
 This document is **Approved** architecture authority. It does
 not override product documents or feature specifications. Requirements govern
-observable behavior. This document and the focused runtime contracts own
-architecture-owned and code-contract constraints extracted from ADR-001
-through ADR-021. Historical ADR files are recoverable from Git and are not
-the current architecture catalog. [MVP operational
+observable behavior. This document and the focused runtime contracts own the
+live architecture and code-contract constraints. Prior versions are
+recoverable from Git and are not the current architecture catalog. [MVP operational
 defaults](../requirements/mvp-operational-defaults.md) govern intake,
 authentication-session, lifecycle, and recovery defaults. Evaluation and
 Review/Release realization live in their contracts; Session publication,
@@ -75,32 +74,29 @@ verification owners.
 
 ### Current constraint owners (architecture and code-contract)
 
-This table states the live owner after ADR extraction. Historical ADR files
-are recoverable from Git.
-
-| ADR | Still-valid constraint | Current owner this leaf |
-| --- | --- | --- |
-| 001 | Separate immutable resolved configuration from append-only runtime manifest; canonicalization, digest, and terminal-seal procedures | [Session runtime contract](session-runtime-contract.md) |
-| 002 | One in-process authorization kernel, enforcement adapters, trusted scope derivation, commit-time reauthorization, bounded service delegation | This document and [backend module architecture](backend-module-architecture.md) |
-| 003 | Authoritative append-only audit in the primary transactional store; couple required audit to protected mutations | [Backend module architecture](backend-module-architecture.md) |
-| 004 | Atomically create and bind the immutable cohort activation baseline, activate the Cohort, and accept required audit | This document |
-| 005 | Atomically consume Attempt entitlement, bind exact Submission versions, freeze configuration, create the manifest and Session, and accept required audit | [Session runtime contract](session-runtime-contract.md) |
-| 006 | MVP architecture baseline, SPA/API/gateway topology, OIDC direction, recovery targets, optional caching, deferred Kubernetes seam | This document |
-| 007 | OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service | This document (operations pointers deferred to Phase 3 ops) |
-| 008 | Bounded infrastructure and model-provider defaults, Compose profiles, evidence gates | **Not applied here** — operations + verification |
-| 009 | Session / Evaluation / Review-Release contract split; optional-broker and notification boundaries | The three `*-contract.md` files |
-| 010 | .NET/React stack, JCS/RFC 8785, Npgsql/Dapper, Grate, workspace, verification gates | Stack facts in this document; workspace/toolchain **not applied here** (Phase 4) |
-| 011 | Durable-before-display participant-visible incremental Agent-response streaming, replay, cutoff, backpressure | [Session runtime contract](session-runtime-contract.md) |
-| 012 | Trusted invocation, structured Decision, no-action, provenance; does not approve voice, tools, or configurable stages | [Session runtime contract](session-runtime-contract.md) |
-| 013 | Agent next-timer replacement bounds; runtime owns schedule | [Session runtime contract](session-runtime-contract.md) |
-| 014 | Decision envelope, P0 message-only compatibility, historical v1 reconstructable | [Session runtime contract](session-runtime-contract.md) |
-| 015 | Worker timer-lane delegation and reauthorization | This document and Session runtime contract |
-| 016 | Worker workload identity and bounded Invocation delegation | This document and Session runtime contract |
-| 017 | Assessment source descriptors, activation coordinator, fail-closed sources | This document and backend module architecture |
-| 018 | Enrollment request-limit vs PostgreSQL admission | [Backend module architecture](backend-module-architecture.md) |
-| 019 | SPA Query, RHF/Zod, no Zustand/Tailwind/Axios; server remains authorization authority | [Frontend architecture](frontend-architecture.md) |
-| 020 | Dual-build `web-legacy` topology | **Historical only** — do not restore |
-| 021 | Single production SPA in `web/`, isolated design lab, no `web-legacy/` runtime | [Frontend architecture](frontend-architecture.md) |
+| Constraint | Current owner |
+| --- | --- |
+| Separate immutable resolved configuration from append-only runtime manifest; canonicalization, digest, and terminal-seal procedures | [Session runtime contract](session-runtime-contract.md) |
+| One in-process authorization kernel, enforcement adapters, trusted scope derivation, commit-time reauthorization, bounded service delegation | This document and [backend module architecture](backend-module-architecture.md) |
+| Authoritative append-only audit in the primary transactional store; couple required audit to protected mutations | [Backend module architecture](backend-module-architecture.md) |
+| Atomically create and bind the immutable cohort activation baseline, activate the Cohort, and accept required audit | This document |
+| Atomically consume Attempt entitlement, bind exact Submission versions, freeze configuration, create the manifest and Session, and accept required audit | [Session runtime contract](session-runtime-contract.md) |
+| MVP architecture baseline, SPA/API/gateway topology, OIDC direction, recovery targets, optional caching, deferred Kubernetes seam | This document |
+| OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service | This document; operator pointers in [operations](../operations/README.md) |
+| Bounded infrastructure and model-provider defaults, Compose profiles, evidence gates | [Operations](../operations/README.md) and verification |
+| Session / Evaluation / Review-Release contract split; optional-broker and notification boundaries | The three `*-contract.md` files |
+| .NET/React stack, JCS/RFC 8785, Npgsql/Dapper, Grate, workspace, verification gates | Stack facts in this document; workspace/toolchain in [workspace development](../contributing/workspace.md) |
+| Durable-before-display participant-visible incremental Agent-response streaming, replay, cutoff, backpressure | [Session runtime contract](session-runtime-contract.md) |
+| Trusted invocation, structured Decision, no-action, provenance; does not approve voice, tools, or configurable stages | [Session runtime contract](session-runtime-contract.md) |
+| Agent next-timer replacement bounds; runtime owns schedule | [Session runtime contract](session-runtime-contract.md) |
+| Decision envelope, P0 message-only compatibility, historical v1 reconstructable | [Session runtime contract](session-runtime-contract.md) |
+| Worker timer-lane delegation and reauthorization | This document and Session runtime contract |
+| Worker workload identity and bounded Invocation delegation | This document and Session runtime contract |
+| Assessment source descriptors, activation coordinator, fail-closed sources | This document and backend module architecture |
+| Enrollment request-limit vs PostgreSQL admission | [Backend module architecture](backend-module-architecture.md) |
+| SPA Query, RHF/Zod, no Zustand/Tailwind/Axios; server remains authorization authority | [Frontend architecture](frontend-architecture.md) |
+| Dual-build `web-legacy` topology | Historical only — do not restore |
+| Single production SPA in `web/`, isolated design lab, no `web-legacy/` runtime | [Frontend architecture](frontend-architecture.md) |
 
 ## Scope
 
