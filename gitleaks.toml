@@ -52,3 +52,13 @@ paths = [
   '''(?i)deploy/compose/keycloak-contract\.compose\.yaml$''',
 ]
 regexes = ['''5432/keycloak''']
+
+[[rules.allowlists]]
+description = "Synthetic JWT fragments in human-authentication tests."
+condition = "AND"
+paths = [
+  '''(?i)tests/Integration/FlexAgent\.Postgres\.Integration\.Tests/HumanAuthenticationPersistenceTests\.cs$''',
+  '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/HumanAuthenticationEndSessionTests\.cs$''',
+  '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/HumanAuthenticationCoordinatorTests\.cs$''',
+]
+regexes = ['''eyJ''']
