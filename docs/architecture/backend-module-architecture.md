@@ -16,7 +16,7 @@ Workspace, toolchain, and CI verification live in
 [Workspace development](../contributing/workspace.md) and
 [`build/toolchain.json`](../../build/toolchain.json).
 
-## Current extracted constraints
+## Current constraints
 
 These remain current backend architecture requirements:
 
