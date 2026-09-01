@@ -978,9 +978,9 @@ requirement implemented.
 ## Open architecture questions
 
 No open question is left without an interim default. The approved product and
-requirement revisions plus the Session runtime Invocation/Decision, next-timer, and P0 envelope decisions govern
-Invocation/Decision, next-timer, and P0 output-envelope implementation; the
-verification gates below remain mandatory.
+requirements plus the Session runtime contract govern Invocation/Decision,
+next-timer, and P0 output-envelope implementation; the verification gates
+below remain mandatory.
 `Q-ARCH-14`, `Q-ARCH-15`, `Q-OSS-1`, and `Q-OSS-2` are resolved by
 [operations](../operations/README.md).
 `Q-OSS-1` is resolved by certifying concrete provider deployment profiles
@@ -1016,9 +1016,8 @@ is staged, not all-or-nothing:
    `AR-DEC-1` through `AR-DEC-27`,
    subject to the stated schema, migration, security, and verification gates.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
-   the approved detailed contracts adopted by the current Session, Evaluation, and Review contracts and, for Session
-   publication, the Session runtime streaming contract. Their former detailed architecture blockers
-   are resolved.
+   their current approved architecture contracts, including the Session runtime
+   streaming contract for participant-visible publication.
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.

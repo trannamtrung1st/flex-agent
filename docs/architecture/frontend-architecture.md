@@ -268,9 +268,8 @@ Use `lucide-react` with direct named imports so unused icons tree-shake.
 Follow [icon shapes](../ui-ux/design-system/components/icon-shapes.md) for
 size, semantic foreground, and accessibility. The candidate package loads
 `web/src/styles/shared.css` (tokens, base, production-safe families). Lab-only
-sheets stay in `design-lab.css`. `FE-DEC-10` still names the historical
-`tokens.css` / `components.css` / `app.css` split. Production now loads
-`web/src/styles/shared.css`. Do not add
+sheets stay in `design-lab.css`. Do not restore the former
+`tokens.css` / `components.css` / `app.css` split. Do not add
 Tailwind, CSS-in-JS, Axios, or Zustand.
 
 ## Intentionally unmigrated surfaces
