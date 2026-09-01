@@ -21,8 +21,9 @@ Decision, Agent Output, requested-action, next-timer, and
 presentation-versus-visibility semantics remain in force. Accommodation is
 separate Enrollment-scoped state; it does not permit mutation of a Cohort
 baseline or create Participant self-service. Observable system behavior remains
-governed by feature specifications. This Phase 3 rewrite is recoverable beside
-the previous Git version and is **not** the Phase 4 authority cutover.
+governed by feature specifications. This document is the current approved
+concept-model owner under the snapshot-first model. Prior wording remains
+recoverable in Git.
 
 ## Purpose
 

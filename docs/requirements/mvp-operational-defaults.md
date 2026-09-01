@@ -29,9 +29,9 @@ scopes may not widen approved Organization bounds. A deployment-specific
 override must be explicit, versioned, authorized, auditable, and tested
 before protected data is accepted.
 
-This Phase 3 rewrite is recoverable beside the previous Git version and is
-**not** the Phase 4 authority cutover. `REQ-OPS-*` and `AC-OPS-*` identifiers
-are unchanged.
+This document is the current approved operational-defaults owner under the
+snapshot-first model. Prior wording remains recoverable in Git. `REQ-OPS-*`
+and `AC-OPS-*` identifiers are unchanged.
 
 ## Submission intake defaults
 

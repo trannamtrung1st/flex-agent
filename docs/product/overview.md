@@ -13,11 +13,11 @@ requirements live in linked product and requirements documents.
 | **Version** | 0.4 |
 | **Last reviewed** | 2026-09-01 |
 
-This document states current product meaning. It does not convert vision
-examples, later-release ideas, or implementation status into approved
-requirements. Observable behavior lives in approved feature specifications.
-This Phase 3 rewrite is recoverable beside the previous Git version and is
-**not** the Phase 4 authority cutover.
+This document is the current approved product-meaning owner under the
+snapshot-first model. It does not convert vision examples, later-release
+ideas, or implementation status into approved requirements. Observable
+behavior lives in approved feature specifications. Prior wording remains
+recoverable in Git.
 
 ## Where product meaning lives
 

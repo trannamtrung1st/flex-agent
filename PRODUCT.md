@@ -6,7 +6,7 @@
 > If this file disagrees with those documents, the documents win.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `152e6c9add12c80edda0c7c5ecfee5811f0430e45d4a7a1745ee682c5809ecba`
+Content fingerprint: `68e22ae125e5239c6ad2fc1d9da44e554cad684237c976ddfac3137459670203`
 
 ## Canonical sources
 
@@ -17,7 +17,7 @@ Content fingerprint: `152e6c9add12c80edda0c7c5ecfee5811f0430e45d4a7a1745ee682c58
 
 ## Projection
 
-This document states current product meaning. It does not convert vision examples, later-release ideas, or implementation status into approved requirements. Observable behavior lives in approved feature specifications. This Phase 3 rewrite is recoverable beside the previous Git version and is **not** the Phase 4 authority cutover.
+This document is the current approved product-meaning owner under the snapshot-first model. It does not convert vision examples, later-release ideas, or implementation status into approved requirements. Observable behavior lives in approved feature specifications. Prior wording remains recoverable in Git.
 
 Keep Organization, Agent, Harness, Activity, Session, Evaluation, human revision,
 review decision, Result, and Release as distinct objects. Isolation, frozen session

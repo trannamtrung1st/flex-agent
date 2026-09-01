@@ -1672,10 +1672,11 @@ and does not add a reset archive.
 | `docs/current-state.md` | Non-normative index; intended vs implemented vs gap/default-off remain distinct |
 | Gate B persist | `review-focused-output-02` rev 7 `approved`; copied in Approval Gate B record |
 
-Residual (not rewritten here): product overview/concept-model/mvp-scope still
-contain a Phase 3 sentence that they are “not the Phase 4 authority cutover.”
-Phase 4 already made catalogs/validators snapshot-first. Follow-up wording
-only; meaning of those documents is current. `web-legacy` remains a derived
+Whole-output review `review-whole-output-01` required findings `sf-001` through
+`sf-005` rewrote the residual Phase 3 “not the Phase 4 authority cutover”
+sentences on approved product/requirements owners and regenerated `PRODUCT.md`.
+Those files now state they are current snapshot-first intended-truth owners;
+prior wording remains recoverable in Git. `web-legacy` remains a derived
 status-cell citation in Git-era P0 matrices, superseded by live inventory in
 `docs/current-state.md`.
 
@@ -1703,28 +1704,48 @@ task remains the explicit transitional exception until post-review cleanup.
 The derived index row for this reset was updated to `completed` (retained);
 no second plan or archive was created.
 
+### Whole-output required-finding wording fix
+
+Recorded 2026-09-01 for `review-whole-output-01` required findings `sf-001`
+through `sf-005` (optional `sf-006` included because it is the same task-file
+cursor sentence). Product meaning, REQ/AC identifiers, and MVP bounds are
+unchanged.
+
+Verification:
+
+| Command | Result |
+| --- | --- |
+| `python3 scripts/impeccable_context.py generate` | Wrote `PRODUCT.md` and `DESIGN.md`; `DESIGN.md` unchanged |
+| `python3 scripts/impeccable_context.py check` | Impeccable context adapters are current |
+| `python3 scripts/check_docs.py` | Documentation validation passed |
+
+Workspace search after the rewrite found no remaining “not the Phase 4
+authority cutover” claim in canonical product/requirements sources or
+`PRODUCT.md`.
+
 # Current state
 
 Phase 0 freeze is recorded on 2026-09-01 against live Git, not the 2026-08-31
 readiness snapshot. See **Phase 0 freeze record**.
 
-Activation/freeze parent: branch `main`,
-`cda98826844480770bab7603506cc241638a15f4`, equal to `origin/main`. The only
-dirty path before the Phase 0 checkpoint commit is this task file. Concurrent
-execution cursors are completed, blocked-superseded, or planned; this reset is
-the only `in-progress` cursor. Deletions since `ea97a88` (259 paths, all in
-`cda9882`) are separately accepted Shipboard work with Git recovery, not an
-uncommitted deletion set.
+Freeze facts (Phase 0 record; not current cursor status): activation/freeze
+parent branch `main`, `cda98826844480770bab7603506cc241638a15f4`, equal to
+`origin/main`. The only dirty path before the Phase 0 checkpoint commit was
+this task file. Concurrent execution cursors were completed,
+blocked-superseded, or planned; at freeze this reset was the only
+`in-progress` cursor. Deletions since `ea97a88` (259 paths, all in `cda9882`)
+are separately accepted Shipboard work with Git recovery, not an uncommitted
+deletion set.
 
 Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: this reset task is `completed` and remains at
-`.work/active/repository-baseline-reset.md`. Bounded file removal is subsequent
-follow-up after mandatory whole-output review. Do not delete this task in this
-graph. Gate B persist `review-focused-output-02` is copied; producer did not
-approve.
+Current state: this retained reset task is `completed` at
+`.work/active/repository-baseline-reset.md`, not in-progress. Bounded file
+removal is subsequent follow-up after mandatory whole-output review. Do not
+delete this task in this graph. Gate B persist `review-focused-output-02` is
+copied; producer did not approve.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 

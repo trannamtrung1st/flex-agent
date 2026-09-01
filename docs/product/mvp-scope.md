@@ -20,8 +20,8 @@ does not enable voice or additional presentation channels. Feature
 specifications govern observable behavior. `PROP-AGENT-1` permits person-like
 personas for existing Agent revisions but does not add general Agent authoring,
 photographic human representation, voice, or another MVP capability. This
-Phase 3 rewrite is recoverable beside the previous Git version and is **not**
-the Phase 4 authority cutover.
+document is the current approved MVP, deferred, and non-goal owner under the
+snapshot-first model. Prior wording remains recoverable in Git.
 
 ## First product experience
 
