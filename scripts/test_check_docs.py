@@ -35,6 +35,9 @@ class CheckDocsCatalogTests(unittest.TestCase):
         self.assertIn("blocked", check_docs.FORBIDDEN_TASK_STATUSES)
         self.assertNotIn("blocked", check_docs.LIVE_TASK_STATUSES)
 
+    def test_current_architecture_owners_forbid_adr_tokens(self) -> None:
+        self.assertEqual(check_docs.check_architecture_current_catalog(), [])
+
     def test_governance_scan_covers_harness_surfaces(self) -> None:
         files = {path.resolve() for path in check_docs.iter_governance_markdown_files()}
         self.assertIn((ROOT / "AGENTS.md").resolve(), files)

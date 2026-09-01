@@ -55,14 +55,10 @@ provider, or detailed UI design.
   [text Session lifecycle](../requirements/features/session-text-lifecycle.md),
   [Evidence and Evaluation](../requirements/features/evidence-evaluation.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](session-runtime-contract.md),
-  [ADR-002](backend-module-architecture.md),
-  [ADR-003](backend-module-architecture.md),
-  [ADR-004](mvp-architecture.md),
-  [ADR-005](session-runtime-contract.md), and
-  [ADR-006](mvp-architecture.md),
-  [ADR-008](../operations/README.md), and
-  [ADR-009](mvp-architecture.md).
+- [Session runtime contract](session-runtime-contract.md),
+  [backend module architecture](backend-module-architecture.md),
+  [MVP architecture](mvp-architecture.md), and
+  [operations](../operations/README.md).
 - [MVP architecture](mvp-architecture.md) and the approved
   [Evaluation execution contract](evaluation-execution-contract.md).
 
@@ -221,7 +217,7 @@ be preserved locally where safe, but no stale revision or decision may commit.
 
 Queue queries constrain scope before materialization. Opening an Evaluation,
 Evidence locator, Submission, transcript, configuration, manifest, revision,
-Result preview, or audit reference performs a new ADR-002 decision over the
+Result preview, or audit reference performs a new authorization decision over the
 target's complete parent chain and current content permission. The Review case,
 assignment, digest, signed artifact URL, or prior page view is not an access
 token.
@@ -349,7 +345,7 @@ policy permits it.
 
 | Threat or harm | Required control | Verification |
 | --- | --- | --- |
-| Cross-scope queue/case/result disclosure | Scope queries before materialization; ADR-002 complete-chain authorization on every target | Wrong Organization through wrong Release list/count/read/export matrix |
+| Cross-scope queue/case/result disclosure | Scope queries before materialization; authorization complete-chain authorization on every target | Wrong Organization through wrong Release list/count/read/export matrix |
 | Stale assignment or candidate | Expected versions, observed lineage head, commit-time reauthorization and explicit stale state | Reassignment, revocation, replacement and concurrent reviewer tests |
 | Internal content leaks into Result | Versioned deny-by-default allowlist, content classification, same projector for preview/Result, protected-content validator | Notes, confidence, Evidence, hidden prompt, reviewer identity and unsafe-markup tests |
 | Unauthorized or implicit Release | Separate action/capability, human command, current policy/relationship, optional separation of duties and recent authentication | Evaluation/approval/event/notification implicit-release and revoked-authority tests |

@@ -71,18 +71,15 @@ product, model provider, or SSE library.
   [resolved Session configuration](../requirements/features/resolved-session-configuration.md),
   [Submission and Attempts](../requirements/features/submission-attempts.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](session-runtime-contract.md),
-  [ADR-002](backend-module-architecture.md),
-  [ADR-003](backend-module-architecture.md),
-  [ADR-005](session-runtime-contract.md), and
-  [ADR-006](mvp-architecture.md),
-  [ADR-008](../operations/README.md), and
-  [ADR-009](mvp-architecture.md).
+- [Session runtime contract](session-runtime-contract.md),
+  [backend module architecture](backend-module-architecture.md),
+  [MVP architecture](mvp-architecture.md), and
+  [operations](../operations/README.md).
 - Approved [MVP architecture](mvp-architecture.md), especially `AR-DEC-3`,
   `AR-DEC-4`, `AR-DEC-7`, and its ordering and durable-work rules.
-- Approved [ADR-012](session-runtime-contract.md)
+- Approved [Session runtime contract](session-runtime-contract.md)
   for the provider-neutral Invocation/Decision boundary.
-- Approved [ADR-013](session-runtime-contract.md)
+- Approved [Session runtime contract](session-runtime-contract.md)
   for optional one-lane next-timer replacement.
 
 ## Scope
@@ -107,7 +104,7 @@ product, model provider, or SSE library.
 ### Out of scope
 
 - Attempt entitlement, Submission acceptance, exact start binding, configuration
-  resolution, and initial manifest creation before ADR-005 commits.
+  resolution, and initial manifest creation before the atomic Attempt-start transaction commits.
 - Evaluation, Evidence selection, Human revision, Review decision, Result, and
   Release behavior after the terminal handoff.
 - Detailed SPA information architecture, content, component design, and visual
@@ -126,7 +123,7 @@ product, model provider, or SSE library.
    cache are never authoritative for Session state, identity, timing, or order.
 3. Every protected operation derives the complete Organization, Activity,
    Participant, Attempt, and Session chain from trusted records and uses
-   [ADR-002](backend-module-architecture.md).
+   [backend module architecture](backend-module-architecture.md).
 4. External model calls occur outside database transactions and only through
    bounded durable work under a service identity and durable delegation.
 5. The Session uses its immutable resolved configuration and exact bound
@@ -148,20 +145,20 @@ product, model provider, or SSE library.
 ## Approved contract decisions
 
 `SESS-DEC-1`–`SESS-DEC-8` were approved on 2026-08-06.
-`SESS-DEC-9`–`SESS-DEC-13` were approved on 2026-08-09 through ADR-011.
-`SESS-DEC-14`–`SESS-DEC-23` were approved on 2026-08-11 through ADR-012.
-`SESS-DEC-24`–`SESS-DEC-28` were approved on 2026-08-11 through ADR-013.
-`SESS-DEC-29`–`SESS-DEC-35` were approved on 2026-08-14 through ADR-014.
+`SESS-DEC-9`–`SESS-DEC-13` were approved on 2026-08-09 in this contract.
+`SESS-DEC-14`–`SESS-DEC-23` were approved on 2026-08-11 in this contract.
+`SESS-DEC-24`–`SESS-DEC-28` were approved on 2026-08-11 in this contract.
+`SESS-DEC-29`–`SESS-DEC-35` were approved on 2026-08-14 in this contract.
 
 | ID | Decision | Rationale |
 | --- | --- | --- |
 | `SESS-DEC-1` | Use one monotonically increasing `session_sequence` allocated by the primary store for every authoritative lifecycle, transcript, work-trace, warning, timer, terminal-intent, and manifest-relevant Session record. | One order resolves device, timer, model, and terminal races without trusting wall clocks. |
 | `SESS-DEC-2` | Represent a turn with one stable `turn_id` and one or more policy-declared response slots; the MVP default participant turn has exactly one Agent response slot. Enforce at most one published Agent message per slot. | Separates accepted input, generation attempts, and participant-visible publication while preventing duplicate answers. |
-| `SESS-DEC-3` | **Superseded by `SESS-DEC-9` through ADR-011.** Original decision: publish final Agent answers only as complete durable messages while provider tokens remain Participant-invisible. | Retained as historical rationale; it no longer governs MVP publication. |
+| `SESS-DEC-3` | Do not use for current publication. Participant-visible Agent responses follow `SESS-DEC-9`. | Complete-message-only publication is not the MVP streaming contract. |
 | `SESS-DEC-4` | Persist timer facts as an authoritative start, active-duration budget, optional absolute endpoint, closed pause intervals, current open pause, and emitted warning occurrences. Compute remaining time from database-authoritative UTC at each command. | Makes timing reconstructable and prevents connection or process state from controlling fairness. |
 | `SESS-DEC-5` | Entering `Completing` commits a terminal intent and transcript cutoff sequence through the same Session version/sequence boundary that publishes messages. The winner of the race determines inclusion; no later publication may cross the cutoff. | Gives completion, expiry, termination, and late provider callbacks one deterministic boundary. |
 | `SESS-DEC-6` | Complete terminalization in one primary-store transaction that records the immutable terminal record, timing summary, Attempt mapping, manifest terminal append/seal, Evaluation-handoff eligibility, and required audit/outbox acceptance. | Prevents false terminal success and partial Evaluation readiness. |
-| `SESS-DEC-7` | Use request/response for commands and SSE for committed state events. Every event carries a Session-scoped cursor equal to `session_sequence`; reconnect reads authoritative deltas after a trusted cursor from the primary store. Redis Streams, Kafka, or another broker is not required for MVP correctness and may later act only as a non-authoritative delivery accelerator unless a superseding ADR establishes a stronger role. | Preserves recoverability without making the connection or optional broker authoritative. |
+| `SESS-DEC-7` | Use request/response for commands and SSE for committed state events. Every event carries a Session-scoped cursor equal to `session_sequence`; reconnect reads authoritative deltas after a trusted cursor from the primary store. Redis Streams, Kafka, or another broker is not required for MVP correctness and may later act only as a non-authoritative delivery accelerator unless this contract is updated to establish a stronger role. | Preserves recoverability without making the connection or optional broker authoritative. |
 | `SESS-DEC-8` | Store idempotency by trusted command scope, key, schema version, request digest, state, and result reference. Equivalent retries reconcile; mismatched reuse returns conflict without mutation. | Covers lost responses and multi-device retries without duplicate side effects. |
 | `SESS-DEC-9` | Stream Agent responses token by token to the Participant in the MVP: publish every provider-emitted text delta at the finest granularity the provider interface exposes, without application-added batching. Every exact delta selected for display must be validated and committed as an authoritative response fragment before SSE or polling may expose it. | Establishes streaming as a reusable product foundation without making transport buffers or the browser authoritative; it also avoids promising literal token boundaries when a provider exposes only multi-token deltas. |
 | `SESS-DEC-10` | Use the stable hierarchy `session_id -> turn_id -> response_slot_id -> generation_attempt_id -> agent_message_id -> fragment_sequence`. Allocate one `session_sequence` for every fragment commit and require a positive contiguous `fragment_sequence` within the message. | Gives reconnect, deduplication, evidence, and terminal races one exact identity and order model. |
@@ -173,9 +170,9 @@ product, model provider, or SSE library.
 | `SESS-DEC-16` | One Invocation is one semantic decision opportunity with bounded execution attempts and lower-level provider requests. One successful Invocation yields exactly one Agent Decision; infrastructure failure yields an Invocation execution outcome and no fabricated Decision. | Decouples domain identity from provider retries and failure classification. |
 | `SESS-DEC-17` | Validate every Agent Decision independently against current authorization, Session/cutoff, frozen Harness/workflow policy, decision schema, capability, payload, and resource bounds. Disposition validity is Decision-level. Record recommendation, validation outcome, and authoritative domain effect or explicit no-domain-effect outcome separately. | Keeps model output outside platform authority and distinguishes Decision rejection from provider or effect failure. |
 | `SESS-DEC-18` | Treat `no_action` as a successful Decision. For a Participant Turn, atomically or equivalently record the Decision, accepted validation, explicit response-slot/Turn terminal outcome, and required provenance without creating an Agent Message. | Prevents absence of a message from remaining ambiguous or causing reconnect retries. |
-| `SESS-DEC-19` | Separate structured decision/control semantics from participant-visible content at the Flex Agent boundary. Accept P0 communication (`emit_message` or the equivalent accepted `message` output) before content publication, then apply ADR-011 to every delta; permit one or multiple provider phases without requiring complete-message buffering or partial structured-control exposure. | Preserves provider neutrality and exact durable streaming. |
+| `SESS-DEC-19` | Separate structured decision/control semantics from participant-visible content at the Flex Agent boundary. Accept P0 communication (`emit_message` or the equivalent accepted `message` output) before content publication, then apply durable-before-display streaming to every delta; permit one or multiple provider phases without requiring complete-message buffering or partial structured-control exposure. | Preserves provider neutrality and exact durable streaming. |
 | `SESS-DEC-20` | Scope Invocation idempotency to trusted Session, trigger identity/version, purpose, and frozen policy. Order admitted Invocations, Decisions, and effects when material; reconcile equivalent duplicates and reject mismatches/stale or post-cutoff results. | Prevents duplicate Agent effects and resolves lifecycle races deterministically. |
-| `SESS-DEC-21` | Freeze behaviorally material trigger/decision policy and positive attempt/chain/cooldown/loop bounds. Keep P0 voice signals, Participant Session tools, silence-driven behavior, arbitrary/parallel timers, and richer configurable workflow triggers disabled; permit only the ADR-013 timer lane when explicitly frozen as enabled. | Preserves cohort fairness and release-tier containment. |
+| `SESS-DEC-21` | Freeze behaviorally material trigger/decision policy and positive attempt/chain/cooldown/loop bounds. Keep P0 voice signals, Participant Session tools, silence-driven behavior, arbitrary/parallel timers, and richer configurable workflow triggers disabled; permit only the next-timer replacement timer lane when explicitly frozen as enabled. | Preserves cohort fairness and release-tier containment. |
 | `SESS-DEC-22` | Keep future Interaction Controller mechanics separate from Agent semantic judgment; only minimized authoritative playback/interruption/floor facts may enter a permitted Invocation, and voice continuity uses playback-confirmed content. | Preserves the voice product contract without enabling voice in P0. |
 | `SESS-DEC-23` | Keep transcript, Invocation, Decision, interaction events, tool/workflow records, Evidence, audit, and telemetry distinct. Use protected references and bounded categories; never require hidden chain-of-thought. | Supports reconstructability while minimizing sensitive duplication and retention. |
 | `SESS-DEC-24` | Permit one optional bounded `next_timer_request` on any successful Agent Decision when the frozen Session timer lane is enabled. Validate scheduling independently from the Decision's primary behavior. | Allows a message or no-action outcome to coexist with adaptive timing without turning scheduling rejection into a false primary failure. |
@@ -184,11 +181,11 @@ product, model provider, or SSE library.
 | `SESS-DEC-27` | When due, reauthorize and revalidate scope, state, policy, revision, budget, and cutoff before committing one trusted timer trigger and one idempotent Invocation. The Agent request remains provenance, not trigger authority. | Prevents stale, forged, cross-scope, or post-cutoff self-waking behavior. |
 | `SESS-DEC-28` | Arm the frozen default delay when an enabled lane's Session enters `Active`. After a timer-triggered Invocation terminalizes, arm that default again unless its successful Decision has an accepted replacement; omission or rejection does not disturb a still-valid pending event. Use positive delay, cooldown, replacement, Invocation, and Session budgets. | Establishes and restores predictable cadence while bounding feedback loops. |
 | `SESS-DEC-29` | Represent a successful Agent Decision as a versioned envelope: explicit disposition, zero or more typed output recommendations, and zero or more typed requested actions. Empty collections are never inferred as `no_action`. | Preserves exactly-one Decision while allowing later coordinated channels. |
-| `SESS-DEC-30` | Restrict the P0 profile to at most one accepted Participant `message` output, zero accepted `voice` outputs, no accepted reviewer/admin/runtime-only presentation outputs, and only the ADR-013 next-timer requested action. Reject each excess or prohibited kind independently without fabricating `no_action` and without voiding otherwise valid sibling items. P0 does not impose Decision-wide output atomicity. | Prevents architecture preparation from enabling deferred capabilities while preserving later channel independence. |
+| `SESS-DEC-30` | Restrict the P0 profile to at most one accepted Participant `message` output, zero accepted `voice` outputs, no accepted reviewer/admin/runtime-only presentation outputs, and only the next-timer replacement next-timer requested action. Reject each excess or prohibited kind independently without fabricating `no_action` and without voiding otherwise valid sibling items. P0 does not impose Decision-wide output atomicity. | Prevents architecture preparation from enabling deferred capabilities while preserving later channel independence. |
 | `SESS-DEC-31` | Keep `agent-decision.v1` immutable historical evidence. Introduce an explicit successor schema/profile before provider and worker seams consume Decision shape. Dual-read v1 as the mapped P0 profile; never rewrite applied migrations. The successor envelope must represent known typed output kinds including `voice` so a P0-prohibited voice item remains schema-valid and fails frozen-profile/capability validation rather than envelope parse. P0 `voice` is kind, local-reference metadata, and optional opaque payload only; speech, TTS, playback, and Interaction Controller semantics remain P2. | Preserves reconstruction and checksum immutability and keeps `AC-SESS-48` at the profile layer without freezing the P2 voice contract. |
 | `SESS-DEC-32` | Allocate authoritative `agent_output_id` and Session order in the runtime. Resolve only bounded same-Decision local references after validation. Use `agent_decision_id` as the coordination root; do not add a P0 response-group identity. | Prevents model-authored identity, order, or reference substitution. |
 | `SESS-DEC-33` | Derive effective audience from trusted policy. P0 `message` audience is the Session Participant. Ignore model-authored audience/visibility as authority and fail closed on prohibited audiences. | Keeps presentation kind independent from authorization. |
-| `SESS-DEC-34` | Keep Evidence, Evaluation, reviewer notes, scores, concise audit explanations, and hidden chain-of-thought out of generic presentation outputs. Track P0 message delivery under ADR-011 without treating publication as human perception. | Preserves outcome-chain and audit honesty. |
+| `SESS-DEC-34` | Keep Evidence, Evaluation, reviewer notes, scores, concise audit explanations, and hidden chain-of-thought out of generic presentation outputs. Track P0 message delivery under durable-before-display streaming without treating publication as human perception. | Preserves outcome-chain and audit honesty. |
 | `SESS-DEC-35` | Validate outputs and requested actions independently. Record recommendation, per-item validation, and per-item effect or explicit absence separately. Preserve the Interaction Controller/TTS seam without enabling voice. | Supports partial rejection and later channel independence. This is the P0 rule, not a future-only extension. |
 
 ## Logical ownership and records
@@ -224,7 +221,7 @@ work, SSE, logs, metrics, and errors do not duplicate transcript content.
 ### Session lifecycle
 
 ```text
-Ready --ADR-005 commit--> Active <----authorized resume---- Paused
+Ready --Attempt-start commit--> Active <----authorized resume---- Paused
                             |                                ^
                             +----authorized/safety pause-----+
                             |
@@ -358,11 +355,11 @@ committed trusted trigger, Agent Invocation, and durable work
   content, establish audience authorization, replace the Session cursor, or make
   stream retention part of historical recovery.
 - Making a broker authoritative or required for correctness requires an
-  architecture update or superseding ADR covering transaction/outbox coupling,
+  architecture update covering transaction/outbox coupling,
   partitioning, replay, retention, isolation, recovery, and failure behavior.
 
 Participant-visible incremental streaming is required in the MVP under
-ADR-011. A broker alone does not provide publication durability, audience
+durable-before-display streaming. A broker alone does not provide publication durability, audience
 authorization, exact fragment reconstruction, or terminal-cutoff safety; those
 remain primary-store and application responsibilities.
 
@@ -551,7 +548,7 @@ other in-flight Invocations that still can recommend a replacement.
 
 | Threat or harm | Required control | Verification |
 | --- | --- | --- |
-| Cross-Organization/Participant/Session access | Trusted parent-chain loading and ADR-002 enforcement before materialization, subscription, work, and commit | Wrong-scope read/write/list/event/work matrix |
+| Cross-Organization/Participant/Session access | Trusted parent-chain loading and authorization-kernel enforcement before materialization, subscription, work, and commit | Wrong-scope read/write/list/event/work matrix |
 | Replay or multi-device race | Scoped idempotency, request digest, expected version, sequence and uniqueness constraints | Equivalent, conflicting, concurrent, and lost-response tests |
 | Prompt injection or confused deputy | Frozen system/policy channels, no MVP tools or memory writes, constrained output validators | Attempts to alter scope, timing, rubric, tools, memory, or terminal state |
 | Model-authored fake trigger or Decision authority | Trusted trigger adapters, minimized context builder, typed Decision schema, independent validation and effect authorization | Forged trigger/scope/timing/workflow/tool facts and unsupported Decision types |
@@ -629,9 +626,9 @@ or another Participant in the MVP.
 | History, privacy, lifecycle | `REQ-SESS-42`–`REQ-SESS-50`; `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-28`–`AC-SESS-30` | Immutability, current authorization, lawful unavailability, non-reuse, audit and leakage tests |
 | Performance and UI state feed | `AC-SESS-24`–`AC-SESS-27`, `AC-SESS-31`, `AC-SESS-32` | Streaming load/backpressure and SLO evidence plus state-contract tests consumed by the approved UI/UX specification |
 
-Implementation acceptance also requires ADR-001 conformance fixtures, database
+Implementation acceptance also requires resolved-configuration integrity conformance fixtures, database
 constraint tests, process-kill and transaction fault injection, and an
-end-to-end test from ADR-005 readiness through eligible Evaluation handoff.
+end-to-end test from atomic Attempt start readiness through eligible Evaluation handoff.
 Provider-path verification must also exercise the scoped credential and
 fail-closed no-fallback behavior required by `REQ-RSC-46` and `AC-RSC-25`.
 Playwright visual evidence remains owned by the downstream UI/UX implementation
@@ -639,14 +636,14 @@ and is not satisfied by this architecture document.
 
 ## Open questions
 
-None. ADR-012, ADR-013, and ADR-014 approve the architectural decisions in this
-contract. Framework, physical schema, duration encoding, and provider-
-orchestration choices remain implementation details within those boundaries.
-ADR-008 intentionally selects no normative model.
+None. The Session runtime Invocation/Decision, next-timer, and P0 envelope
+decisions in this contract are approved. Framework, physical schema, duration
+encoding, and provider-orchestration choices remain implementation details
+within those boundaries. Operations intentionally selects no normative model.
 
 ## Approval and downstream impact
 
-Version 0.5 is approved through ADR-014 and supersedes version 0.4.
+Version 0.5 is approved in the Session runtime contract and supersedes version 0.4.
 Invocation/Decision envelope, next-timer, and P0 output-profile implementation
 may proceed, and the following
 downstream artifacts must conform:

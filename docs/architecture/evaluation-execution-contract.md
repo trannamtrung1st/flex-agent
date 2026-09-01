@@ -51,13 +51,10 @@ container runtime.
   [Submission and Attempts](../requirements/features/submission-attempts.md),
   [text Session lifecycle](../requirements/features/session-text-lifecycle.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](session-runtime-contract.md),
-  [ADR-002](backend-module-architecture.md),
-  [ADR-003](backend-module-architecture.md),
-  [ADR-005](session-runtime-contract.md), and
-  [ADR-006](mvp-architecture.md),
-  [ADR-008](../operations/README.md), and
-  [ADR-009](mvp-architecture.md).
+- [Session runtime contract](session-runtime-contract.md),
+  [backend module architecture](backend-module-architecture.md),
+  [MVP architecture](mvp-architecture.md), and
+  [operations](../operations/README.md).
 - [MVP architecture](mvp-architecture.md) and the approved
   [text Session runtime contract](session-runtime-contract.md).
 
@@ -114,7 +111,7 @@ All decisions in this section were approved on 2026-08-06.
 | ID | Approved decision | Rationale |
 | --- | --- | --- |
 | `EVAL-DEC-1` | Use one versioned `evidence-locator.v1` tagged union whose source identity, location type, coordinate system, precision, integrity, and adapter/procedure version are explicit. | Prevents consumers from interpreting opaque or mutable locator strings differently. |
-| `EVAL-DEC-2` | Seal the ordered Evidence set with `evidence-set-jcs-sha256-v1`: schema normalization, RFC 8785 canonical JSON, and lowercase SHA-256, while keeping authorization independent of the digest. | Provides cross-language integrity compatible with ADR-001 without copying source content. |
+| `EVAL-DEC-2` | Seal the ordered Evidence set with `evidence-set-jcs-sha256-v1`: schema normalization, RFC 8785 canonical JSON, and lowercase SHA-256, while keeping authorization independent of the digest. | Provides cross-language integrity compatible with resolved-configuration integrity without copying source content. |
 | `EVAL-DEC-3` | Give every request an immutable input identity (terminal handoff plus frozen input digest) and a request kind. The initial request is unique for that input; a replacement request additionally binds one predecessor and authorized reason. Each processing attempt is separate under its request. | Distinguishes equivalent retry from an authorized replacement while preserving every provider/evaluator outcome. |
 | `EVAL-DEC-4` | Complete an Evaluation in one primary-store transaction that publishes the immutable artifact, criterion judgments, Evidence items/set seal, evaluator/model provenance references, lineage, manifest append, review-case handoff, and required audit/outbox acceptance. | Prevents partial or unaudited internal authority from reaching review. |
 | `EVAL-DEC-5` | Run deterministic evaluators through an allowlisted restricted worker adapter with no network egress by default, no Participant-controlled executable selection, immutable evaluator/dependency identity, and positive resource bounds. | Implements `PROP-8` without creating a participant-session tool or code-execution capability. |
@@ -346,7 +343,7 @@ recorded at completion.
 
 | Threat or harm | Required control | Verification |
 | --- | --- | --- |
-| Wrong-scope work or source access | ADR-002 service delegation, trusted ownership, reauthorization at claim/read/commit | Wrong Organization through wrong Evaluation and forged work/locator matrix |
+| Wrong-scope work or source access | authorization service delegation, trusted ownership, reauthorization at claim/read/commit | Wrong Organization through wrong Evaluation and forged work/locator matrix |
 | Mutable-source substitution | Exact version/cutoff/binding/digest checks; no aliases | Later Submission, post-cutoff transcript, model/rubric alias and filename tests |
 | Prompt or evaluator injection | Fixed policy channels, evaluator allowlist, strict schemas, no Participant executable selection or egress | Malicious Submission/transcript/metadata/model output and argument/path tests |
 | Citation forgery | Independent locator resolution, bounds, integrity, authorization and Evidence-set seal | Forged ID, range, adapter version, digest, source and precision tests |
@@ -405,7 +402,8 @@ candidate selection. UI screenshots and interaction approval remain separate.
 None. The approved feature specification resolves product and policy questions.
 Framework, evaluator-library, and parser details remain implementation choices;
 applicable storage and model-provider profiles and evidence gates are governed
-by ADR-008. ADR-008 intentionally selects no normative model. Every deployment,
+by [operations](../operations/README.md). Operations intentionally selects no
+normative model. Every deployment,
 Organization-provided, or self-hosted provider profile must pass this contract
 and its applicable evidence gates rather than change Evaluation semantics.
 

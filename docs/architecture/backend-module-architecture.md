@@ -293,7 +293,7 @@ Before accepting a new module or significant backend change, verify:
 - [ ] Protected repository operations require trusted Organization/resource
   scope and have negative isolation tests.
 - [ ] Audit, outbox, idempotency, ordering, and transaction ownership match the
-  governing specification and ADR.
+  governing specification and the current architecture owner.
 - [ ] Canonical contract types remain separate from domain entities and do not
   grant authority.
 - [ ] Architecture tests include a working negative control for each new rule.

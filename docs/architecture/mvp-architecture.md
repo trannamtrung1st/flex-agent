@@ -47,7 +47,8 @@ contributors one coherent technical frame for the MVP workflow:
 
 It defines the minimum useful architecture before implementation. It requires
 an OSS-first self-hostable reference architecture and the selected
-infrastructure families recorded as current operations/ADR-008 constraints.
+infrastructure families recorded as current [operations](../operations/README.md)
+constraints.
 This document does not itself select a programming language or web framework;
 application-stack facts are listed below. Component-family or stack selection
 does not certify a production deployment, a self-hosted model artifact, or
@@ -172,7 +173,7 @@ The following are not new proposals; they follow from approved sources:
 | ID | Decision | Rationale |
 | --- | --- | --- |
 | `AR-DEC-1` | Use a modular monolith for domain behavior, deployed as a stateless web/API runtime and a separately scalable worker runtime from the same versioned codebase. | Preserves strong in-process policy and transaction boundaries without premature service/network failure modes. |
-| `AR-DEC-2` | Use one primary relational transactional store for authoritative metadata, state machines, immutable records, audit/outbox records, idempotency, ordering, and uniqueness. | ADR-003 through ADR-005 require strong shared consistency; relational constraints make those invariants explicit and testable. |
+| `AR-DEC-2` | Use one primary relational transactional store for authoritative metadata, state machines, immutable records, audit/outbox records, idempotency, ordering, and uniqueness. | Mutation-coupled audit, activation atomicity, and atomic Attempt start require strong shared consistency; relational constraints make those invariants explicit and testable. |
 | `AR-DEC-3` | Use a transactional outbox plus a durable claimable work table for MVP background work; do not require an external broker initially. | Evaluation and notifications need durable asynchronous execution, but current scale does not justify another authoritative or operational boundary. |
 | `AR-DEC-4` | Use request/response commands plus Server-Sent Events (SSE) for reconnectable text Session and status updates, with bounded polling as a deployment fallback. The authoritative state always remains queryable after reconnect. | Separates command acceptance from event delivery and prevents a transient connection from becoming workflow authority. |
 | `AR-DEC-5` | Store attachment bytes in private Organization-scoped object storage behind quarantine, validation, integrity, and authorized-delivery adapters. | Keeps large untrusted content outside transactional rows while preserving exact immutable version bindings. |
@@ -192,11 +193,11 @@ The following are not new proposals; they follow from approved sources:
 | `AR-DEC-19` | Apply the approved Submission limits, quarantine/cleanup, inert-link, and authorized-download defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#submission-intake-defaults). | Resolves intake resource and fail-closed behavior without selecting a scanner or parser product. |
 | `AR-DEC-20` | Apply the approved OIDC flow, application-session, revocation, and MFA defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults). | Resolves the authentication-session security posture while retaining a provider-neutral identity boundary. |
 | `AR-DEC-21` | Apply the approved record-class lifecycle matrix and same-jurisdiction secondary recovery placement in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#protected-data-lifecycle-defaults). | Replaces unspecified retention and recovery placement with explicit, testable defaults that deployments may only narrow through approved policy. |
-| `AR-DEC-22` | Stream Agent responses incrementally to Participants through the durable-before-display fragment, first-fragment publication claim, replay, cutoff, and backpressure contract approved in ADR-011. | Makes streaming an MVP and future foundation without trusting provider transport, SSE, the browser, or an external broker for transcript authority. |
-| `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision envelope → independent validation → authoritative domain-effect/no-domain-effect boundary in ADR-012 as specialized by ADR-014. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve ADR-011 for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
-| `AR-DEC-24` | When frozen Session policy enables it, use one primary-store-owned Agent timer lane with a default active-time cadence. Permit one optional next-timer recommendation on a successful Decision; independently validate it and replace the lane's next schedule revision under ADR-013. | Adapts the next check without parallel timers, provider-native scheduling authority, or uncontrolled self-waking. |
-| `AR-DEC-25` | Realize a successful Agent Decision as the ADR-014 envelope with a P0 compatibility profile: at most one Participant message output, no voice or extra audiences/actions except the optional next-timer request, runtime-owned output identity, and immutable historical v1 reconstruction. | Prepares coordinated later channels without changing text-only P0 or rewriting frozen contracts. |
-| `AR-DEC-26` | Keep effective timing and Accommodation state in Participation and Submission. Assessment Configuration supplies a verified frozen baseline snapshot and exact frozen Organization-policy reference/values; Configuration supplies the exact current applicable Organization-policy version through narrow read and transaction-aware ports; Participation and Submission normalizes the accommodation contract, resolves the approved lifecycle policy, and applies one eligible replacement value per dimension. | Preserves one owner per durable state, ADR-017 source authority, current-policy narrowing, baseline immutability, and commit-time validation without cross-module SQL or making Assessment own downstream accommodation semantics. |
+| `AR-DEC-22` | Stream Agent responses incrementally to Participants through the durable-before-display fragment, first-fragment publication claim, replay, cutoff, and backpressure contract approved in durable-before-display streaming. | Makes streaming an MVP and future foundation without trusting provider transport, SSE, the browser, or an external broker for transcript authority. |
+| `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision envelope → independent validation → authoritative domain-effect/no-domain-effect boundary in Invocation/Decision as specialized by the P0 Decision envelope. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve durable-before-display streaming for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
+| `AR-DEC-24` | When frozen Session policy enables it, use one primary-store-owned Agent timer lane with a default active-time cadence. Permit one optional next-timer recommendation on a successful Decision; independently validate it and replace the lane's next schedule revision under the next-timer replacement contract. | Adapts the next check without parallel timers, provider-native scheduling authority, or uncontrolled self-waking. |
+| `AR-DEC-25` | Realize a successful Agent Decision as the the P0 Decision envelope envelope with a P0 compatibility profile: at most one Participant message output, no voice or extra audiences/actions except the optional next-timer request, runtime-owned output identity, and immutable historical v1 reconstruction. | Prepares coordinated later channels without changing text-only P0 or rewriting frozen contracts. |
+| `AR-DEC-26` | Keep effective timing and Accommodation state in Participation and Submission. Assessment Configuration supplies a verified frozen baseline snapshot and exact frozen Organization-policy reference/values; Configuration supplies the exact current applicable Organization-policy version through narrow read and transaction-aware ports; Participation and Submission normalizes the accommodation contract, resolves the approved lifecycle policy, and applies one eligible replacement value per dimension. | Preserves one owner per durable state, Assessment source authority, current-policy narrowing, baseline immutability, and commit-time validation without cross-module SQL or making Assessment own downstream accommodation semantics. |
 | `AR-DEC-27` | Preserve the existing strict `/v1/assessment` Enrollment and **My work** projections unchanged. Add parallel strict `/v2/assessment` Enrollment and **My work** routes whose canonical v2 projections separate baseline timing, effective timing, authoritative evaluation time, eligibility state, and minimized accommodation consequence. Serve both versions while the SPA migrates; v1 retirement requires a later explicit contraction. | Prevents `additionalProperties: false` and semantic compatibility breaks, supports mixed-version deployment, and keeps URL/API version aligned with response schema meaning. |
 
 ## System context and trust boundaries
@@ -282,7 +283,7 @@ without creating multiple domain authorities:
 
 The web and worker runtimes should use the same versioned domain modules and
 contracts. Deployment may scale them independently, but extracting a module to
-an independent service requires evidence and an ADR covering consistency,
+an independent service requires evidence and an update to this architecture covering consistency,
 authorization, versioning, failure, and migration.
 
 ### API gateway boundary
@@ -310,7 +311,7 @@ and bounded revocation. Administrator and Reviewer access requires MFA. The
 complete requirements are in
 [MVP operational defaults](../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults).
 The provider product, invitation flow, and account-recovery experience remain
-deployment and UI/UX decisions. They must preserve ADR-002 and must not require
+deployment and UI/UX decisions. They must preserve authorization-kernel enforcement and must not require
 a custom password store.
 
 Application user administration remains inside the IdentityAccess business
@@ -327,7 +328,7 @@ A later invitation, membership, actor-administration, or provider-provisioning
 journey must receive approved product and UI/UX requirements and may use a
 Keycloak administration adapter; it does not justify a second module with
 overlapping identity or authorization authority. See `STACK-DEC-26` and
-`STACK-DEC-27` in [ADR-010](../contributing/workspace.md).
+`STACK-DEC-27` in [workspace toolchain gates](../contributing/workspace.md).
 
 ### Optional caching boundary
 
@@ -346,7 +347,7 @@ and an architecture update naming the selected uses.
 ## OSS-first and on-premises portability
 
 Under `AR-DEC-17`, `AR-DEC-18`, and
-[ADR-007](mvp-architecture.md), the reference
+[OSS-first self-hostable deployment](mvp-architecture.md), the reference
 deployment is the self-hosted path, not a cloud-provider-specific topology.
 
 - The full MVP must run without a public cloud account or mandatory proprietary
@@ -465,7 +466,7 @@ Future: durable work record → scheduler adapter → Kubernetes Job or sandbox
 
 When repository cloning, code/test execution, specialized resources, long
 processing, or stronger Agent isolation becomes approved scope, the owning
-feature specification and a security-reviewed ADR must define the workload
+feature specification and a security-reviewed update to this architecture must define the workload
 envelope, workspace and credential handling, network/secret/resource policy,
 sandbox strength, progress/cancellation/checkpoint behavior, artifact
 provenance, and external-action approval. Kubernetes may then implement the
@@ -477,20 +478,20 @@ authority by itself.
 | Component | Owns | Depends on |
 | --- | --- | --- |
 | Identity adapter | Validated external identity and application-session binding | External identity provider |
-| Authorization kernel | Versioned action/resource decisions, reason codes, trusted policy/relationship inputs | Authoritative relationships from owning components; ADR-002 |
+| Authorization kernel | Versioned action/resource decisions, reason codes, trusted policy/relationship inputs | Authoritative relationships from owning components; authorization-kernel enforcement |
 | Governance and lifecycle | Organization policy, exact current applicable policy selection, lifecycle-policy versions, capability bounds, policy resolution | Authorization kernel; Activity policy selections |
-| Assessment configuration | Activity revisions, Tasks, Cohorts, readiness, immutable activation baseline and binding; verified frozen timing and policy snapshot port | Existing Agent/Harness revisions, governance, audit; ADR-004 and ADR-017 |
+| Assessment configuration | Activity revisions, Tasks, Cohorts, readiness, immutable activation baseline and binding; verified frozen timing and policy snapshot port | Existing Agent/Harness revisions, governance, audit; activation atomicity and Assessment source authority |
 | Participation and Submission | Enrollments, effective timing, normalized accommodation semantics and records, Attempt entitlement/state, intake metadata, Submission version lineage and validation state | Verified activated Cohort snapshot, current Organization policy, lifecycle resolver, artifact adapter, authorization, audit |
-| Session resolution | Precedence resolution, immutable resolved configuration, configuration digest, initial and append-only manifest protocol | Cohort baseline, exact Submission binding, policies; ADR-001 and ADR-005 |
+| Session resolution | Precedence resolution, immutable resolved configuration, configuration digest, initial and append-only manifest protocol | Cohort baseline, exact Submission binding, policies; resolved-configuration integrity and atomic Attempt start |
 | Session execution | Canonical Session state, acknowledgments, ordered messages/turns, timing, pauses, transcript cutoff, terminal transition | Resolution, authorization, model adapter, audit/manifest |
 | Evaluation | Evaluation request/invocation, Evidence set and locators, evaluator modes, immutable Evaluation and replacement lineage | Terminal Session, exact sources, model/deterministic adapters, authorization |
 | Review and Release | Review case/assignment workflow, Human revision, Review decision, Result, Release, correction and current-visible lineage | Evaluation, Evidence, lifecycle, authorization, audit |
-| Audit and projection | Logical audit stream, immutable outbox, idempotent read/audit projections, backlog and integrity monitoring | Mutation-owning components; ADR-003 |
+| Audit and projection | Logical audit stream, immutable outbox, idempotent read/audit projections, backlog and integrity monitoring | Mutation-owning components; mutation-coupled audit |
 | External adapters | Artifact storage, malware/content validation, model provider, notification, telemetry, secrets | Versioned ports defined by owning components |
 
 Components communicate through versioned commands, queries, and events. They do
 not write another component's records directly except inside an explicitly
-approved shared transaction coordinator such as ADR-004 or ADR-005. Even there,
+approved shared transaction coordinator such as activation atomicity or atomic Attempt start. Even there,
 logical ownership and validation remain distinct.
 
 ## Data ownership and lifecycle
@@ -501,13 +502,13 @@ logical ownership and validation remain distinct.
 | Membership, capability grant, service delegation | Authorization/governance | Versioned or state-transitioned; revocation retained | Primary store | Organization, actor/service, allowed actions and resource scope |
 | Agent/Harness revision and memory snapshot reference | Pre-provisioned configuration boundary | Immutable revision/reference for MVP use | Primary store plus protected source store as needed | Organization and verified content identity |
 | Activity revision and Task | Assessment configuration | Editable through new expected versions | Primary store | Organization and Activity lineage |
-| Cohort and activation baseline | Assessment configuration | Cohort state transition; baseline immutable | Primary store | Organization, Activity, Cohort, source digests; ADR-004 |
+| Cohort and activation baseline | Assessment configuration | Cohort state transition; baseline immutable | Primary store | Organization, Activity, Cohort, source digests; activation atomicity |
 | Enrollment, accommodation, Attempt entitlement/state | Participation and Submission | Explicit version/state transitions with audit; accommodation expiry may be derived and supersession appends | Primary store | Organization, Activity, Cohort, Participant, frozen/current policy versions, lifecycle policy, requester/approver and predecessor |
 | Submission intake/version/item metadata | Participation and Submission | Append new version; accepted version immutable | Primary store | Organization, Activity, Participant, Task, validation and integrity identity |
 | Submission payload bytes | Artifact adapter under Submission ownership | Quarantine then immutable accepted object; policy-governed disposition | Private object storage | Opaque storage key bound through metadata; never treated as authorization |
-| Exact Submission binding | Participation/Attempt start contract | Immutable | Primary store | Attempt, Session and ordered exact versions; ADR-005 |
-| Resolved session configuration | Session resolution | Immutable | Primary store | Organization through Session; source provenance and digest; ADR-001 |
-| Resolved execution manifest | Session resolution | Ordered append then immutable terminal seal | Primary store with protected references | Session sequence, configuration digest, runtime provenance; ADR-001 |
+| Exact Submission binding | Participation/Attempt start contract | Immutable | Primary store | Attempt, Session and ordered exact versions; atomic Attempt start |
+| Resolved session configuration | Session resolution | Immutable | Primary store | Organization through Session; source provenance and digest; resolved-configuration integrity |
+| Resolved execution manifest | Session resolution | Ordered append then immutable terminal seal | Primary store with protected references | Session sequence, configuration digest, runtime provenance; resolved-configuration integrity |
 | Session, acknowledgment, message, turn, timer/pause, transcript cutoff | Session execution | Versioned state and ordered append; terminal history immutable | Primary store; protected payload storage may be separate later | Organization, Activity, Participant, Attempt, Session and authoritative sequence |
 | Evidence and Evaluation invocation/artifact | Evaluation | Evidence/provenance append; completed artifact immutable; replacement creates lineage | Primary store with protected source references | Session, exact source/version/locator, evaluator and procedure versions |
 | Review case/assignment, Human revision, Review decision | Review and Release | Expected-version transitions; revisions/decisions immutable | Primary store | Evaluation candidate, reviewer assignment, actor, reason and predecessor |
@@ -525,7 +526,7 @@ retain only the minimum policy-permitted reference and provenance.
 
 1. A component commits its authoritative state and every `required_durable`
    audit event or immutable audit-outbox event together.
-2. ADR-004 and ADR-005 shared transactions are mandatory special boundaries,
+2. activation atomicity and atomic Attempt start shared transactions are mandatory special boundaries,
    not a general license for cross-component writes.
 3. Idempotent commands store a scope, key, trusted request digest, state, and
    result reference. Equivalent retries return the existing result; mismatched
@@ -633,7 +634,7 @@ authoritative.
 2. Readiness validates trusted source ownership, immutability, compatibility,
    Stable-memory restrictions, timing/rule bounds, and lifecycle configuration.
 3. Activation deliberately reconfirms the action and revalidates authorization
-   and every assumption inside ADR-004's transaction.
+   and every assumption inside the activation transaction.
 4. One transaction records the activation attempt, immutable baseline and
    digest, unique Cohort binding, `Activated` transition, and required audit or
    audit-outbox event.
@@ -675,7 +676,7 @@ authoritative.
    version only after the payload and required metadata are durably associated.
 4. Attempt start revalidates identity, scope, Enrollment, timing, entitlement,
    required accepted versions, capability compatibility, and audit availability.
-5. ADR-005's transaction activates one Attempt, consumes one entitlement, binds
+5. the atomic Attempt-start transaction activates one Attempt, consumes one entitlement, binds
    exact Submission versions, freezes resolved configuration, creates the
    initial manifest and ready Session, and accepts required audit.
 6. Participant interaction and model work begin only after the committed Session
@@ -684,8 +685,8 @@ authoritative.
 
 ### 4. Text Session turn and recovery
 
-The following flow is approved for version 0.10 through ADR-012, ADR-013, and
-ADR-014. Historical v1 `emit_message` maps to an accepted P0 `message` output.
+The following flow is approved for version 0.10 in the Session runtime contract, next-timer replacement, and
+the P0 Decision envelope. Historical v1 `emit_message` maps to an accepted P0 `message` output.
 
 ```mermaid
 sequenceDiagram
@@ -735,7 +736,7 @@ interaction, but it must buffer or otherwise withhold content from publication
 until the communication Decision and its P0 `message` output are structurally
 valid and currently accepted. Historical v1 `emit_message` is that same P0
 profile.
-No provider delta becomes participant-visible before its own ADR-011 validation
+No provider delta becomes participant-visible before its own durable-before-display streaming validation
 and durable commit.
 
 For the optional timer lane, a schedule worker later claims the exact due
@@ -758,7 +759,7 @@ or terminal state.
    sequence.
 2. The boundary fixes the transcript cutoff, maps the Attempt outcome, appends
    required lifecycle/audit/manifest records, and seals the manifest under
-   ADR-001. It exposes no false terminal success when required persistence,
+   resolved-configuration integrity. It exposes no false terminal success when required persistence,
    audit, or sealing fails.
 3. Only an eligible `Completed` Session transactionally creates or returns one
    Evaluation request and durable work item. Other terminal states route to the
@@ -828,7 +829,7 @@ not prescribe their visual design.
 
 | Threat or privacy harm | Primary controls | Required verification |
 | --- | --- | --- |
-| Cross-Organization, cross-Participant, or cross-Session object access | Trusted parent-chain resolution; scoped queries before materialization; ADR-002 kernel at web, worker, event, and file boundaries | Wrong-scope matrix for identifiers, lists, counts, exports, files, queues, caches, and concurrent Sessions |
+| Cross-Organization, cross-Participant, or cross-Session object access | Trusted parent-chain resolution; scoped queries before materialization; authorization kernel at web, worker, event, and file boundaries | Wrong-scope matrix for identifiers, lists, counts, exports, files, queues, caches, and concurrent Sessions |
 | Forged role, owner, workflow, timer, or Release claims | Server-derived identity/scope; current authoritative state; commit-time reauthorization; non-disclosing denials | Forged fields, guessed IDs, stale grants, revocation, workflow and pre-release access tests |
 | Replay, duplicate command, and race | Scoped idempotency records, trusted request digests, expected versions, uniqueness constraints, reconciliation | Duplicate/concurrent/mismatched-key, multiple-device, lost-response, and fault-injection tests |
 | Malicious upload, parser bomb, object-key substitution | Quarantine, allowlisted categories, positive size/count/resource limits, inert parsing, integrity metadata, parent-authorized delivery | Malicious file, archive/decompression, encoding, object substitution, signed-capability reuse, and cleanup tests |
@@ -849,7 +850,7 @@ cryptography, compliance claims, consent rules, or retention durations.
 | ID | Stimulus and environment | Required response and measurable criterion | Source |
 | --- | --- | --- | --- |
 | `QA-1` | A protected request targets another Organization, Participant, Session, assignment, or inaccessible identifier under normal or concurrent load. | Deny before disclosure or side effect; return the approved non-disclosing external behavior; record required bounded audit. | `REQ-AUTH-*`, `AC-AUTH-1`–`AC-AUTH-21` |
-| `QA-2` | A permission or relationship is revoked while HTTP, cached, real-time, or delayed work exists. | New HTTP operations observe the authoritative change immediately; stale long-lived access terminates or revalidates within 60 seconds; delayed work revalidates before protected work and commit. | `PROP-4`, `AC-AUTH-12`; ADR-002 |
+| `QA-2` | A permission or relationship is revoked while HTTP, cached, real-time, or delayed work exists. | New HTTP operations observe the authoritative change immediately; stale long-lived access terminates or revalidates within 60 seconds; delayed work revalidates before protected work and commit. | `PROP-4`, `AC-AUTH-12`; authorization-kernel enforcement |
 | `QA-3` | Representative authorization runs with required state available inside the service boundary. | Authorization processing is no more than 50 ms at p95, excluding identity-provider redirects and end-user network latency. | `PROP-8`, authorization specification |
 | `QA-4` | Assessment readiness/activation or resolved configuration/start runs with pre-versioned sources available. | Each authoritative operation completes in no more than 2 seconds at p95 under its approved preconditions; partial state is never exposed. | Assessment setup `PROP-4`; resolved configuration `PROP-7` |
 | `QA-5` | Enrollment mutation, Attempt eligibility, or accepted-version metadata finalization runs with authoritative dependencies available. | Synchronous platform work completes in no more than 2 seconds at p95; transfer, scanning, external delivery, and end-user network time remain separate. | Submission/Attempts `PROP-5`, `AC-SUBM-27` |
@@ -857,8 +858,8 @@ cryptography, compliance claims, consent rules, or retention durations.
 | `QA-7` | Duplicate, concurrent, delayed, or late provider work competes with Session terminalization. | Preserve one authoritative order, allow at most one visible generation attempt per response slot, exclude new post-cutoff output while retaining authorized replay of pre-cutoff transcript content, and recover without duplicate transcript entries. | `REQ-SESS-8`–`REQ-SESS-41`, `REQ-SESS-55`–`REQ-SESS-60` |
 | `QA-8` | An eligible bounded Evaluation is requested outside a declared provider-wide outage. | Return queued/running/existing status within 2 seconds at p95; at least 95 percent complete within 120 seconds; queue, provider, timeout, and retry outcomes remain separately observable. | Evidence/Evaluation `PROP-6`, `AC-EVAL-29` |
 | `QA-9` | Bounded Review/Release work runs outside a declared platform-wide outage. | At least 95 percent of scoped reads and authoritative acknowledgments complete within 2 seconds; committed Release becomes visible through the authoritative participant path within 5 seconds at p95. | Review/Release `PROP-8`, `AC-REV-17` |
-| `QA-10` | Process termination, dependency failure, audit failure, projection lag, or lost response occurs at a protected mutation. | Before commit, expose no success or partial authority; after commit, reconcile from idempotency and authoritative bindings without a second mutation or silent history loss. | ADR-003 through ADR-005 and P0 recovery ACs |
-| `QA-11` | A Reviewer or auditor reconstructs a historical Session after source changes or lawful unavailability. | Verify recorded procedure versions, configuration/baseline digests, exact sources, ordered manifest, Evidence and outcome lineage; report unavailable/degraded sources honestly without substitution. | ADR-001, ADR-004, `AC-RSC-18`–`AC-RSC-24`, `AC-EVAL-31` |
+| `QA-10` | Process termination, dependency failure, audit failure, projection lag, or lost response occurs at a protected mutation. | Before commit, expose no success or partial authority; after commit, reconcile from idempotency and authoritative bindings without a second mutation or silent history loss. | mutation-coupled audit, activation atomicity, and atomic Attempt start and P0 recovery ACs |
+| `QA-11` | A Reviewer or auditor reconstructs a historical Session after source changes or lawful unavailability. | Verify recorded procedure versions, configuration/baseline digests, exact sources, ordered manifest, Evidence and outcome lineage; report unavailable/degraded sources honestly without substitution. | resolved-configuration integrity, activation atomicity, `AC-RSC-18`–`AC-RSC-24`, `AC-EVAL-31` |
 | `QA-12` | One Organization, Activity, Session, upload, transcript, or provider outage consumes excessive capacity. | Enforce positive bounds and fair backpressure so unrelated authorized work is not delayed without bound; expose bounded backlog/failure telemetry without protected content. | P0 performance and security requirements |
 
 The `PROP-*` labels in the Source column refer to approved defaults inside the
@@ -916,7 +917,7 @@ content.
   or silently enrich v1.
 - Database migrations preserve Organization scope, uniqueness, append-only
   history, exact version bindings, and rollback or forward-recovery semantics.
-- ADR-001 and ADR-004 conformance fixtures are shared test assets and gate any
+- resolved-configuration and activation conformance fixtures are shared test assets and gate any
   implementation that produces or verifies their canonical artifacts.
 
 ## P0 traceability map
@@ -930,8 +931,8 @@ requirement implemented.
 | --- | --- | --- |
 | Authorization and isolation | Identity adapter, authorization kernel, scoped repositories/adapters, service delegation, audit boundary | Positive/negative resource-action matrix across web, worker, query, event, cache, artifact, export, and concurrent Session paths |
 | Resolved session configuration | Session-resolution component, versioned source registry, canonicalizer/digest, immutable configuration, manifest append/seal, reconstruction verifier | Precedence/property tests, conformance fixtures, drift/substitution tests, append concurrency, seal/tamper and degraded-source reconstruction |
-| Assessment setup | Assessment configuration, readiness validator, Activity revision, Cohort, activation coordinator, lifecycle and policy resolver | Draft concurrency, source/fairness validation, ADR-004 atomic fault injection, idempotent reconciliation and cross-scope tests |
-| Submission and Attempts | Participation/Submission, Assessment frozen-baseline port, Configuration current-policy port, lifecycle resolver, accommodation and entitlement model, artifact adapter, exact binding and start coordinator | Frozen/current-policy narrowing, timing-boundary and supersession races, distinct approval, lifecycle, v1/v2 compatibility, quarantine/validation, immutable versions, ADR-005 fault injection, capability and object-access tests |
+| Assessment setup | Assessment configuration, readiness validator, Activity revision, Cohort, activation coordinator, lifecycle and policy resolver | Draft concurrency, source/fairness validation, activation atomicity atomic fault injection, idempotent reconciliation and cross-scope tests |
+| Submission and Attempts | Participation/Submission, Assessment frozen-baseline port, Configuration current-policy port, lifecycle resolver, accommodation and entitlement model, artifact adapter, exact binding and start coordinator | Frozen/current-policy narrowing, timing-boundary and supersession races, distinct approval, lifecycle, v1/v2 compatibility, quarantine/validation, immutable versions, atomic Attempt start fault injection, capability and object-access tests |
 | Text Session lifecycle | Session execution, ordered command/event protocol, approved Invocation/Decision envelope validation/effect boundary, P0 output profile, one-lane Agent timer scheduler, model adapter, server timer, terminal/seal coordinator, reconnect | Trusted/fake/duplicate/late triggers, envelope cardinality, schema-invalid execution outcome versus Decision rejection, independent output/action validation and partial rejection, empty-output inference rejection, voice/audience item rejection, no-action, default/accepted/rejected next timer, single-lane replacement, v1 dual-read, ordering/idempotency, multiple-device, pause/resume/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
 | Evidence and Evaluation | Evaluation request/invocation, Evidence locator/verifier, evaluator-mode runner, model adapter, immutable completion/lineage | Exact-source and locator tests, injection, deterministic conflict, sandbox/egress limits, provider retry, replacement and completion atomicity tests |
 | Human review and Result Release | Review case/assignment, candidate selector, revision/decision state machines, Result validator, atomic Release/current-visible resolver | Wrong-scope queue/case, stale/concurrent decision, content allowlist, pre-release denial, Release/audit/visibility fault injection, correction and lifecycle tests |
@@ -943,8 +944,8 @@ requirement implemented.
 | `Q-ARCH-1` | Use the modular monolith and shared relational primary defined by `AR-DEC-1` and `AR-DEC-2`. |
 | `Q-ARCH-2` | Use the database-backed work table and transactional outbox in `AR-DEC-3`; add a broker only after measured evidence and an architecture update. |
 | `Q-ARCH-3` | Use request/response commands plus SSE, with bounded polling fallback, as defined by `AR-DEC-4`. |
-| `Q-ARCH-4` | Use the private validation/quarantine/immutable artifact pattern in `AR-DEC-5`, the policy-controlled scanner adapter in [ADR-008](../operations/README.md), and the approved intake defaults in `AR-DEC-19`. |
-| `Q-ARCH-5` | Use the extensible provider-neutral OIDC and API-server application-session boundary in `AR-DEC-6`, Keycloak as selected by ADR-008, and the approved session defaults in `AR-DEC-20`. |
+| `Q-ARCH-4` | Use the private validation/quarantine/immutable artifact pattern in `AR-DEC-5`, the policy-controlled scanner adapter in [operations](../operations/README.md), and the approved intake defaults in `AR-DEC-19`. |
+| `Q-ARCH-5` | Use the extensible provider-neutral OIDC and API-server application-session boundary in `AR-DEC-6`, Keycloak as selected by [operations](../operations/README.md), and the approved session defaults in `AR-DEC-20`. |
 | `Q-ARCH-6` | Use the restricted deterministic-evaluator worker boundary in `AR-DEC-8`; stronger future code/Agent isolation is deferred under `AR-DEC-16`. |
 | `Q-ARCH-7` | Use the versioned fail-closed lifecycle resolver in `AR-DEC-10` and the approved default policy matrix in `AR-DEC-21`. |
 | `Q-ARCH-8` | Use the measurable resilience and recovery targets in `AR-DEC-15` and [Resilience and recovery baseline](#resilience-and-recovery-baseline). |
@@ -953,37 +954,39 @@ requirement implemented.
 | `Q-ARCH-11` | Use the approved OIDC flow, application-session, MFA, and revocation behavior in `AR-DEC-20`. |
 | `Q-ARCH-12` | Use the approved protected-record lifecycle matrix in `AR-DEC-21`. |
 | `Q-ARCH-13` | Use encrypted secondary recovery copies in a separate failure domain or region within the same approved jurisdiction, as defined by `AR-DEC-21`. |
-| `Q-ARCH-14` | Use the bounded component families, adapter boundaries, external operator responsibilities, and evidence gates approved in [ADR-008](../operations/README.md). |
-| `Q-ARCH-15` | Use Docker Engine and Docker Compose for local/CI and the synthetic-data-only single-host evaluation pilot; keep the production-pilot candidate orchestrator-neutral and defer Kubernetes/`kind` as defined by ADR-008. |
+| `Q-ARCH-14` | Use the bounded component families, adapter boundaries, external operator responsibilities, and evidence gates approved in [operations](../operations/README.md). |
+| `Q-ARCH-15` | Use Docker Engine and Docker Compose for local/CI and the synthetic-data-only single-host evaluation pilot; keep the production-pilot candidate orchestrator-neutral and defer Kubernetes/`kind` as defined by [operations](../operations/README.md). |
 
 ## Remaining architecture and delivery work
 
 | Timing | Work still required | Status and interim direction |
 | --- | --- | --- |
-| Text Session implementation | Implement approved version 0.5 streaming, Invocation/Decision envelope, next-timer replacement, and P0 output-profile behavior through specification-driven TDD. | Approved architecture is complete through ADR-009 and ADR-011–ADR-014. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`–`AR-DEC-25`, and ADR-001/002/003/005/011/012/013/014. |
-| Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
-| Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
-| Before Submission intake implementation | Pass ADR-008's SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
-| Before authentication implementation | Pass ADR-008's Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
-| Before model-provider implementation | Implement the provider-neutral adapter, provider-profile resolver, and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, immutable provider/model identity, capability matching, and fail-closed no-fallback behavior. | The approved external target is one vendor-neutral OpenAI-compatible adapter, not Direct OpenAI or a product-default provider/model. Deterministic migration and review may complete without a selected live endpoint, but the adapter remains default-off. Each enabled deployment-managed, Organization-hosted, self-hosted, managed, or external profile must separately pass ADR-008's applicable quality, privacy, security, identity, capacity, license, and operational gates before real use. |
-| Before enabling an Organization-owned model endpoint | Install and allowlist an exact OpenAI-compatible or approved native adapter profile and operator-approved endpoint binding; test canonical origin/base path, DNS resolution and rebinding, private/link-local/metadata destinations, redirects, TLS trust, egress, endpoint ownership, credential isolation, immutable identity, capability compatibility, quotas, failure behavior, and every cross-Organization or silent-fallback case. | Operator-installed Organization-hosted and on-premises endpoints are approved compatibility targets, but private routing remains disabled until this destination-policy gate passes. Organization self-service endpoint entry or executable-plugin installation remains deferred beyond MVP acceptance and requires a feature specification, threat model, and ADR. |
-| Before frontend implementation | Apply the approved [Activity/Campaign journey](../ui-ux/flows/activity-campaign-journey.md), [assessment Campaign setup interaction specification](../ui-ux/flows/assessment-campaign-setup.md), [Submission and Attempt interaction specification](../ui-ux/flows/submission-attempt.md), [Text Session interaction specification](../ui-ux/flows/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/flows/evidence-evaluation-human-review.md), [Result and Release interaction specification](../ui-ux/flows/result-release.md), and shared [design system](../ui-ux/design-system/README.md); then complete frontend verification. | The platform IA, P0 journey, all five P0 surface interaction specifications, and design-system v1.0 (Shipboard Terminal) are approved. Implementation and verification remain. `AR-DEC-12` defines authority, not visual interaction. [ADR-019](frontend-architecture.md) and the [frontend architecture](frontend-architecture.md) guide define SPA Query, form, icon, and transport ownership without changing that authority or the Session runtime contract. |
-| Before scaffold acceptance | Pass ADR-010's runtime, schema, RFC 8785, HTTP, PostgreSQL/Grate, module-boundary, supply-chain, and operability gates. | The stack and tooling direction are approved, including `JsonSchema.Net` and the separate vendored canonicalization project; exact version/source pins and executable compatibility evidence remain blocking for scaffold acceptance. |
-| Before implementation acceptance | Publish ADR-001/ADR-004 conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
+| Text Session implementation | Implement approved version 0.5 streaming, Invocation/Decision envelope, next-timer replacement, and P0 output-profile behavior through specification-driven TDD. | Approved architecture is complete in the current architecture contracts and the Session runtime contract. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`–`AR-DEC-25`, and the Session runtime and backend-module contracts. |
+| Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete in the current architecture contracts; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
+| Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete in the current architecture contracts; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
+| Before Submission intake implementation | Pass the operations SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
+| Before authentication implementation | Pass the operations Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
+| Before model-provider implementation | Implement the provider-neutral adapter, provider-profile resolver, and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, immutable provider/model identity, capability matching, and fail-closed no-fallback behavior. | The approved external target is one vendor-neutral OpenAI-compatible adapter, not Direct OpenAI or a product-default provider/model. Deterministic migration and review may complete without a selected live endpoint, but the adapter remains default-off. Each enabled deployment-managed, Organization-hosted, self-hosted, managed, or external profile must separately pass the operations quality, privacy, security, identity, capacity, license, and operational gates before real use. |
+| Before enabling an Organization-owned model endpoint | Install and allowlist an exact OpenAI-compatible or approved native adapter profile and operator-approved endpoint binding; test canonical origin/base path, DNS resolution and rebinding, private/link-local/metadata destinations, redirects, TLS trust, egress, endpoint ownership, credential isolation, immutable identity, capability compatibility, quotas, failure behavior, and every cross-Organization or silent-fallback case. | Operator-installed Organization-hosted and on-premises endpoints are approved compatibility targets, but private routing remains disabled until this destination-policy gate passes. Organization self-service endpoint entry or executable-plugin installation remains deferred beyond MVP acceptance and requires a feature specification, threat model, and an update to the current architecture owner. |
+| Before frontend implementation | Apply the approved [Activity/Campaign journey](../ui-ux/flows/activity-campaign-journey.md), [assessment Campaign setup interaction specification](../ui-ux/flows/assessment-campaign-setup.md), [Submission and Attempt interaction specification](../ui-ux/flows/submission-attempt.md), [Text Session interaction specification](../ui-ux/flows/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/flows/evidence-evaluation-human-review.md), [Result and Release interaction specification](../ui-ux/flows/result-release.md), and shared [design system](../ui-ux/design-system/README.md); then complete frontend verification. | The platform IA, P0 journey, all five P0 surface interaction specifications, and design-system v1.0 (Shipboard Terminal) are approved. Implementation and verification remain. `AR-DEC-12` defines authority, not visual interaction. The [frontend architecture](frontend-architecture.md) guide defines SPA Query, form, icon, and transport ownership without changing that authority or the Session runtime contract. |
+| Before scaffold acceptance | Pass the workspace toolchain runtime, schema, RFC 8785, HTTP, PostgreSQL/Grate, module-boundary, supply-chain, and operability gates. | The stack and tooling direction are approved, including `JsonSchema.Net` and the separate vendored canonicalization project; exact version/source pins and executable compatibility evidence remain blocking for scaffold acceptance. |
+| Before implementation acceptance | Publish resolved-configuration and activation conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
 | Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, model-provider privacy and credential-isolation controls, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain production-pilot blockers. The single-host evaluation pilot is synthetic-data-only and cannot waive these gates. |
 | After measured need | Select Redis/cache uses or an external broker. | Deferred; no MVP blocker and no authoritative behavior may depend on them. |
-| Future approved feature | Add Kubernetes/sandbox scheduling for repository/code execution, long delegated work, specialized resources, or stronger Agent isolation. | Deferred by `AR-DEC-16`; return through a feature specification, threat model, and ADR. |
+| Future approved feature | Add Kubernetes/sandbox scheduling for repository/code execution, long delegated work, specialized resources, or stronger Agent isolation. | Deferred by `AR-DEC-16`; return through a feature specification, threat model, and an update to the current architecture owner. |
 
 ## Open architecture questions
 
 No open question is left without an interim default. The approved product and
-requirement revisions plus ADR-012, ADR-013, and ADR-014 govern
+requirement revisions plus the Session runtime Invocation/Decision, next-timer, and P0 envelope decisions govern
 Invocation/Decision, next-timer, and P0 output-envelope implementation; the
 verification gates below remain mandatory.
-`Q-ARCH-14`, `Q-ARCH-15`, `Q-OSS-1`, and `Q-OSS-2` are resolved by ADR-008.
+`Q-ARCH-14`, `Q-ARCH-15`, `Q-OSS-1`, and `Q-OSS-2` are resolved by
+[operations](../operations/README.md).
 `Q-OSS-1` is resolved by certifying concrete provider deployment profiles
 instead of selecting a normative model; exact profile qualification remains
-delivery evidence, not an open architecture question. ADR-010 resolves the former
+delivery evidence, not an open architecture question. Workspace toolchain
+gates resolve the former
 `Q-STACK-1` and `Q-STACK-2` selections with `JsonSchema.Net` and a separate
 project containing a pinned source snapshot of the RFC-listed C# canonicalizer.
 Their schema and canonicalization evidence gates remain mandatory.
@@ -997,7 +1000,7 @@ Their schema and canonicalization evidence gates remain mandatory.
 | Background work acts on stale or forged scope | Cross-scope disclosure or mutation | Durable delegation lookup and reauthorization at claim and sensitive commit; tampered-work tests |
 | Agent timer replacement accumulates, races, or exceeds policy | Invocation storm, unfair treatment, or post-cutoff work | One primary-store-owned lane and revision, active-time clock, minimum/maximum delay, cooldown and Invocation budgets, claim-time reauthorization, duplicate/concurrency and cutoff tests |
 | Model or participant content changes system authority | Prompt injection, rubric manipulation, data disclosure, unauthorized Release | Fixed policy channels, structured validators, source allowlists, deterministic conflict tests, no participant-session tools |
-| Partial Evaluation or Release becomes visible | Misleading review or unauthorized participant outcome | Atomic completion/Release boundary ADRs and fault injection at every persistence/audit step |
+| Partial Evaluation or Release becomes visible | Misleading review or unauthorized participant outcome | Atomic completion/Release boundary contracts and fault injection at every persistence/audit step |
 | Lifecycle policy is implemented incorrectly | Excessive retention, premature deletion, or broken lineage | Approved record-class policy matrix, hold/dependency checks, and lifecycle integration tests before pilot data |
 | Projection or event lag is mistaken for authority | Contradictory Session or Release state | Reconciliation endpoints, authoritative command/read paths, lag metrics, and degraded UI states |
 | Sensitive content leaks into operations | Secondary disclosure through logs, traces, artifacts, or support | Telemetry schemas, automated redaction/leakage tests, restricted diagnostic access, artifact review |
@@ -1009,12 +1012,12 @@ The MVP architecture version 0.10 baseline is approved. Implementation readiness
 is staged, not all-or-nothing:
 
 1. Foundation, structured Agent Invocation/Decision, next-timer, and P0
-   output-envelope work may proceed against ADR-001 through ADR-014 and
+   output-envelope work may proceed against the current Session runtime and MVP architecture contracts and
    `AR-DEC-1` through `AR-DEC-27`,
    subject to the stated schema, migration, security, and verification gates.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
-   the approved detailed contracts adopted by ADR-009 and, for Session
-   publication, superseding ADR-011. Their former detailed architecture blockers
+   the approved detailed contracts adopted by the current Session, Evaluation, and Review contracts and, for Session
+   publication, the Session runtime streaming contract. Their former detailed architecture blockers
    are resolved.
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
@@ -1031,7 +1034,7 @@ is staged, not all-or-nothing:
    synthetic journey has Playwright evidence and production HTTP SSE is
    implemented; remaining P0 surfaces and OIDC-authenticated journeys remain
    outstanding.
-6. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
+6. Scaffold acceptance must pass the workspace toolchain runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
 7. Production pilot remains blocked on lifecycle, identity, upload, provider
    privacy/credential isolation, recovery, security-operations, load, failure,

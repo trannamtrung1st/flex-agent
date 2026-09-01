@@ -451,15 +451,22 @@ def check_architecture_current_catalog() -> list[str]:
         "after adr extraction",
     )
     owner_files = [readme_path, *[arch_dir / name for name in CURRENT_ARCHITECTURE_OWNERS]]
+    adr_token = re.compile(r"(?i)\bADR(?:-\d+)?\b")
     for owner in owner_files:
         if not owner.exists():
             continue
-        owner_text = owner.read_text(encoding="utf-8").lower()
+        owner_text = owner.read_text(encoding="utf-8")
+        lowered = owner_text.lower()
         for marker in extraction_markers:
-            if marker in owner_text:
+            if marker in lowered:
                 errors.append(
                     f"{owner.relative_to(ROOT)} must not narrate '{marker}' as live catalog provenance"
                 )
+        found = sorted({match.group(0) for match in adr_token.finditer(owner_text)})
+        for token in found:
+            errors.append(
+                f"{owner.relative_to(ROOT)} must not contain live ADR token '{token}'"
+            )
     return errors
 
 

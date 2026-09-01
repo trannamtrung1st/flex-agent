@@ -268,17 +268,17 @@ Use `lucide-react` with direct named imports so unused icons tree-shake.
 Follow [icon shapes](../ui-ux/design-system/components/icon-shapes.md) for
 size, semantic foreground, and accessibility. The candidate package loads
 `web/src/styles/shared.css` (tokens, base, production-safe families). Lab-only
-sheets stay in `design-lab.css`. ADR-019 `FE-DEC-10` still names the historical
+sheets stay in `design-lab.css`. `FE-DEC-10` still names the historical
 `tokens.css` / `components.css` / `app.css` split. Production now loads
 `web/src/styles/shared.css`. Do not add
 Tailwind, CSS-in-JS, Axios, or Zustand.
 
 ## Intentionally unmigrated surfaces
 
-These remain outside the **first ADR-019 Query/form slice**. They are not a
+These remain outside the **first Query/form slice**. They are not a
 claim that production UX is missing: Home, Activities, setup, Enrollment, and
 My Work are rebuilt Shipboard pages. Keep current state owners until a later
-task applies ADR-019 without weakening their contracts:
+task applies this guide without weakening their contracts:
 
 - `AssessmentSetupPage` and Assessment setup workflow beyond Activities create
 - Enrollment pages
