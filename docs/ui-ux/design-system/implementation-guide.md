@@ -181,7 +181,9 @@ are visual evidence; the module is the contract.
 
 Later-release modules are reusable design preparation only. Do not render or
 enable a capability unless the current release scope and an approved feature
-specification authorize it.
+specification authorize it. Design Lab screens and current production pages
+are not product or journey authority; do not infer routes, actor permissions,
+lifecycle, or Release from them.
 
 ## Example module selections
 

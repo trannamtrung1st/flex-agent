@@ -1,8 +1,12 @@
 # UI/UX documentation
 
-User interface, user experience, interaction design, and design-system documentation for Flex Agent.
+Application-level user experience architecture for Flex Agent: information
+architecture, shell, navigation, page archetypes, shared interaction states,
+accessibility and responsive baselines, and the catalog of journey owners.
 
-Product meaning and scope boundaries live under [product documentation](../product/README.md). UI/UX documents implement and extend approved requirements; they do not override acceptance criteria or redefine canonical concepts.
+Product meaning and scope live under [product documentation](../product/README.md).
+UI/UX documents implement and extend approved requirements; they do not override
+acceptance criteria or redefine canonical concepts.
 
 ## Status
 
@@ -10,6 +14,12 @@ Product meaning and scope boundaries live under [product documentation](../produ
 after the Shipboard production UX reset. Former versions at Git `eb9c398` are
 **retired** and are not current authority; see the
 [retirement ledger](retired-authority.md).
+
+This README is **In review** as the application UX architecture owner for the
+repository baseline reset. Until Phase 4 cutover, the Approved v1.0 originals
+at `docs/ui-ux/*.md` remain current journey/interaction governance. Prepared
+copies under [flows](flows/activity-campaign-journey.md) are **In review** and
+must not be treated as cutover authority.
 
 The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
 Terminal** visual authority. New production UI clones a matching existing
@@ -22,7 +32,12 @@ decision expands scope.
 
 ## Purpose
 
-This area governs how users experience the product: journeys, information architecture, interaction states, accessibility, responsive behavior, content, and visual design.
+This area governs how users experience the product: journeys, information
+architecture, interaction states, accessibility, responsive behavior, content,
+and visual design. This README owns **application-level** UX architecture.
+Each representative journey keeps a **distinct document owner** under
+`docs/ui-ux/flows/` (prepared) and at the Approved original path until
+replacements are link-complete.
 
 ## Authority during and after the reset
 
@@ -30,6 +45,7 @@ This area governs how users experience the product: journeys, information archit
 | --- | --- |
 | Approved | Current UI/UX authority for the named concern |
 | Draft | Not authoritative for implementation |
+| In review | Replacement or prepared source; not cutover authority |
 | Superseded | Replaced inside this area; retained only if still in the live tree |
 | Retired | Former authority; recover full text from Git via the [retirement ledger](retired-authority.md) |
 
@@ -37,6 +53,17 @@ Technical topology (single SPA, fail-closed publication, design-lab isolation)
 is governed by
 [ADR-021](../architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md),
 not by this index.
+
+### What is not UI/UX authority
+
+- Design Lab screens, Component Deck specimens, and lab journeys are
+  composition evidence. They do not authorize routes, actor permissions,
+  lifecycle, Evaluation, Review, Result, or Release.
+- Current production pages and `web-legacy` (removed) compositions are
+  implemented or historical UI. They do not widen MVP scope or invent a
+  journey the approved specifications do not own.
+- Design-system later-capability modules (Agent library, Harness authoring,
+  voice, tools, Dynamic memory) do not authorize deferred product behavior.
 
 ## Entry criteria
 
@@ -51,7 +78,8 @@ Begin UI/UX documentation when:
 
 | Type | Description |
 | --- | --- |
-| User journey | End-to-end flow for an actor through a bounded outcome |
+| Application UX architecture | This README: shell, IA, archetypes, shared states, catalog |
+| User journey | End-to-end flow for an actor through a bounded outcome (distinct file) |
 | Interaction specification | States, transitions, feedback, errors, and edge cases for a surface |
 | Content guide | Voice, tone, labels, messages, and empty/error copy |
 | Accessibility guide | Keyboard, focus, screen reader, contrast, and accommodation patterns |
@@ -60,19 +88,153 @@ Begin UI/UX documentation when:
 
 ## Relationship to requirements
 
-UI/UX documents implement and extend approved requirements; they do not override acceptance criteria. Link interaction specs to `AC-*` IDs from feature specifications.
+UI/UX documents implement and extend approved requirements; they do not override
+acceptance criteria. Link interaction specs to `AC-*` IDs from feature
+specifications.
+
+## Application shell
+
+Flex Agent uses **one authenticated application shell**. Destinations are the
+union of the actor's current server-confirmed capabilities and resource
+relationships. Hiding a destination is usability guidance, not authorization.
+
+- Persistent area navigation is the **gangway / bulkhead** (collapsible track or
+  leading drawer). It is never amber.
+- There is no role-impersonation switch. An account with more than one job may
+  see more than one destination; every action remains independently authorized.
+- MVP does not provide a general Organization switcher. The application session
+  enters exactly one server-derived Organization context (`PROP-UX-6`).
+- Layout families for production locators are `management`, `guided-task`, and
+  `live-session`. A missing host contract must not fake a live-session or review
+  station.
+
+## Object hierarchy
+
+Durable platform term: **Activity**. P0 implements one form (**Campaign**) and
+one use case (**assessment Campaign**). Direct, embedded, and API-triggered
+Activity forms are deferred.
+
+```text
+Activity
+├── Campaign (managed multi-participant Activity form)
+│   └── Assessment Campaign (P0 use case)
+├── Direct Activity (deferred)
+├── Embedded Activity (deferred)
+└── API-triggered Activity (deferred)
+```
+
+Administrative navigation is organized around Activities, cohorts, Enrollments,
+and capability-scoped review/release summaries. Participant navigation is
+organized around **My work**, the assignment, Submission, Attempt, text Session,
+and **Results** after permitted Release visibility. Review work and Release work
+remain distinct destinations even when the same person holds both capabilities.
+
+**Agents** and **Harnesses** may appear as planned modules. P0 must not expose
+incomplete authoring controls. P0 Campaigns select existing Agent/Harness
+revisions or snapshots.
+
+## Navigation model
+
+| Destination | Visible to | Purpose | Delivery tier |
+| --- | --- | --- | --- |
+| **Home** | Every authenticated actor | Current work and the most important safe next action | P0 (`/` locator; interim redirect to `/my-work` when My work is available) |
+| **Activities** | Activity administration | Create and inspect Activities; P0 exposes assessment Campaigns only | P0 |
+| **Agents** | Agent-library capability | Reusable Agent identities | P1; no P0 authoring controls |
+| **Harnesses** | Harness-library capability | Reusable operating environments | P1; no P0 authoring controls |
+| **My work** | Participant with visible Enrollment | Own assigned work | P0 |
+| **Review work** | Active Review assignment or permitted review-work management | Assigned case work without general repository browsing | P0 |
+| **Release work** | Explicit Release authority | Release exact approved Results | P0 |
+| **Results** | Participant with an authorized Activity relationship | Neutral pre-release or own released Result | P0 |
+| **Governance** | Separately delegated audit/history or policy access | Minimized reconstructable histories | Partial P0 |
+
+Home prioritization (`IA-MVP-1`), context preservation (`IA-MVP-2`), deep-link
+authorization (`IA-MVP-3`), and narrow-viewport behavior (`IA-MVP-4`) remain as
+specified in the activity journey document. A path is a locator, not proof of
+access.
+
+Canonical P0 locators (not compatibility redirects): `/`, `/activities`,
+`/activities/new`, `/activities/:activityId/setup`, cohort Enrollment paths,
+`/my-work`, `/my-work/:enrollmentId`, `/sessions/:sessionId`, `/review`,
+`/review/:reviewId`, `/release`, `/release/:resultId`, `/results`,
+`/results/:resultId`. Exact actor, layout family, and owning journey IDs live
+in the activity journey specification.
+
+## Page archetypes
+
+| Archetype | Typical family | Use |
+| --- | --- | --- |
+| Gate | `management` | Unauthenticated or fail-closed sign-in |
+| Destination catalog / Home | `management` | Available work plates; omit unavailable destinations |
+| Registry | `management` | Activities, Enrollments, My work, Review work, Release work, Results |
+| Setup / create | `management` | Assessment draft, readiness, activation |
+| Guided task | `guided-task` | Assignment detail, Review case, Result preview/confirmation |
+| Live Session | `live-session` | Isolated text Session after committed start |
+| History / provenance | `management` | Separately authorized history |
+
+Shared presentation of these archetypes is the [design system](design-system/README.md).
+Journey-specific states, copy meaning, and permissions stay in the owning flow.
+
+## Shared experience principles
+
+| ID | Rule |
+| --- | --- |
+| `UX-MVP-1` | Show the current server-confirmed status, the next permitted action, and its consequence — or why no action is permitted |
+| `UX-MVP-2` | Transient browser states are not committed workflow outcomes; authority is server-confirmed |
+| `UX-MVP-3` | Keep Evidence, Evaluation, Human revision, Review decision, Result, and Release distinct |
+| `UX-MVP-4` | Scope lists, counts, search, notifications, errors, breadcrumbs, and deep links; denials must not confirm inaccessible existence |
+| `UX-MVP-5` | Preserve recoverable local work when safe; distinguish it from server-saved or accepted work |
+| `UX-MVP-6` | Status must be perceivable without one sensory channel; core actions must not depend on hover, drag, animation, sound, or pointer precision |
+
+## Shared states
+
+Every primary surface must cover applicable: initial/empty, loading, local
+draft, pending command, success, validation error, authorization denied/lost,
+sign-in fail-closed, dependency failure, conflict/stale, offline/reconnecting,
+and terminal. Success names the exact committed outcome and must not imply a
+later stage such as Evaluation or Release.
+
+## Accessibility and responsive baseline
+
+WCAG 2.2 AA is the contractual target. Across the application:
+
+- skip path and landmarks to navigation, title/status, and main task;
+- page title, current object, lifecycle state, and primary action are
+  programmatically determinable;
+- material status changes use an appropriate live announcement;
+- validation, conflict, and permission changes move or offer focus to recovery;
+- destructive or immutable transitions require deliberate confirmation without
+  preselected consent;
+- 400 percent zoom and narrow layouts reflow without loss of content, control,
+  status, or sequence (`IA-MVP-4`);
+- reduced motion preserves meaning.
+
+Feature-level accessibility criteria remain in the owning specifications.
+
+## Content and terminology
+
+Use **Activities** as the durable platform label, **Campaign** as the managed
+multi-participant form, and **assessment Campaign** as the P0 use case. Preserve
+canonical concept-model capitalization. Action labels name committed intent.
+Do not use **complete**, **approved**, **published**, **available**, or
+**released** without the owning object.
 
 ## Document catalog
 
 | Document | Type | Status | Governs |
 | --- | --- | --- | --- |
 | [Retired UI/UX authority](retired-authority.md) | Retirement ledger | Approved | Former document identity, Git provenance, successor rule; not a journey specification |
-| [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved v1.0 | Generic Activity navigation; assessment Campaign journey; capability-scoped navigation; canonical routes; state handoffs; shared interaction principles |
-| [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) | P0 surface interaction specification | Approved v1.0 | Activity-administrator draft, readiness, activation, recovery, immutable-baseline, accessibility, responsive, and protected-content behavior |
-| [Submission and Attempt interaction specification](submission-attempt.md) | P0 surface interaction specification | Approved v1.0 | Administrator Enrollment, bounded accommodation, distinct-actor fairness-exception approval, baseline/effective timing and timezone-fallback interaction; Participant Submission preparation, intake, immutable accepted versions, Attempt readiness/start/recovery |
-| [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved v1.0 | Participant pre-start acknowledgment, committed Session entry, intentional no-action, internal next-timer behavior, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control. Voice and Interaction Controller controls are absent |
-| [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved v1.0 | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
-| [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved v1.0 | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results |
+| [Activity journey (original)](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved v1.0 | Current governance until Phase 4/5 link-complete cutover |
+| [Assessment Campaign setup (original)](assessment-campaign-setup.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-1` |
+| [Submission and Attempt (original)](submission-attempt.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-2` and `JRN-MVP-3` |
+| [Text Session (original)](text-session.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-4` |
+| [Evidence, Evaluation, and Human Review (original)](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-5` and `JRN-MVP-6` |
+| [Result and Release (original)](result-release.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-7` |
+| [Activity journey (prepared flow)](flows/activity-campaign-journey.md) | Distinct flow owner | In review | Prepared copy; do not merge with other flows |
+| [Assessment Campaign setup (prepared flow)](flows/assessment-campaign-setup.md) | Distinct flow owner | In review | Prepared copy of setup/readiness/activation |
+| [Submission and Attempt (prepared flow)](flows/submission-attempt.md) | Distinct flow owner | In review | Prepared copy of Enrollment/My Work/Submission/Attempt |
+| [Text Session (prepared flow)](flows/text-session.md) | Distinct flow owner | In review | Prepared copy of text Session states and recovery |
+| [Evidence, Evaluation, and Human Review (prepared flow)](flows/evidence-evaluation-human-review.md) | Distinct flow owner | In review | Prepared copy of examiner/reviewer journey |
+| [Result and Release (prepared flow)](flows/result-release.md) | Distinct flow owner | In review | Prepared copy of Result/Release authorization boundary |
 | [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
 
 ## Related documents
@@ -81,3 +243,4 @@ UI/UX documents implement and extend approved requirements; they do not override
 - [Product documentation](../product/README.md)
 - [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
+- [Design-system implementation guide](design-system/implementation-guide.md)

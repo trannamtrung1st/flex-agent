@@ -7,7 +7,7 @@
 > Do not treat this file as a token sheet or component spec.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `4eed0d9de84cbeff6d55908379135cea23f93b957f4dd928d17613b33fc33b0e`
+Content fingerprint: `1cbb29775bc34958662ea0451c5e1f0423c76ff5d380b25fe146074d4f38dc5a`
 
 ## Canonical sources
 
@@ -34,7 +34,7 @@ Content fingerprint: `4eed0d9de84cbeff6d55908379135cea23f93b957f4dd928d17613b33f
 
 ## Projection
 
-**Approved v1.0** is authoritative for shared visual language, semantic tokens, reusable component presentation, accessibility foundations, and recurring Flex Agent UI patterns. Approved P0 interaction specifications still govern journeys, states, copy meaning, permissions, and accessibility contracts. All modules under this directory inherit this metadata unless they declare narrower metadata.
+**Approved v1.0** is the current shared visual contract: semantic tokens, reusable component presentation, accessibility foundations, and recurring Flex Agent UI patterns. Approved P0 interaction specifications still govern journeys, states, copy meaning, permissions, and accessibility contracts. All modules under this directory inherit this metadata unless they declare narrower metadata.
 
 Read those modules (and the implementation guide's module index) before generating
 or restyling UI. Approved design-system v1.0 is Shipboard Terminal. Do not treat

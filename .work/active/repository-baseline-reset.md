@@ -715,13 +715,13 @@ record**. The producer did not author that respond.
 - [x] Rewrite current architecture and focused contracts. Extract ADR-001
   through ADR-021 one by one into current constraints or mark them historical
   only, but leave every ADR in place during this phase.
-- [>] Rewrite `docs/ui-ux/README.md` as application-level UX architecture and
+- [x] Rewrite `docs/ui-ux/README.md` as application-level UX architecture and
   prepare approved representative journeys under `docs/ui-ux/flows/`, keeping
   distinct flow owners and all existing sources until replacements pass review.
-- [ ] Reconcile the approved Design System and Design Lab references without
+- [x] Reconcile the approved Design System and Design Lab references without
   allowing lab fixtures or legacy production behavior to authorize product
   behavior.
-- [ ] Create the non-normative `docs/current-state.md` index from actual
+- [>] Create the non-normative `docs/current-state.md` index from actual
   modules, endpoints, migrations, schemas, routes, builds, tests, current work,
   and operational gates. Link intended and planned classifications to their
   owners rather than restating their contracts.
@@ -955,6 +955,14 @@ No visual verification claimed (source-only documentation).
 Phase 3 architecture (2026-09-01): `python3 scripts/check_docs.py` exit 0
 `Documentation validation passed.` ADR files and `decisions/README.md`
 unchanged. No adapter regeneration (DESIGN/PRODUCT inputs unchanged).
+
+Phase 3 UI/UX (2026-09-01): `python3 scripts/impeccable_context.py generate`
+regenerated `DESIGN.md` after README/DS/implementation-guide input changes.
+`python3 scripts/check_docs.py` and `python3 scripts/impeccable_context.py check`
+plus 15 adapter unit tests recorded after the focused commit. Originals,
+`retired-authority.md`, and `design-system/change-record.md` remain. Six
+`docs/ui-ux/flows/` copies are In review. No visual verification claimed
+(source-only documentation).
 
 ## Approval Gate A record
 
@@ -1480,11 +1488,12 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 3 UI/UX (`item-87f71e2b96ef`). Architecture and
-code-contract ADR-001–021 rows are applied in current `docs/architecture/`
-files excluding `decisions/`. Operations, contribution, and verification rows
-remain matrix-only. ADR catalog and every ADR file remain. Product/
-requirements leaf is complete.
+Current action: Phase 3 operations (`item-2e7864079029`) after UI/UX leaf
+complete. Architecture and code-contract ADR-001–021 rows are applied in
+current `docs/architecture/` files excluding `decisions/`. Operations,
+contribution, and verification rows remain matrix-only. ADR catalog and every
+ADR file remain. Product/requirements and UI/UX leaves are complete. Do not
+add `docs/current-state.md` until the operations leaf.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1597,9 +1606,11 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 3 UI/UX
-  (`item-87f71e2b96ef`). Architecture ADR extraction for architecture and
-  code-contract rows is recorded; ADR files remain.
+- Current execution blocker: none. Next leaf is Phase 3 operations
+  (`item-2e7864079029`): operations ADR rows, create `docs/current-state.md`,
+  README current-state route. UI/UX README owns application UX architecture;
+  six distinct `docs/ui-ux/flows/` copies are In review; originals and
+  retirement/change-record files remain; DESIGN.md regenerated.
 
 # Completion
 

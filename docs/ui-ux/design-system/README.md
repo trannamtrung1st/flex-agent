@@ -14,19 +14,18 @@ Flex Agent.
 | **Effective date** | 2026-08-27 |
 | **Last reviewed** | 2026-08-31 |
 | **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
-| **Related decisions** | `DS-DEC-3`–`DS-DEC-7` retained; `DS-DEC-1`, `DS-DEC-2`, `DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` added; `DS-PROP-1` superseded by `DS-PROP-2`; resolved `Q-DS-1` |
+| **Related decisions** | Current shared decisions `DS-DEC-1`–`DS-DEC-11`; font pin `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |
-| **Supersedes** | Approved v0.1 Deep-Space Operational Futurism (Git history and [change record](change-record.md)) |
+| **Change history** | Provenance only in the [change record](change-record.md); Git owns visual evolution |
 
-**Approved v1.0** is authoritative for shared visual language, semantic tokens,
+**Approved v1.0** is the current shared visual contract: semantic tokens,
 reusable component presentation, accessibility foundations, and recurring Flex
 Agent UI patterns. Approved P0 interaction specifications still govern
 journeys, states, copy meaning, permissions, and accessibility contracts. All
 modules under this directory inherit this metadata unless they declare
 narrower metadata.
 
-v0.1 Deep-Space styling is superseded for visual identity. Do not use it as
-the target look for new UI.
+Do not use a prior visual identity as the target look for new UI.
 
 ## Authority and boundaries
 
@@ -49,10 +48,11 @@ specification, follow the specification and propose a design-system correction.
 Do not use a visual pattern to infer server authority, data availability, or an
 MVP capability.
 
-Prototype surfaces are visual evidence only. They do not define routes, actor
-names, action availability, disclosure, or lifecycle. Pre-resolved prototype
-conflicts `PC-01`–`PC-14` in the rebuild task remain implementation
-constraints.
+Prototype surfaces, Design Lab screens, Component Deck specimens, and current
+production pages are visual or composition evidence only. They do not define
+routes, actor names, action availability, disclosure, lifecycle, Evaluation,
+Review, Result, or Release. Pre-resolved prototype conflicts `PC-01`–`PC-14`
+remain implementation constraints.
 
 ## Release applicability
 
@@ -122,9 +122,10 @@ surface and Deck specimen rather than inventing chrome.
 | `web/src/design-system/` plus `web/src/styles/shared.css` | Production-safe implementations |
 
 When production and Deck disagree, the module wins, then reconcile the
-implementation. Lab fixtures do not define routes, actor names, action
-availability, disclosure, or lifecycle (`PC-09`, `PC-10`, `PC-14`). Do not
-copy design-lab chrome, fixtures, or product nouns into production.
+implementation. Lab fixtures and shipped production composition do not
+authorize product behavior, routes, permissions, lifecycle, or Release
+(`PC-09`, `PC-10`, `PC-14`). Do not copy design-lab chrome, fixtures, or
+product nouns into production.
 
 ## Approved shared decisions
 
