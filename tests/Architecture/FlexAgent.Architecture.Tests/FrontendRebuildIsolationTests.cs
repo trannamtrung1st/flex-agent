@@ -27,6 +27,9 @@ public sealed class FrontendRebuildIsolationTests
         "web/src/design-system/",
         "web/src/lib/",
         "web/src/styles/",
+        "web/src/components/work/",
+        "web/src/content/",
+        "web/src/features/assessment/SetupTrackReadout",
     ];
     private const string CandidateHtmlModuleEntry = "/src/main.tsx";
     private const string DesignLabHtmlModuleEntry = "/src/design-lab/main.tsx";
@@ -193,6 +196,9 @@ public sealed class FrontendRebuildIsolationTests
         var root = FindRepositoryRoot();
         var fromFile = Path.Combine(root, "web", "src", "design-lab", "features", "admin", "SampleArea.tsx");
         Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../components", root));
+        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../components/work/AssignmentPlate", root));
+        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../content/fieldCopy", root));
+        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../features/assessment/SetupTrackReadout", root));
         Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../api/client", root));
         Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../components/ErrorBoundary", root));
         Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../../../contracts/something", root));

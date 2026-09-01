@@ -164,23 +164,21 @@ public sealed class AuthenticatedBrowserProfileTests
             var username = user.GetProperty("username").GetString()!;
             var subject = user.GetProperty("id").GetString()!;
             var displayLabel = $"{user.GetProperty("firstName").GetString()} {user.GetProperty("lastName").GetString()}";
-            Assert.Contains(subject, seed, StringComparison.Ordinal);
-            Assert.Contains(displayLabel, seed, StringComparison.Ordinal);
             if (username == "demo.participant")
             {
+                Assert.Contains(subject, seed, StringComparison.Ordinal);
+                Assert.Contains(displayLabel, seed, StringComparison.Ordinal);
                 Assert.Contains("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab", seed, StringComparison.Ordinal);
             }
             else
             {
                 var number = int.Parse(username["demo.participant".Length..], System.Globalization.CultureInfo.InvariantCulture);
-                Assert.Contains(
-                    $"e2000000-0000-4000-8000-{number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)}",
-                    seed,
-                    StringComparison.Ordinal);
-                Assert.Contains(
-                    $"a3000000-0000-4000-8000-{number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)}",
-                    seed,
-                    StringComparison.Ordinal);
+                Assert.Equal($"e2000000-0000-4000-8000-{number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)}", subject);
+                Assert.Equal($"Demo Participant {number}", displayLabel);
+                Assert.Contains("format('e2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))", seed, StringComparison.Ordinal);
+                Assert.Contains("format('a3000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))", seed, StringComparison.Ordinal);
+                Assert.Contains("format('Demo Participant %s', gs.i)", seed, StringComparison.Ordinal);
+                Assert.Contains("generate_series(1, 30)", seed, StringComparison.Ordinal);
             }
         }
     }

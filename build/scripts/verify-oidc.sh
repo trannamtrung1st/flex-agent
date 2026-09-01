@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
+if command -v corepack >/dev/null 2>&1; then
+  corepack enable
+fi
 export FLEXAGENT_ROOT="${ROOT}"
 export FLEXAGENT_OIDC_REQUIRED=1
 export FLEXAGENT_COMPOSE_PROJECT="${FLEXAGENT_COMPOSE_PROJECT:-flex-agent-oidc-$$}"
