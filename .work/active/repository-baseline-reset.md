@@ -648,16 +648,16 @@ exceptions, green baseline validators, and Git recovery path are known.
 
 ## Phase 1 - Classify every material artifact
 
-- [>] Classify each important file or directory as: current normative
+- [x] Classify each important file or directory as: current normative
   authority; current implementation guidance; current operational or
   compatibility evidence; implemented-status evidence; active or explicitly
   approved planned work; temporary legacy implementation; historical
   narrative; or generated/derived material.
-- [ ] For mixed files, identify the exact current knowledge/evidence to migrate
+- [x] For mixed files, identify the exact current knowledge/evidence to migrate
   and the narrative or duplication eligible for removal.
-- [ ] Build inbound-reference, stable-ID, validation, generated-source, and
+- [x] Build inbound-reference, stable-ID, validation, generated-source, and
   immutable/checksum dependency maps.
-- [ ] Record conflicts as open questions with decision owner, impact, interim
+- [x] Record conflicts as open questions with decision owner, impact, interim
   default, and rationale; do not silently select one source.
 
 ### Phase 1 exit gate
@@ -667,7 +667,7 @@ extraction target, and no deletion candidate lacks a verified disposition.
 
 ## Phase 2 - Design the target authority and migration model
 
-- [ ] Reconcile the target tree in this plan against the post-review baseline;
+- [>] Reconcile the target tree in this plan against the post-review baseline;
   define each source's concern, owner, lifecycle, status, upstream authority,
   and review boundary.
 - [ ] Finalize the consolidation map, governance changes, deletion candidates,
@@ -953,13 +953,149 @@ Deleted implementation files (4): `web/src/components/content/SafeContent.tsx`,
 
 ## Classification and deletion manifest
 
-Populate this manifest during Phases 1 through 5. Add rows as needed and keep
-mixed-source extraction targets explicit. A deletion disposition is not valid
-until its replacement or retained evidence has been verified.
+Phase 1 inventory against freeze `f1c2d738a7edb4c68e735364a5196706946ded53`
+(parent `cda9882`). Rows are path groups where classification is uniform;
+named files are listed when disposition or mixed extraction differs. No
+canonical source is rewritten in this phase. A deletion disposition is not
+Gate-A execution permission; it is the recorded candidate or already-accepted
+history class.
+
+Classification vocabulary: **normative** (current intended authority),
+**guidance** (implementation/process), **ops-evidence** (operate/qualify/secure),
+**implemented-status** (code/tests as implemented truth), **active/planned
+work**, **temporary-legacy**, **historical**, **generated**, **immutable**.
+**Mixed** rows must not be treated as purely historical.
 
 | Path | Classification | Owning source or migration target | Evidence retained | Disposition | Verification |
 | --- | --- | --- | --- | --- | --- |
-| pending | pending | pending | pending | pending | pending |
+| `README.md` | mixed: normative navigation + historical phase/maturity | Keep current routes/validation commands; move volatile maturity to derived `docs/current-state.md` (Phase 3/ops leaf owns that file) | Git | keep-rewrite; no current-state link until that file exists | Phase 3 product leaf; `check_docs.py` |
+| `docs/README.md` | mixed: authority-by-concern + maturity/history + ADR/retirement catalogs | Keep authority map; drop historical catalogs after Phase 4 validator cutover | Git; inbound links | keep-rewrite; validator-pin until Phase 4 | Phase 3 then Phase 4 catalogs |
+| `docs/product/README.md` | mixed: concern boundary + version/ADR next-actions | Current product routes in this file | Git | keep-rewrite | Phase 3 |
+| `docs/product/overview.md` | mixed: current vision + status/version narrative | Product meaning owner | Git; PRODUCT.md input | keep-rewrite current tense; do not convert examples to requirements | Phase 3; regenerate PRODUCT.md |
+| `docs/product/concept-model.md` | mixed: vocabulary/invariants + evolution narrative | Concept-model owner | Git; PRODUCT.md input | keep-rewrite; preserve runtime-audit invariants | Phase 3 |
+| `docs/product/mvp-scope.md` | mixed: P0/next/later + absorb unique placeholder scope | MVP scope owner | Git; PRODUCT.md input | keep-rewrite; absorb placeholder unique scope here | Phase 3 |
+| `docs/requirements/README.md` | mixed: catalog process + frozen 19-file/tier pins | Observable-behavior catalog; `scripts/check_docs.py` | Git | keep membership/order/tier counts until Phase 4 | Phase 3 content; Phase 4 catalog cutover |
+| `docs/requirements/features/README.md` | mixed: same catalog pin | Same | Git | same as requirements README | same |
+| `docs/requirements/mvp-operational-defaults.md` | mixed: current ops limits + ADR-linked history | Operational defaults owner | Git | keep-rewrite; relink to architecture not ADR chains | Phase 3 |
+| Seven P0 `docs/requirements/features/{auth-resource-isolation,resolved-session-configuration,assessment-setup,submission-attempts,session-text-lifecycle,evidence-evaluation,review-result-release}.md` | mixed: unique `REQ-*`/`AC-*` + volatile implementation matrices + approval history | Each file remains the REQ/AC owner; matrices queued to derived current-state index | 618 unique ID definitions (see stable-ID map) | keep-rewrite; **do not** treat matrices or shipped UI as new requirements | Phase 3; integrity scan Phase 6 |
+| Twelve P1–P3 placeholders (agent-library, harness-library, voice-interaction-interruption, tool-execution-permissions, workflow-stage-configuration, harness-snapshots-comparison-restoration, memory-governance-dynamic-mode, memory-candidates-learning-approval, harness-improvement-proposals, shared-multi-participant-sessions, calibration-analytics, activity-deployment-forms) | mixed: empty/future scaffold + any unique deferred-scope sentences | Unique scope → `mvp-scope.md`; files stay until Phase 5 after Phase 4 catalog cutover | Git; validator currently requires all 12 | absorb-then-delete candidate; **not** approved specs | Phase 3 extract; Phase 5 delete after Gate A |
+| `docs/current-state.md` | absent | Create as derived non-normative index only | n/a | create in Phase 3 ops leaf; not a behavior owner | Phase 3 |
+| `docs/architecture/README.md` | mixed: index + ADR routing | Current architecture navigation | Git | keep-rewrite | Phase 3 architecture leaf |
+| `docs/architecture/mvp-architecture.md` | mixed: current baseline + ADR/evolution | System architecture owner; absorb ADR-001–018 still-valid constraints | Git | keep-rewrite; do not rename unless Gate A | Phase 3 |
+| `docs/architecture/backend-module-architecture.md` | mixed: module/API/auth conventions + history | Backend architecture owner | Git | keep-rewrite | Phase 3 |
+| `docs/architecture/frontend-architecture.md` | mixed: SPA/state/DS/Lab isolation + history | Frontend architecture owner; absorb ADR-019–021 still-valid constraints | Git | keep-rewrite | Phase 3 |
+| `docs/architecture/{session-runtime,evaluation-execution,review-result-release}-contract.md` | mixed: current runtime contracts + superseded decision prose | Code-contract owners under `docs/architecture/` excluding `decisions/` | Git; tests citing contract IDs | keep-rewrite; preserve stable contract identifiers | Phase 3 architecture leaf |
+| `docs/architecture/decisions/README.md` and `ADR-001`–`ADR-021` (21 ADRs) | mixed: still-valid constraints + historical alternatives/supersession | Extraction matrix in this task (Phase 2/3); files remain until Phase 5 | Git; 39 inbound files outside `decisions/` (see inbound map); `check_docs.py` pins ADR-021 | absorb-then-delete candidate; **validator-pin until Phase 4** | Phase 2 matrix; Phase 3 extract architecture-owned rows; Phase 4 drop pins; Phase 5 delete after recheck |
+| `docs/ui-ux/README.md` | mixed: UX authority + Approved v1.0 P0 pin + retirement-ledger catalog pin | Application UX architecture owner | Git; DESIGN.md input; `check_docs.py` | keep-rewrite architecture; **keep catalog pins until Phase 4** | Phase 3 UI leaf |
+| `docs/ui-ux/{activity-campaign-journey,assessment-campaign-setup,submission-attempt,text-session,evidence-evaluation-human-review,result-release}.md` | mixed: distinct approved journeys + duplicated app-wide architecture | Distinct flow owners; prepare `docs/ui-ux/flows/` copies in Phase 3; do not merge owners | Git | keep-rewrite/move under flows; originals stay until replacements link-complete | Phase 3 UI leaf; Gate A flow-filename interim default |
+| `docs/ui-ux/retired-authority.md` | historical UI retirement ledger | Git owns retired versions; `check_docs.py` + UI README pin | Git; inbound from `docs/README.md`, UI README, activity-campaign-journey, ADR-021 | delete candidate after Phase 4 pin removal | Phase 5 |
+| `docs/ui-ux/design-system/README.md` | mixed: Approved v1.0 current rules + supersession/change narrative | Design System owner | Git; DESIGN.md input | keep-rewrite current-state portions; do not reopen v1.0 | Phase 3 |
+| `docs/ui-ux/design-system/implementation-guide.md` and modules under `foundation/`, `components/`, `product/` (52 markdown files in design-system tree) | normative shared presentation | Design System modules; later-capability modules must not authorize deferred product scope | Git; DESIGN.md subset of modules | keep/reconcile links; no product-scope widening | Phase 3; isolation tests |
+| `docs/ui-ux/design-system/change-record.md` | historical DS change narrative | Absorb live constraints into module metadata; Git owns evolution | Git; inbound from DS README | delete candidate after absorption | Phase 5 |
+| `docs/operations/provider-profiles/README.md`, `openrouter-synthetic-development.md`, `keycloak-oidc-contract.md`, and `*.example.json` profiles | ops-evidence / current profiles | Operations owner; apply operations-owned ADR rows in Phase 3 ops leaf | Git; qualification tests | keep-rewrite current safe config and evidence pointers | Phase 3 ops; Gate A OpenRouter retention OQ |
+| `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase*.md` (7 files) | mixed: phase narrative + possibly still-needed qualification evidence | Current profile + machine-verifiable evidence; delete only redundant narrative | Git | classify per Gate A OQ; not bulk-delete | Phase 3/5 |
+| `docs/contributing/development-harness.md`, `docs/contributing/workspace.md` | guidance | Contributor process; apply contribution ADR rows at Phase 4 | Git | keep; snapshot-first at cutover | Phase 4 |
+| `AGENTS.md`, `.cursor/rules/*.mdc`, `.agents/skills/**/SKILL.md`, `.cursor/skills/**/SKILL.md` | mixed: live governance + ADR/history retention rules | Remain binding through Gate A and Phase 3; cutover Phase 4; keep Codex/Cursor parity | Git | keep; rewrite only at Phase 4 atomic cutover | Phase 4 parity check |
+| `.work/README.md`, `.work/templates/implementation-plan.md` | guidance | Implementation workflow; retention policy changes at Phase 4 | Git | keep | Phase 4 |
+| `.work/active/repository-baseline-reset.md` | active work | This reset cursor | this file | retain through whole-output review | Phase 7; no in-graph delete |
+| `.work/active/text-interaction-controller-contract.md` | planned work (unconfirmed priority) | Product Lead Phase 5 reconfirm or defer into product scope | Git; duplicate `.work/resources/text-interaction-controller-proposal.md` | retain-until-Phase-5 decision | Phase 5 OQ |
+| `.work/active/impeccable-frontend-rebuild.md` | historical blocked/superseded | Durable Impeccable/UI governance already in skills and DS | Git | delete candidate after extraction check | Phase 5 |
+| `.work/active/*.md` other 52 `completed` tasks | historical completed work on active surface | Promote any remaining durable truth into docs/code then remove | Git | delete candidates after extraction; not concurrent cursors | Phase 5 work hygiene |
+| `.work/resources/multi-channel-agent-output-proposal.md` | historical consumed proposal | Approved result in product/requirements/architecture | Git | delete candidate after confirm | Phase 5 |
+| `.work/resources/text-interaction-controller-proposal.md` | mixed proposal duplicate of planned task | Merge useful content into planned task or mvp-scope | Git | delete after merge | Phase 5 |
+| `TODO.md` | non-canonical scratch | Open ideas are not requirements; consolidation item restates this reset | Git | do not treat as spec; optional later hygiene | not a Phase 5 deletion unless Gate A names it |
+| `PRODUCT.md`, `DESIGN.md` | generated | `scripts/impeccable_context.py` PRODUCT_SOURCES / DESIGN_SOURCES | adapters + unit tests | regenerate when inputs change; never authority | freeze already green; each rewrite leaf |
+| `scripts/check_docs.py`, `scripts/impeccable_context.py`, `scripts/test_impeccable_context.py` | guidance / generated-source validators | Frozen until Phase 4 cutover | tests | keep; replace catalog/ADR/retirement pins at Phase 4 | Phase 4 |
+| `.github/workflows/{docs,implementation,architecture-certification}.yml` | ops-evidence / CI | Path-sensitive checks | Git | keep; lint scope may expand at Phase 4 | Phase 4/6 |
+| `build/toolchain.json` | mixed: pin facts + ADR-008/010 as `governing` | Current architecture/workspace after cutover | checksums in file | amend governing pointers at Phase 4; do not churn pins | Phase 4 |
+| `src/**`, `web/src/**` excluding design-lab, `tests/**`, `contracts/**` | implemented-status | Code and verified tests own implemented truth | tests, migrations, contracts | retain; classify gaps in current-state later | Phase 3 current-state inventory |
+| `web/src/design-system/**` | implemented-status of Approved DS | DS contract | tests | retain | Phase 3/6 isolation |
+| `web/src/design-lab/**` | ops-evidence / isolated composition; **not** product authority | Lab README + architecture isolation rules | isolation tests | retain as evidence | Phase 3 |
+| `database/migrations/up/**` (63 SQL including `0056a`, through `0062`) | immutable | Applied schema history | grate/compatibility tests | **retain-immutable**; ADR tokens non-authoritative provenance | never rewrite for labels |
+| Compatibility fixtures/readers (`docs/operations/provider-profiles/*.example.json`, `src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/**`, matching tests) | immutable / ops-evidence | Compatibility and qualification | tests | **retain-immutable** labels; keep current evidence usable | Phase 6 evidence audit |
+| `deploy/**`, `build/**` except toolchain governing field, `package.json`, `pnpm-lock.yaml`, `FlexAgent.slnx`, `Directory.*.props`, `global.json`, `nuget.config`, `gitleaks.toml` | ops-evidence / current delivery | Operations/build | CI | retain | proportionate Phase 6 |
+| `.playwright-mcp/**` remaining tracked screenshots if any | ops-evidence ephemeral | Git | inspect at freeze: deletions already accepted | do not treat as product authority | n/a |
+| Deleted since `ea97a88`: 231 `.playwright-mcp/**` PNGs | historical ephemeral artifacts | Git at `cda9882` | Git blobs | **already-deleted-accepted** (Shipboard commit on `origin/main`); not Gate A | Phase 0 freeze |
+| Deleted since `ea97a88`: 24 completed `.work/active/*.md` listed in Phase 0 freeze | historical completed work | Git at `cda9882^` | Git | **already-deleted-accepted**; record so Gate A does not re-approve | Phase 0 freeze |
+| Deleted since `ea97a88`: `web/src/components/content/SafeContent.tsx`, `web/src/design-system/components/select/useDismissOnOutsidePointer.ts`, `web/src/design-system/components/state/AcknowledgmentGate.tsx`, `web/src/hooks/useTheme.ts` | implemented-status removed in Shipboard typed wrappers | Replacements in `cda9882` tree | Git + surviving production pages | **already-deleted-accepted** refactor; not unexplained | Phase 0 freeze; do not restore |
+
+### Phase 1 dependency maps
+
+#### Inbound-reference map
+
+Still-binding mechanical pins (must survive until Phase 4 cutover):
+
+- `scripts/check_docs.py`: all 19 feature files, both requirement catalogs
+  (membership, order, tier counts 7/2/5/5), `docs/ui-ux/retired-authority.md`
+  exists, `docs/ui-ux/README.md` contains `retired-authority.md` and
+  `Approved v1.0`, ADR-021 file exists.
+- `scripts/impeccable_context.py` `PRODUCT_SOURCES`: product overview,
+  concept-model, mvp-scope, `docs/README.md`.
+- `scripts/impeccable_context.py` `DESIGN_SOURCES`: DS README,
+  implementation-guide, `docs/ui-ux/README.md`, foundation
+  colors/typography/layout/radius/shadows/motion/borders, components
+  sidebars/layouts/layout-primitives/cards/buttons/alerts/lists/tables/inputs,
+  product empty-loading.
+- `build/toolchain.json` `governing`: ADR-008, ADR-010.
+
+Human inbound (must migrate before ADR/retirement deletion): **39** Markdown
+harness/docs files outside `docs/architecture/decisions/` mention `ADR-00x`
+(counts: ADR-002 18, ADR-008 14, ADR-001/003/006/009/012 12–13, others lower;
+ADR-021 6). `retired-authority` inbound:
+`docs/README.md`, `docs/ui-ux/README.md`,
+`docs/ui-ux/activity-campaign-journey.md`, ADR-021.
+`change-record` inbound: DS README. No live `docs/current-state.md` link yet.
+
+#### Stable-ID map
+
+Requirement definition pattern `` `REQ|AC-…` — `` in P0 specs (unique counts):
+auth-resource-isolation 57, resolved-session-configuration 83, assessment-setup
+69, submission-attempts 99, session-text-lifecycle 133, evidence-evaluation 91,
+review-result-release 86. Placeholders must not mint colliding IDs. Runtime
+contract documents keep their own stable headings/IDs used by code/tests;
+Phase 3 must not drop identifiers tests depend on.
+
+#### Validation map
+
+Pre-reset: `python3 scripts/check_docs.py`,
+`python3 scripts/impeccable_context.py check`,
+`python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'`.
+Later: docs CI `.github/workflows/docs.yml`, architecture certification,
+implementation workflow, isolation tests, `pnpm verify:*` per Phase 6 matrix.
+Historical-authority and path scans are Phase 6, not Phase 1 rewrites.
+
+#### Generated-source map
+
+| Output | Inputs | Frozen generator |
+| --- | --- | --- |
+| `PRODUCT.md` | PRODUCT_SOURCES | `scripts/impeccable_context.py` |
+| `DESIGN.md` | DESIGN_SOURCES | same |
+
+Do not hand-edit adapters. Regenerating is required when a leaf changes those
+inputs.
+
+#### Immutable / checksum map
+
+Allowlist (do not rewrite to strip ADR names):
+`database/migrations/up/**`; OpenAI-compatible example JSON under
+`docs/operations/provider-profiles/`; corresponding
+`FlexAgent.Sessions.OpenAiCompatible` modules and tests; other checksummed
+supply-chain hashes in `build/toolchain.json` (version pins stay; only
+`governing` doc pointers change at Phase 4).
+
+### Phase 1 conflicts (not silently resolved)
+
+Existing open questions in **Decisions and interim defaults** remain: UI flow
+filenames (Product/UI/UX Lead, Gate A), Interaction Controller plan priority
+(Product Lead, Phase 5), OpenRouter evidence retention (Operations, Gate A),
+immutable ADR labels (interim default retain in checksum-sensitive files).
+Additional Phase 1 observation: P0 implementation matrices and
+`docs/README.md` migration counts disagree with live code (migrations through
+`0062`+`0056a`; `web-legacy` still cited in at least one matrix). **Interim
+default:** treat code/tests as implemented truth and keep REQ/AC text as
+intended truth; queue matrix claims for the derived index rather than picking
+one prose source. Owner: documentation/product at Gate A if a matrix sentence
+is actually a hidden requirement.
 
 ## Approval Gate B record
 
@@ -990,9 +1126,9 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 1 classification in this task. No canonical rewrite,
-governance cutover, or deletion until delegated Gate A focused_output review
-is persisted and copied here.
+Current action: Phase 2 target model and Gate A package, using the Phase 1
+manifest. No canonical rewrite, governance cutover, or deletion until
+delegated Gate A focused_output review is persisted and copied here.
 
 # Decisions and interim defaults
 
@@ -1073,8 +1209,12 @@ artifacts must nevertheless remain green.
   delegated intermediate Gate A and Gate B decisions to independent TDP review.
 - Cleared Phase 0: live freeze recorded; deletions since `ea97a88` accepted via
   `cda9882` on `origin/main` with Git recovery; pre-reset validators green.
-- Current execution blocker: none. Next leaf is Phase 1 classification. Do not
-  rewrite canonical sources until delegated Gate A review is persisted.
+- Cleared Phase 1: classification/deletion manifest and dependency maps recorded
+  in this task; mixed sources have extraction targets; already-deleted `cda9882`
+  paths have accepted dispositions.
+- Current execution blocker: none. Next leaf is Phase 2 target model / Gate A
+  package. Do not rewrite canonical sources until delegated Gate A review is
+  persisted.
 
 # Completion
 
