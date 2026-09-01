@@ -43,8 +43,8 @@ const FIELD_HREFS = {
 function readinessSummaryErrors(errors: FieldErrors<CampaignForm>): ErrorSummaryItem[] {
   return (Object.keys(FIELD_HREFS) as Array<keyof typeof FIELD_HREFS>).flatMap((field) => {
     const message = errors[field]?.message;
-    if (!message) return [];
-    return [{ message: String(message), href: FIELD_HREFS[field] }];
+    if (typeof message !== "string" || message.length === 0) return [];
+    return [{ message, href: FIELD_HREFS[field] }];
   });
 }
 
