@@ -1,0 +1,3 @@
+config:
+  # Task templates use multiple H1 section titles by contract.
+  MD025: false

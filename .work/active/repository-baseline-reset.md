@@ -1545,6 +1545,12 @@ Recorded 2026-09-01 on `item-0d7215912a29` against Git parent `c2f1e16` plus
 this checkpoint. **Not independent Gate B approval.** Producer in-tree notes
 must not close blocking findings.
 
+Gate B focused_output optional findings (`review-focused-output-02-fs-02`):
+producer `fix` for `finding-001` (correct `verify:dotnet` skip rationale for
+reset-wide comment/schema-description edits in `3f85078`) and `finding-002`
+(keep MD025 enabled by default; override only under
+`.work/templates/.markdownlint-cli2.yaml`). These do not mark Gate B approved.
+
 ### Validation matrix (exact commands)
 
 | Check | Result | Evidence |
@@ -1553,7 +1559,7 @@ must not close blocking findings.
 | `python3 scripts/impeccable_context.py generate` then `check` | passed | adapters regenerated after DS `cards.md` lint wording; `Impeccable context adapters are current.` |
 | Historical-authority / path / terminology | passed (docs) | `check_docs.py` stale-authority empty allowlist; no `retired-authority.md`; no `binding until phase 4` / `all 19 feature` in `docs/` |
 | Requirements integrity | passed | Seven P0 specs; unique `REQ-*`/`AC-*`; deferred names in MVP scope only |
-| Markdown lint (CI globs) | passed after Phase 6 fixes | `markdownlint-cli2` v0.17.2, 135 files, 0 errors on `AGENTS.md`, `docs/**/*.md`, Cursor/Agents skills+rules, `.work/README.md`, `.work/templates/**`. Config now disables MD025 because `.work` templates use multiple H1s. Fixed MD012 in `auth-resource-isolation.md`, MD004 parse in `cards.md`, MD032/MD047 in impeccable skills |
+| Markdown lint (CI globs) | passed after Phase 6 fixes; MD025 re-scoped in Gate B optional-finding fix | Default `.markdownlint-cli2.yaml` keeps MD025 enabled; `.work/templates/.markdownlint-cli2.yaml` sets `MD025: false` for the multi-H1 template contract. Re-run 2026-09-01: `npx markdownlint-cli2@0.17.2` on CI globs — `markdownlint-cli2` v0.17.2, 135 files, 0 errors. Phase 6 also fixed MD012 in `auth-resource-isolation.md`, MD004 parse in `cards.md`, MD032/MD047 in impeccable skills |
 | Architecture extraction (in-tree) | recorded | Live owners exist (`mvp-architecture.md`, session/evaluation/review contracts, `frontend-architecture.md`, `backend-module-architecture.md`, `docs/operations/README.md`, `docs/contributing/workspace.md`). `docs/architecture/decisions/` absent. Independent reviewer still audits the Gate A matrix |
 | Operational/security/compatibility | recorded | Seven OpenRouter `synthetic-development-phase*.md` present; `database/migrations/up` has 63 SQL files (untouched); contracts tests 8/8 pass; no `per ADR-` in `src/` or `contracts/` |
 | Current-state | recorded | `docs/current-state.md` remains non-normative; Interaction Controller deferred; only this reset is active work |
@@ -1564,7 +1570,7 @@ must not close blocking findings.
 | Frontend isolation check | passed | `node build/scripts/check-frontend-isolation.mjs` — Frontend isolation check passed |
 | `pnpm --dir contracts test` | passed | 8 tests OK |
 | `pnpm verify:web` / `pnpm build` | not run (proportionate) | Phase 5/6 changed docs, skills, scripts, `.work`, markdownlint config — not `web/` source. Isolation checks cover the frontend invariant this reset governs |
-| `pnpm verify:dotnet` | not run (proportionate) | No `src/` or migration edits on this leaf |
+| `pnpm verify:dotnet` | not run (proportionate split; not a full-suite pass) | Reset-wide `src/` and `contracts/` edits are non-behavioral: Phase 4 `3f85078` dropped a `per ADR-002` comment in `SubscribeAuthorizedSessionEventsCommand.cs` and three `contracts/schemas/v1/digest` schema description strings. No behavioral `src/` or migration change. Phase 6 itself did not edit `src/`. Do not treat this skip as `verify:dotnet` passing |
 | `pnpm verify:oidc` / Playwright MCP | not applicable | No routed UI, profile, or authenticated-browser contract change. Do not claim visual verification |
 
 ### Reconciliation (in-tree)
@@ -1633,8 +1639,9 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 6 validation and Gate B package are recorded below.
-Next leaf is independent Gate B focused_output review (not this producer).
+Current action: Gate B focused_output optional findings `finding-001` and
+`finding-002` are being fixed in the Phase 6 package evidence (skip rationale
+and MD025 scope). Independent Gate B focused_output review is still pending.
 Do not mark this reset complete. Do not delete this task. In-tree specialist
 notes are not Gate B approval.
 
@@ -1706,14 +1713,14 @@ Do not treat those Status values as intended product meaning.
 | Requirements integrity | passed Phase 6 | Seven P0 specs; unique `REQ-*`/`AC-*`; no placeholder files |
 | Work hygiene | passed Phase 6 | `.work/active/` contains only this reset task |
 | Focused script tests | passed Phase 6 | 18 Python script tests OK; 21 frontend-isolation-lib tests OK |
-| Markdown lint | passed Phase 6 | CI globs 135 files, 0 errors (`markdownlint-cli2` v0.17.2); MD025 disabled for `.work` multi-H1 templates |
+| Markdown lint | passed Phase 6; MD025 re-scoped after Gate B optional finding | Re-run after scoped config: CI globs 135 files, 0 errors (`markdownlint-cli2` v0.17.2). MD025 remains enabled in the default config; only `.work/templates/.markdownlint-cli2.yaml` disables it for the multi-H1 template contract |
 | Architecture extraction audit | in-tree recorded; Gate B pending | Live owners present; ADR directory absent; independent review not closed |
 | Operational/security/compatibility evidence audit | in-tree recorded; Gate B pending | Seven OpenRouter phase files; 63 applied up-migrations; contracts 8/8; isolation check passed |
 | Current-state audit | recorded Phase 6 | Index still non-normative; gaps/default-off/deferred controller honest; Gate B pending |
 | Skill/rule parity | passed Phase 6 | Cursor/Agents skill dirs and SKILL.md bytes match |
 | UI pattern-adoption governance | passed Phase 6 | Classify-then-clone language in AGENTS, rules 00/06, implementation-workflow, frontend-developer, UI README |
 | Frontend verification | proportionate passed | Isolation lib tests + `check-frontend-isolation.mjs` passed; full `pnpm verify:web` not run (no `web/` source change) |
-| .NET/architecture/contract verification | proportionate | `pnpm --dir contracts test` 8/8; `pnpm verify:dotnet` not run (no `src/` change) |
+| .NET/architecture/contract verification | proportionate | `pnpm --dir contracts test` 8/8; `pnpm verify:dotnet` omitted as a proportionate split because the only reset-wide `src/`/`contracts/` edits are non-behavioral comment/description token removals in `3f85078`, not because `src/` was unchanged. Not a full-suite pass |
 | Build and delivery checks | proportionate not run | No `web/` build graph change; isolation check is the delivery invariant for this reset |
 | Authenticated browser verification | not applicable | No routed UI / OIDC / profile contract change; Playwright screenshots not claimed |
 | Delegated Gate A | passed 2026-09-01 | Copied persist `review-focused-output-01` rev 11: `approved` / verification `verified`; scope `item-48819dbb36d9`; loop id `review-focused-output-01`; reviewer `tdp-session-7a472fad0d97`; reviewed Git `ceb2b5565e31744c2daef6bdd2a09945a24a7cea`. Producer did not author the respond. |
