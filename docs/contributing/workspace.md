@@ -1,17 +1,19 @@
 # Workspace development
 
-This document describes the executable Flex Agent workspace scaffold introduced by
-[ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md).
+This document describes the executable Flex Agent workspace scaffold.
 Backend feature modules follow the
-[backend module architecture](../architecture/backend-module-architecture.md):
-a domain-oriented modular monolith with ports and adapters and inward dependency
-rules. SPA Query, form, icon, and transport ownership follow
-[ADR-019](../architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md)
-and the [frontend architecture](../architecture/frontend-architecture.md) guide.
-Production SPA topology is
-[ADR-021](../architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md):
-one `@flex-agent/web` production entry plus an isolated design lab. Combined
-`pnpm verify:web` covers production and design-lab graphs.
+[backend module architecture](../architecture/backend-module-architecture.md).
+SPA Query, form, icon, and transport ownership follow the
+[frontend architecture](../architecture/frontend-architecture.md) guide.
+Production SPA topology is one `@flex-agent/web` production entry plus an
+isolated design lab. Combined `pnpm verify:web` covers production and
+design-lab graphs.
+
+Contribution and verification constraints (SDK pins, locked restore, Grate
+migrations, xUnit/Testcontainers/Playwright, OCI publish, supply-chain
+locks, module import rules) are current in this document and
+[`build/toolchain.json`](../../build/toolchain.json). Historical ADR-010 text
+may remain on disk until Phase 5 and is not the governing catalog.
 
 ## Prerequisites
 

@@ -226,9 +226,9 @@ Run documentation validation before pushing doc changes:
 python3 scripts/check_docs.py
 ```
 
-The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, all 19 feature-spec file presence, catalog membership and tier order in both requirements hubs, and tier counts.
+The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, the current P0 feature catalog, `docs/current-state.md`, snapshot-first `.work` hygiene, and rejects stale historical-authority patterns. Placeholder specs, ADR files, and UI retirement ledgers are not required catalog members.
 
-GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `AGENTS.md`, `.cursor/rules/`, `.cursor/skills/`, and `.agents/skills/`.
+GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `AGENTS.md`, `.cursor/rules/`, `.cursor/skills/`, `.agents/skills/`, `.work/README.md`, and `.work/templates/`.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

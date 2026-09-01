@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Flex Agent documentation."""
+"""Validate Flex Agent documentation under the snapshot-first current catalog."""
 
 from __future__ import annotations
 
@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 DOCS = ROOT / "docs"
 FEATURES = DOCS / "requirements" / "features"
+WORK = ROOT / ".work"
 
+# Current observable-behavior catalog. Placeholder P1–P3 files may remain on
+# disk until Phase 5 deletion; they are not current catalog members.
 SPEC_CATALOG: dict[str, list[str]] = {
     "P0": [
         "auth-resource-isolation.md",
@@ -22,24 +25,21 @@ SPEC_CATALOG: dict[str, list[str]] = {
         "evidence-evaluation.md",
         "review-result-release.md",
     ],
-    "P1": [
-        "agent-library-configuration.md",
-        "harness-library-configuration.md",
-    ],
-    "P2": [
-        "voice-interaction-interruption.md",
-        "tool-execution-permissions.md",
-        "workflow-stage-configuration.md",
-        "harness-snapshots-comparison-restoration.md",
-        "memory-governance-dynamic-mode.md",
-    ],
-    "P3": [
-        "memory-candidates-learning-approval.md",
-        "harness-improvement-proposals.md",
-        "shared-multi-participant-sessions.md",
-        "calibration-analytics.md",
-        "activity-deployment-forms.md",
-    ],
+}
+
+HISTORICAL_PLACEHOLDER_SPECS = {
+    "agent-library-configuration.md",
+    "harness-library-configuration.md",
+    "voice-interaction-interruption.md",
+    "tool-execution-permissions.md",
+    "workflow-stage-configuration.md",
+    "harness-snapshots-comparison-restoration.md",
+    "memory-governance-dynamic-mode.md",
+    "memory-candidates-learning-approval.md",
+    "harness-improvement-proposals.md",
+    "shared-multi-participant-sessions.md",
+    "calibration-analytics.md",
+    "activity-deployment-forms.md",
 }
 
 ALL_SPEC_FILES = [filename for tier in SPEC_CATALOG.values() for filename in tier]
@@ -54,8 +54,24 @@ DEPRECATED_TERMS = [
     "Accepted baseline",
 ]
 
+STALE_AUTHORITY_PATTERNS = [
+    "all 19 feature",
+    "nineteen feature-spec files",
+    "binding until phase 4",
+    "still-binding until phase 4",
+    "not the phase 4 authority cutover",
+    "catalog membership, order, and tier counts are unchanged",
+    "adr catalog (binding until phase 4)",
+    "technical realization: approved adr",
+]
+
+STALE_AUTHORITY_ALLOWLIST = {
+    DOCS / "architecture" / "decisions",
+    DOCS / "ui-ux" / "retired-authority.md",
+    DOCS / "ui-ux" / "design-system" / "change-record.md",
+}
+
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-# Definitions appear as `REQ-…` / `AC-…` bullets or AC headings, not later references.
 ID_DEFINITION_PATTERN = re.compile(
     r"(?:^|\n)(?:#{1,6}\s+|[-*]\s+)?`((?:REQ|AC)-[A-Z]+-\d+)`\s*(?:—|-)"
 )
@@ -150,11 +166,36 @@ def check_deprecated_terms(files: list[Path]) -> list[str]:
     return errors
 
 
+def _stale_allowlisted(path: Path) -> bool:
+    resolved = path.resolve()
+    for allowed in STALE_AUTHORITY_ALLOWLIST:
+        allowed_resolved = allowed.resolve()
+        if resolved == allowed_resolved:
+            return True
+        if allowed_resolved.is_dir() and allowed_resolved in resolved.parents:
+            return True
+    return False
+
+
+def check_stale_authority(files: list[Path]) -> list[str]:
+    errors: list[str] = []
+    for path in files:
+        if _stale_allowlisted(path):
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        for pattern in STALE_AUTHORITY_PATTERNS:
+            if pattern in text:
+                errors.append(
+                    f"{path.relative_to(ROOT)}: stale historical-authority pattern '{pattern}'"
+                )
+    return errors
+
+
 def check_duplicate_ids() -> list[str]:
     errors: list[str] = []
     seen: dict[str, str] = {}
     for path in sorted(FEATURES.glob("*.md")):
-        if path.name == "README.md":
+        if path.name == "README.md" or path.name in HISTORICAL_PLACEHOLDER_SPECS:
             continue
         text = path.read_text(encoding="utf-8")
         for match in ID_DEFINITION_PATTERN.finditer(text):
@@ -200,7 +241,7 @@ def check_catalog_order(readme_path: Path, label: str) -> list[str]:
         positions = [(section_text.find(filename), filename) for filename in filenames]
         for _, filename in positions:
             if section_text.find(filename) == -1:
-                errors.append(f"{label} missing {filename} in {tier} section")
+                errors.append(f"{label} missing {filename} in {tier} catalog order")
         ordered = [(pos, filename) for pos, filename in positions if pos != -1]
         for index in range(len(ordered) - 1):
             current_pos, current_name = ordered[index]
@@ -238,12 +279,48 @@ def check_spec_files_exist() -> list[str]:
 
 def check_unlisted_feature_specs() -> list[str]:
     errors: list[str] = []
-    catalog = set(ALL_SPEC_FILES)
+    catalog = set(ALL_SPEC_FILES) | HISTORICAL_PLACEHOLDER_SPECS
     for path in sorted(FEATURES.glob("*.md")):
         if path.name == "README.md":
             continue
         if path.name not in catalog:
             errors.append(f"unlisted specification file {path.relative_to(ROOT)}")
+    return errors
+
+
+def check_ui_current_catalog() -> list[str]:
+    errors: list[str] = []
+    ui_readme = (DOCS / "ui-ux" / "README.md").read_text(encoding="utf-8")
+    if "Approved v1.0" not in ui_readme:
+        errors.append(
+            "docs/ui-ux/README.md must identify current P0 journeys or the design system as Approved v1.0"
+        )
+    return errors
+
+
+def check_current_state_index() -> list[str]:
+    errors: list[str] = []
+    path = DOCS / "current-state.md"
+    if not path.exists():
+        errors.append("missing docs/current-state.md")
+        return errors
+    text = path.read_text(encoding="utf-8").lower()
+    if "non-normative" not in text:
+        errors.append("docs/current-state.md must declare that it is non-normative")
+    return errors
+
+
+def check_work_hygiene() -> list[str]:
+    errors: list[str] = []
+    readme = WORK / "README.md"
+    if not readme.exists():
+        errors.append("missing .work/README.md")
+        return errors
+    text = readme.read_text(encoding="utf-8").lower()
+    if "snapshot-first" not in text:
+        errors.append(".work/README.md must describe snapshot-first retention")
+    if "not current authority" not in text and "not authoritative" not in text:
+        errors.append(".work/README.md must state that task files are not current authority")
     return errors
 
 
@@ -255,33 +332,25 @@ def report_spec_status() -> None:
             path = FEATURES / filename
             state = "present" if path.exists() else "missing"
             print(f"    - {filename}: {state}")
-
-
-def check_ui_reset_authority() -> list[str]:
-    errors: list[str] = []
-    ledger = DOCS / "ui-ux" / "retired-authority.md"
-    if not ledger.exists():
-        errors.append("missing docs/ui-ux/retired-authority.md")
-    adr = DOCS / "architecture" / "decisions" / "ADR-021-production-frontend-reset-and-single-spa-topology.md"
-    if not adr.exists():
-        errors.append("missing ADR-021 production frontend reset decision")
-    ui_readme = (DOCS / "ui-ux" / "README.md").read_text(encoding="utf-8")
-    if "retired-authority.md" not in ui_readme:
-        errors.append("docs/ui-ux/README.md missing retirement ledger catalog entry")
-    if "Approved v1.0" not in ui_readme:
-        errors.append("docs/ui-ux/README.md must identify replacement P0 specifications as Approved v1.0")
-    return errors
+    print("  historical placeholders (not current catalog):")
+    for filename in sorted(HISTORICAL_PLACEHOLDER_SPECS):
+        path = FEATURES / filename
+        state = "present" if path.exists() else "missing"
+        print(f"    - {filename}: {state}")
 
 
 def main() -> int:
     files = iter_markdown_files()
     anchor_cache = heading_anchor_cache(files)
     errors: list[str] = []
-    errors.extend(check_ui_reset_authority())
+    errors.extend(check_ui_current_catalog())
+    errors.extend(check_current_state_index())
+    errors.extend(check_work_hygiene())
     errors.extend(check_spec_files_exist())
     errors.extend(check_unlisted_feature_specs())
     errors.extend(check_links(files, anchor_cache))
     errors.extend(check_deprecated_terms(files))
+    errors.extend(check_stale_authority(files))
     errors.extend(check_duplicate_ids())
     errors.extend(check_mermaid(files))
     errors.extend(check_catalog_membership(FEATURES / "README.md", "features/README.md"))

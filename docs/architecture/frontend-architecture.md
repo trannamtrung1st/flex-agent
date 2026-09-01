@@ -6,10 +6,10 @@ ownership.
 
 ## Status and authority
 
-**In review — 2026-09-01.** This guide currently owns SPA Query, form, icon,
-and transport ownership (ADR-019) and single-SPA production topology with
-isolated design lab and no `web-legacy/` runtime (ADR-021). Dual-build
-`web-legacy` topology (ADR-020) is historical only and must not be restored.
+**Approved — 2026-09-01.** This guide currently owns SPA Query, form, icon,
+and transport ownership and single-SPA production topology with
+isolated design lab and no `web-legacy/` runtime. Dual-build
+`web-legacy` topology is historical only and must not be restored.
 This guide does not introduce product behavior or replace feature or UI/UX
 specifications. Design-lab specimens and shipped production composition do
 not authorize routes, permissions, lifecycle, or release scope. If this

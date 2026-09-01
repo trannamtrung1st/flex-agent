@@ -6,7 +6,7 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.5 |

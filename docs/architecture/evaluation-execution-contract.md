@@ -7,7 +7,7 @@ Evaluation in the MVP assessment workflow.
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |

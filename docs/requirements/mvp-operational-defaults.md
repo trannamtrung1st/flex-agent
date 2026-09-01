@@ -7,7 +7,7 @@ sessions, protected-data lifecycle, and recovery placement.
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Version** | 0.4 |

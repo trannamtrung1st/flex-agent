@@ -8,7 +8,7 @@ and correction in the MVP assessment workflow.
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
@@ -419,7 +419,7 @@ owned by the downstream UI/UX specification and frontend implementation.
 None. The approved specification resolves the product and policy questions.
 Framework, library, and optional notification-delivery adapter choices remain
 implementation details. Database, OIDC, secret, and gateway profiles and their
-evidence gates are governed by ADR-008. Selections must conform to this contract
+evidence gates are governed by current [operations](../operations/README.md) profiles. Selections must conform to this contract
 without changing outcome semantics.
 
 ## Approval and downstream impact

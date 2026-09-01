@@ -7,7 +7,7 @@ requirements live in linked product and requirements documents.
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |

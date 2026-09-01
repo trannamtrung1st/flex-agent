@@ -4,19 +4,18 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 
 ## Status
 
-**In review.** Concept model, product overview, and MVP scope state current
+**Approved.** Concept model, product overview, and MVP scope state current
 product meaning. They inform requirements, UI/UX, and architecture but do not
 replace feature specifications, UI/UX specifications, or architecture
-documents within those areas of authority. This Phase 3 rewrite is recoverable
-beside previous Git versions and is not the Phase 4 authority cutover.
+documents within those areas of authority.
 
 ## Document metadata
 
 | Document | Status | Version | Owner | Approvers | Last reviewed |
 | --- | --- | --- | --- | --- | --- |
-| [Concept model](concept-model.md) | In review | 0.5 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
-| [MVP scope](mvp-scope.md) | In review | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
-| [Product overview](overview.md) | In review | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
+| [Concept model](concept-model.md) | Approved | 0.5 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
+| [MVP scope](mvp-scope.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
+| [Product overview](overview.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-09-01 |
 
 ## Purpose
 
@@ -59,9 +58,6 @@ of authority. Full rules: [Documentation home — Authority by concern](../READM
 
 Illustrative examples in product documents are **not** MVP commitments until
 captured in a feature specification.
-
-Current governance remains binding until Phase 4 cutover. Replacement product
-sources in this rewrite stay In review.
 
 ## Related documents
 

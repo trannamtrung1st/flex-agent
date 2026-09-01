@@ -1,12 +1,10 @@
-> **In review (Phase 3 preparation).** This file is the distinct representative-journey owner under `docs/ui-ux/flows/`. Until Phase 4 cutover, the Approved v1.0 original at [`docs/ui-ux/submission-attempt.md`](../submission-attempt.md) remains current UI/UX governance. Do not merge this journey with another flow file.
-
 # Submission and Attempt interaction specification
 
 ## Document metadata
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
 | **Version** | 1.0 |

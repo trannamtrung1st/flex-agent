@@ -14,17 +14,20 @@ Documents govern by concern. A document overrides another only within its area o
 - **Product meaning and scope:** approved product documents (`docs/product/concept-model.md`, `docs/product/mvp-scope.md`) or approved product decision
 - **Observable system behavior:** approved feature specification
 - **User interaction:** approved UI/UX specification
-- **Technical realization:** approved ADR
+- **Technical realization:** approved architecture document under `docs/architecture/`
 - **Implemented behavior:** code and tests, which must trace back to the above
 
 For UI work, read `docs/ui-ux/design-system/README.md` and the applicable
 modules selected by `docs/ui-ux/design-system/implementation-guide.md`. A
 narrower approved UI/UX specification governs feature-specific behavior. The
 design system governs shared presentation only after approval and never enables
-a deferred capability. New production UI clones a matching existing production
-page and Component Deck specimen.
+a deferred capability. Before new production UI: classify the surface; clone and
+adapt a matching accepted production page and Component Deck specimen; use a Lab
+journey only when the family lacks a production donor; use explicit `$impeccable
+shape` only for a documented gap; establish reusable additions before production
+use.
 
-A conflicting ADR triggers product or requirements review; it does not override product semantics. Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Every open question must include an **interim default** with brief rationale. That interim default is working guidance only and is not approved behavior until decided. Record consequential interim defaults as `Proposed` (`PROP-*` when formalizing in a feature spec).
+A conflicting architecture document triggers product or requirements review; it does not override product semantics. Historical ADR files remaining on disk until Phase 5 are provenance, not the current architecture catalog. Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Every open question must include an **interim default** with brief rationale. That interim default is working guidance only and is not approved behavior until decided. Record consequential interim defaults as `Proposed` (`PROP-*` when formalizing in a feature spec).
 
 ## Keep these concepts separate
 

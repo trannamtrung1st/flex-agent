@@ -56,15 +56,17 @@ decision without explicit supersession.
 Illustrative examples in product documents are not MVP commitments unless
 captured in a feature specification.
 
-Current repository governance, catalogs, and validators remain binding until
-Phase 4 cutover. Phase 3 replacement sources stay In review.
+Current catalogs, architecture documents, and validators apply the
+snapshot-first model. Historical ADR files, placeholder specs, and UI
+retirement ledgers may remain on disk until Phase 5; they are not required
+current catalog members.
 
 ## Document status
 
 | Status | Meaning |
 | --- | --- |
 | `Draft` | Work in progress; not authoritative for implementation or downstream authoring |
-| `In review` | Under review; not yet the cutover authority |
+| `In review` | Under review; not yet authoritative |
 | `Approved` | Authoritative for the governed concern |
 | `Implemented` | Approved and reflected in the product |
 | `Proposed` | Suggested default or option requiring explicit approval |
@@ -97,7 +99,7 @@ Phase 4 cutover. Phase 3 replacement sources stay In review.
 - [Evidence and Evaluation execution contract](architecture/evaluation-execution-contract.md)
 - [Human review, Result, and Release contract](architecture/review-result-release-contract.md)
 - [Frontend architecture](architecture/frontend-architecture.md)
-- [Architecture decisions](architecture/decisions/README.md) — current ADR catalog (binding until Phase 4 cutover)
+- [Architecture decisions](architecture/decisions/README.md) — historical ADR provenance (not the current catalog)
 
 ### Operations
 

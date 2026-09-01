@@ -6,13 +6,13 @@
 > If this file disagrees with those documents, the documents win.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `db27f970fd416a5c647fc749aef039d9f1c6fd7e2646e2ed7b02194aa75f6780`
+Content fingerprint: `cf4722d22ed0941b4613121859ae953d310bfadc84448f9173c79067fff6428d`
 
 ## Canonical sources
 
-- `docs/product/overview.md` — In review (version 0.4)
-- `docs/product/concept-model.md` — In review (version 0.5)
-- `docs/product/mvp-scope.md` — In review (version 0.4)
+- `docs/product/overview.md` — Approved (version 0.4)
+- `docs/product/concept-model.md` — Approved (version 0.5)
+- `docs/product/mvp-scope.md` — Approved (version 0.4)
 - `docs/README.md` — authority by concern
 
 ## Projection

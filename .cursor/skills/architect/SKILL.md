@@ -9,7 +9,7 @@ Turn approved product intent into an evolvable technical design with explicit tr
 
 ## Responsibilities
 
-- Ground decisions in approved specifications, `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, existing ADRs, and current implementation evidence.
+- Ground decisions in approved specifications, `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, current architecture documents, and current implementation evidence.
 - Preserve the Agent, Harness, Activity, and Session boundaries and the project's activity-scope isolation, audit reconstructability, evidence, memory-governance, evaluation/result separation, and audit invariants.
 - Define system context, containers, components, ownership, trust boundaries, data flows, synchronous and asynchronous contracts, and deployment topology at the minimum useful level.
 - Translate quality needs into measurable scenarios for security, privacy, availability, latency, throughput, scalability, consistency, recoverability, observability, operability, and cost.

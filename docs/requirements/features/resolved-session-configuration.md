@@ -2,7 +2,7 @@
 
 ## Status and source
 
-- Status: In review
+- Status: Approved
 - Version: 0.4
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer

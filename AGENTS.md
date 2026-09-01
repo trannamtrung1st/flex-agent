@@ -11,11 +11,13 @@ of authority; see `docs/README.md#authority-by-concern`.
 - Product meaning and scope: approved product documents or product decisions
 - Observable system behavior: approved feature specifications
 - User interaction: approved UI/UX specifications
-- Technical realization: approved ADRs
+- Technical realization: approved architecture documents under `docs/architecture/`
 - Implemented behavior: code and tests, traceable to the above
+- Cross-concern status: derived `docs/current-state.md` (non-normative)
 
-A conflicting ADR triggers product or requirements review; it does not override
-product semantics. Do not turn an idea, example, or future capability into an
+A conflicting architecture document triggers product or requirements review; it does not override
+product semantics. Historical ADR files remaining on disk until Phase 5 are provenance, not the
+current architecture catalog. Do not turn an idea, example, or future capability into an
 MVP requirement. Ask when a material ambiguity remains. Every open question
 must include an **interim default** with a brief rationale. The default is
 working guidance, not approved behavior. Record consequential defaults as
@@ -82,7 +84,7 @@ For substantive implementation work, load `implementation-workflow` from `.agent
 
 Keep the active task file current during execution: steps, discoveries, blockers, verification evidence, and next actions. One task normally has one state file; do not split the same work across separate plan or progress files.
 
-`.work/` is tracked, non-authoritative working state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
+`.work/` is tracked, snapshot-first, non-authoritative working state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Completed, cancelled, blocked, and superseded tasks are **not current authority**; Git owns history. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
 
 Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. Keep the completed task file after completion and external review for tracking. Do not remove it as part of the implementation workflow; repository maintainers may clean up retained task files when they choose.
 
@@ -91,9 +93,15 @@ For any UI design, implementation, review, or testing task, read
 the applicable modules through
 `docs/ui-ux/design-system/implementation-guide.md`. A narrower approved UI/UX
 specification governs feature-specific behavior. A design-system module does
-not authorize a deferred capability. New production UI clones a matching
-existing production page and Component Deck specimen. Attach to a healthy local
-origin before starting Compose or Vite; see Playwright MCP verification below.
+not authorize a deferred capability.
+
+Before new production UI: classify the surface against approved UX and
+`docs/current-state.md`. Clone and adapt a matching accepted production page and
+Component Deck specimen. Use a Design Lab journey only when the approved layout
+family has no production donor. Invoke explicit `$impeccable shape` only for a
+documented gap. Establish any reusable addition in the design system before
+production use. Attach to a healthy local origin before starting Compose or
+Vite; see Playwright MCP verification below.
 
 ## Specification-driven TDD
 

@@ -31,7 +31,9 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - **Responsive UX**: critical actions remain visible; text, tables, transcripts, dialogs, and navigation do not clip
 - **Visual quality**: semantic-token and state consistency, clear hierarchy,
   rhythm/alignment, readable density, restrained identity effects, purposeful
-  controls, and copy
+  controls, and copy. Confirm pre-build classification: matching production
+  page and Deck specimen, Lab journey only without a production donor, no
+  implicit Impeccable gap work.
 - **Security/privacy**: no unauthorized data, unsafe HTML, secret exposure, or sensitive browser logging/storage
 - **Performance**: bounded rendering and requests; no obvious waterfalls, leaks, or unvirtualized large feeds
 - **Maintainability**: explicit state ownership, reusable design primitives, stable test selectors, no needless abstraction

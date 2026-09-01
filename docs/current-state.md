@@ -15,8 +15,9 @@ disagrees with an owning source, the owner wins and this index is stale.
 | Default-off | Implemented path that must not run until an operator gate enables it | Operations + config |
 | Gap | Intended in P0 (or named) and not implemented | Owning spec; do not invent behavior |
 
-Status: **In review** until Phase 4 cutover. Current governance, catalogs, and
-validators remain binding.
+Status: **Approved** as a derived index. Current governance and catalogs apply
+the snapshot-first model. Historical ADR files and placeholders may remain
+until Phase 5.
 
 ## How to read P0 implementation rows
 

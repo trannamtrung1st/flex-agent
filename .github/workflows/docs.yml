@@ -32,3 +32,5 @@ jobs:
             .cursor/rules/**/*.mdc
             .cursor/skills/**/SKILL.md
             .agents/skills/**/SKILL.md
+            .work/README.md
+            .work/templates/**/*.md

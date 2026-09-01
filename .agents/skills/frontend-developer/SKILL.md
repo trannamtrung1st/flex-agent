@@ -23,10 +23,11 @@ UI completion requires live-browser evidence, not code inspection.
 - Reuse approved shared tokens and patterns. A component or later-release
   product module cannot authorize a capability absent from the current scope
   and owning specification.
-- New production UI clones a matching existing production page and Component
-  Deck specimen, then verifies against the governing design-system module.
+- New production UI: classify the surface first; clone and adapt a matching existing production
+  page and Component Deck specimen, then verify against the governing design-system module.
   Isolated design-lab journeys are donors only for shells not yet
-  production-backed. Do not copy lab fixtures or invent chrome.
+  production-backed. Invoke explicit `$impeccable shape` only for a documented
+  gap. Do not copy lab fixtures or invent chrome.
 - Inner page and form rhythm uses three design-system rungs: control
   (`--field-label-gap`), group (`--form-group-gap`), and bay
   (`--operate-bay-gap`). `OperateArea` owns bay strata (head / context /

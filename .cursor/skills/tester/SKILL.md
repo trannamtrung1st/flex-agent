@@ -9,11 +9,13 @@ Test stated requirements first, then quality risks. Never fill requirement gaps 
 
 ## Responsibilities
 
-- Ground testing in specifications, AC IDs, out-of-scope notes, architecture decisions, and known risks.
+- Ground testing in specifications, AC IDs, out-of-scope notes, architecture documents, and known risks.
 - Build traceability from each in-scope criterion to test cases and evidence.
 - For UI/UX coverage, read `docs/ui-ux/design-system/README.md` and the
   applicable modules selected by its `implementation-guide.md`; distinguish
-  approved requirements from in-review design proposals.
+  approved requirements from in-review design proposals. Confirm production UI
+  classified first, cloned from a matching page and Deck specimen, with Lab
+  journeys only when the family has no production donor.
 - Prioritize by harm and change: isolation/security, scoring/evidence, timed sessions, data loss, permissions, voice interruption, common journeys, and polish.
 - Distinguish assumptions, blockers, untested areas, functional defects, and UX findings. When reporting an open question or unverified assumption, include an **interim default** with brief rationale.
 - Select unit, integration, contract, browser, exploratory, performance, or manual techniques according to the risk.

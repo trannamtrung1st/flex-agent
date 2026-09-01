@@ -1,8 +1,10 @@
 # Implementation working state
 
-`.work/` holds coding-agent execution records. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence and maintainers can retain completed task history. It is **not** authoritative product, architecture, or requirements documentation.
+`.work/` holds coding-agent execution records. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence and maintainers can retain completed task history. It is **not** current product, architecture, or requirements authority.
 
-Permanent truth lives in approved specs under `docs/`, ADRs, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
+**Snapshot-first:** completed, cancelled, blocked, and superseded tasks are not current authority. Git owns history. Durable decisions belong in approved documents under `docs/`, code, tests, and migrations.
+
+Permanent truth lives in approved specs under `docs/`, current architecture documents, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
 
 ## Directory structure
 
@@ -16,7 +18,7 @@ Permanent truth lives in approved specs under `docs/`, ADRs, code, tests, migrat
 `.work/resources/` holds inputs such as planning proposals that a task consumes
 before promotion. Those files **must not** become product, requirements, UI/UX,
 or architecture authority. Promote durable decisions into approved artifacts
-under `docs/` (or ADRs) before implementation treats them as governing.
+under `docs/` before implementation treats them as governing.
 
 ## When a task file is required
 

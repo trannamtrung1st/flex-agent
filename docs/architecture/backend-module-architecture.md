@@ -5,15 +5,16 @@ the MVP modular monolith grows.
 
 ## Status and authority
 
-**In review — 2026-09-01.** This guide currently owns backend module identity,
+**Approved — 2026-09-01.** This guide currently owns backend module identity,
 ports-and-adapters rules, authorization-kernel placement, append-only audit
 coupling, Assessment source/activation coordination, and replica-independent
-Enrollment admission constraints extracted from ADR-002, ADR-003, ADR-006,
-ADR-017, and ADR-018. It does not introduce product behavior or replace
-feature specifications. ADR files remain until Phase 5. If this guide
+Enrollment admission constraints. It does not introduce product behavior or replace
+feature specifications. ADR files remain until Phase 5 as provenance only. If this guide
 conflicts with product or requirements, stop and record the conflict.
 
-Workspace, toolchain, and CI verification rows from ADR-010 wait for Phase 4.
+Workspace, toolchain, and CI verification live in
+[Workspace development](../contributing/workspace.md) and
+[`build/toolchain.json`](../../build/toolchain.json).
 
 ## Current extracted constraints
 

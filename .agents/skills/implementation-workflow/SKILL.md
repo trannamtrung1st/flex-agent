@@ -29,7 +29,7 @@ Skip tracked planning for obvious one-step edits such as typos or tiny mechanica
 ### 1. Inspect before implementing
 
 - Read repository state relevant to the task.
-- Read governing sources: product docs, feature specs, UI/UX specs, ADRs, and applicable repository guidance.
+- Read governing sources: product docs, feature specs, UI/UX specs, architecture documents, and applicable repository guidance.
 - Check `.work/active/` for an existing task file for this work.
 
 ### 2. Decide whether to track
@@ -59,6 +59,7 @@ Do not invent product behavior when specifications are ambiguous. Record open qu
 
 - Load applicable role skills for each kind of work.
 - Follow specification-driven TDD when behavior changes (red, green, refactor).
+- For new production UI, classify first; clone and adapt a matching accepted production page plus Component Deck specimen; use a Lab journey only when the family lacks a production donor; use explicit `$impeccable shape` only for a documented gap.
 - Mark plan progress using the markers documented in `.work/README.md`:
   - `[x]` completed, `[>]` current, `[ ]` pending, `[!]` blocked, `[-]` intentionally skipped
 

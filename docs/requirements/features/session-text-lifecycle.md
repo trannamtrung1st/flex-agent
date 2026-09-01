@@ -2,7 +2,7 @@
 
 ## Status and source
 
-- Status: In review
+- Status: Approved
 - Version: 0.5
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer

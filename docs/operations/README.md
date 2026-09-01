@@ -5,14 +5,15 @@ pointers for Flex Agent.
 
 ## Status
 
-**In review** as the Phase 3 operations owner. Until Phase 4 cutover, existing
-provider-profile contracts remain the live operator evidence. This index does
-not change product meaning, feature requirements, or architecture contracts.
+**Approved** as the operations owner. Existing provider-profile contracts remain
+live operator evidence. This index does not change product meaning, feature
+requirements, or architecture contracts.
 
 Architecture still-valid constraints from ADR-007 and ADR-008 that belong to
-operations live here as **pointers**. ADR files remain until Phase 5. ADR-010
-contribution and verification rows wait for Phase 4 (`docs/contributing/`,
-`build/toolchain.json` governing).
+operations live here as **pointers**. ADR files remain until Phase 5 and are
+not the current operations catalog. ADR-010 contribution and verification
+rows live in [workspace development](../contributing/workspace.md) and
+[`build/toolchain.json`](../../build/toolchain.json).
 
 ## What this area does not authorize
 

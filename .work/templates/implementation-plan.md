@@ -11,7 +11,12 @@ updated: <YYYY-MM-DD>
 
 # Governing sources
 
-- <requirement / ADR / UI spec / relevant repository guidance>
+- <requirement / architecture document / UI spec / relevant repository guidance>
+
+Before new production UI: classify the surface; clone a matching accepted
+production page and Component Deck specimen; use a Lab journey only when the
+family lacks a production donor; use explicit `$impeccable shape` only for a
+documented gap.
 
 # Scope
 

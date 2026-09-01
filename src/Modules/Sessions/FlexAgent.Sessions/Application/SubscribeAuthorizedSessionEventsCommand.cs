@@ -30,7 +30,7 @@ public sealed record SessionEventSubscriptionAuthorization(
 /// Current organization, participant, and relationship for an authenticated
 /// actor on one requested Session. Resolve from trusted records
 /// (session → organization → activity → participant/enrollment → current
-/// relationship) per ADR-002. Do not use a global actor-to-one-relationship map.
+/// relationship). Do not use a global actor-to-one-relationship map.
 /// </summary>
 public interface ISessionEventSubjectSource
 {

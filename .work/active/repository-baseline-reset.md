@@ -740,24 +740,24 @@ No historical source has been deleted.
 
 ## Phase 4 - Cut over governance and validation
 
-- [>] Atomically approve the replacement canonical sources and update
+- [x] Atomically approve the replacement canonical sources and update
   `AGENTS.md`, Cursor rules, both role/workflow skill trees, contributor
   guidance, `.work/README.md`, and templates to the Gate-A-approved authority
   and retention model.
-- [ ] Preserve role routing, stable requirements, open-question controls,
+- [x] Preserve role routing, stable requirements, open-question controls,
   specification-driven TDD, security/privacy, independent review, Playwright,
   auditability, and verification requirements.
-- [ ] Encode the pre-build UI pattern-adoption rule in applicable UI/UX,
+- [x] Encode the pre-build UI pattern-adoption rule in applicable UI/UX,
   frontend, reviewer, tester, implementation-workflow, contributor, and task
   guidance: classify first; clone and adapt the matching accepted production
   page plus Component Deck specimen; use a Lab journey only for an approved
   family without a production donor; use explicit `$impeccable shape` only for
   a documented gap; approve and establish reusable additions before production
   use.
-- [ ] Update indexes, `scripts/check_docs.py`, Impeccable adapters/generator
+- [x] Update indexes, `scripts/check_docs.py`, Impeccable adapters/generator
   tests, docs CI/lint scope, toolchain metadata, and path-sensitive
   architecture/build tests.
-- [ ] Verify Codex/Cursor rule and skill parity and confirm the new validators
+- [x] Verify Codex/Cursor rule and skill parity and confirm the new validators
   reject stale authority, duplicate IDs, broken links, misleading status, and
   completed/obsolete work on the active surface.
 
@@ -769,7 +769,7 @@ present only until the deletion manifest is verified.
 
 ## Phase 5 - Remove historical and obsolete surfaces
 
-- [ ] Recheck each deletion candidate against its extraction target and
+- [>] Recheck each deletion candidate against its extraction target and
   surviving operational/security/compatibility evidence immediately before
   removal.
 - [ ] Remove superseded ADR narrative, UI retirement/change narrative,
@@ -975,6 +975,14 @@ PRODUCT.md (docs/README.md is a PRODUCT source). `python3 scripts/check_docs.py`
 exit 0. `python3 scripts/impeccable_context.py check` exit 0. Adapter tests
 `Ran 15 tests in 0.007s` `OK`. No deletions.
 
+Phase 4 cutover (2026-09-01): snapshot-first governance effective. Current
+catalog is seven P0 specs; ADR directory and UI retirement ledger not required
+by validators. Replacement sources Approved. `build/toolchain.json` governing
+points at mvp-architecture and workspace.md. `python3 scripts/check_docs.py`
+exit 0. `python3 scripts/impeccable_context.py check` exit 0. Script tests
+`Ran 18 tests` `OK` including `test_check_docs.py`. No historical files
+deleted.
+
 ## Approval Gate A record
 
 Copied from independent persist `review-focused-output-01` (producer did not
@@ -1107,6 +1115,10 @@ verification (`build/toolchain.json` governing stays Phase 4).
 Phase 3 operations (2026-09-01): **007 operations pointers** and **008
 operations** applied under `docs/operations/` (README + provider-profile
 index/OpenRouter retention). ADR files unchanged.
+Phase 4 cutover (2026-09-01): **010 contribution/verification** applied to
+workspace guidance, `build/toolchain.json` governing, validators, adapters,
+and skills/rules. Remaining verification is the live `check_docs.py` /
+impeccable / CI lint set.
 
 #### 4. Governance and validator changes (Phase 4 only)
 
@@ -1501,11 +1513,11 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 4 cutover (`item-7190be5d0f02`) after Phase 3 operations
-leaf. `docs/current-state.md` exists; README routes added; operations ADR-007/008
-rows applied; architecture/product/UI leaves complete. ADRs remain on disk.
-Do not delete historical sources. Do not amend `build/toolchain.json` governing
-until Phase 4.
+Current action: Phase 5 verified deletions (`item-d8ff5629ae40`) after Phase 4
+cutover. The snapshot-first model is effective. Historical ADR files,
+placeholders, retirement/change-record, original journey files, and completed
+tasks remain on disk until rechecked deletion. Do not weaken TDD, review,
+security, Playwright, or runtime-audit rules.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1567,7 +1579,7 @@ Do not treat those Status values as intended product meaning.
 | Check | Status | Evidence required after execution |
 | --- | --- | --- |
 | Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed Phase 0 freeze | 2026-09-01 freeze: exit 0, `Documentation validation passed.` |
-| New documentation validator and link/fragment scan | pending | `python3 scripts/check_docs.py` passes against the new catalog |
+| New documentation validator and link/fragment scan | passed Phase 4 | 2026-09-01 cutover: `python3 scripts/check_docs.py` exit 0 against P0-only catalog |
 | Markdown lint | pending | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
 | Generated adapter consistency | passed Phase 0 freeze | 2026-09-01: `python3 scripts/impeccable_context.py check` exit 0; `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py' -v` 15 tests OK |
 | Historical-authority scan | pending | No live docs/harness requirement for ADRs, supersession chains, retirement/change records, migration diaries, or completed-task retention; allowlisted immutable artifacts reported separately |
@@ -1620,10 +1632,9 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 4 atomic cutover
-  (`item-7190be5d0f02`). Phase 3 operations recorded `docs/current-state.md`,
-  README routes, operations ADR pointers, OpenRouter evidence retention, and
-  in-tree review. No deletions.
+- Current execution blocker: none. Next leaf is Phase 5 verified deletions
+  (`item-d8ff5629ae40`). Phase 4 cutover made the snapshot-first catalog and
+  validators effective; historical sources remain until recheck.
 
 # Completion
 

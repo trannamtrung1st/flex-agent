@@ -4,13 +4,13 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**Seven P0 specifications are In review** after the Phase 3 current-tense
-rewrite. `REQ-*` and `AC-*` identifiers are unchanged.
+**Seven P0 specifications are Approved** after the Phase 4 governance cutover.
+`REQ-*` and `AC-*` identifiers are unchanged.
 [`resolved-session-configuration.md`](resolved-session-configuration.md) and
 [`session-text-lifecycle.md`](session-text-lifecycle.md) include the
-P0-compatible Agent Decision output envelope. All P1–P3 files remain
-placeholders. No eighth P0 feature is added. Catalog membership, order, and
-tier counts are unchanged.
+P0-compatible Agent Decision output envelope. P1–P3 placeholder files may
+remain on disk until Phase 5; they are **not** current catalog members and do
+not govern behavior.
 
 ## Purpose
 
@@ -21,9 +21,9 @@ Each feature spec governs one bounded, observable product outcome. Specs use the
 | Tier | Count | Index |
 | --- | --- | --- |
 | P0 — MVP validation slice | 7 | [P0 spec files](#p0-spec-files) |
-| P1 — Foundation expansion | 2 | [P1 spec files](#p1-spec-files) |
-| P2 — Next release | 5 | [P2 spec files](#p2-spec-files) |
-| P3 — Later release | 5 | [P3 spec files](#p3-spec-files) |
+
+Deferred P1–P3 names live in [MVP scope](../../product/mvp-scope.md). Placeholder
+files under this directory are not current catalog entries.
 
 Full catalog with boundaries and product sources: [Requirements hub — Feature catalog overview](../README.md#feature-catalog-overview).
 

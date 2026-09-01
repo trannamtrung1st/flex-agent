@@ -2,7 +2,7 @@
 
 ## Status and source
 
-- Status: In review
+- Status: Approved
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
 - Approved date: 2026-08-06 (authorization/audit decision update; original feature approval 2026-08-05)

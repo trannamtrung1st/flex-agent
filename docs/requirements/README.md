@@ -6,20 +6,15 @@ Product meaning — concepts, relationships, and scope boundaries — lives unde
 
 ## Status
 
-**Seven P0 specifications and operational defaults are In review** after the
-Phase 3 current-tense rewrite. `REQ-*` and `AC-*` identifiers are unchanged.
+**Seven P0 specifications and operational defaults are Approved** after the
+Phase 4 governance cutover. `REQ-*` and `AC-*` identifiers are unchanged.
 Resolved Session configuration and text Session lifecycle include the
 P0-compatible Agent Decision output envelope without adding an eighth P0
 feature. [MVP operational defaults](mvp-operational-defaults.md) govern
 cross-cutting intake, application-session, lifecycle, and recovery-placement
-behavior. Nineteen feature-spec files exist under [`features/`](features/README.md);
-all twelve P1–P3 files remain placeholders. Catalog membership, order, and
-tier counts are unchanged.
-
-Placeholder files are scaffolds only. They do not govern behavior until
-reviewed, populated with stable `REQ-*` and `AC-*` IDs, and marked `Approved`.
-A `Draft` or `In review` spec informs review but is not the Phase 4 cutover
-authority.
+behavior. The current feature catalog is the seven P0 files under
+[`features/`](features/README.md). Placeholder P1–P3 files may remain on disk
+until Phase 5; they do not govern behavior.
 
 ## Requirements lifecycle
 
@@ -75,18 +70,19 @@ Specs without testable acceptance criteria are not ready for approval.
 
 | Policy | Scope | Status |
 | --- | --- | --- |
-| [MVP operational defaults](mvp-operational-defaults.md) | Submission intake limits and cleanup, OIDC application sessions and MFA, protected-record lifecycle, and recovery placement | In review |
+| [MVP operational defaults](mvp-operational-defaults.md) | Submission intake limits and cleanup, OIDC application sessions and MFA, protected-record lifecycle, and recovery placement | Approved |
 
 ## Feature catalog overview
 
 | Tier | Count | Product alignment | When to author |
 | --- | --- | --- | --- |
-| **P0** | 7 | [MVP validation slice](../product/mvp-scope.md#mvp-validation-slice) | Now — before implementation |
-| **P1** | 2 | Foundation expansion after MVP slice | After P0 approval |
-| **P2** | 5 | [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | After MVP slice works end to end |
-| **P3** | 5 | [Later release](../product/mvp-scope.md#later-release) | After P2 capabilities are approved |
+| **P0** | 7 | [MVP validation slice](../product/mvp-scope.md#mvp-validation-slice) | Current catalog — before implementation |
 
-**Tier mapping:** P2 corresponds to product **Next release**; P3 corresponds to product **Later release**. P1 is an interstitial foundation tier for reusable agent and harness authoring not covered by the MVP executable workflow.
+Deferred P1–P3 capability **names** remain in [MVP scope](../product/mvp-scope.md).
+Placeholder spec files are not current catalog members.
+
+**Tier mapping:** product **Next release** and **Later release** stay in MVP
+scope. They are not current feature-catalog tiers.
 
 ## P0 authoring order
 
@@ -94,13 +90,13 @@ Author these seven specifications **in this order**. Each spec file lives under 
 
 | Order | P0 specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Authorization and isolation | [`auth-resource-isolation.md`](features/auth-resource-isolation.md) | Who may access what at org, activity, cohort, and session scope | [Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | In review |
-| 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | Frozen effective config and execution manifest at session start | [Agent Invocation and Decision](../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | In review |
-| 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | Campaign activity creation and cohort activation with frozen configuration | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | In review |
-| 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment-participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | In review |
-| 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | Isolated text examination from authorized start through completion | [Session](../product/concept-model.md#session), [Agent Invocation and Decision](../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Workflow model](../product/concept-model.md#workflow-model) | In review |
-| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | Evidence collection and internal structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | In review |
-| 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | Human review gate, optional revision, and audited result release | [Review decision and release](../product/concept-model.md#evaluation-review-decision-result-and-release) | In review |
+| 1 | Authorization and isolation | [`auth-resource-isolation.md`](features/auth-resource-isolation.md) | Who may access what at org, activity, cohort, and session scope | [Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | Approved |
+| 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | Frozen effective config and execution manifest at session start | [Agent Invocation and Decision](../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Approved |
+| 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | Campaign activity creation and cohort activation with frozen configuration | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Approved |
+| 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment-participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Approved |
+| 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | Isolated text examination from authorized start through completion | [Session](../product/concept-model.md#session), [Agent Invocation and Decision](../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Workflow model](../product/concept-model.md#workflow-model) | Approved |
+| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | Evidence collection and internal structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | Approved |
+| 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | Human review gate, optional revision, and audited result release | [Review decision and release](../product/concept-model.md#evaluation-review-decision-result-and-release) | Approved |
 
 ### P0 assessment setup scope
 
@@ -141,6 +137,9 @@ These observable outcomes do **not** warrant separate P0 specs. Author them insi
 | Participant appeal (when supported) | `review-result-release.md` |
 
 ## P1 — Foundation expansion
+
+These names are deferred product scope. Placeholder files are **not** current
+catalog members.
 
 Author after all P0 specs are approved.
 

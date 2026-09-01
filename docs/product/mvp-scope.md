@@ -6,7 +6,7 @@ First product experience, platform direction, explicit non-goals, and deferred c
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |

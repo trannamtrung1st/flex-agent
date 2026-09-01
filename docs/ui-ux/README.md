@@ -10,21 +10,25 @@ acceptance criteria or redefine canonical concepts.
 
 ## Status
 
-**Replacement P0 journey and interaction specifications are Approved v1.0**
-after the Shipboard production UX reset. Former versions at Git `eb9c398` are
-**retired** and are not current authority; see the
-[retirement ledger](retired-authority.md).
-
-This README is **In review** as the application UX architecture owner for the
-repository baseline reset. Until Phase 4 cutover, the Approved v1.0 originals
-at `docs/ui-ux/*.md` remain current journey/interaction governance. Prepared
-copies under [flows](flows/activity-campaign-journey.md) are **In review** and
-must not be treated as cutover authority.
+**Replacement P0 journey and interaction specifications are Approved v1.0.**
+This README is **Approved** application UX architecture. Current journey
+owners are the distinct files under [flows](flows/activity-campaign-journey.md).
+Originals at `docs/ui-ux/*.md` may remain on disk until Phase 5; they are not
+the current catalog.
 
 The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
 Terminal** visual authority. New production UI clones a matching existing
 production page and Component Deck specimen. The design lab is isolated
 composition evidence and is not a production journey specification.
+
+## Pre-build UI pattern adoption
+
+Classify the surface first against approved UX and
+[current state](../current-state.md). Clone and adapt a matching accepted
+production page and Component Deck specimen. Use a Design Lab journey only when
+the approved layout family has no production donor. Invoke explicit
+`$impeccable shape` only for a documented gap. Establish any reusable addition
+in the design system before production use.
 
 Voice interaction, interruption, playback, TTS, and the proposed text
 Interaction Controller are **unavailable in P0** until a separate product
@@ -47,11 +51,10 @@ replacements are link-complete.
 | Draft | Not authoritative for implementation |
 | In review | Replacement or prepared source; not cutover authority |
 | Superseded | Replaced inside this area; retained only if still in the live tree |
-| Retired | Former authority; recover full text from Git via the [retirement ledger](retired-authority.md) |
+| Retired | Former authority; recover full text from Git |
 
 Technical topology (single SPA, fail-closed publication, design-lab isolation)
-is governed by
-[ADR-021](../architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md),
+is governed by [frontend architecture](../architecture/frontend-architecture.md),
 not by this index.
 
 ### What is not UI/UX authority
@@ -222,20 +225,15 @@ Do not use **complete**, **approved**, **published**, **available**, or
 
 | Document | Type | Status | Governs |
 | --- | --- | --- | --- |
-| [Retired UI/UX authority](retired-authority.md) | Retirement ledger | Approved | Former document identity, Git provenance, successor rule; not a journey specification |
-| [Activity journey (original)](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved v1.0 | Current governance until Phase 4/5 link-complete cutover |
-| [Assessment Campaign setup (original)](assessment-campaign-setup.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-1` |
-| [Submission and Attempt (original)](submission-attempt.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-2` and `JRN-MVP-3` |
-| [Text Session (original)](text-session.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-4` |
-| [Evidence, Evaluation, and Human Review (original)](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-5` and `JRN-MVP-6` |
-| [Result and Release (original)](result-release.md) | P0 surface interaction specification | Approved v1.0 | Current governance for `JRN-MVP-7` |
-| [Activity journey (prepared flow)](flows/activity-campaign-journey.md) | Distinct flow owner | In review | Prepared copy; do not merge with other flows |
-| [Assessment Campaign setup (prepared flow)](flows/assessment-campaign-setup.md) | Distinct flow owner | In review | Prepared copy of setup/readiness/activation |
-| [Submission and Attempt (prepared flow)](flows/submission-attempt.md) | Distinct flow owner | In review | Prepared copy of Enrollment/My Work/Submission/Attempt |
-| [Text Session (prepared flow)](flows/text-session.md) | Distinct flow owner | In review | Prepared copy of text Session states and recovery |
-| [Evidence, Evaluation, and Human Review (prepared flow)](flows/evidence-evaluation-human-review.md) | Distinct flow owner | In review | Prepared copy of examiner/reviewer journey |
-| [Result and Release (prepared flow)](flows/result-release.md) | Distinct flow owner | In review | Prepared copy of Result/Release authorization boundary |
+| [Activity journey](flows/activity-campaign-journey.md) | Distinct flow owner | Approved v1.0 | Platform IA and end-to-end P0 journey |
+| [Assessment Campaign setup](flows/assessment-campaign-setup.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-1` setup/readiness/activation |
+| [Submission and Attempt](flows/submission-attempt.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-2` and `JRN-MVP-3` |
+| [Text Session](flows/text-session.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-4` |
+| [Evidence, Evaluation, and Human Review](flows/evidence-evaluation-human-review.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-5` and `JRN-MVP-6` |
+| [Result and Release](flows/result-release.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-7` |
 | [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
+
+Originals at `docs/ui-ux/{activity-campaign-journey,assessment-campaign-setup,submission-attempt,text-session,evidence-evaluation-human-review,result-release}.md` may remain until Phase 5. They are not the current catalog.
 
 ## Related documents
 

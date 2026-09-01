@@ -6,7 +6,7 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 
 | Field | Value |
 | --- | --- |
-| **Status** | In review |
+| **Status** | Approved |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
@@ -14,11 +14,12 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Last reviewed** | 2026-09-01 |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
-This document is **In review** for the Phase 3 current-truth rewrite. It does
+This document is **Approved** architecture authority. It does
 not override product documents or feature specifications. Requirements govern
-observable behavior. This document and the focused runtime contracts currently
-own architecture-owned and code-contract constraints extracted from ADR-001
-through ADR-021. ADR files remain present until Phase 5. [MVP operational
+observable behavior. This document and the focused runtime contracts own
+architecture-owned and code-contract constraints extracted from ADR-001
+through ADR-021. ADR files remain present until Phase 5 and are not the
+current architecture catalog. [MVP operational
 defaults](../requirements/mvp-operational-defaults.md) govern intake,
 authentication-session, lifecycle, and recovery defaults. Evaluation and
 Review/Release realization live in their contracts; Session publication,

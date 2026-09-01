@@ -1,6 +1,9 @@
 # Architecture decision records
 
-Architecture Decision Records (ADRs) for Flex Agent.
+Historical provenance for Flex Agent architecture decisions. **Not** the current
+architecture catalog. Current owners are listed in
+[architecture documentation](../README.md). These files remain until Phase 5
+verified deletion.
 
 ## Status
 

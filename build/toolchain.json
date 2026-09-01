@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Pinned implementation toolchain and direct dependency review baseline for Flex Agent.",
-  "updated": "2026-08-09",
+  "updated": "2026-09-01",
   "governing": [
-    "docs/architecture/decisions/ADR-008-bounded-oss-component-set.md",
-    "docs/architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md"
+    "docs/architecture/mvp-architecture.md",
+    "docs/contributing/workspace.md"
   ],
   "runtime": {
     "dotnetSdk": "10.0.100",

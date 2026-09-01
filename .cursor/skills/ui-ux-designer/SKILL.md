@@ -17,7 +17,10 @@ Turn approved user and business outcomes into understandable, accessible, and te
 - Before Flex Agent UI work, read `docs/ui-ux/design-system/README.md`, respect
   its status and authority boundary, and select applicable modules through
   `docs/ui-ux/design-system/implementation-guide.md`. Put shared patterns there
-  instead of duplicating them in feature-specific specifications.
+  instead of duplicating them in feature-specific specifications. Classify
+  production surfaces first; clone a matching accepted production page and
+  Component Deck specimen; use a Lab journey only when the family lacks a
+  production donor; use explicit `$impeccable shape` only for a documented gap.
 - Specify observable behavior and acceptance evidence, not implementation internals.
 - Identify assumptions, usability risks, content gaps, and decisions that need research or approval. Surface open questions with an **interim default** and brief rationale.
 
