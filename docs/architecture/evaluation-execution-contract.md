@@ -7,19 +7,20 @@ Evaluation in the MVP assessment workflow.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved |
+| **Status** | In review |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
 | **Version** | 0.1 |
-| **Approved date** | 2026-08-06 |
-| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md); `EVAL-DEC-1`–`EVAL-DEC-8` approved on 2026-08-06 |
+| **Last reviewed** | 2026-09-01 |
 | **Governs** | Evaluation request, Evidence locator/seal, evaluator execution, completion, replacement, and review-handoff realization |
 
-This document does not change the approved
+This contract currently owns the Evidence and Evaluation realization split
+extracted from ADR-009 (`EVAL-DEC-*`). ADR files remain until Phase 5.
+
+This document does not change the
 [Evidence and Evaluation specification](../requirements/features/evidence-evaluation.md).
-It is authoritative for the detailed MVP technical realization within the
-approved product, requirements, and ADR boundaries.
+It is the current detailed MVP technical realization for this boundary.
 
 ## Purpose and audience
 

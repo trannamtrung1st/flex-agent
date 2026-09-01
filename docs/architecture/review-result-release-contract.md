@@ -8,19 +8,20 @@ and correction in the MVP assessment workflow.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved |
+| **Status** | In review |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
 | **Version** | 0.1 |
-| **Approved date** | 2026-08-06 |
-| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md); `REV-DEC-1`–`REV-DEC-9` and availability-only MVP notification scope approved on 2026-08-06 |
+| **Last reviewed** | 2026-09-01 |
 | **Governs** | Review case/candidate, revision, decision, Result, Release, visibility, and correction realization |
 
-This document does not change the approved
+This contract currently owns the Review/Result/Release realization split
+extracted from ADR-009 (`REV-DEC-*`). ADR files remain until Phase 5.
+
+This document does not change the
 [Human review and Result Release specification](../requirements/features/review-result-release.md).
-It is authoritative for the detailed MVP technical realization within the
-approved product, requirements, and ADR boundaries.
+It is the current detailed MVP technical realization for this boundary.
 
 ## Purpose and audience
 

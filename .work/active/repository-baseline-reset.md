@@ -712,10 +712,10 @@ record**. The producer did not author that respond.
 - [x] Reconcile approved requirements, preserve stable `REQ-*`/`AC-*`, move
   volatile implementation claims to `docs/current-state.md`, and extract any
   unique scope from placeholder specifications.
-- [>] Rewrite current architecture and focused contracts. Extract ADR-001
+- [x] Rewrite current architecture and focused contracts. Extract ADR-001
   through ADR-021 one by one into current constraints or mark them historical
   only, but leave every ADR in place during this phase.
-- [ ] Rewrite `docs/ui-ux/README.md` as application-level UX architecture and
+- [>] Rewrite `docs/ui-ux/README.md` as application-level UX architecture and
   prepare approved representative journeys under `docs/ui-ux/flows/`, keeping
   distinct flow owners and all existing sources until replacements pass review.
 - [ ] Reconcile the approved Design System and Design Lab references without
@@ -952,6 +952,10 @@ Phase 3 product/requirements (2026-09-01): same three commands passed after
 `python3 scripts/impeccable_context.py generate` regenerated `PRODUCT.md`.
 No visual verification claimed (source-only documentation).
 
+Phase 3 architecture (2026-09-01): `python3 scripts/check_docs.py` exit 0
+`Documentation validation passed.` ADR files and `decisions/README.md`
+unchanged. No adapter regeneration (DESIGN/PRODUCT inputs unchanged).
+
 ## Approval Gate A record
 
 Copied from independent persist `review-focused-output-01` (producer did not
@@ -1074,9 +1078,14 @@ a live constraint.
 | 020 | Dual-build `web-legacy` topology | historical only | Do not restore dual-build; lab isolation restated by 021 |
 | 021 | Single production SPA in `web/`, isolated design-lab, no `web-legacy/` runtime | architecture | `frontend-architecture.md` (P3 arch) |
 
-Missing a still-valid authorization, isolation, audit, atomicity, streaming,
-Worker, or frontend-isolation constraint in extraction is a Gate A blocking
-risk; the reviewer must confirm this matrix before Phase 3.
+Phase 3 architecture (2026-09-01): architecture and code-contract rows
+applied. **Applied this leaf:** ADR-001, 005, 009, 011–014 → session
+contract; 002, 003, 018, 017 (module) → backend-module + mvp-architecture;
+004, 006, 007 (arch), 010 stack facts, 015–016 (arch), 017 (activation) →
+mvp-architecture; 019, 021 → frontend-architecture; 020 historical only.
+**Not applied (matrix only):** 007 operations pointers, 008 operations +
+verification, 010 contribution/verification, remaining verification.
+`docs/architecture/decisions/` unchanged.
 
 #### 4. Governance and validator changes (Phase 4 only)
 
@@ -1471,15 +1480,11 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 3 architecture and ADR absorption
-(`item-a8dbad2a8346`) and Phase 3 UI/UX (`item-87f71e2b96ef`) after the
-product/requirements leaf. Product overview, concept model, MVP scope, P0
-specs, operational defaults, and entry-point READMEs are In review. Unique
-placeholder scope is in `mvp-scope.md` deferred-capability constraints.
-Volatile P0 implementation-matrix Implementation/Status cells are queued
-below for the operations leaf's `docs/current-state.md`; they are not new
-requirements. No `docs/current-state.md` and no README current-state route
-yet. Catalog membership/order/tier counts unchanged. Placeholder files remain.
+Current action: Phase 3 UI/UX (`item-87f71e2b96ef`). Architecture and
+code-contract ADR-001–021 rows are applied in current `docs/architecture/`
+files excluding `decisions/`. Operations, contribution, and verification rows
+remain matrix-only. ADR catalog and every ADR file remain. Product/
+requirements leaf is complete.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1592,9 +1597,9 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaves are Phase 3 architecture
-  (`item-a8dbad2a8346`) and UI/UX (`item-87f71e2b96ef`). Phase 3 product and
-  requirements rewrite is recorded; catalogs remain validator-compatible.
+- Current execution blocker: none. Next leaf is Phase 3 UI/UX
+  (`item-87f71e2b96ef`). Architecture ADR extraction for architecture and
+  code-contract rows is recorded; ADR files remain.
 
 # Completion
 

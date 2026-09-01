@@ -6,33 +6,34 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved |
+| **Status** | In review |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
 | **Version** | 0.10 |
-| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14; version 0.10 amended 2026-08-14 for Text Session v0.5 catalog accuracy and independent-item validation verification, reviewed 2026-08-19 for provider/host status accuracy, reviewed 2026-08-21 for OpenAI-compatible migration sequencing, and amended 2026-08-23 for effective timing/accommodation ownership and v2 projection rollout |
-| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope; the 2026-08-19 ADR-008/ADR-010 amendments preserve this baseline while approving synthetic-only OpenRouter development; the 2026-08-21 delivery review separated deterministic OpenAI-compatible migration from exact-profile qualification without weakening enablement gates; the 2026-08-23 amendment approves `AR-DEC-26`–`AR-DEC-27` under `PROP-9`–`PROP-15` |
+| **Last reviewed** | 2026-09-01 |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
-Version 0.10 is **approved** and supersedes version 0.9. This architecture does
-not override approved product documents or
-feature specifications. Approved requirements govern observable behavior;
-approved ADRs govern technical realization. The approved
-[MVP operational defaults](../requirements/mvp-operational-defaults.md) govern
-the intake, authentication-session, lifecycle, and recovery defaults. The
-detailed Evaluation and Review/Release contracts are approved through ADR-009;
-the Session publication contract is revised by ADR-011. Component and
-provider/deployment defaults are approved through
-ADR-008; compatibility evidence and remaining delivery artifacts retain their
-stated status and owners. The model-provider architecture is model-neutral;
-deployment-managed profiles and Organization BYOK are supported without making
-a model part of the product identity, while Organization model endpoints remain
-a separately gated extension seam rather than an MVP requirement. Optional LGTM is development-only,
-operator-pulled, and does not block MVP or production architecture. The .NET
-10/ASP.NET Core backend, React/Vite SPA, Npgsql/Dapper persistence, and Grate
-migration direction are approved through ADR-010; its schema, RFC 8785, and
-implementation compatibility gates remain required evidence.
+This document is **In review** for the Phase 3 current-truth rewrite. It does
+not override product documents or feature specifications. Requirements govern
+observable behavior. This document and the focused runtime contracts currently
+own architecture-owned and code-contract constraints extracted from ADR-001
+through ADR-021. ADR files remain present until Phase 5. [MVP operational
+defaults](../requirements/mvp-operational-defaults.md) govern intake,
+authentication-session, lifecycle, and recovery defaults. Evaluation and
+Review/Release realization live in their contracts; Session publication,
+Invocation/Decision, next-timer, and the P0 output envelope live in the
+[text Session runtime contract](session-runtime-contract.md). OSS component
+and provider-profile defaults remain in the ADR catalog until the operations
+leaf applies those rows. Compatibility evidence and remaining delivery
+artifacts retain their stated owners. The model-provider architecture is
+model-neutral; deployment-managed profiles and Organization BYOK are supported
+without making a model part of the product identity, while Organization model
+endpoints remain a separately gated extension seam rather than an MVP
+requirement. Optional LGTM is development-only, operator-pulled, and does not
+block MVP or production architecture. Application stack facts (.NET 10/ASP.NET
+Core, React/Vite, Npgsql/Dapper, Grate) are current architecture constraints
+here; workspace and toolchain verification rows wait for Phase 4.
 
 ## Purpose and audience
 
@@ -44,12 +45,13 @@ contributors one coherent technical frame for the MVP workflow:
 > release Result.
 
 It defines the minimum useful architecture before implementation. It requires
-the OSS-first self-hostable reference architecture and selected infrastructure
-families in ADR-008. This document does not itself select a programming language
-or web framework; ADR-010 supplies the approved .NET/React implementation
-decision. Component-family or stack approval does not certify a production
-deployment, a self-hosted model artifact, or remove the evidence gates in this
-document, ADR-008, and ADR-010.
+an OSS-first self-hostable reference architecture and the selected
+infrastructure families recorded as current operations/ADR-008 constraints.
+This document does not itself select a programming language or web framework;
+application-stack facts are listed below. Component-family or stack selection
+does not certify a production deployment, a self-hosted model artifact, or
+remove the evidence gates in this document and remaining operations or
+verification owners.
 
 ## Governing sources
 
@@ -69,21 +71,35 @@ document, ADR-008, and ADR-010.
   [Evidence and Evaluation](../requirements/features/evidence-evaluation.md), and
   [human review and Result Release](../requirements/features/review-result-release.md).
 
-### Approved architecture decisions
+### Current constraint owners (architecture and code-contract)
 
-| Decision | Constraint consumed here |
-| --- | --- |
-| [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) | Separate immutable resolved configuration from append-only runtime manifest; use the approved canonicalization, digest, and terminal-seal procedures |
-| [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) | Use one in-process authorization kernel with enforcement adapters, trusted scope derivation, commit-time reauthorization, and bounded service delegation |
-| [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) | Keep the authoritative append-only audit boundary in the primary transactional platform store for the MVP; couple required audit to protected mutations |
-| [ADR-004](decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) | Atomically create and bind the immutable cohort activation baseline, activate the Cohort, and accept required audit |
-| [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) | Atomically consume Attempt entitlement, bind exact Submission versions, freeze configuration, create the manifest and Session, and accept required audit |
-| [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) | Approve this MVP architecture baseline, SPA/API/gateway topology, OIDC direction, recovery targets, optional caching boundary, and deferred Kubernetes evolution seam |
-| [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) | Require an OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service |
-| [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) | Select bounded infrastructure and model-provider defaults, scoped credential/BYOK boundaries, Docker Compose reference profiles, operator-owned recovery execution, and evidence gates |
-| [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) | Approve the detailed Session, Evaluation, and Review/Release realization contracts and their provider-streaming, optional-broker, and notification boundaries |
-| [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) | Select the .NET/React application stack, canonical schema and RFC 8785 boundaries, Npgsql/Dapper persistence, Grate migrations, workspace rules, and stack verification gates |
-| [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) | Supersede complete-message-only Session publication with durable-before-display participant-visible incremental Agent-response streaming |
+ADR files remain in `decisions/` until Phase 5. This table states the live
+owner after Phase 3 architecture extraction. Operations, contribution, and
+verification rows are recorded only; those files are not edited on this leaf.
+
+| ADR | Still-valid constraint | Current owner this leaf |
+| --- | --- | --- |
+| 001 | Separate immutable resolved configuration from append-only runtime manifest; canonicalization, digest, and terminal-seal procedures | [Session runtime contract](session-runtime-contract.md) |
+| 002 | One in-process authorization kernel, enforcement adapters, trusted scope derivation, commit-time reauthorization, bounded service delegation | This document and [backend module architecture](backend-module-architecture.md) |
+| 003 | Authoritative append-only audit in the primary transactional store; couple required audit to protected mutations | [Backend module architecture](backend-module-architecture.md) |
+| 004 | Atomically create and bind the immutable cohort activation baseline, activate the Cohort, and accept required audit | This document |
+| 005 | Atomically consume Attempt entitlement, bind exact Submission versions, freeze configuration, create the manifest and Session, and accept required audit | [Session runtime contract](session-runtime-contract.md) |
+| 006 | MVP architecture baseline, SPA/API/gateway topology, OIDC direction, recovery targets, optional caching, deferred Kubernetes seam | This document |
+| 007 | OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service | This document (operations pointers deferred to Phase 3 ops) |
+| 008 | Bounded infrastructure and model-provider defaults, Compose profiles, evidence gates | **Not applied here** — operations + verification |
+| 009 | Session / Evaluation / Review-Release contract split; optional-broker and notification boundaries | The three `*-contract.md` files |
+| 010 | .NET/React stack, JCS/RFC 8785, Npgsql/Dapper, Grate, workspace, verification gates | Stack facts in this document; workspace/toolchain **not applied here** (Phase 4) |
+| 011 | Durable-before-display participant-visible incremental Agent-response streaming, replay, cutoff, backpressure | [Session runtime contract](session-runtime-contract.md) |
+| 012 | Trusted invocation, structured Decision, no-action, provenance; does not approve voice, tools, or configurable stages | [Session runtime contract](session-runtime-contract.md) |
+| 013 | Agent next-timer replacement bounds; runtime owns schedule | [Session runtime contract](session-runtime-contract.md) |
+| 014 | Decision envelope, P0 message-only compatibility, historical v1 reconstructable | [Session runtime contract](session-runtime-contract.md) |
+| 015 | Worker timer-lane delegation and reauthorization | This document and Session runtime contract |
+| 016 | Worker workload identity and bounded Invocation delegation | This document and Session runtime contract |
+| 017 | Assessment source descriptors, activation coordinator, fail-closed sources | This document and backend module architecture |
+| 018 | Enrollment request-limit vs PostgreSQL admission | [Backend module architecture](backend-module-architecture.md) |
+| 019 | SPA Query, RHF/Zod, no Zustand/Tailwind/Axios; server remains authorization authority | [Frontend architecture](frontend-architecture.md) |
+| 020 | Dual-build `web-legacy` topology | **Historical only** — do not restore |
+| 021 | Single production SPA in `web/`, isolated design lab, no `web-legacy/` runtime | [Frontend architecture](frontend-architecture.md) |
 
 ## Scope
 
@@ -125,8 +141,11 @@ The following are not new proposals; they follow from approved sources:
 3. Each Session uses an immutable resolved session configuration and an
    append-only resolved execution manifest with stable, independently verifiable
    identities.
-4. Cohort activation and Attempt/Session start use the atomic consistency
-   boundaries established by ADR-004 and ADR-005.
+4. Cohort activation and Attempt/Session start use atomic consistency
+   boundaries: activation binds an immutable cohort baseline with required
+   audit; Attempt start consumes entitlement, binds exact Submission versions,
+   freezes configuration, creates the manifest and Session, and accepts
+   required audit.
 5. Audit-relevant and outcome history is append-only or equivalently protected;
    corrections create linked records rather than replacing history.
 6. Submission bytes and other large protected content remain in their owning
@@ -140,7 +159,14 @@ The following are not new proposals; they follow from approved sources:
 9. Persisted times use UTC with an unambiguous authoritative order. Client clocks
    do not decide deadlines, message order, Attempt consumption, or Release.
 10. Missing identity, policy, ownership, lifecycle, integrity, or required-audit
-    state fails closed at the protected boundary.
+    data fails closed.
+11. Worker timer-lane work uses bounded service delegation with commit-time
+    reauthorization. Worker live Invocation uses portable workload identity
+    and a bounded per-Session execution envelope. Host enablement remains
+    default-off until operations qualification says otherwise.
+12. The production SPA lives in `web/`. The design lab is isolated and never
+    authorizes product routes or permissions. Dual-build `web-legacy` topology
+    is not a current architecture.
 
 ## Approved MVP realization decisions
 

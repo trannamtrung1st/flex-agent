@@ -1,18 +1,36 @@
 # Backend module architecture
 
 Implementation guidance for structuring the Flex Agent backend consistently as
-the approved MVP modular monolith grows.
+the MVP modular monolith grows.
 
 ## Status and authority
 
-**Approved — 2026-08-15.** Explicit owner approval was recorded in the
-2026-08-15 backend-module architecture follow-up.
+**In review — 2026-09-01.** This guide currently owns backend module identity,
+ports-and-adapters rules, authorization-kernel placement, append-only audit
+coupling, Assessment source/activation coordination, and replica-independent
+Enrollment admission constraints extracted from ADR-002, ADR-003, ADR-006,
+ADR-017, and ADR-018. It does not introduce product behavior or replace
+feature specifications. ADR files remain until Phase 5. If this guide
+conflicts with product or requirements, stop and record the conflict.
 
-This guide applies the approved decisions in
-[ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) and
-[ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md). It
-does not introduce product behavior or replace feature specifications. If this
-guide conflicts with an approved ADR, the ADR governs technical realization.
+Workspace, toolchain, and CI verification rows from ADR-010 wait for Phase 4.
+
+## Current extracted constraints
+
+These remain current backend architecture requirements:
+
+- One in-process authorization kernel with enforcement adapters; trusted
+  Organization, activity, participant, and session scope; client-supplied
+  identifiers are never authority; commit-time reauthorization; bounded
+  service delegation.
+- Authoritative authorization audit is append-only in the primary
+  transactional store and is coupled to protected mutations.
+- Assessment activation uses configuration-owned source versions and
+  fail-closed in-transaction revalidation for required source owners.
+- Enrollment request admission that must be replica-independent uses a
+  PostgreSQL-backed application admission port with database UTC, atomic
+  bounded acquisition, and fail-closed shared-state behavior. Gateway coarse
+  limits are not that actor-scoped product quota.
 
 ## Architectural identity
 

@@ -1,24 +1,20 @@
 # Frontend architecture
 
 Implementation guidance for structuring the Flex Agent browser SPA consistently
-with approved SPA/API authority, locked React/Vite policy, and frontend state
+with SPA/API authority, locked React/Vite policy, and frontend state
 ownership.
 
 ## Status and authority
 
-**Approved — 2026-08-26; amended 2026-08-30** for sign-in fail-closed SPA recovery,
-the single-SPA reset in
-[ADR-021](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md),
-and production clone-from-existing visual composition.
-[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
-is superseded for dual-build production topology; its design-lab isolation
-rules remain as restated by ADR-021 `FE-RESET-2`.
-This guide applies
-[ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md). It does
-not introduce product behavior or replace feature or UI/UX specifications. If
-this guide conflicts with an approved ADR, the ADR governs technical
-realization. If it conflicts with approved product, requirements, or UI/UX
-authority, stop and record the conflict; do not reinterpret those sources.
+**In review — 2026-09-01.** This guide currently owns SPA Query, form, icon,
+and transport ownership (ADR-019) and single-SPA production topology with
+isolated design lab and no `web-legacy/` runtime (ADR-021). Dual-build
+`web-legacy` topology (ADR-020) is historical only and must not be restored.
+This guide does not introduce product behavior or replace feature or UI/UX
+specifications. Design-lab specimens and shipped production composition do
+not authorize routes, permissions, lifecycle, or release scope. If this
+guide conflicts with product, requirements, or UI/UX, stop and record the
+conflict.
 
 ## Architectural identity
 

@@ -9,25 +9,42 @@ and the P0-compatible Decision-output envelope.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved |
+| **Status** | In review |
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
 | **Version** | 0.5 |
-| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14; version 0.5 amended 2026-08-14 for independent item validation and minimal P0 voice representation |
-| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) approves `SESS-DEC-9`–`SESS-DEC-13`; [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves `SESS-DEC-14`–`SESS-DEC-23`; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) approves `SESS-DEC-24`–`SESS-DEC-28`; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) approves `SESS-DEC-29`–`SESS-DEC-35` |
+| **Last reviewed** | 2026-09-01 |
 | **Governs** | Session command, Invocation/Decision, ordering, timing, publication, reconnect, terminalization, and recovery realization |
 
-Version 0.5 is **approved** and supersedes version 0.4 while preserving its
-ADR-011 streaming, ADR-012 Invocation/Decision, and ADR-013 next-timer
-decisions.
+This contract currently owns resolved-configuration representation and
+integrity, atomic Attempt/Session start and Submission-version binding,
+durable-before-display streaming, structured Agent Invocation/Decision,
+next-timer replacement, the P0 Decision-output envelope, and Worker
+timer-lane plus Invocation-delegation runtime rules extracted from ADR-001,
+ADR-005, and ADR-009/011–016. ADR files remain until Phase 5. This Phase 3
+rewrite is recoverable beside the previous Git version.
 
 ## Purpose and audience
 
-This contract gives backend, frontend, security, and testing contributors one
-authoritative runtime boundary after the atomic Attempt/Session start in
-[ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) and
-before the Evaluation handoff. It defines:
+This contract currently owns:
+
+- immutable resolved configuration versus append-only runtime manifest,
+  canonicalization, digest, and terminal seal;
+- atomic Attempt start with exact Submission-version binding, entitlement
+  consumption, frozen configuration, Session creation, and required audit;
+- one Session state and ordering authority;
+- durable-before-display incremental Agent-response publication, SSE replay,
+  cutoff, validation, and backpressure;
+- trusted trigger admission, Agent Invocation, Agent Decision, validation,
+  effect ownership, and explicit no-action;
+- optional one-lane next-timer replacement that the runtime validates and
+  owns;
+- P0 message-only Decision envelope with reconstructable historical v1
+  Decisions; voice and extra actions remain disabled;
+- Worker timer-lane delegation and bounded Invocation-execution envelopes.
+
+It defines:
 
 - one Session state and ordering authority;
 - message, turn, work-trace, timing, and terminal record ownership;
