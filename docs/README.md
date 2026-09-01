@@ -57,9 +57,8 @@ Illustrative examples in product documents are not MVP commitments unless
 captured in a feature specification.
 
 Current catalogs, architecture documents, and validators apply the
-snapshot-first model. Historical ADR files, placeholder specs, and UI
-retirement ledgers may remain on disk until Phase 5; they are not required
-current catalog members.
+snapshot-first model. Git owns historical ADR text, retired UI versions, and
+deleted placeholder scaffolds.
 
 ## Document status
 
@@ -84,7 +83,7 @@ current catalog members.
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — catalog of P0–P3 specification files
+- [Feature specifications](requirements/features/README.md) — current P0 catalog; deferred P1–P3 names live in MVP scope
 - [MVP operational defaults](requirements/mvp-operational-defaults.md) — intake, authentication-session, lifecycle, and recovery-placement defaults
 
 ### UI/UX
@@ -99,7 +98,6 @@ current catalog members.
 - [Evidence and Evaluation execution contract](architecture/evaluation-execution-contract.md)
 - [Human review, Result, and Release contract](architecture/review-result-release-contract.md)
 - [Frontend architecture](architecture/frontend-architecture.md)
-- [Architecture decisions](architecture/decisions/README.md) — historical ADR provenance (not the current catalog)
 
 ### Operations
 

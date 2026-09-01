@@ -88,7 +88,7 @@ workflow behavior.
 
 These sentences migrate unique placeholder and related-decision meaning into
 this scope document. They do **not** approve the deferred capabilities or
-create new `REQ-*` IDs. Placeholder feature files remain until Phase 5.
+create new `REQ-*` IDs.
 
 - **Agent library (P1).** General Agent-library authoring remains deferred.
   When that specification is authored, it must carry `PROP-AGENT-1` into
@@ -112,7 +112,11 @@ create new `REQ-*` IDs. Placeholder feature files remain until Phase 5.
   candidates, harness improvement proposals, shared multi-participant
   sessions, calibration/analytics, and alternative activity forms** remain
   named deferred themes in this document and in the feature catalog. Their
-  placeholder bodies add no extra sentences.
+  placeholder bodies added no extra sentences.
+- **Interaction Controller.** Real-time idle/tab/visibility auto-stop and
+  similar interaction mechanics remain deferred. P0 text Session behavior is
+  owned by the session lifecycle specification and runtime contract. This
+  reset does not reconfirm a planned Interaction Controller task.
 
 A synthetic-development model-provider profile may exercise non-sensitive
 local evidence. It does not qualify production, accept Participant data, or

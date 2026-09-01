@@ -3,7 +3,7 @@
 ## Library
 
 `lucide-react` is the approved general-purpose icon set
-([ADR-019](../../../architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md)
+([ADR-019](../../../architecture/frontend-architecture.md)
 `FE-DEC-9`). This module governs size, color, and when a custom glyph is
 required (`DS-DEC-10`, `PC-13`).
 

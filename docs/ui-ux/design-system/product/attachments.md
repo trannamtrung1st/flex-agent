@@ -17,7 +17,7 @@ that produced and consumed them.
 ## Local preparation and intake states
 
 For the assessment MVP, use the state tracks and exact language from the
-approved [Submission and Attempt specification](../../submission-attempt.md):
+approved [Submission and Attempt specification](../../flows/submission-attempt.md):
 
 - local preparation: empty, editing, attachments selected, local issue, unsent
   changes

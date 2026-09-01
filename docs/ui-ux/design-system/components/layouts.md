@@ -185,7 +185,7 @@ Family assignment is router-owned. Design-lab paths
 | `/participant-session` | `live-session` |
 
 Approved target families live in the
-[Activity journey](../../activity-campaign-journey.md) canonical route table.
+[Activity journey](../../flows/activity-campaign-journey.md) canonical route table.
 Current production assignment (`web/src/router/production-route-layouts.ts`)
 matches those families where the host contract is implemented:
 

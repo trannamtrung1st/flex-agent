@@ -13,8 +13,8 @@ P0-compatible Agent Decision output envelope without adding an eighth P0
 feature. [MVP operational defaults](mvp-operational-defaults.md) govern
 cross-cutting intake, application-session, lifecycle, and recovery-placement
 behavior. The current feature catalog is the seven P0 files under
-[`features/`](features/README.md). Placeholder P1–P3 files may remain on disk
-until Phase 5; they do not govern behavior.
+[`features/`](features/README.md). Deferred P1–P3 names live in
+[MVP scope](../product/mvp-scope.md) and do not govern behavior.
 
 ## Requirements lifecycle
 
@@ -117,7 +117,7 @@ Author these seven specifications **in this order**. Each spec file lives under 
 
 ### P0 authoring instructions
 
-1. Open the placeholder file for the current order item.
+1. Open the P0 spec file for the current order item.
 2. Replace placeholder content using the [feature spec template](../templates/feature-spec.md).
 3. Link the catalog entry and governing product sections in **Status and source**.
 4. Map behavior to the [MVP executable workflow](../product/mvp-scope.md#mvp-executable-workflow).
@@ -138,15 +138,15 @@ These observable outcomes do **not** warrant separate P0 specs. Author them insi
 
 ## P1 — Foundation expansion
 
-These names are deferred product scope. Placeholder files are **not** current
-catalog members.
+These names are deferred product scope. They have **no** current specification
+files.
 
 Author after all P0 specs are approved.
 
 | Order | Specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
-| 8 | Agent library and general configuration | [`agent-library-configuration.md`](features/agent-library-configuration.md) | Reusable agent authoring: identity, persona and communication behavior, knowledge defaults, capabilities, evaluation defaults, revisions | [Agent](../product/concept-model.md#agent), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Placeholder |
-| 9 | Harness library and general configuration | [`harness-library-configuration.md`](features/harness-library-configuration.md) | Reusable harness authoring: workflow, rubric, policies, stable memory controls | [Harness](../product/concept-model.md#harness), [Workflow model](../product/concept-model.md#workflow-model) | Placeholder |
+| 8 | Agent library and general configuration | `agent-library-configuration.md` | Reusable agent authoring: identity, persona and communication behavior, knowledge defaults, capabilities, evaluation defaults, revisions | [Agent](../product/concept-model.md#agent), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Deferred name |
+| 9 | Harness library and general configuration | `harness-library-configuration.md` | Reusable harness authoring: workflow, rubric, policies, stable memory controls | [Harness](../product/concept-model.md#harness), [Workflow model](../product/concept-model.md#workflow-model) | Deferred name |
 
 ## P2 — Next release
 
@@ -154,11 +154,11 @@ Author after the MVP validation slice works end to end. Aligns with [Next releas
 
 | Order | Specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
-| 10 | Interruptible voice interaction | [`voice-interaction-interruption.md`](features/voice-interaction-interruption.md) | Streaming voice, interruption, playback-confirmed continuity, auditable cancellation | [Voice interaction model](../product/concept-model.md#voice-interaction-model-product-level), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Placeholder |
-| 11 | Tool execution and permissions | [`tool-execution-permissions.md`](features/tool-execution-permissions.md) | Permitted tool execution with authorization, audit, and manifest recording | [Harness tools](../product/concept-model.md#harness), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Placeholder |
-| 12 | Workflow stage configuration | [`workflow-stage-configuration.md`](features/workflow-stage-configuration.md) | Configurable stages, transitions, and permitted actions beyond MVP workflow depth | [Workflow model](../product/concept-model.md#workflow-model), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Placeholder |
-| 13 | Harness snapshot comparison and restoration | [`harness-snapshots-comparison-restoration.md`](features/harness-snapshots-comparison-restoration.md) | Compare, restore, and roll out immutable harness snapshots | [Harness mutability and snapshots](../product/concept-model.md#harness-mutability-and-snapshots) | Placeholder |
-| 14 | Dynamic memory mode governance | [`memory-governance-dynamic-mode.md`](features/memory-governance-dynamic-mode.md) | Enable Dynamic memory mode with administrative policy controls | [Knowledge, memory, and learning artifacts](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Placeholder |
+| 10 | Interruptible voice interaction | `voice-interaction-interruption.md` | Streaming voice, interruption, playback-confirmed continuity, auditable cancellation | [Voice interaction model](../product/concept-model.md#voice-interaction-model-product-level), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Deferred name |
+| 11 | Tool execution and permissions | `tool-execution-permissions.md` | Permitted tool execution with authorization, audit, and manifest recording | [Harness tools](../product/concept-model.md#harness), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Deferred name |
+| 12 | Workflow stage configuration | `workflow-stage-configuration.md` | Configurable stages, transitions, and permitted actions beyond MVP workflow depth | [Workflow model](../product/concept-model.md#workflow-model), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Deferred name |
+| 13 | Harness snapshot comparison and restoration | `harness-snapshots-comparison-restoration.md` | Compare, restore, and roll out immutable harness snapshots | [Harness mutability and snapshots](../product/concept-model.md#harness-mutability-and-snapshots) | Deferred name |
+| 14 | Dynamic memory mode governance | `memory-governance-dynamic-mode.md` | Enable Dynamic memory mode with administrative policy controls | [Knowledge, memory, and learning artifacts](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | Deferred name |
 
 ## P3 — Later release
 
@@ -166,11 +166,11 @@ Author after P2 capabilities are approved. Aligns with [Later release](../produc
 
 | Order | Specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
-| 15 | Memory candidates and learning approval | [`memory-candidates-learning-approval.md`](features/memory-candidates-learning-approval.md) | Propose, review, and approve reusable learned artifacts | [Memory candidate](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Placeholder |
-| 16 | Harness improvement proposals | [`harness-improvement-proposals.md`](features/harness-improvement-proposals.md) | Controlled harness change proposals with review and rollout | [Harness change proposal](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Placeholder |
-| 17 | Shared multi-participant sessions | [`shared-multi-participant-sessions.md`](features/shared-multi-participant-sessions.md) | Multiple participants in one real-time session with attribution and privacy controls | [Group and cohort semantics](../product/concept-model.md#group-and-cohort-semantics), [Later release](../product/mvp-scope.md#later-release) | Placeholder |
-| 18 | Calibration and analytics | [`calibration-analytics.md`](features/calibration-analytics.md) | Calibration datasets and advanced outcome analytics | [Calibration example / dataset](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Placeholder |
-| 19 | Alternative activity deployment forms | [`activity-deployment-forms.md`](features/activity-deployment-forms.md) | Direct, embedded, and API-triggered activities beyond campaign form | [Activity](../product/concept-model.md#activity), [Later release](../product/mvp-scope.md#later-release) | Placeholder |
+| 15 | Memory candidates and learning approval | `memory-candidates-learning-approval.md` | Propose, review, and approve reusable learned artifacts | [Memory candidate](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Deferred name |
+| 16 | Harness improvement proposals | `harness-improvement-proposals.md` | Controlled harness change proposals with review and rollout | [Harness change proposal](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Deferred name |
+| 17 | Shared multi-participant sessions | `shared-multi-participant-sessions.md` | Multiple participants in one real-time session with attribution and privacy controls | [Group and cohort semantics](../product/concept-model.md#group-and-cohort-semantics), [Later release](../product/mvp-scope.md#later-release) | Deferred name |
+| 18 | Calibration and analytics | `calibration-analytics.md` | Calibration datasets and advanced outcome analytics | [Calibration example / dataset](../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../product/mvp-scope.md#later-release) | Deferred name |
+| 19 | Alternative activity deployment forms | `activity-deployment-forms.md` | Direct, embedded, and API-triggered activities beyond campaign form | [Activity](../product/concept-model.md#activity), [Later release](../product/mvp-scope.md#later-release) | Deferred name |
 
 ## Actor capabilities (reference)
 

@@ -78,7 +78,7 @@ feature specification.
 | Platform journey, information architecture, shared states, terminology, accessibility, and responsive baseline | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Immutable decision, preview, and **Result ready · Not released** handoff | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md#approved-handoff) |
 | Result envelope, Release transaction, authoritative Participant reads, notification, correction, lifecycle, and recovery | [Human review, Result, and Release contract](../../architecture/review-result-release-contract.md) |
-| SPA/server authority, authorization audit, and detailed MVP contracts | [MVP architecture](../../architecture/mvp-architecture.md), [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md), and [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) |
+| SPA/server authority, authorization audit, and detailed MVP contracts | [MVP architecture](../../architecture/mvp-architecture.md), [ADR-002](../../architecture/backend-module-architecture.md), [ADR-003](../../architecture/backend-module-architecture.md), and [ADR-009](../../architecture/mvp-architecture.md) |
 
 ## Scope and boundaries
 

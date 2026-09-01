@@ -10,7 +10,7 @@
 - Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-11 to freeze behaviorally material Agent Invocation/Decision policy; v0.3 approved 2026-08-11 to freeze optional Agent-requested next-timer replacement policy; v0.4 approved 2026-08-14 to freeze the P0-compatible Decision-output profile
 - Source: [Agent Invocation, Invocation Trigger, and Agent Decision](../../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Configuration precedence stack](../../product/concept-model.md#configuration-precedence-stack), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [Resolved execution manifest](../../product/concept-model.md#resolved-execution-manifest), [Session state and events](../../product/concept-model.md#session-state-and-events), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #2 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md); [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the relational primary and modular runtime topology; [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) governs selected infrastructure, provider defaults, and scoped credential/BYOK bindings; [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) governs the Agent Invocation/Decision fields and provenance; and [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) governs the optional next-timer replacement policy; [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) governs the P0-compatible Decision-output envelope. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
+- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/session-runtime-contract.md); [ADR-006](../../architecture/mvp-architecture.md) governs the relational primary and modular runtime topology; [ADR-008](../../operations/README.md) governs selected infrastructure, provider defaults, and scoped credential/BYOK bindings; [ADR-012](../../architecture/session-runtime-contract.md) governs the Agent Invocation/Decision fields and provenance; and [ADR-013](../../architecture/session-runtime-contract.md) governs the optional next-timer replacement policy; [ADR-014](../../architecture/session-runtime-contract.md) governs the P0-compatible Decision-output envelope. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
 
 Version 0.4 is **approved** and supersedes version 0.3 while preserving its
 previously approved configuration, manifest, Invocation/Decision, and next-timer
@@ -104,7 +104,8 @@ Permissions are action- and resource-scoped under the approved authorization con
 - Live conversation stages, pause, resume, completion, timing behavior, and participant examination, covered by [`session-text-lifecycle.md`](session-text-lifecycle.md).
 - Evidence semantics and evaluation generation, covered by [`evidence-evaluation.md`](evidence-evaluation.md).
 - Human review decisions and result release, covered by [`review-result-release.md`](review-result-release.md).
-- Tool execution behavior and tool-specific authorization, deferred to [`tool-execution-permissions.md`](tool-execution-permissions.md).
+- Tool execution behavior and tool-specific authorization, deferred in
+  [MVP scope](../../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp).
 - Dynamic memory and learning behavior.
 - Harness snapshot comparison, restoration, or rollout.
 - Shared multi-participant real-time sessions.
@@ -783,9 +784,9 @@ A reconstruction operation should be able to answer:
 ### Dependencies
 
 - The approved product semantics, this version 0.4 revision, text Session
-  lifecycle v0.5, [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
-  [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
-  and [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md)
+  lifecycle v0.5, [ADR-012](../../architecture/session-runtime-contract.md),
+  [ADR-013](../../architecture/session-runtime-contract.md),
+  and [ADR-014](../../architecture/session-runtime-contract.md)
   govern Invocation/Decision, next-timer, and P0 output-profile configuration
   and manifest implementation.
 
@@ -797,7 +798,7 @@ A reconstruction operation should be able to answer:
 - Evidence and evaluation consumers that accept the trusted configuration/manifest binding.
 - Append-only or equivalently tamper-evident audit/event storage with unambiguous sequence and UTC time.
 - A model-provider adapter contract capable of returning the required deployment/version identity.
-- [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) for canonical representation, digest/seal procedure, logical artifact separation, and source materialization; further architecture decisions remain required for storage layout, transaction/idempotency boundaries, runtime append sequencing, archival, and reconstruction.
+- [ADR-001](../../architecture/session-runtime-contract.md) for canonical representation, digest/seal procedure, logical artifact separation, and source materialization; further architecture decisions remain required for storage layout, transaction/idempotency boundaries, runtime append sequencing, archival, and reconstruction.
 
 ### Rollout
 
@@ -837,17 +838,17 @@ None. Questions `Q-1`–`Q-7` were decided on 2026-08-06 as recorded below. Prod
 
 ## Approved decision disposition
 
-The following table preserves the proposal and question history while linking each approved decision to its authoritative location. The cited requirements and sections govern behavior; [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs technical representation.
+The following table preserves the proposal and question history while linking each approved decision to its authoritative location. The cited requirements and sections govern behavior; [ADR-001](../../architecture/session-runtime-contract.md) governs technical representation.
 
 | Prior IDs | Approved disposition | Authoritative location |
 | --- | --- | --- |
-| `Q-1`, `PROP-6` | Use a versioned canonical JSON procedure and SHA-256 for configuration digests and terminal manifest seals. | [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) |
+| `Q-1`, `PROP-6` | Use a versioned canonical JSON procedure and SHA-256 for configuration digests and terminal manifest seals. | [ADR-001](../../architecture/session-runtime-contract.md) |
 | `Q-2`, `PROP-8` | Block a fairness-sensitive assessment when the model deployment has neither an immutable version nor an architecture-approved equivalent fingerprint. | `REQ-RSC-32`, `AC-RSC-9` |
-| `Q-3`, `PROP-1` | Maintain linked but independently identifiable logical configuration and manifest artifacts; physical co-location is permitted when their semantics and controls remain distinct. | [Logical records](#logical-records), `REQ-RSC-1`, `REQ-RSC-29`, [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) |
+| `Q-3`, `PROP-1` | Maintain linked but independently identifiable logical configuration and manifest artifacts; physical co-location is permitted when their semantics and controls remain distinct. | [Logical records](#logical-records), `REQ-RSC-1`, `REQ-RSC-29`, [ADR-001](../../architecture/session-runtime-contract.md) |
 | `Q-4`, `PROP-10` | Preserve an aborted-after-freeze configuration and manifest; the attempt-owning specification decides consumption and retry entitlement. | `REQ-RSC-27`, `AC-RSC-16`, [Dependencies](#dependencies) |
 | `Q-5`, `PROP-9` | Give reviewers and administrators an authorized readable summary; give participants only published rules and non-sensitive operational facts. | `REQ-RSC-38`–`REQ-RSC-40`, `AC-RSC-20`–`AC-RSC-22`, [UX and accessibility](#ux-and-accessibility) |
 | `Q-6` | Apply the governing retention, deletion, legal-hold, privacy, and result-lifecycle policies; preserve honest degraded or unverifiable status when required historical material is unavailable. This feature defines no independent duration. | `REQ-RSC-44`, `REQ-RSC-45`, `AC-RSC-18`, `AC-RSC-19`, [Security and privacy](#security-and-privacy) |
-| `Q-7` | Store normalized execution-effective values and immutable source references/digests; copy source content only when required for execution or reconstruction and permitted by data-minimization policy. | [Canonical effective configuration](#canonical-effective-configuration), [Runtime provenance](#runtime-provenance), [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) |
+| `Q-7` | Store normalized execution-effective values and immutable source references/digests; copy source content only when required for execution or reconstruction and permitted by data-minimization policy. | [Canonical effective configuration](#canonical-effective-configuration), [Runtime provenance](#runtime-provenance), [ADR-001](../../architecture/session-runtime-contract.md) |
 | `PROP-2` | Reject mutable-only references for behavior-affecting inputs. | `REQ-RSC-15`, `AC-RSC-7` |
 | `PROP-3` | Treat configuration freeze, initial manifest creation, trusted session binding, and required audit persistence as one atomic start boundary. | `REQ-RSC-23`–`REQ-RSC-25`, `AC-RSC-10` |
 | `PROP-4` | Prohibit lower-scope widening and ad hoc participant/request/session overrides of the assessment baseline. | `REQ-RSC-4`–`REQ-RSC-8`, `AC-RSC-2`, `AC-RSC-4`, `AC-RSC-5` |

@@ -76,7 +76,7 @@ feature specifications.
 | Platform journey, information architecture, terminology, accessibility, responsive, and protected-content baseline | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Evaluation locators, processing states, exact-source resolution, immutable completion, and review handoff | [Evidence and Evaluation execution contract](../../architecture/evaluation-execution-contract.md) |
 | Review-case expected versions, candidate staleness, revision schema, decision/Result transaction, and separate Release boundary | [Human review, Result, and Release contract](../../architecture/review-result-release-contract.md) |
-| SPA/server authority, service boundaries, and sensitive-content controls | [MVP architecture](../../architecture/mvp-architecture.md), [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md), and [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) |
+| SPA/server authority, service boundaries, and sensitive-content controls | [MVP architecture](../../architecture/mvp-architecture.md), [ADR-002](../../architecture/backend-module-architecture.md), [ADR-003](../../architecture/backend-module-architecture.md), and [ADR-009](../../architecture/mvp-architecture.md) |
 
 ## Scope and boundaries
 

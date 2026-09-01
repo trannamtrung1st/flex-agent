@@ -15,7 +15,7 @@ class CheckDocsCatalogTests(unittest.TestCase):
     def test_current_catalog_is_p0_only(self) -> None:
         self.assertEqual(list(check_docs.SPEC_CATALOG.keys()), ["P0"])
         self.assertEqual(len(check_docs.ALL_SPEC_FILES), 7)
-        self.assertEqual(len(check_docs.HISTORICAL_PLACEHOLDER_SPECS), 12)
+        self.assertEqual(len(check_docs.HISTORICAL_PLACEHOLDER_SPECS), 0)
 
     def test_ui_catalog_does_not_require_retirement_ledger(self) -> None:
         self.assertEqual(check_docs.check_ui_current_catalog(), [])

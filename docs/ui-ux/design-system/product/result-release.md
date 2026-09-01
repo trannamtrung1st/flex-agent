@@ -1,7 +1,7 @@
 # Result and Release
 
 This pattern implements shared presentation from the approved
-[Result and Release interaction specification](../../result-release.md). That
+[Result and Release interaction specification](../../flows/result-release.md). That
 specification governs behavior; this module does not authorize Release or
 redefine Result construction, visibility, correction, or notification.
 

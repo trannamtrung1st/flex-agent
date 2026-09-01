@@ -216,10 +216,10 @@ are unchanged.
 ## Related decisions and specifications
 
 - [MVP architecture](../architecture/mvp-architecture.md)
-- [ADR-002: Authorization enforcement and delegation](../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md)
-- [ADR-006: MVP architecture baseline and evolution](../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md)
-- [ADR-007: OSS-first self-hostable deployment](../architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md)
-- [ADR-008: Bounded OSS component set and provider/deployment defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md)
+- [ADR-002: Authorization enforcement and delegation](../architecture/backend-module-architecture.md)
+- [ADR-006: MVP architecture baseline and evolution](../architecture/mvp-architecture.md)
+- [ADR-007: OSS-first self-hostable deployment](../architecture/mvp-architecture.md)
+- [ADR-008: Bounded OSS component set and provider/deployment defaults](../operations/README.md)
 - [Authorization and resource isolation](features/auth-resource-isolation.md)
 - [Submission and Attempts](features/submission-attempts.md)
 - [Text Session lifecycle](features/session-text-lifecycle.md)

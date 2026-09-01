@@ -56,7 +56,7 @@ or a recoverable unactivated draft with an honest outcome.
 | Platform journey and information architecture | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Application-session defaults | [MVP operational defaults](../../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults) |
 | SPA/server authority boundary | [MVP architecture](../../architecture/mvp-architecture.md#approved-mvp-realization-decisions), especially `AR-DEC-12` |
-| Baseline identity, digest, atomicity, idempotency, and recovery | [ADR-004](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) |
+| Baseline identity, digest, atomicity, idempotency, and recovery | [ADR-004](../../architecture/mvp-architecture.md) |
 
 ## Scope and boundaries
 
@@ -886,4 +886,4 @@ than implemented as an implicit choice.
 - [Authorization and resource isolation](../../requirements/features/auth-resource-isolation.md)
 - [Flex Agent design system](../design-system/README.md) (Approved v1.0)
 - [MVP architecture](../../architecture/mvp-architecture.md)
-- [ADR-004: Assessment activation baseline and atomicity](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md)
+- [ADR-004: Assessment activation baseline and atomicity](../../architecture/mvp-architecture.md)

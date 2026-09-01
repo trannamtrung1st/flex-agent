@@ -13,7 +13,7 @@ Contribution and verification constraints (SDK pins, locked restore, Grate
 migrations, xUnit/Testcontainers/Playwright, OCI publish, supply-chain
 locks, module import rules) are current in this document and
 [`build/toolchain.json`](../../build/toolchain.json). Historical ADR-010 text
-may remain on disk until Phase 5 and is not the governing catalog.
+is recoverable from Git and is not the governing catalog.
 
 ## Prerequisites
 
@@ -94,7 +94,7 @@ cd web && pnpm dev
 
 ### OIDC / authenticated browser
 
-Canonical Development/Testing origin is `http://localhost:18080` ([STACK-DEC-27](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)). Contract, case IDs, and residuals: [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md).
+Canonical Development/Testing origin is `http://localhost:18080` ([STACK-DEC-27](workspace.md)). Contract, case IDs, and residuals: [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md).
 
 Before `compose:up` or starting Vite, [attach to a running local origin](development-harness.md#attach-to-a-running-local-origin). `pnpm compose:status` is the `:18080` probe. The commands below start a **new** stack; `compose:up` is not idempotent.
 
@@ -245,7 +245,7 @@ deploy them.
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
 - [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`) on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
-- [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#oci-platform-certification))
+- [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](workspace.md))
 
 ## Gate coverage
 

@@ -11,9 +11,8 @@ concept definitions remain in the [concept model](../product/concept-model.md).
 
 **Approved.** Current architecture documents and focused runtime contracts
 own still-valid architecture and code-contract constraints extracted from
-ADR-001 through ADR-021. ADR files and the [ADR catalog](decisions/README.md)
-remain on disk until Phase 5 as historical provenance. They are **not** the
-current architecture catalog.
+ADR-001 through ADR-021. Historical ADR files are recoverable from Git and
+are **not** the current architecture catalog.
 
 Current owners:
 
@@ -43,7 +42,6 @@ contracts.
 | Need | Start here |
 | --- | --- |
 | Review the end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
-| Review historical ADR provenance (not current catalog) | [Architecture decisions](decisions/README.md) |
 | Review participant-visible Agent-response streaming | [Text Session runtime contract](session-runtime-contract.md) |
 | Review the structured Agent boundary | [Text Session runtime contract](session-runtime-contract.md) |
 | Review the next-timer replacement boundary | [Text Session runtime contract](session-runtime-contract.md) |
@@ -87,11 +85,9 @@ Begin architecture documentation when:
 
 ## Relationship to requirements and decisions
 
-Architecture documents explain how requirements are realized. Until Phase 4
-cutover and Phase 5 ADR removal, irreversible or cross-cutting choices also
-remain inspectable as [architecture decisions](decisions/README.md). Current
-architecture and code-contract documents are the live owners for
-architecture-owned and code-contract extraction rows.
+Architecture documents explain how requirements are realized. Current
+architecture and code-contract documents are the live owners. Historical ADR
+text is recoverable from Git.
 
 ## Core invariants
 
@@ -110,4 +106,3 @@ isolation.
 - [MVP architecture](mvp-architecture.md)
 - [Frontend architecture](frontend-architecture.md)
 - [Backend module architecture](backend-module-architecture.md)
-- [Architecture decisions](decisions/README.md)

@@ -22,8 +22,7 @@ integrity, atomic Attempt/Session start and Submission-version binding,
 durable-before-display streaming, structured Agent Invocation/Decision,
 next-timer replacement, the P0 Decision-output envelope, and Worker
 timer-lane plus Invocation-delegation runtime rules extracted from ADR-001,
-ADR-005, and ADR-009/011–016. ADR files remain until Phase 5. This Phase 3
-rewrite is recoverable beside the previous Git version.
+ADR-005, and ADR-009/011–016. Historical ADR files are recoverable from Git.
 
 ## Purpose and audience
 
@@ -72,18 +71,18 @@ product, model provider, or SSE library.
   [resolved Session configuration](../requirements/features/resolved-session-configuration.md),
   [Submission and Attempts](../requirements/features/submission-attempts.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md),
-  [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md),
-  [ADR-003](decisions/ADR-003-authorization-audit-persistence.md),
-  [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), and
-  [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md),
-  [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and
-  [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
+- [ADR-001](session-runtime-contract.md),
+  [ADR-002](backend-module-architecture.md),
+  [ADR-003](backend-module-architecture.md),
+  [ADR-005](session-runtime-contract.md), and
+  [ADR-006](mvp-architecture.md),
+  [ADR-008](../operations/README.md), and
+  [ADR-009](mvp-architecture.md).
 - Approved [MVP architecture](mvp-architecture.md), especially `AR-DEC-3`,
   `AR-DEC-4`, `AR-DEC-7`, and its ordering and durable-work rules.
-- Approved [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
+- Approved [ADR-012](session-runtime-contract.md)
   for the provider-neutral Invocation/Decision boundary.
-- Approved [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md)
+- Approved [ADR-013](session-runtime-contract.md)
   for optional one-lane next-timer replacement.
 
 ## Scope
@@ -127,7 +126,7 @@ product, model provider, or SSE library.
    cache are never authoritative for Session state, identity, timing, or order.
 3. Every protected operation derives the complete Organization, Activity,
    Participant, Attempt, and Session chain from trusted records and uses
-   [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md).
+   [ADR-002](backend-module-architecture.md).
 4. External model calls occur outside database transactions and only through
    bounded durable work under a service identity and durable delegation.
 5. The Session uses its immutable resolved configuration and exact bound
@@ -664,8 +663,3 @@ downstream artifacts must conform:
 - [MVP architecture](mvp-architecture.md)
 - [Evidence and Evaluation execution contract](evaluation-execution-contract.md)
 - [Human review, Result, and Release contract](review-result-release-contract.md)
-- [Architecture decisions](decisions/README.md)
-- [ADR-011: Participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md)
-- [ADR-012: Structured Agent Invocation and Decision boundary](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
-- [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md)
-- [ADR-014: Agent Decision output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md)

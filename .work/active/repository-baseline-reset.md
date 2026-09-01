@@ -769,19 +769,19 @@ present only until the deletion manifest is verified.
 
 ## Phase 5 - Remove historical and obsolete surfaces
 
-- [>] Recheck each deletion candidate against its extraction target and
+- [x] Recheck each deletion candidate against its extraction target and
   surviving operational/security/compatibility evidence immediately before
   removal.
-- [ ] Remove superseded ADR narrative, UI retirement/change narrative,
+- [x] Remove superseded ADR narrative, UI retirement/change narrative,
   placeholder scaffolds, obsolete/completed/blocked work, abandoned or absorbed
   proposals, stale instructions, and qualification narrative only where the
   classification proves no required evidence is lost.
-- [ ] Preserve applied migrations, compatibility fixtures/readers, current
+- [x] Preserve applied migrations, compatibility fixtures/readers, current
   operational qualification evidence, security verification, and runtime audit
   requirements even when they contain historical identities or versions.
-- [ ] Reconfirm `text-interaction-controller-contract.md` as explicitly
+- [x] Reconfirm `text-interaction-controller-contract.md` as explicitly
   approved planned work or remove it after deferred scope is preserved.
-- [ ] Produce the exact final deletion manifest with target/reason/evidence
+- [x] Produce the exact final deletion manifest with target/reason/evidence
   columns and run stale-reference/authority scans.
 
 ### Phase 5 exit gate
@@ -1496,6 +1496,49 @@ is actually a hidden requirement.
 | Validation and independent-review summary | pending |
 | Required follow-up or cleanup | Owner delegated intermediate approval on 2026-09-01 and will review the final result |
 
+## Phase 5 execution record
+
+Recorded 2026-09-01 on `item-d8ff5629ae40`. Recover every path from Git at the
+parent of the Phase 5 checkpoint commit. This reset task was not deleted.
+
+### Product Lead decision (Interaction Controller)
+
+No Product Lead reconfirmation occurred in this run. Gate A interim default
+applied: deferred Interaction Controller scope stays in product and UI docs;
+`.work/active/text-interaction-controller-contract.md` and
+`.work/resources/text-interaction-controller-proposal.md` were deleted.
+
+### Recheck dispositions applied
+
+| Path or set | Target | Reason | Retained evidence | Verification |
+| --- | --- | --- | --- | --- |
+| 12 P1–P3 placeholder specs under `docs/requirements/features/` (Gate A §5.1) | Unique sentences already in `mvp-scope.md`; catalogs name deferred files without links | Not approved requirements | Git; MVP scope deferred bullets including `PROP-AGENT-1` | `check_docs.py` P0-only; no unlisted specs |
+| `docs/architecture/decisions/**` (ADR-001–021 + README) | Current architecture/ops/workspace owners after inbound rewrite | Historical alternatives; live constraints already extracted | Git; ADR identity tokens remain in applied migrations listed below | `check_docs.py` links; no live `architecture/decisions` tree |
+| `docs/ui-ux/retired-authority.md` | Git `eb9c398` retired versions | Ledger is not current UI authority | Git | UI README has no `retired-authority.md`; `check_docs.py` |
+| `docs/ui-ux/design-system/change-record.md` | DS module metadata + Git | Provenance only | Git | DS README structure without the file |
+| Six original `docs/ui-ux/{activity-campaign-journey,assessment-campaign-setup,submission-attempt,text-session,evidence-evaluation-human-review,result-release}.md` | Distinct owners under `docs/ui-ux/flows/` | Duplicates of current catalog | Git | Journey links retargeted; `check_docs.py` |
+| 52 completed `.work/active` tasks (Gate A §5.3 names) | Durable truth already in specs/code | Historical completed work on the active surface | Git | `.work/active/` is this reset only |
+| `.work/active/impeccable-frontend-rebuild.md` | Skills + DS v1.0 | Blocked superseded predecessor | Git | Named file gone |
+| `.work/resources/multi-channel-agent-output-proposal.md` | Approved product/requirements/architecture | Absorbed proposal | Git | File gone |
+| `TODO.md` | Not a spec | Personal scratch; interaction-controller line is not planned work | Git | File gone |
+| Seven OpenRouter `synthetic-development-phase*.md` (Gate A §5.2) | **Retain all seven** | Current qualification evidence; OQ interim default retain-all | Live files + current profile | Files still present |
+| Applied `database/migrations/up/**` | **Retain** | Immutable compatibility | Those files | Not edited |
+| OpenAI-compatible fixtures/readers | **Retain** | Wire compatibility | contracts/examples | Not edited |
+
+### Immutable ADR labels (not rewritten)
+
+Allowlisted as non-authoritative provenance inside applied migrations (grep
+`ADR-0` in `database/migrations/up/`): `0001`, `0002`, `0003`, `0004`,
+`0005`, `0022`, `0023`, `0025`. No remaining `per ADR-` / `governed by ADR-`
+tokens in `src/` or `contracts/` after Phase 4 comment/schema edits.
+
+### Validators this leaf
+
+- `python3 scripts/check_docs.py` — passed
+- `python3 scripts/impeccable_context.py generate` then `check` — passed
+- `python3 -m unittest discover -s scripts -p 'test_*.py'` — 18 OK
+- Playwright visual verification — not applicable (no UI behavior change)
+
 # Current state
 
 Phase 0 freeze is recorded on 2026-09-01 against live Git, not the 2026-08-31
@@ -1513,11 +1556,10 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 5 verified deletions (`item-d8ff5629ae40`) after Phase 4
-cutover. The snapshot-first model is effective. Historical ADR files,
-placeholders, retirement/change-record, original journey files, and completed
-tasks remain on disk until rechecked deletion. Do not weaken TDD, review,
-security, Playwright, or runtime-audit rules.
+Current action: Phase 5 deletions are recorded below. Next leaf is Phase 6
+validate/reconcile (`item-0d7215912a29`). Do not mark this reset complete.
+Do not delete this task. Do not weaken TDD, review, security, Playwright, or
+runtime-audit rules.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1556,10 +1598,11 @@ Do not treat those Status values as intended product meaning.
   stable traceability, or review boundaries; move shared application
   architecture into `docs/ui-ux/README.md`. Rationale: minimizes overlap
   without forcing an arbitrary file-count target.
-- **Open question - Interaction Controller plan priority. Interim default:**
-  retain it as planned only if the Product Lead explicitly reconfirms it during
-  Phase 5; otherwise preserve deferred scope in product docs and delete the
-  task. Rationale: a proposal is not genuine planned work by age alone.
+- **Open question - Interaction Controller plan priority. Decision (Phase 5):**
+  No Product Lead reconfirmation in this run. Applied Gate A interim default:
+  deferred scope remains in `docs/product/mvp-scope.md`,
+  `docs/product/concept-model.md`, and `docs/ui-ux/README.md`; the planned
+  task and proposal resource were removed. The controller is not implemented.
 - **Open question - current OpenRouter evidence retention. Decision owner:**
   Operations/Architecture Lead. Gate A persist accepted §5.2 named-file
   working classification: retain-until-Phase-3/5 recheck for each of the
@@ -1579,23 +1622,23 @@ Do not treat those Status values as intended product meaning.
 | Check | Status | Evidence required after execution |
 | --- | --- | --- |
 | Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed Phase 0 freeze | 2026-09-01 freeze: exit 0, `Documentation validation passed.` |
-| New documentation validator and link/fragment scan | passed Phase 4 | 2026-09-01 cutover: `python3 scripts/check_docs.py` exit 0 against P0-only catalog |
-| Markdown lint | pending | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
-| Generated adapter consistency | passed Phase 0 freeze | 2026-09-01: `python3 scripts/impeccable_context.py check` exit 0; `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py' -v` 15 tests OK |
-| Historical-authority scan | pending | No live docs/harness requirement for ADRs, supersession chains, retirement/change records, migration diaries, or completed-task retention; allowlisted immutable artifacts reported separately |
-| Path and terminology scan | pending | No stale deleted doc path, `web-legacy` current claim, old UI authority, or obsolete terminology remains |
-| Requirements integrity | pending | Seven P0 specs/cataloged current behavior, unique `REQ-*`/`AC-*`, no scope loss, no placeholder files required |
-| Architecture extraction audit | pending | ADR-001..021 extraction matrix independently reviewed; every current constraint has one canonical target before deletion |
-| Operational/security/compatibility evidence audit | pending | Every qualification, runbook, immutable migration/fixture, security verification, and runtime-audit artifact is classified; retained evidence remains directly usable after narrative cleanup |
-| Current-state audit | recorded Phase 3 ops | `docs/current-state.md` 2026-09-01 inventory + 70 derived P0 status links; independent Gate B still pending |
-| Work hygiene | pending | `.work/active/` contains only in-progress or explicitly planned tasks; no completed/blocked/cancelled/superseded files or duplicate proposal resources |
-| Skill/rule parity | pending | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
-| UI pattern-adoption governance | pending | Applicable guidance requires a recorded pre-build classification; sampled UI tasks select approved Design System modules, a matching accepted production-page donor, and a Component Deck specimen, use a Lab journey only when the family lacks a production donor, or document, shape, approve, and establish a genuine new reusable pattern before production use |
-| Focused script tests | pending | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'`, docs-validator tests added by the reset, and frontend-isolation script tests pass |
-| Frontend verification | pending | `pnpm verify:web` passes; Design Lab/production isolation and approved reference specimens remain intact |
-| .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` (or current equivalents) pass |
-| Build and delivery checks | pending | `pnpm build`, applicable supply-chain/OCI checks, and path-sensitive build metadata pass proportionate to changed files |
-| Authenticated browser verification | pending | Run `pnpm verify:oidc` if reset changes any routed docs-derived UI, build/profile path, or authenticated-browser contract; otherwise record reviewed not-applicable rationale |
+| New documentation validator and link/fragment scan | passed Phase 5 | 2026-09-01: `python3 scripts/check_docs.py` exit 0 after deletions; P0-only catalog; no placeholder allowlist |
+| Generated adapter consistency | passed Phase 5 | `python3 scripts/impeccable_context.py generate` then `check` exit 0 |
+| Historical-authority scan | passed Phase 5 | `check_docs.py` stale-authority patterns with empty allowlist; no live ADR catalog/retirement/change-record files |
+| Path and terminology scan | passed Phase 5 (docs) | `check_docs.py` link scan exit 0; remaining ADR identity tokens in applied migrations reported in Phase 5 record |
+| Requirements integrity | passed Phase 5 | Seven P0 specs remain; unique `REQ-*`/`AC-*`; placeholder files deleted; deferred names in MVP scope |
+| Work hygiene | passed Phase 5 | `.work/active/` contains only this reset task; completed/blocked/planned extras and duplicate proposals removed |
+| Focused script tests | passed Phase 5 | `python3 -m unittest discover -s scripts -p 'test_*.py'` 18 tests OK |
+| Markdown lint | pending Phase 6 | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
+| Architecture extraction audit | pending Gate B | ADR-001..021 extraction matrix independently reviewed; current owners live without ADR files |
+| Operational/security/compatibility evidence audit | pending Phase 6 / Gate B | Qualification, runbook, immutable migration/fixture, security verification, and runtime-audit artifacts remain; OpenRouter seven phase files retained |
+| Current-state audit | recorded Phase 5 | `docs/current-state.md` updated after deletions; independent Gate B still pending |
+| Skill/rule parity | pending Phase 6 | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
+| UI pattern-adoption governance | pending Phase 6 | Applicable guidance requires a recorded pre-build classification |
+| Frontend verification | pending | `pnpm verify:web` if required; this leaf is source-only docs/work hygiene |
+| .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` if required; this leaf did not change runtime code |
+| Build and delivery checks | pending | proportionate to changed files |
+| Authenticated browser verification | not applicable this leaf | No rendered UI behavior change; Playwright screenshots not claimed |
 | Delegated Gate A | passed 2026-09-01 | Copied persist `review-focused-output-01` rev 11: `approved` / verification `verified`; scope `item-48819dbb36d9`; loop id `review-focused-output-01`; reviewer `tdp-session-7a472fad0d97`; reviewed Git `ceb2b5565e31744c2daef6bdd2a09945a24a7cea`. Producer did not author the respond. |
 | Independent cross-concern review | pending | Product/requirements, architecture, UI/UX, security/privacy, operations, documentation, tester/process findings resolved |
 | Delegated Gate B | pending | Independent reviewer acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
@@ -1632,9 +1675,9 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 5 verified deletions
-  (`item-d8ff5629ae40`). Phase 4 cutover made the snapshot-first catalog and
-  validators effective; historical sources remain until recheck.
+- Current execution blocker: none. Next leaf is Phase 6 validate/reconcile
+  (`item-0d7215912a29`). Phase 5 removed historical surfaces per the final
+  deletion manifest; this reset task remains.
 
 # Completion
 

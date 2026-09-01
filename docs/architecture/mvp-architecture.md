@@ -18,23 +18,24 @@ This document is **Approved** architecture authority. It does
 not override product documents or feature specifications. Requirements govern
 observable behavior. This document and the focused runtime contracts own
 architecture-owned and code-contract constraints extracted from ADR-001
-through ADR-021. ADR files remain present until Phase 5 and are not the
-current architecture catalog. [MVP operational
+through ADR-021. Historical ADR files are recoverable from Git and are not
+the current architecture catalog. [MVP operational
 defaults](../requirements/mvp-operational-defaults.md) govern intake,
 authentication-session, lifecycle, and recovery defaults. Evaluation and
 Review/Release realization live in their contracts; Session publication,
 Invocation/Decision, next-timer, and the P0 output envelope live in the
 [text Session runtime contract](session-runtime-contract.md). OSS component
-and provider-profile defaults remain in the ADR catalog until the operations
-leaf applies those rows. Compatibility evidence and remaining delivery
-artifacts retain their stated owners. The model-provider architecture is
-model-neutral; deployment-managed profiles and Organization BYOK are supported
-without making a model part of the product identity, while Organization model
-endpoints remain a separately gated extension seam rather than an MVP
-requirement. Optional LGTM is development-only, operator-pulled, and does not
-block MVP or production architecture. Application stack facts (.NET 10/ASP.NET
-Core, React/Vite, Npgsql/Dapper, Grate) are current architecture constraints
-here; workspace and toolchain verification rows wait for Phase 4.
+and provider-profile defaults live in [operations](../operations/README.md).
+Compatibility evidence and remaining delivery artifacts retain their stated
+owners. The model-provider architecture is model-neutral; deployment-managed
+profiles and Organization BYOK are supported without making a model part of
+the product identity, while Organization model endpoints remain a separately
+gated extension seam rather than an MVP requirement. Optional LGTM is
+development-only, operator-pulled, and does not block MVP or production
+architecture. Application stack facts (.NET 10/ASP.NET Core, React/Vite,
+Npgsql/Dapper, Grate) are current architecture constraints here; workspace
+and toolchain verification live in
+[Workspace development](../contributing/workspace.md).
 
 ## Purpose and audience
 
@@ -74,9 +75,8 @@ verification owners.
 
 ### Current constraint owners (architecture and code-contract)
 
-ADR files remain in `decisions/` until Phase 5. This table states the live
-owner after Phase 3 architecture extraction. Operations, contribution, and
-verification rows are recorded only; those files are not edited on this leaf.
+This table states the live owner after ADR extraction. Historical ADR files
+are recoverable from Git.
 
 | ADR | Still-valid constraint | Current owner this leaf |
 | --- | --- | --- |
@@ -331,7 +331,7 @@ A later invitation, membership, actor-administration, or provider-provisioning
 journey must receive approved product and UI/UX requirements and may use a
 Keycloak administration adapter; it does not justify a second module with
 overlapping identity or authorization authority. See `STACK-DEC-26` and
-`STACK-DEC-27` in [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md).
+`STACK-DEC-27` in [ADR-010](../contributing/workspace.md).
 
 ### Optional caching boundary
 
@@ -350,7 +350,7 @@ and an architecture update naming the selected uses.
 ## OSS-first and on-premises portability
 
 Under `AR-DEC-17`, `AR-DEC-18`, and
-[ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), the reference
+[ADR-007](mvp-architecture.md), the reference
 deployment is the self-hosted path, not a cloud-provider-specific topology.
 
 - The full MVP must run without a public cloud account or mandatory proprietary
@@ -802,7 +802,7 @@ or terminal state.
 
 This section does not define interaction design. It identifies authoritative
 state that the architecture must expose so the approved
-[Activity/Campaign journey](../ui-ux/activity-campaign-journey.md) and its
+[Activity/Campaign journey](../ui-ux/flows/activity-campaign-journey.md) and its
 downstream interaction specifications can cover the required journeys without
 client-side inference.
 
@@ -947,7 +947,7 @@ requirement implemented.
 | `Q-ARCH-1` | Use the modular monolith and shared relational primary defined by `AR-DEC-1` and `AR-DEC-2`. |
 | `Q-ARCH-2` | Use the database-backed work table and transactional outbox in `AR-DEC-3`; add a broker only after measured evidence and an architecture update. |
 | `Q-ARCH-3` | Use request/response commands plus SSE, with bounded polling fallback, as defined by `AR-DEC-4`. |
-| `Q-ARCH-4` | Use the private validation/quarantine/immutable artifact pattern in `AR-DEC-5`, the policy-controlled scanner adapter in [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and the approved intake defaults in `AR-DEC-19`. |
+| `Q-ARCH-4` | Use the private validation/quarantine/immutable artifact pattern in `AR-DEC-5`, the policy-controlled scanner adapter in [ADR-008](../operations/README.md), and the approved intake defaults in `AR-DEC-19`. |
 | `Q-ARCH-5` | Use the extensible provider-neutral OIDC and API-server application-session boundary in `AR-DEC-6`, Keycloak as selected by ADR-008, and the approved session defaults in `AR-DEC-20`. |
 | `Q-ARCH-6` | Use the restricted deterministic-evaluator worker boundary in `AR-DEC-8`; stronger future code/Agent isolation is deferred under `AR-DEC-16`. |
 | `Q-ARCH-7` | Use the versioned fail-closed lifecycle resolver in `AR-DEC-10` and the approved default policy matrix in `AR-DEC-21`. |
@@ -957,7 +957,7 @@ requirement implemented.
 | `Q-ARCH-11` | Use the approved OIDC flow, application-session, MFA, and revocation behavior in `AR-DEC-20`. |
 | `Q-ARCH-12` | Use the approved protected-record lifecycle matrix in `AR-DEC-21`. |
 | `Q-ARCH-13` | Use encrypted secondary recovery copies in a separate failure domain or region within the same approved jurisdiction, as defined by `AR-DEC-21`. |
-| `Q-ARCH-14` | Use the bounded component families, adapter boundaries, external operator responsibilities, and evidence gates approved in [ADR-008](decisions/ADR-008-bounded-oss-component-set.md). |
+| `Q-ARCH-14` | Use the bounded component families, adapter boundaries, external operator responsibilities, and evidence gates approved in [ADR-008](../operations/README.md). |
 | `Q-ARCH-15` | Use Docker Engine and Docker Compose for local/CI and the synthetic-data-only single-host evaluation pilot; keep the production-pilot candidate orchestrator-neutral and defer Kubernetes/`kind` as defined by ADR-008. |
 
 ## Remaining architecture and delivery work
@@ -971,7 +971,7 @@ requirement implemented.
 | Before authentication implementation | Pass ADR-008's Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
 | Before model-provider implementation | Implement the provider-neutral adapter, provider-profile resolver, and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, immutable provider/model identity, capability matching, and fail-closed no-fallback behavior. | The approved external target is one vendor-neutral OpenAI-compatible adapter, not Direct OpenAI or a product-default provider/model. Deterministic migration and review may complete without a selected live endpoint, but the adapter remains default-off. Each enabled deployment-managed, Organization-hosted, self-hosted, managed, or external profile must separately pass ADR-008's applicable quality, privacy, security, identity, capacity, license, and operational gates before real use. |
 | Before enabling an Organization-owned model endpoint | Install and allowlist an exact OpenAI-compatible or approved native adapter profile and operator-approved endpoint binding; test canonical origin/base path, DNS resolution and rebinding, private/link-local/metadata destinations, redirects, TLS trust, egress, endpoint ownership, credential isolation, immutable identity, capability compatibility, quotas, failure behavior, and every cross-Organization or silent-fallback case. | Operator-installed Organization-hosted and on-premises endpoints are approved compatibility targets, but private routing remains disabled until this destination-policy gate passes. Organization self-service endpoint entry or executable-plugin installation remains deferred beyond MVP acceptance and requires a feature specification, threat model, and ADR. |
-| Before frontend implementation | Apply the approved [Activity/Campaign journey](../ui-ux/activity-campaign-journey.md), [assessment Campaign setup interaction specification](../ui-ux/assessment-campaign-setup.md), [Submission and Attempt interaction specification](../ui-ux/submission-attempt.md), [Text Session interaction specification](../ui-ux/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md), [Result and Release interaction specification](../ui-ux/result-release.md), and shared [design system](../ui-ux/design-system/README.md); then complete frontend verification. | The platform IA, P0 journey, all five P0 surface interaction specifications, and design-system v1.0 (Shipboard Terminal) are approved. Implementation and verification remain. `AR-DEC-12` defines authority, not visual interaction. [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md) and the [frontend architecture](frontend-architecture.md) guide define SPA Query, form, icon, and transport ownership without changing that authority or the Session runtime contract. |
+| Before frontend implementation | Apply the approved [Activity/Campaign journey](../ui-ux/flows/activity-campaign-journey.md), [assessment Campaign setup interaction specification](../ui-ux/flows/assessment-campaign-setup.md), [Submission and Attempt interaction specification](../ui-ux/flows/submission-attempt.md), [Text Session interaction specification](../ui-ux/flows/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/flows/evidence-evaluation-human-review.md), [Result and Release interaction specification](../ui-ux/flows/result-release.md), and shared [design system](../ui-ux/design-system/README.md); then complete frontend verification. | The platform IA, P0 journey, all five P0 surface interaction specifications, and design-system v1.0 (Shipboard Terminal) are approved. Implementation and verification remain. `AR-DEC-12` defines authority, not visual interaction. [ADR-019](frontend-architecture.md) and the [frontend architecture](frontend-architecture.md) guide define SPA Query, form, icon, and transport ownership without changing that authority or the Session runtime contract. |
 | Before scaffold acceptance | Pass ADR-010's runtime, schema, RFC 8785, HTTP, PostgreSQL/Grate, module-boundary, supply-chain, and operability gates. | The stack and tooling direction are approved, including `JsonSchema.Net` and the separate vendored canonicalization project; exact version/source pins and executable compatibility evidence remain blocking for scaffold acceptance. |
 | Before implementation acceptance | Publish ADR-001/ADR-004 conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
 | Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, model-provider privacy and credential-isolation controls, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain production-pilot blockers. The single-host evaluation pilot is synthetic-data-only and cannot waive these gates. |
@@ -1049,7 +1049,6 @@ does not mark any P0 requirement implemented or production-ready.
 ## Related documents
 
 - [Architecture documentation](README.md)
-- [Architecture decisions](decisions/README.md)
 - [MVP operational defaults](../requirements/mvp-operational-defaults.md)
 - [Documentation authority by concern](../README.md#authority-by-concern)
 - [UI/UX documentation](../ui-ux/README.md)

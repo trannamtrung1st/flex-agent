@@ -5,12 +5,9 @@ Home for Flex Agent feature specifications.
 ## Status
 
 **Seven P0 specifications are Approved** after the Phase 4 governance cutover.
-`REQ-*` and `AC-*` identifiers are unchanged.
-[`resolved-session-configuration.md`](resolved-session-configuration.md) and
-[`session-text-lifecycle.md`](session-text-lifecycle.md) include the
-P0-compatible Agent Decision output envelope. P1–P3 placeholder files may
-remain on disk until Phase 5; they are **not** current catalog members and do
-not govern behavior.
+`REQ-*` and `AC-*` identifiers are unchanged. Deferred P1–P3 names live in
+[MVP scope](../../product/mvp-scope.md). They are **not** current catalog
+members and do not govern behavior.
 
 ## Purpose
 
@@ -22,8 +19,8 @@ Each feature spec governs one bounded, observable product outcome. Specs use the
 | --- | --- | --- |
 | P0 — MVP validation slice | 7 | [P0 spec files](#p0-spec-files) |
 
-Deferred P1–P3 names live in [MVP scope](../../product/mvp-scope.md). Placeholder
-files under this directory are not current catalog entries.
+Deferred P1–P3 names live in [MVP scope](../../product/mvp-scope.md). There are
+no placeholder specification files under this directory.
 
 Full catalog with boundaries and product sources: [Requirements hub — Feature catalog overview](../README.md#feature-catalog-overview).
 
@@ -74,30 +71,30 @@ Author in this order:
 
 ## P1 spec files
 
-| Order | File | Governs |
+| Order | Name | Governs |
 | --- | --- | --- |
-| 8 | [`agent-library-configuration.md`](agent-library-configuration.md) | Reusable Agent identity, persona, communication behavior, and revision authoring beyond assessment-required selection |
-| 9 | [`harness-library-configuration.md`](harness-library-configuration.md) | Reusable harness authoring beyond assessment-required selection |
+| 8 | `agent-library-configuration.md` (deferred) | Reusable Agent identity, persona, communication behavior, and revision authoring beyond assessment-required selection |
+| 9 | `harness-library-configuration.md` (deferred) | Reusable harness authoring beyond assessment-required selection |
 
 ## P2 spec files
 
-| Order | File | Governs |
+| Order | Name | Governs |
 | --- | --- | --- |
-| 10 | [`voice-interaction-interruption.md`](voice-interaction-interruption.md) | Interruptible streaming voice with playback-confirmed continuity |
-| 11 | [`tool-execution-permissions.md`](tool-execution-permissions.md) | Permitted tool execution with authorization and audit |
-| 12 | [`workflow-stage-configuration.md`](workflow-stage-configuration.md) | Configurable workflow stages and transitions |
-| 13 | [`harness-snapshots-comparison-restoration.md`](harness-snapshots-comparison-restoration.md) | Harness snapshot comparison, restoration, and rollout |
-| 14 | [`memory-governance-dynamic-mode.md`](memory-governance-dynamic-mode.md) | Dynamic memory mode with administrative policy controls |
+| 10 | `voice-interaction-interruption.md` (deferred) | Interruptible streaming voice with playback-confirmed continuity |
+| 11 | `tool-execution-permissions.md` (deferred) | Permitted tool execution with authorization and audit |
+| 12 | `workflow-stage-configuration.md` (deferred) | Configurable workflow stages and transitions |
+| 13 | `harness-snapshots-comparison-restoration.md` (deferred) | Harness snapshot comparison, restoration, and rollout |
+| 14 | `memory-governance-dynamic-mode.md` (deferred) | Dynamic memory mode with administrative policy controls |
 
 ## P3 spec files
 
-| Order | File | Governs |
+| Order | Name | Governs |
 | --- | --- | --- |
-| 15 | [`memory-candidates-learning-approval.md`](memory-candidates-learning-approval.md) | Memory candidate proposal and approval workflows |
-| 16 | [`harness-improvement-proposals.md`](harness-improvement-proposals.md) | Controlled harness improvement proposals |
-| 17 | [`shared-multi-participant-sessions.md`](shared-multi-participant-sessions.md) | Shared real-time multi-participant sessions |
-| 18 | [`calibration-analytics.md`](calibration-analytics.md) | Calibration datasets and advanced analytics |
-| 19 | [`activity-deployment-forms.md`](activity-deployment-forms.md) | Direct, embedded, and API activity deployment forms |
+| 15 | `memory-candidates-learning-approval.md` (deferred) | Memory candidate proposal and approval workflows |
+| 16 | `harness-improvement-proposals.md` (deferred) | Controlled harness improvement proposals |
+| 17 | `shared-multi-participant-sessions.md` (deferred) | Shared real-time multi-participant sessions |
+| 18 | `calibration-analytics.md` (deferred) | Calibration datasets and advanced analytics |
+| 19 | `activity-deployment-forms.md` (deferred) | Direct, embedded, and API activity deployment forms |
 
 ## Authoring checklist
 

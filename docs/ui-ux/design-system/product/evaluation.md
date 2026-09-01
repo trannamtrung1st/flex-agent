@@ -7,7 +7,7 @@ Evaluation lineage**, while keeping Human revision and Review decision as
 distinct objects.
 
 This module is presentation only. Governing behavior is
-[Evidence, Evaluation, and Human Review](../../evidence-evaluation-human-review.md).
+[Evidence, Evaluation, and Human Review](../../flows/evidence-evaluation-human-review.md).
 Do not combine **Approve** with **Release** (`PC-01`). Do not treat local
 score/rationale edits as a completed Human revision (`PC-02`). Visual
 marginalia/editor geometry may be adopted; submission remains immutable and

@@ -44,7 +44,7 @@ Do not average conflicting specialist views. Surface the conflict, decision owne
 - Feature specification using `docs/templates/feature-spec.md`; approved specs live under `docs/requirements/features/`
 - User journey, interaction specification, content guide, or design-system documentation (`docs/ui-ux/`)
 - Architecture overview, data or integration design, runtime flow, or deployment view (`docs/architecture/`)
-- Architecture decision record with context, drivers, options, decision, consequences, status, and supersession (`docs/architecture/decisions/`)
+- Current architecture or code-contract document for technical realization; recover historical ADR text from Git
 - Contributor process guidance (`docs/contributing/`)
 - API/event contract, operational runbook, test strategy, or traceability report
 

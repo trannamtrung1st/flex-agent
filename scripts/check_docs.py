@@ -13,8 +13,7 @@ DOCS = ROOT / "docs"
 FEATURES = DOCS / "requirements" / "features"
 WORK = ROOT / ".work"
 
-# Current observable-behavior catalog. Placeholder P1–P3 files may remain on
-# disk until Phase 5 deletion; they are not current catalog members.
+# Current observable-behavior catalog.
 SPEC_CATALOG: dict[str, list[str]] = {
     "P0": [
         "auth-resource-isolation.md",
@@ -27,20 +26,7 @@ SPEC_CATALOG: dict[str, list[str]] = {
     ],
 }
 
-HISTORICAL_PLACEHOLDER_SPECS = {
-    "agent-library-configuration.md",
-    "harness-library-configuration.md",
-    "voice-interaction-interruption.md",
-    "tool-execution-permissions.md",
-    "workflow-stage-configuration.md",
-    "harness-snapshots-comparison-restoration.md",
-    "memory-governance-dynamic-mode.md",
-    "memory-candidates-learning-approval.md",
-    "harness-improvement-proposals.md",
-    "shared-multi-participant-sessions.md",
-    "calibration-analytics.md",
-    "activity-deployment-forms.md",
-}
+HISTORICAL_PLACEHOLDER_SPECS: set[str] = set()
 
 ALL_SPEC_FILES = [filename for tier in SPEC_CATALOG.values() for filename in tier]
 EXPECTED_TIER_COUNTS = {tier: len(files) for tier, files in SPEC_CATALOG.items()}
@@ -65,11 +51,7 @@ STALE_AUTHORITY_PATTERNS = [
     "technical realization: approved adr",
 ]
 
-STALE_AUTHORITY_ALLOWLIST = {
-    DOCS / "architecture" / "decisions",
-    DOCS / "ui-ux" / "retired-authority.md",
-    DOCS / "ui-ux" / "design-system" / "change-record.md",
-}
+STALE_AUTHORITY_ALLOWLIST: set[Path] = set()
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 ID_DEFINITION_PATTERN = re.compile(

@@ -12,7 +12,7 @@
 | **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development and (2) pin `openai/gpt-oss-20b:free` / Darkbloom as the only current synthetic-development live route. A 2026-08-21 contract correction requires parsed `finish_reason: stop`, 256-token visible-content acceptance headroom, `openrouter.request-policy.v2`, and a machine-produced sanitized evidence record before the adapter-harness slice can close. Earlier Lightning, Gemma, Nano, and GLM probes are historical fail-closed records only. Production, real-data, and hosted-chat gates remain. 2026-09-01 operations leaf retained all seven `synthetic-development-phase*.md` files as live qualification evidence (not narrative to delete). |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
 | **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
-| **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
+| **Related decisions** | [ADR-008 `OSS-DEC-17`](../README.md) and [ADR-010 `STACK-DEC-18`](../../contributing/workspace.md) |
 
 This profile governs development and operations behavior. It does not change the
 assessment MVP, approve OpenRouter for real Participant data, qualify a
@@ -305,8 +305,8 @@ Production, Staging, or participant-data use.
 ## References
 
 - [Provider profile index](README.md)
-- [ADR-008: bounded OSS component set](../../architecture/decisions/ADR-008-bounded-oss-component-set.md)
-- [ADR-010: .NET implementation stack](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
+- [ADR-008: bounded OSS component set](../README.md)
+- [ADR-010: .NET implementation stack](../../contributing/workspace.md)
 - [Resolved Session configuration](../../requirements/features/resolved-session-configuration.md)
 - [Text Session lifecycle](../../requirements/features/session-text-lifecycle.md)
 - [OpenRouter free-router documentation](https://openrouter.ai/docs/guides/routing/routers/free-router)

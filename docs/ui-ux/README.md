@@ -13,8 +13,6 @@ acceptance criteria or redefine canonical concepts.
 **Replacement P0 journey and interaction specifications are Approved v1.0.**
 This README is **Approved** application UX architecture. Current journey
 owners are the distinct files under [flows](flows/activity-campaign-journey.md).
-Originals at `docs/ui-ux/*.md` may remain on disk until Phase 5; they are not
-the current catalog.
 
 The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
 Terminal** visual authority. New production UI clones a matching existing
@@ -40,8 +38,7 @@ This area governs how users experience the product: journeys, information
 architecture, interaction states, accessibility, responsive behavior, content,
 and visual design. This README owns **application-level** UX architecture.
 Each representative journey keeps a **distinct document owner** under
-`docs/ui-ux/flows/` (prepared) and at the Approved original path until
-replacements are link-complete.
+`docs/ui-ux/flows/`.
 
 ## Authority during and after the reset
 
@@ -87,7 +84,6 @@ Begin UI/UX documentation when:
 | Content guide | Voice, tone, labels, messages, and empty/error copy |
 | Accessibility guide | Keyboard, focus, screen reader, contrast, and accommodation patterns |
 | Design system | Components, tokens, layout, and responsive breakpoints |
-| Retirement ledger | Provenance only; not behavioral authority |
 
 ## Relationship to requirements
 
@@ -233,7 +229,8 @@ Do not use **complete**, **approved**, **published**, **available**, or
 | [Result and Release](flows/result-release.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-7` |
 | [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
 
-Originals at `docs/ui-ux/{activity-campaign-journey,assessment-campaign-setup,submission-attempt,text-session,evidence-evaluation-human-review,result-release}.md` may remain until Phase 5. They are not the current catalog.
+Originals at `docs/ui-ux/*.md` for those journeys were removed in Phase 5;
+recover them from Git. They are not the current catalog.
 
 ## Related documents
 

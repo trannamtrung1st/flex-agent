@@ -9,7 +9,7 @@ the MVP modular monolith grows.
 ports-and-adapters rules, authorization-kernel placement, append-only audit
 coupling, Assessment source/activation coordination, and replica-independent
 Enrollment admission constraints. It does not introduce product behavior or replace
-feature specifications. ADR files remain until Phase 5 as provenance only. If this guide
+feature specifications. Historical ADR files are recoverable from Git. If this guide
 conflicts with product or requirements, stop and record the conflict.
 
 Workspace, toolchain, and CI verification live in
@@ -311,7 +311,4 @@ domain/application code to depend on infrastructure.
 ## Related documents
 
 - [MVP architecture](mvp-architecture.md)
-- [ADR-002: authorization enforcement and delegation](decisions/ADR-002-authorization-enforcement-and-delegation.md)
-- [ADR-006: MVP architecture baseline and evolution](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md)
-- [ADR-010: .NET implementation stack and workspace](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
 - [Workspace development](../contributing/workspace.md)

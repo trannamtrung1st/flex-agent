@@ -67,7 +67,7 @@ Observable Session behavior remains governed by the approved
 | Platform journey, IA, content, accessibility, and responsive baseline | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Shared Agent presence, status semantics, interaction-state completeness, and accessibility behavior | [Agent presence](../design-system/product/agent-presence.md), [Status and feedback](../design-system/foundation/status.md), [Interaction states](../design-system/foundation/interaction-states.md), and [Accessibility](../design-system/foundation/accessibility.md) |
 | Browser/server authority, request/response plus SSE, and protected-content boundaries | [MVP architecture](../../architecture/mvp-architecture.md) |
-| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Approved version 0.5 of the [Text Session runtime contract](../../architecture/session-runtime-contract.md), [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), superseding [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
+| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Approved version 0.5 of the [Text Session runtime contract](../../architecture/session-runtime-contract.md), [ADR-009](../../architecture/mvp-architecture.md), superseding [ADR-011](../../architecture/session-runtime-contract.md), [ADR-012](../../architecture/session-runtime-contract.md), [ADR-013](../../architecture/session-runtime-contract.md), and [ADR-014](../../architecture/session-runtime-contract.md) |
 
 ## Scope and boundaries
 
@@ -1090,5 +1090,5 @@ no-action journeys.
 - [MVP operational defaults](../../requirements/mvp-operational-defaults.md)
 - [MVP architecture](../../architecture/mvp-architecture.md)
 - [Text Session runtime contract](../../architecture/session-runtime-contract.md)
-- [ADR-009: MVP Session, Evaluation, and Review/Release contracts](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md)
-- [ADR-011: Participant-visible Agent-response streaming](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md)
+- [ADR-009: MVP Session, Evaluation, and Review/Release contracts](../../architecture/mvp-architecture.md)
+- [ADR-011: Participant-visible Agent-response streaming](../../architecture/session-runtime-contract.md)

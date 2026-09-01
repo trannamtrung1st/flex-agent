@@ -61,7 +61,7 @@ The observable system outcomes remain those in the approved
 | Intake values, download lifetime, and application-session behavior | [MVP operational defaults](../../requirements/mvp-operational-defaults.md) |
 | Platform journey, IA, shared states, content, and accessibility | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Browser/server authority and protected artifact boundary | [MVP architecture](../../architecture/mvp-architecture.md), especially `AR-DEC-5`, `AR-DEC-12`, and `AR-DEC-19` |
-| Atomic start, exact version binding, idempotency, and reconciliation | [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) |
+| Atomic start, exact version binding, idempotency, and reconciliation | [ADR-005](../../architecture/session-runtime-contract.md) |
 
 ## Scope and boundaries
 
@@ -996,4 +996,4 @@ None.
 - [Resolved session configuration](../../requirements/features/resolved-session-configuration.md)
 - [MVP operational defaults](../../requirements/mvp-operational-defaults.md)
 - [MVP architecture](../../architecture/mvp-architecture.md)
-- [ADR-005: Atomic Attempt start and Submission binding](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md)
+- [ADR-005: Atomic Attempt start and Submission binding](../../architecture/session-runtime-contract.md)

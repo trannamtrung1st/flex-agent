@@ -10,10 +10,10 @@ live operator evidence. This index does not change product meaning, feature
 requirements, or architecture contracts.
 
 Architecture still-valid constraints from ADR-007 and ADR-008 that belong to
-operations live here as **pointers**. ADR files remain until Phase 5 and are
-not the current operations catalog. ADR-010 contribution and verification
-rows live in [workspace development](../contributing/workspace.md) and
-[`build/toolchain.json`](../../build/toolchain.json).
+operations live here as **pointers**. Historical ADR files are recoverable
+from Git and are not the current operations catalog. ADR-010 contribution
+and verification rows live in [workspace development](../contributing/workspace.md)
+and [`build/toolchain.json`](../../build/toolchain.json).
 
 ## What this area does not authorize
 
@@ -27,7 +27,7 @@ rows live in [workspace development](../contributing/workspace.md) and
 
 The architecture owner remains
 [MVP architecture — OSS-first](../architecture/mvp-architecture.md#oss-first-and-on-premises-portability)
-and [ADR-007](../architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md).
+and [ADR-007](../architecture/mvp-architecture.md).
 Operators use these current commands and origins:
 
 | Need | Current pointer |

@@ -193,7 +193,7 @@ lifecycle, or Release from them.
   interaction states, status
 - Components: keys, gangway/command strip, plates, alerts, dropdown
 - Product: empty/loading, protected content, technical metadata
-- Governing specification: [Activity journey](../activity-campaign-journey.md)
+- Governing specification: [Activity journey](../flows/activity-campaign-journey.md)
 - States: unauthenticated, loading, denied, ready, context replacement, logout
 - When My work is available, production `/` redirects to `/my-work` and Home is
   omitted from the gangway; administrator Home remains the destination catalog
@@ -211,8 +211,8 @@ lifecycle, or Release from them.
 - Product: empty/loading, technical metadata, protected content, attachments
   where Enrollment lists require them
 - Governing specification:
-  [Assessment Campaign setup](../assessment-campaign-setup.md) and
-  [Submission and Attempt](../submission-attempt.md) (administrator Enrollment)
+  [Assessment Campaign setup](../flows/assessment-campaign-setup.md) and
+  [Submission and Attempt](../flows/submission-attempt.md) (administrator Enrollment)
 - States: draft, invalid, pending, active, stale, conflict, denied, empty,
   large table, narrow
 - Gallery: form controls, number field, datatable, dialog, layout (Deck:
@@ -225,7 +225,7 @@ lifecycle, or Release from them.
   interaction states, status
 - Components: plates, keys, inputs, alerts, error summary, lists
 - Product: attachments/submissions, empty/loading, protected content
-- Governing specification: [Submission and Attempt](../submission-attempt.md)
+- Governing specification: [Submission and Attempt](../flows/submission-attempt.md)
 - States: no assignment, loading, denied, versioned submission, upload
   validation, pending, cancelling, reconciling, duplicate, conflict,
   unavailable, narrow
@@ -239,7 +239,7 @@ lifecycle, or Release from them.
 - Components: keys, inputs, alerts, error summary, modals
 - Product: conversation, timeline, Agent presence, Session controls,
   empty/loading, protected content
-- Governing specification: [Text Session](../text-session.md)
+- Governing specification: [Text Session](../flows/text-session.md)
 - Constraints: `PC-08`; no production simulator. Approved family is
   `live-session`; production locator stays `management` until the host
   contract exists.
@@ -252,7 +252,7 @@ lifecycle, or Release from them.
 - Product: Evidence, Evaluation/review, technical metadata, timeline,
   protected content
 - Governing specification:
-  [Evidence, Evaluation, and Human Review](../evidence-evaluation-human-review.md)
+  [Evidence, Evaluation, and Human Review](../flows/evidence-evaluation-human-review.md)
 - Constraints: `PC-01`, `PC-02`, `PC-04`. Approved Review-case family is
   `guided-task`; production locators stay `management` until the host
   contract exists.
@@ -263,7 +263,7 @@ lifecycle, or Release from them.
   interaction states, status
 - Components: keys, alerts, marks, lists, modals, error summary, content
 - Product: Result/Release, technical metadata, timeline, protected content
-- Governing specification: [Result and Release](../result-release.md)
+- Governing specification: [Result and Release](../flows/result-release.md)
 - Constraints: `PC-01`, `PC-03`, `PC-04`. Approved Release-record family is
   `guided-task`; production locators stay `management` until the host
   contract exists.

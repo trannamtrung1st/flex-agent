@@ -16,7 +16,7 @@ Evaluation in the MVP assessment workflow.
 | **Governs** | Evaluation request, Evidence locator/seal, evaluator execution, completion, replacement, and review-handoff realization |
 
 This contract currently owns the Evidence and Evaluation realization split
-extracted from ADR-009 (`EVAL-DEC-*`). ADR files remain until Phase 5.
+extracted from ADR-009 (`EVAL-DEC-*`). Historical ADR files are recoverable from Git.
 
 This document does not change the
 [Evidence and Evaluation specification](../requirements/features/evidence-evaluation.md).
@@ -51,13 +51,13 @@ container runtime.
   [Submission and Attempts](../requirements/features/submission-attempts.md),
   [text Session lifecycle](../requirements/features/session-text-lifecycle.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md),
-  [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md),
-  [ADR-003](decisions/ADR-003-authorization-audit-persistence.md),
-  [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), and
-  [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md),
-  [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and
-  [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
+- [ADR-001](session-runtime-contract.md),
+  [ADR-002](backend-module-architecture.md),
+  [ADR-003](backend-module-architecture.md),
+  [ADR-005](session-runtime-contract.md), and
+  [ADR-006](mvp-architecture.md),
+  [ADR-008](../operations/README.md), and
+  [ADR-009](mvp-architecture.md).
 - [MVP architecture](mvp-architecture.md) and the approved
   [text Session runtime contract](session-runtime-contract.md).
 
@@ -417,7 +417,7 @@ from:
 - Evaluation persistence, work, evaluator registry/runner, model adapter,
   locator adapters, seal fixtures, authorization adapters, and tests;
 - the Review candidate-selection and source-navigation implementation;
-- Reviewer state and Evidence-navigation implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md); and
+- Reviewer state and Evidence-navigation implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/flows/evidence-evaluation-human-review.md); and
 - lifecycle, reconciliation, audit, and operational runbooks.
 
 ## Related documents
@@ -425,4 +425,3 @@ from:
 - [MVP architecture](mvp-architecture.md)
 - [Text Session runtime contract](session-runtime-contract.md)
 - [Human review, Result, and Release contract](review-result-release-contract.md)
-- [Architecture decisions](decisions/README.md)

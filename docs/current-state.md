@@ -16,8 +16,8 @@ disagrees with an owning source, the owner wins and this index is stale.
 | Gap | Intended in P0 (or named) and not implemented | Owning spec; do not invent behavior |
 
 Status: **Approved** as a derived index. Current governance and catalogs apply
-the snapshot-first model. Historical ADR files and placeholders may remain
-until Phase 5.
+the snapshot-first model. Git owns historical ADR text and deleted
+placeholder scaffolds.
 
 ## How to read P0 implementation rows
 
@@ -163,45 +163,43 @@ synthetic pin is not production qualification.
 | --- | --- | --- |
 | Product meaning and MVP boundary | Intended | [Concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), [overview](product/overview.md) |
 | P0 `REQ-*`/`AC-*` | Intended | Seven P0 specs under [features](requirements/features/README.md) |
-| P1–P3 placeholder specs | Deferred (not requirements) | Catalog files remain until Phase 5; unique constraints absorbed in MVP scope |
-| Application UX architecture | Intended (Approved v1.0 journeys; README In review) | [UI/UX](ui-ux/README.md); originals plus [flows](ui-ux/flows/activity-campaign-journey.md) |
+| P1–P3 deferred capability names | Deferred (not requirements) | Named in [MVP scope](product/mvp-scope.md); no placeholder spec files |
+| Application UX architecture | Intended (Approved v1.0 journeys) | [UI/UX](ui-ux/README.md); [flows](ui-ux/flows/activity-campaign-journey.md) |
 | Design System v1.0 | Intended visual contract | [Design system](ui-ux/design-system/README.md) |
-| Architecture and code contracts | Intended (In review replacements; ADRs still binding) | [Architecture](architecture/README.md); ADR catalog until Phase 4 |
+| Architecture and code contracts | Intended | [Architecture](architecture/README.md); historical ADRs in Git |
 | OIDC application session, scoped API, Worker identity | Partial implemented | `IdentityAccess`; Keycloak integration tests; remaining AUTH matrix rows are gaps |
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
 | Submission intake / Attempt start | Partial / gap | Submissions module and tests; atomic Attempt start remains a named gap |
 | Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Sessions runtime tests exist; hosted production Session incomplete |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
-| Agent/Harness library authoring | Not implemented | P1 placeholders; not MVP requirements |
+| Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
-| Interaction Controller | Deferred unless Phase 5 reconfirms | [text-interaction-controller-contract.md](../.work/active/text-interaction-controller-contract.md) `planned` |
+| Interaction Controller | Deferred | Product docs; no planned task (not reconfirmed in Phase 5) |
 | Home `/` redirect to `/my-work` when My work exists | Temporary legacy vs `IA-MVP-1` target | Production router; intended Home feed still future |
 | Dual-build `web-legacy` | Historical only | Removed; do not restore (ADR-020) |
 | Compose SPA vs `web/` source lag | Temporary legacy | Prefer Vite `:5274` for source UI evidence |
 | Model execution adapter | Default-off | [Provider profiles](operations/provider-profiles/README.md) |
 | OpenRouter synthetic pin | Default-off / qualified synthetic only | [OpenRouter profile](operations/provider-profiles/openrouter-synthetic-development.md) |
 | This repository baseline reset | Approved planned | [repository-baseline-reset.md](../.work/active/repository-baseline-reset.md) `in-progress` |
-| `impeccable-frontend-rebuild` | Blocked (not this reset) | `.work/active/impeccable-frontend-rebuild.md` |
-| Other `.work/active/*` | Completed except blocked/planned noted | Git-tracked task files |
+| Other `.work/active/*` | None besides this reset | Completed and blocked historical tasks removed in Phase 5; recover from Git |
 
 ## Active work
 
 Only this reset is the in-progress execution cursor for the baseline. Do not
 treat completed tasks as current planned work.
 
-## Phase 3 in-tree review (replacements still In review)
+## Phase 3 in-tree review (historical)
 
-Recorded 2026-09-01 while historical sources remain in the same tree. Not Gate
-B and not producer self-approval of gates.
+Recorded 2026-09-01 while historical sources still remained in the same tree.
+Phase 5 later removed those sources. Not Gate B and not producer self-approval
+of gates.
 
 | Concern | Finding |
 | --- | --- |
-| Product / requirements | Current-tense product docs and P0 specs remain REQ/AC owners; placeholders retained; no `docs/current-state.md` restatement of AC text |
-| Architecture | Current architecture docs In review; every ADR file remains; this leaf did not edit `docs/architecture/` |
-| UI/UX | README owns application UX; six distinct flows In review; originals and retirement ledger remain |
+| Product / requirements | Current-tense product docs and P0 specs remain REQ/AC owners; no `docs/current-state.md` restatement of AC text |
+| Architecture | Current architecture docs own technical realization; historical ADRs recover from Git |
+| UI/UX | README owns application UX; six distinct flows are current; originals and retirement ledger recover from Git |
 | Security / privacy | Isolation, deny-by-default, and Release separation remain in intended specs; implementation gaps must not be treated as permission to skip those controls |
 | Operations | ADR-007/008 pointers recorded; OpenRouter seven phase files retained; default-off unchanged |
-| Documentation | README routes added only after this file existed; adapters regenerated if `docs/README.md` fingerprint changes |
-
-No historical source was deleted on this leaf.
+| Documentation | README routes exist; adapters regenerated when product/docs fingerprints change |

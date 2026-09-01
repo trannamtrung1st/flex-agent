@@ -8,7 +8,7 @@
 - Approved date: 2026-08-06 (authorization/audit decision update; original feature approval 2026-08-05)
 - Source: [Organization](../../product/concept-model.md#organization), [Session](../../product/concept-model.md#session), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #1 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: Approved defaults `PROP-1`–`PROP-10` in this specification. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs the policy-decision, enforcement, delegation, and freshness boundaries. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit-event ownership and MVP persistence. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the provider-neutral OIDC and API-server application-session direction. [ADR-007](../../architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md) requires a self-hostable identity path. [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) selects Keycloak `26.7.x` as the reference human OIDC provider while keeping Organization and resource authorization application-owned. The [MVP operational defaults](../mvp-operational-defaults.md#oidc-and-application-session-defaults) govern OIDC flow, application sessions, MFA, and revocation behavior. Vendor policy-engine, invitation-credential, and account-recovery selections remain deferred implementation decisions.
+- Related decisions: Approved defaults `PROP-1`–`PROP-10` in this specification. [ADR-002](../../architecture/backend-module-architecture.md) governs the policy-decision, enforcement, delegation, and freshness boundaries. [ADR-003](../../architecture/backend-module-architecture.md) governs authorization audit-event ownership and MVP persistence. [ADR-006](../../architecture/mvp-architecture.md) governs the provider-neutral OIDC and API-server application-session direction. [ADR-007](../../architecture/mvp-architecture.md) requires a self-hostable identity path. [ADR-008](../../operations/README.md) selects Keycloak `26.7.x` as the reference human OIDC provider while keeping Organization and resource authorization application-owned. The [MVP operational defaults](../mvp-operational-defaults.md#oidc-and-application-session-defaults) govern OIDC flow, application sessions, MFA, and revocation behavior. Vendor policy-engine, invitation-credential, and account-recovery selections remain deferred implementation decisions.
 
 ## Problem and measurable outcome
 
@@ -102,7 +102,8 @@ A cohort is an administrative grouping. Cohort membership does not permit partic
 - Biometric identity verification, human proctoring, and advanced cheating detection.
 - Cross-organization sharing, federation, guest collaboration, and public protected-resource sharing.
 - Shared multi-participant real-time sessions.
-- Tool-specific permissions, which are defined by [`tool-execution-permissions.md`](tool-execution-permissions.md) in P2.
+- Tool-specific permissions, which remain deferred P2 scope in
+  [MVP scope](../../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp).
 - Business rules for a particular review decision or result release, which are defined by [`review-result-release.md`](review-result-release.md) for the assessment MVP.
 - Data-retention periods, consent wording, legal holds, and deletion policy, except that authorization must enforce whichever approved policies apply.
 - Emergency access, support impersonation, or break-glass operation (excluded from MVP per approved default `PROP-6`; add only through a later approved requirement and ADR).
@@ -567,7 +568,7 @@ Audit records reference protected content rather than copying messages, attachme
 - Resource models with unambiguous organization and parent ownership.
 - Explicit activity, subject, assignment, group, session, and workflow-state relationships as required by each owning feature.
 - An append-only or equivalently tamper-evident audit facility with UTC timestamps and correlation references.
-- Approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) for enforcement boundaries, policy representation, service delegation, freshness, file delivery, and event scope; approved [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) for audit-event ownership and MVP persistence.
+- Approved [ADR-002](../../architecture/backend-module-architecture.md) for enforcement boundaries, policy representation, service delegation, freshness, file delivery, and event scope; approved [ADR-003](../../architecture/backend-module-architecture.md) for audit-event ownership and MVP persistence.
 
 ### Assessment MVP dependencies
 
@@ -608,8 +609,8 @@ The following decisions were approved on 2026-08-06. The cited requirements and 
 | Question/proposal | Approved disposition | Authoritative location |
 | --- | --- | --- |
 | `Q-1` | Completion does not automatically grant or remove access. Continued access requires a current authorized relationship, delegated capability, applicable workflow state, visibility, and resource availability; participant outcomes remain release-gated. | `REQ-AUTH-32`, `AC-AUTH-23` |
-| `Q-2` | Apply the approved lifecycle policy. Until a more specific policy applies, preserve only the minimum restricted audit metadata needed for investigation and reconstructability, do not duplicate raw protected content, and do not hard-code a product-wide duration. | `REQ-AUTH-33`, `AC-AUTH-24`, [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) |
-| `Q-3`, `PROP-10` | Fail closed when an operation requiring durable audit cannot have its event accepted; allow bounded durable buffering only for policy-classified routine reads or denials, with backpressure, alerting, retry, and no silent loss. | `REQ-AUTH-31`, `AC-AUTH-22`, [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) |
+| `Q-2` | Apply the approved lifecycle policy. Until a more specific policy applies, preserve only the minimum restricted audit metadata needed for investigation and reconstructability, do not duplicate raw protected content, and do not hard-code a product-wide duration. | `REQ-AUTH-33`, `AC-AUTH-24`, [ADR-003](../../architecture/backend-module-architecture.md) |
+| `Q-3`, `PROP-10` | Fail closed when an operation requiring durable audit cannot have its event accepted; allow bounded durable buffering only for policy-classified routine reads or denials, with backpressure, alerting, retry, and no silent loss. | `REQ-AUTH-31`, `AC-AUTH-22`, [ADR-003](../../architecture/backend-module-architecture.md) |
 
 The authorization-local questions are closed. A product-wide lifecycle policy must still define any specific retention periods, deletion schedules, legal-hold behavior, and organization export rules before those behaviors are implemented; this specification intentionally does not invent them.
 

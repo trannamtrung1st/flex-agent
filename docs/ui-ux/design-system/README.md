@@ -16,7 +16,7 @@ Flex Agent.
 | **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
 | **Related decisions** | Current shared decisions `DS-DEC-1`–`DS-DEC-11`; font pin `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |
-| **Change history** | Provenance only in the [change record](change-record.md); Git owns visual evolution |
+| **Change history** | Git owns visual evolution |
 
 **Approved v1.0** is the current shared visual contract: semantic tokens,
 reusable component presentation, accessibility foundations, and recurring Flex
@@ -149,7 +149,6 @@ product nouns into production.
 design-system/
 ├── README.md
 ├── implementation-guide.md
-├── change-record.md
 ├── foundation/
 ├── components/
 └── product/
@@ -158,8 +157,8 @@ design-system/
 The module files are the design-system contract. The
 [implementation guide](implementation-guide.md) is a reading manifest and
 completion checklist; it is documentation, not a repository skill. Reusable
-agent instructions remain under `.agents/skills/` and `.cursor/skills/`. The
-[change record](change-record.md) is non-normative provenance.
+agent instructions remain under `.agents/skills/` and `.cursor/skills/`. Git
+owns historical design-system change narrative.
 
 ## Token contract
 

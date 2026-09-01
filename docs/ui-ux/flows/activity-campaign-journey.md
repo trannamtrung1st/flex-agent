@@ -22,7 +22,7 @@ within their respective areas of authority.
 
 **Reconstruction note.** Subject matter is derived from approved product and
 P0 feature specifications. Retired v0.3 text is provenance only
-([retirement ledger](../retired-authority.md)). Design-lab fixtures are not
+(Git (retired UI versions)). Design-lab fixtures are not
 requirements. Voice and the proposed text Interaction Controller are out of
 P0 unless a separate product decision expands scope.
 

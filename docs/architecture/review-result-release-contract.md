@@ -17,7 +17,7 @@ and correction in the MVP assessment workflow.
 | **Governs** | Review case/candidate, revision, decision, Result, Release, visibility, and correction realization |
 
 This contract currently owns the Review/Result/Release realization split
-extracted from ADR-009 (`REV-DEC-*`). ADR files remain until Phase 5.
+extracted from ADR-009 (`REV-DEC-*`). Historical ADR files are recoverable from Git.
 
 This document does not change the
 [Human review and Result Release specification](../requirements/features/review-result-release.md).
@@ -55,14 +55,14 @@ provider, or detailed UI design.
   [text Session lifecycle](../requirements/features/session-text-lifecycle.md),
   [Evidence and Evaluation](../requirements/features/evidence-evaluation.md), and
   [MVP operational defaults](../requirements/mvp-operational-defaults.md).
-- [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md),
-  [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md),
-  [ADR-003](decisions/ADR-003-authorization-audit-persistence.md),
-  [ADR-004](decisions/ADR-004-assessment-activation-baseline-and-atomicity.md),
-  [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), and
-  [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md),
-  [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and
-  [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
+- [ADR-001](session-runtime-contract.md),
+  [ADR-002](backend-module-architecture.md),
+  [ADR-003](backend-module-architecture.md),
+  [ADR-004](mvp-architecture.md),
+  [ADR-005](session-runtime-contract.md), and
+  [ADR-006](mvp-architecture.md),
+  [ADR-008](../operations/README.md), and
+  [ADR-009](mvp-architecture.md).
 - [MVP architecture](mvp-architecture.md) and the approved
   [Evaluation execution contract](evaluation-execution-contract.md).
 
@@ -429,7 +429,7 @@ Approval unblocks Review/Release implementation and requires conformance from:
 - review-case, assignment, revision, decision, Result, Release, visibility,
   notification-outbox, correction, lifecycle, export, and audit modules;
 - Participant and Reviewer query/API contracts;
-- Reviewer UI implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md), plus Release and Participant Result UI implementation conforming to the approved [Result and Release interaction specification](../ui-ux/result-release.md); and
+- Reviewer UI implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/flows/evidence-evaluation-human-review.md), plus Release and Participant Result UI implementation conforming to the approved [Result and Release interaction specification](../ui-ux/flows/result-release.md); and
 - end-to-end isolation, failure, reconstruction, and Release-visibility tests.
 
 ## Related documents
@@ -437,4 +437,3 @@ Approval unblocks Review/Release implementation and requires conformance from:
 - [MVP architecture](mvp-architecture.md)
 - [Text Session runtime contract](session-runtime-contract.md)
 - [Evidence and Evaluation execution contract](evaluation-execution-contract.md)
-- [Architecture decisions](decisions/README.md)
