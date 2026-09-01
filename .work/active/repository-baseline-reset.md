@@ -1,6 +1,6 @@
 ---
 id: repository-baseline-reset
-status: in-progress
+status: completed
 created: 2026-08-29
 updated: 2026-09-01
 activation_gate: owner-activated-with-delegated-intermediate-review
@@ -827,17 +827,18 @@ Satisfied 2026-09-01: independent persist `review-focused-output-02` is
 `approved` and copied into **Approval Gate B record**. The producer did not
 author that respond. No required/blocking findings were reported. Two optional
 minor findings were owner-actioned `accept_as_is` after workspace commit
-`a344427`. The reset remains `in-progress` until Phase 7.
+`a344427`. Phase 7 then marked this task `completed` and left it on
+`.work/active/`.
 
 ## Phase 7 - Complete and clean up the reset task
 
-- [ ] After Gate B, mark this task `completed`, reconcile final evidence, and
+- [x] After Gate B, mark this task `completed`, reconcile final evidence, and
   leave it present through accepted external review as the explicit
   transitional cleanup exception.
 - [ ] In a subsequent bounded cleanup change, remove this task under the newly
   approved retention policy. If commits were requested for execution, use a
   subsequent cleanup commit; otherwise leave commit control to the owner.
-- [ ] Do not create a reset archive, completion diary, or replacement history
+- [x] Do not create a reset archive, completion diary, or replacement history
   document.
 
 # Execution records
@@ -1510,7 +1511,7 @@ marked complete by this copy.
 | Reviewed Git reference | optional-finding workspace checkpoint `a344427f3303448d73237c2156abb7987817547c` (`Keep MD025 on product docs and record the real verify:dotnet skip rationale.`); Phase 6 package commit `b18f013`; freeze parent `cda98826844480770bab7603506cc241638a15f4` |
 | Baseline and deletion-manifest decision | Independent reviewer closed the loop as `approved` against the Phase 6 Gate B package in this task (canonical baseline map, Phase 5 deletion manifest, surviving operational/security/compatibility/runtime-audit evidence, non-normative current-state index, work surface of this reset only, validation matrix). No further canonical rewrite or deletion is authorized by this leaf. |
 | Validation and independent-review summary | Independent re-run in the reviewer respond confirmed `check_docs.py`, `impeccable_context.py check`, 18 script tests, 21 frontend-isolation-lib tests, `check-frontend-isolation.mjs`, and contracts 8/8. No required/blocking findings. Optional `finding-001` (verify:dotnet skip rationale) and `finding-002` (MD025 scope) are minor; producer `accept_as_is` after `a344427`. In-tree specialist notes remain non-approval. |
-| Required follow-up or cleanup | Owner will review the final result. Phase 7 may mark this task `completed` and leave it on `.work/active/`. Bounded task-file cleanup is subsequent follow-up after mandatory whole-output review, not this leaf. |
+| Required follow-up or cleanup | Owner will review the final result. Phase 7 marked this task `completed` and left it on `.work/active/`. Bounded task-file cleanup is subsequent follow-up after mandatory whole-output review. |
 
 ### Gate B persist copy (not producer-authored)
 
@@ -1647,12 +1648,60 @@ Deletion manifest: Phase 5 execution record in this task. Surviving
 invariants: product runtime auditability, applied migrations, compatibility
 fixtures, OpenRouter qualification files, this reset task.
 
-Work surface: this reset `in-progress`; no other `.work/active` tasks; no
-planned Interaction Controller task.
+Work surface: this reset is now `completed` and still the only `.work/active`
+task; no planned Interaction Controller task.
 
 Independent Gate B persist `review-focused-output-02` is **approved** and
 copied above. This Phase 6 package remains producer evidence; it is not a
 second approval.
+
+## Phase 7 execution record
+
+Recorded 2026-09-01 on `item-948817441989` after Gate B persist copy
+`de09ecafbe3a73b04a1eb39ab153d7e51cc65799`. This leaf does not delete this file
+and does not add a reset archive.
+
+### Governing sources rechecked
+
+| Source | Recheck |
+| --- | --- |
+| `docs/product/overview.md` | Approved current-tense product meaning; vision examples not converted to requirements |
+| `docs/product/concept-model.md` | Approved vocabulary and invariants; `PROP-AGENT-1` remains Proposed-bounded |
+| `docs/product/mvp-scope.md` | Approved MVP/deferred/non-goal boundaries; Interaction Controller remains deferred |
+| `docs/README.md` | Authority-by-concern plus derived current-state route |
+| `docs/current-state.md` | Non-normative index; intended vs implemented vs gap/default-off remain distinct |
+| Gate B persist | `review-focused-output-02` rev 7 `approved`; copied in Approval Gate B record |
+
+Residual (not rewritten here): product overview/concept-model/mvp-scope still
+contain a Phase 3 sentence that they are “not the Phase 4 authority cutover.”
+Phase 4 already made catalogs/validators snapshot-first. Follow-up wording
+only; meaning of those documents is current. `web-legacy` remains a derived
+status-cell citation in Git-era P0 matrices, superseded by live inventory in
+`docs/current-state.md`.
+
+### Planned versus actual
+
+| Planned leaf | Actual checkpoint |
+| --- | --- |
+| Phase 0 freeze | `f1c2d73` |
+| Phase 1 classify | `f7d490a` |
+| Phase 2 Gate A package | `a60e6c6`; inventories `ceb2b55` |
+| Gate A copy-back | `4994076` |
+| Phase 3 product/requirements | `6e39d94` |
+| Phase 3 architecture | `422efde` |
+| Phase 3 UI/UX | `b5bfab6` |
+| Phase 3 ops/current-state | `4882193` |
+| Phase 4 cutover | `3f85078` |
+| Phase 5 deletions | `c2f1e16` |
+| Phase 6 Gate B package | `b18f013`; optional-finding fix `a344427` |
+| Gate B copy-back | `de09eca` |
+| Phase 7 complete task | this checkpoint; file remains `.work/active/repository-baseline-reset.md` |
+
+Durable truth already lives in approved product, requirements, architecture,
+UI/UX, operations, `docs/current-state.md`, code/tests, and Git. This completed
+task remains the explicit transitional exception until post-review cleanup.
+The derived index row for this reset was updated to `completed` (retained);
+no second plan or archive was created.
 
 # Current state
 
@@ -1671,11 +1720,11 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: independent Gate B persist `review-focused-output-02` is
-copied into this record (reviewer `tdp-session-3f54bb0f8390`). Next leaf is
-Phase 7 completion without deleting this task. Do not mark this reset
-complete in this leaf. Do not delete this task. In-tree specialist notes are
-not a second Gate B approval.
+Current action: this reset task is `completed` and remains at
+`.work/active/repository-baseline-reset.md`. Bounded file removal is subsequent
+follow-up after mandatory whole-output review. Do not delete this task in this
+graph. Gate B persist `review-focused-output-02` is copied; producer did not
+approve.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1795,43 +1844,48 @@ artifacts must nevertheless remain green.
   `review-focused-output-02` is `approved`; copied into this task. Producer did
   not author the respond. No required/blocking findings. Optional minors
   `accept_as_is` after `a344427`. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 7 complete the reset
-  task (`item-948817441989`) without deleting this file.
+- Cleared Phase 7 completion: task `status` is `completed`; planned work
+  reconciled to checkpoint commits; governing product sources rechecked;
+  Gate B persist remains copied. File left at
+  `.work/active/repository-baseline-reset.md`. No reset archive created.
+- Current execution blocker: none. Next leaf records that bounded cleanup of
+  this completed task is subsequent follow-up (`item-881e9eb175f1`), not an
+  in-graph deletion.
 
 # Completion
 
-- [ ] One coherent current product baseline exists without historical
+- [x] One coherent current product baseline exists without historical
   reconstruction.
-- [ ] Canonical architecture, API/data/runtime boundaries, and operational
+- [x] Canonical architecture, API/data/runtime boundaries, and operational
   constraints are clear without ADR lookup.
-- [ ] Canonical application UX, Design System, and Design Lab/reference-flow
+- [x] Canonical application UX, Design System, and Design Lab/reference-flow
   authority is clear and approved.
-- [ ] Feature delivery follows UX architecture and approved patterns before
+- [x] Feature delivery follows UX architecture and approved patterns before
   production vertical slices.
-- [ ] Every new or meaningfully changed page/component is classified before
+- [x] Every new or meaningfully changed page/component is classified before
   implementation; existing Design System modules, accepted production-page
   compositions, and Component Deck specimens are cloned and adapted, with Lab
   journeys used only for families without production donors, while genuine
   gaps follow the bounded Impeccable proposal, approval, and shared-pattern
   establishment path.
-- [ ] Important rationale survives as current constraints/invariants; runtime
+- [x] Important rationale survives as current constraints/invariants; runtime
   product auditability and immutable compatibility artifacts are preserved.
-- [ ] Historical decision, retirement, change-record, phase-diary, placeholder,
+- [x] Historical decision, retirement, change-record, phase-diary, placeholder,
   and supersession maintenance is removed from normal development.
-- [ ] Only active and genuinely planned work remains, except this reset task's
+- [x] Only active and genuinely planned work remains, except this reset task's
   explicit Gate-B-to-cleanup transition; completed/cancelled/blocked/
   superseded plans and duplicate resources are removed.
-- [ ] `docs/current-state.md` honestly distinguishes intended, implemented,
+- [x] `docs/current-state.md` honestly distinguishes intended, implemented,
   temporary legacy, approved planned, default-off, and gap behavior.
-- [ ] All deleted-path references, stale terminology, and contradictory
+- [x] All deleted-path references, stale terminology, and contradictory
   authority claims are resolved.
-- [ ] Documentation, formatting, tests, builds, architecture/isolation checks,
+- [x] Documentation, formatting, tests, builds, architecture/isolation checks,
   and applicable delivery validation pass with recorded evidence.
-- [ ] Independent cross-concern review is complete and blocking findings are
+- [x] Independent cross-concern review is complete and blocking findings are
   resolved.
-- [ ] Planned work is reconciled with actual changes and governing product
+- [x] Planned work is reconciled with actual changes and governing product
   sources are rechecked.
-- [ ] This task's durable truth is promoted, Gate B accepts the reset, and the
+- [x] This task's durable truth is promoted, Gate B accepts the reset, and the
   subsequent bounded cleanup change is recorded. Actual removal is follow-up
   cleanup, not a condition for marking this reset completed; Git retains the
   history.

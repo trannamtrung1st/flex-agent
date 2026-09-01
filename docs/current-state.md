@@ -181,15 +181,16 @@ synthetic pin is not production qualification.
 | Compose SPA vs `web/` source lag | Temporary legacy | Prefer Vite `:5274` for source UI evidence |
 | Model execution adapter | Default-off | [Provider profiles](operations/provider-profiles/README.md) |
 | OpenRouter synthetic pin | Default-off / qualified synthetic only | [OpenRouter profile](operations/provider-profiles/openrouter-synthetic-development.md) |
-| This repository baseline reset | Approved planned | [repository-baseline-reset.md](../.work/active/repository-baseline-reset.md) `in-progress` |
+| This repository baseline reset | Completed (retained through whole-output review) | [repository-baseline-reset.md](../.work/active/repository-baseline-reset.md) `completed`; not deleted in this graph |
 | Other `.work/active/*` | None besides this reset | Completed and blocked historical tasks removed in Phase 5; recover from Git |
 
 ## Active work
 
-Only this reset is the in-progress execution cursor for the baseline. Do not
-treat completed tasks as current planned work. Phase 6 recorded validation
-evidence and a Gate B package in that task; independent Gate B is still
-pending.
+This reset task is `completed` and still present at `.work/active/` as the
+explicit transitional exception until post-review cleanup. It is not
+in-progress feature work. Independent Gate B persist
+`review-focused-output-02` is copied into that task. Do not treat the
+completed file as current planned product scope.
 
 ## Phase 3 in-tree review (historical)
 
