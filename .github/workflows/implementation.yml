@@ -209,7 +209,10 @@ jobs:
           python-version: "3.12"
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.6.0 --activate
+          dirname "$(command -v pnpm)" >> "${GITHUB_PATH}"
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile

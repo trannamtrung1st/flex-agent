@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
 if command -v corepack >/dev/null 2>&1; then
   corepack enable
+  corepack prepare pnpm@9.6.0 --activate
+  hash -r
 fi
 export FLEXAGENT_ROOT="${ROOT}"
 export FLEXAGENT_OIDC_REQUIRED=1
