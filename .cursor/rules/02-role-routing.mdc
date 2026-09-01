@@ -8,7 +8,7 @@ alwaysApply: true
 Load the matching project skill from `.cursor/skills/` before substantive work. Role and workflow skills live in that directory.
 
 - Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
-- Cross-cutting technical design, system boundaries, quality attributes, technology decisions, or ADRs: `architect`
+- Cross-cutting technical design, system boundaries, quality attributes, technology decisions, or current architecture documents: `architect`
 - User journeys, information architecture, interaction states, accessibility, visual design, or design systems: `ui-ux-designer`
 - Authoritative product, UI/UX, architecture, or technical documentation under `docs/`: `documentation-author`
 - Full-stack implementation spanning backend and frontend: `developer`

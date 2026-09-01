@@ -142,5 +142,5 @@ Store evidence only in `.playwright-mcp/`. If browser verification is blocked, r
 
 For visual hardening, adaptation, or polish of an already specified surface,
 invoke `impeccable` explicitly (`harden`, `adapt`, `polish`). Keep red-green
-tests, ADR-019 state ownership, and approved specs in charge. Impeccable cannot
+tests, frontend architecture state ownership, and approved specs in charge. Impeccable cannot
 waive accessibility, security, or TDD failures.

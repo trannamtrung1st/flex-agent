@@ -3,8 +3,9 @@
 Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-01**.
 
 This file owns **classification only**. It must not restate or override product
-meaning, `REQ-*`/`AC-*` contracts, UI/UX journeys, ADRs, or runbooks. If it
-disagrees with an owning source, the owner wins and this index is stale.
+meaning, `REQ-*`/`AC-*` contracts, UI/UX journeys, architecture documents, or
+runbooks. If it disagrees with an owning source, the owner wins and this index
+is stale.
 
 | Classification | Meaning | Follow |
 | --- | --- | --- |
@@ -175,22 +176,19 @@ synthetic pin is not production qualification.
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
-| Interaction Controller | Deferred | Product docs; no planned task (not reconfirmed in Phase 5) |
+| Interaction Controller | Deferred | Product docs; planned (not activated) [text-interaction-controller-contract.md](../.work/active/text-interaction-controller-contract.md) |
 | Home `/` redirect to `/my-work` when My work exists | Temporary legacy vs `IA-MVP-1` target | Production router; intended Home feed still future |
 | Dual-build `web-legacy` | Historical only | Removed; do not restore (ADR-020) |
 | Compose SPA vs `web/` source lag | Temporary legacy | Prefer Vite `:5274` for source UI evidence |
 | Model execution adapter | Default-off | [Provider profiles](operations/provider-profiles/README.md) |
 | OpenRouter synthetic pin | Default-off / qualified synthetic only | [OpenRouter profile](operations/provider-profiles/openrouter-synthetic-development.md) |
-| This repository baseline reset | Completed (retained through whole-output review) | [repository-baseline-reset.md](../.work/active/repository-baseline-reset.md) `completed`; not deleted in this graph |
-| Other `.work/active/*` | None besides this reset | Completed and blocked historical tasks removed in Phase 5; recover from Git |
+| Other `.work/active/*` | Planned Interaction Controller contract only | Completed reset and harness correction recovered from Git |
 
 ## Active work
 
-This reset task is `completed` and still present at `.work/active/` as the
-explicit transitional exception until post-review cleanup. It is not
-in-progress feature work. Independent Gate B persist
-`review-focused-output-02` is copied into that task. Do not treat the
-completed file as current planned product scope.
+`.work/active/text-interaction-controller-contract.md` is `planned` and not
+activated. The repository baseline reset and snapshot-first harness correction
+are completed and retired from `.work/active`; recover them from Git.
 
 ## Phase 3 in-tree review (historical)
 

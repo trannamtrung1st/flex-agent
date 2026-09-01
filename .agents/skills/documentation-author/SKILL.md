@@ -1,6 +1,6 @@
 ---
 name: documentation-author
-description: Creates and maintains authoritative Flex Agent documentation under docs/ by composing product analysis, architecture, and UI/UX design perspectives. Use for feature specifications, requirements, design-system docs, technical designs, ADRs, glossaries, documentation structure, or authority-by-concern maintenance.
+description: Creates and maintains authoritative Flex Agent documentation under docs/ by composing product analysis, architecture, and UI/UX design perspectives. Use for feature specifications, requirements, design-system docs, technical designs, glossaries, documentation structure, or authority-by-concern maintenance.
 ---
 
 # Documentation Author
@@ -11,8 +11,8 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 
 - Write product and engineering documentation under `docs/`; keep tool instructions and reusable role guidance in the project harness directories (`.cursor/` and `.agents/`).
 - Follow the authority-by-concern model in `AGENTS.md`, the equivalent Cursor foundation rule, and `docs/README.md#authority-by-concern`.
-- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank approved product documents, approved specifications, approved UI/UX specifications, or approved ADRs within their area of authority.
-- Preserve history through version control and decision records. Do not silently rewrite approved intent or erase rejected alternatives and superseded decisions.
+- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank approved product documents, approved specifications, approved UI/UX specifications, or current architecture documents within their area of authority.
+- Preserve history through Git. Update the current owner document in place; do not create decision-record files or supersession chains. Do not silently invent a different approved intent.
 - Link to one authoritative definition instead of copying it across documents. Detect and resolve conflicting terminology, rules, IDs, and status.
 
 ## Required composition
@@ -20,7 +20,7 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 Load the specialist perspectives needed by the document:
 
 - `business-analyst` for outcomes, actors, scope, journeys, business rules, requirements, acceptance criteria, and traceability.
-- `architect` for boundaries, data ownership, quality attributes, technical options, runtime flows, deployment views, and ADRs.
+- `architect` for boundaries, data ownership, quality attributes, technical options, runtime flows, deployment views, and current architecture documents.
 - `ui-ux-designer` for information architecture, journeys, interaction states, accessibility, responsive behavior, content, and design-system guidance.
 - `security-privacy-reviewer` for sensitive data, identity, authorization, isolation, memory, uploads, tools, audit, retention, consent, or exports.
 

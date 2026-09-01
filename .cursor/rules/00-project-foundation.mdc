@@ -27,7 +27,7 @@ journey only when the family lacks a production donor; use explicit `$impeccable
 shape` only for a documented gap; establish reusable additions before production
 use.
 
-A conflicting architecture document triggers product or requirements review; it does not override product semantics. Historical ADR files remaining on disk until Phase 5 are provenance, not the current architecture catalog. Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Every open question must include an **interim default** with brief rationale. That interim default is working guidance only and is not approved behavior until decided. Record consequential interim defaults as `Proposed` (`PROP-*` when formalizing in a feature spec).
+A conflicting architecture document triggers product or requirements review; it does not override product semantics. Historical ADR files are recoverable from Git and are not the current architecture catalog. Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Every open question must include an **interim default** with brief rationale. That interim default is working guidance only and is not approved behavior until decided. Record consequential interim defaults as `Proposed` (`PROP-*` when formalizing in a feature spec).
 
 ## Keep these concepts separate
 

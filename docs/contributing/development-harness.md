@@ -19,7 +19,7 @@ Persistent Cursor rules under `.cursor/rules/` and Codex guidance in `AGENTS.md`
 Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/` (Codex) provide these roles:
 
 - `business-analyst` — turns product intent into bounded, testable specs
-- `architect` — governs system boundaries, quality attributes, technical decisions, and ADRs
+- `architect` — governs system boundaries, quality attributes, technical decisions, and current architecture documents
 - `ui-ux-designer` — designs accessible journeys, interaction states, responsive behavior, and design-system guidance
 - `documentation-author` — composes product, architecture, and UI/UX perspectives into authoritative documents under `docs/`
 - `developer` — coordinates full-stack work by composing the backend and frontend developer roles
@@ -178,9 +178,9 @@ Shared live state lives in `.work/active/<task-slug>.md`. Copy `.work/templates/
 
 Executable workspace commands and gate coverage for the current scaffold live in [`workspace.md`](workspace.md).
 
-`.work/` is Git-tracked, non-authoritative execution state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file. Any tracked file under `.work/`, including `active/`, `resources/`, and `templates/`, must not contain secrets, credentials, sensitive participant data, hidden chain-of-thought, private reasoning, or unnecessary raw output.
+`.work/` is Git-tracked, non-authoritative execution state so external reviewers can inspect live implementation plans and evidence. `planned` / `in-progress` stay in `.work/active`. A completed task may remain temporarily through its required review, then is deleted once durable truth has been promoted. Governing specs, current architecture documents, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file. Any tracked file under `.work/`, including `active/`, `resources/`, and `templates/`, must not contain secrets, credentials, sensitive participant data, hidden chain-of-thought, private reasoning, or unnecessary raw output.
 
-All files under `.work/`, including live and retained completed task files, are Git-visible. Keep completed files after completion and external review for implementation tracking. Do not remove them as part of the implementation workflow; repository maintainers may clean them up when they choose.
+All files under `.work/` are Git-visible. After required review and promotion, delete completed task files. Git is the implementation history.
 
 ## Git workflow
 
@@ -226,7 +226,7 @@ Run documentation validation before pushing doc changes:
 python3 scripts/check_docs.py
 ```
 
-The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, the current P0 feature catalog, `docs/current-state.md`, snapshot-first `.work` hygiene, and rejects stale historical-authority patterns. Placeholder specs, ADR files, and UI retirement ledgers are not required catalog members.
+The script validates internal links and heading fragments across the repository root `README.md`, `AGENTS.md`, `docs/`, `.work/`, and Cursor/Codex skills and rules; deprecated terms; duplicate requirement IDs; Mermaid fence balance; the current P0 feature catalog; `docs/current-state.md`; snapshot-first `.work` hygiene; stale historical-authority patterns; and prohibited live policies (ADR/decision-record creation, ADRs as current authority, mandatory completed-task retention, and supersession/change-history maintenance). Placeholder specs, ADR files, and UI retirement ledgers are not required catalog members.
 
 GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `AGENTS.md`, `.cursor/rules/`, `.cursor/skills/`, `.agents/skills/`, `.work/README.md`, and `.work/templates/`.
 

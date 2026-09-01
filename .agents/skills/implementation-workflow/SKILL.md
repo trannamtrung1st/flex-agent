@@ -92,11 +92,11 @@ Before declaring completion:
 
 - reconcile planned work against actual changes
 - recheck governing specifications
-- move durable decisions or newly discovered requirements into authoritative artifacts (`docs/`, ADRs, specs) when required
+- move durable decisions or newly discovered requirements into authoritative artifacts (`docs/`, current architecture owners, specs, code, tests) when required
 - record remaining gaps or unverified behavior
 
 ### 8. Prepare review handoff
 
-Mark the task completed and keep `.work/active/<task-slug>.md` after completion and external review as retained implementation history. Do not remove completed task files as part of the implementation workflow; repository maintainers may clean them up when they choose. Promote durable decisions to authoritative artifacts because task files remain non-authoritative working records.
+Mark the task completed so required review can inspect the snapshot. After durable truth is promoted and that review finishes, delete `.work/active/<task-slug>.md`. Git is the implementation history. Do not keep completed, cancelled, blocked, or superseded task files as a living archive.
 
 Completion is not achieved by manually checking boxes alone. Verification must support the claim.

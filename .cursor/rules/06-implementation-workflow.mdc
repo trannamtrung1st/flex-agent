@@ -21,7 +21,7 @@ Trivial one-step edits (for example, a typo) do not require a task file.
 
 One implementation task normally has one state file. Do not create separate plan, progress, or notes files for the same task.
 
-`.work/` is Git-tracked, snapshot-first, non-authoritative working state so external reviewers can inspect plans and evidence and maintainers can retain completed task history. Completed, cancelled, blocked, and superseded tasks are not current authority; Git owns history. Never record secrets, sensitive data, credentials, or hidden reasoning there. Permanent decisions belong in authoritative artifacts under `docs/`, architecture documents, code, and tests.
+`.work/` is Git-tracked, snapshot-first, non-authoritative working state so external reviewers can inspect live plans and evidence. `planned` / `in-progress` stay in `.work/active`. A completed task may remain temporarily through its required review, then is deleted once durable truth has been promoted. Completed, cancelled, blocked, and superseded tasks are not current authority; Git owns history. Never record secrets, sensitive data, credentials, or hidden reasoning there. Permanent decisions belong in authoritative artifacts under `docs/`, architecture documents, code, and tests.
 
 ## During execution
 
@@ -33,7 +33,7 @@ One implementation task normally has one state file. Do not create separate plan
 - For UI verification, attach to a healthy local origin before starting Compose or Vite (Playwright MCP rule).
 - Record verification evidence; do not claim completion from checklist marks alone.
 - Reconcile the plan against actual changes before finishing.
-- Mark the task completed and keep its file after completion and external review for tracking.
-- Do not remove completed task files as part of this workflow; repository maintainers may clean them up when they choose.
+- Mark the task completed so required review can inspect the snapshot, then delete the file after durable truth is promoted.
+- Do not retain completed, cancelled, blocked, or superseded task files as a living archive; Git owns history.
 
 `git-workflow` is separate. Commits, pushes, and pull requests happen only when explicitly requested.

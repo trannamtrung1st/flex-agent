@@ -1,16 +1,26 @@
 # Implementation working state
 
-`.work/` holds coding-agent execution records. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence and maintainers can retain completed task history. It is **not** current product, architecture, or requirements authority.
+`.work/` holds coding-agent execution records. It is tracked in Git so external
+reviewers and collaborators can inspect live plans, progress, and verification
+evidence. It is **not current authority** for product, architecture, or
+requirements.
 
-**Snapshot-first:** completed, cancelled, blocked, and superseded tasks are not current authority. Git owns history. Durable decisions belong in approved documents under `docs/`, code, tests, and migrations.
+**Snapshot-first:** `planned` / `in-progress` stay in `.work/active`. A
+completed task may remain temporarily through its required review, then is
+deleted once durable truth has been promoted. Cancelled, blocked, and
+superseded tasks are removed from `.work/active` rather than archived there.
+Git owns history. Durable decisions belong in approved documents under
+`docs/`, code, tests, and migrations.
 
-Permanent truth lives in approved specs under `docs/`, current architecture documents, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
+Permanent truth lives in approved specs under `docs/`, current architecture
+documents, code, tests, migrations, and durable developer documentation such as
+`AGENTS.md` and `docs/contributing/development-harness.md`.
 
 ## Directory structure
 
 ```text
 .work/
-├── active/      # task execution state (one file per implementation task)
+├── active/      # live task execution state (one file per implementation task)
 ├── resources/   # non-authoritative source, proposal, or reference material used by tasks
 └── templates/   # task templates
 ```
@@ -64,9 +74,9 @@ Prefer stable, descriptive names over ticket numbers alone.
 1. **Create** — copy the template, set goal, governing sources, scope, plan, and verification approach.
 2. **Execute** — update the file continuously as steps start, complete, change, block, or verify.
 3. **Reconcile** — compare planned work to actual changes before claiming completion.
-4. **Promote** — move durable decisions or newly discovered requirements into authoritative artifacts when needed.
-5. **Review** — mark the task completed and retain it during external review.
-6. **Track** — keep the completed task file as implementation history; repository maintainers may clean up retained files when they choose.
+4. **Promote** — move durable decisions or newly discovered requirements into current owners under `docs/`, code, and tests.
+5. **Review** — mark the task completed so required review can inspect the snapshot. The file may remain only through that review.
+6. **Retire** — delete the task file once durable truth is promoted and review is done. Git owns history.
 
 Update the front-matter `status` and `updated` fields as work proceeds (`planned`, `in-progress`, `blocked`, `completed`).
 
@@ -103,7 +113,7 @@ hidden chain-of-thought, or private reasoning.
 | Content | Belongs in |
 | --- | --- |
 | Product meaning, scope, acceptance criteria | Approved specs under `docs/` |
-| Architecture decisions | ADRs under `docs/architecture/` |
+| Architecture decisions | Current architecture owner under `docs/architecture/` |
 | UI/UX behavior | Approved UI/UX specs under `docs/ui-ux/` |
 | Implemented behavior | Code and tests |
 | Durable developer workflow | `AGENTS.md`, `.cursor/rules/`, `docs/contributing/` |
@@ -116,7 +126,7 @@ Tracked for implementation collaboration and external review:
 
 - `.work/README.md`
 - `.work/templates/`
-- `.work/active/`, including live and retained completed task files
+- `.work/active/`, live `planned` / `in-progress` (and `blocked`) tasks; a `completed` file may remain only through required review, then is deleted
 - `.work/resources/`, non-authoritative source or proposal material (not
   product, requirements, UI/UX, or architecture authority)
 
@@ -125,7 +135,10 @@ tracked file under `.work/`, ensure it contains no secrets, credentials,
 sensitive participant data, hidden chain-of-thought, private reasoning, or
 unnecessary raw output.
 
-Tracked plans remain non-authoritative execution records, not permanent product or architecture truth. Keep them after completion and external review for implementation tracking. Do not remove them as part of the implementation workflow; repository maintainers may clean them up when they choose. Promote durable decisions to their authoritative artifacts regardless of task-file retention.
+Tracked plans remain non-authoritative execution records, not permanent product
+or architecture truth. After required review, delete the completed task file.
+Git is the implementation history. Promote durable decisions to their
+authoritative artifacts before retiring the task.
 
 ## Completion
 
@@ -136,6 +149,6 @@ Completion requires evidence, not checklist theater:
 - recheck governing specifications
 - record remaining gaps or unverified behavior
 - mark the task completed and make it safe and complete for external review
-- retain it after completion and review for tracking; leave any cleanup to repository maintainers
+- after that review and promotion, delete the task file
 
 Do not claim completion merely because checklist items were manually marked complete.

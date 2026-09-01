@@ -72,7 +72,7 @@ Use the artifact that best resolves the design question:
 - Responsive behavior and content specification
 - Design-system foundation or component specification
 - Usability hypothesis, research plan, and findings
-- Design decision record with alternatives and rationale
+- Design rationale with alternatives when a choice needs explanation
 
 When a runnable UI exists, attach first
 (`docs/contributing/development-harness.md`, Attach to a running local origin)

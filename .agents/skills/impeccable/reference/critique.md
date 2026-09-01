@@ -153,7 +153,7 @@ Highlight 2-3 things done well. Be specific about why they work.
 #### Priority Issues
 The 3-5 most impactful design problems, ordered by importance.
 
-For each issue, tag with **P0-P3 severity** (see [Issue Severity below](#issue-severity-p0p3) for definitions):
+For each issue, tag with **P0-P3 severity** (see [Issue Severity below](#issue-severity-p0-p3) for definitions):
 - **[P?] What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)

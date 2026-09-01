@@ -70,7 +70,7 @@ Begin architecture documentation when:
 - At least one P0 feature specification is in `Draft`, `In review`, or `Approved` status
 - Cross-cutting quality attributes (isolation, audit reconstructability, explainability, security) are stated in requirements
 - [Concept model — Product invariants](../product/concept-model.md#product-invariants) are understood
-- Material technical options require an explicit decision record
+- Material technical options must update the current architecture owner for that concern
 
 ## Expected document types
 

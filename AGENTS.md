@@ -16,7 +16,7 @@ of authority; see `docs/README.md#authority-by-concern`.
 - Cross-concern status: derived `docs/current-state.md` (non-normative)
 
 A conflicting architecture document triggers product or requirements review; it does not override
-product semantics. Historical ADR files remaining on disk until Phase 5 are provenance, not the
+product semantics. Historical ADR files are recoverable from Git and are not the
 current architecture catalog. Do not turn an idea, example, or future capability into an
 MVP requirement. Ask when a material ambiguity remains. Every open question
 must include an **interim default** with a brief rationale. The default is
@@ -50,7 +50,7 @@ Non-negotiable invariants:
 Load the matching repository skill from `.agents/skills/` before substantive work. Role and workflow skills live in that directory.
 
 - Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
-- Cross-cutting design, boundaries, quality attributes, technology decisions, or ADRs: `architect`
+- Cross-cutting design, boundaries, quality attributes, technology decisions, or current architecture documents: `architect`
 - Journeys, information architecture, interaction states, accessibility, visual design, or design systems: `ui-ux-designer`
 - Authoritative product, UI/UX, architecture, or technical docs under `docs/`: `documentation-author`
 - Full-stack implementation spanning backend and frontend: `developer`
@@ -84,9 +84,9 @@ For substantive implementation work, load `implementation-workflow` from `.agent
 
 Keep the active task file current during execution: steps, discoveries, blockers, verification evidence, and next actions. One task normally has one state file; do not split the same work across separate plan or progress files.
 
-`.work/` is tracked, snapshot-first, non-authoritative working state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Completed, cancelled, blocked, and superseded tasks are **not current authority**; Git owns history. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
+`.work/` is tracked, snapshot-first, non-authoritative working state so external reviewers can inspect live implementation plans and evidence. `planned` / `in-progress` stay in `.work/active`. A completed task may remain temporarily through its required review, then is deleted once durable truth has been promoted. Completed, cancelled, blocked, and superseded tasks are **not current authority**; Git owns history. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
 
-Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. Keep the completed task file after completion and external review for tracking. Do not remove it as part of the implementation workflow; repository maintainers may clean up retained task files when they choose.
+Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. After required review and promotion, delete the task file. Git is the implementation history.
 
 For any UI design, implementation, review, or testing task, read
 `docs/ui-ux/design-system/README.md` and its status/authority rules, then load

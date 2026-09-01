@@ -27,6 +27,45 @@ class CheckDocsCatalogTests(unittest.TestCase):
         self.assertEqual(check_docs.check_current_state_index(), [])
         self.assertEqual(check_docs.check_work_hygiene(), [])
 
+    def test_governance_scan_covers_harness_surfaces(self) -> None:
+        files = {path.resolve() for path in check_docs.iter_governance_markdown_files()}
+        self.assertIn((ROOT / "AGENTS.md").resolve(), files)
+        self.assertIn((ROOT / ".work" / "README.md").resolve(), files)
+        self.assertIn(
+            (ROOT / ".agents" / "skills" / "architect" / "SKILL.md").resolve(),
+            files,
+        )
+        self.assertIn(
+            (ROOT / ".cursor" / "skills" / "architect" / "SKILL.md").resolve(),
+            files,
+        )
+        self.assertIn(
+            (ROOT / ".cursor" / "rules" / "06-implementation-workflow.mdc").resolve(),
+            files,
+        )
+
+    def test_prohibited_policy_detects_adr_creation_and_task_retention(self) -> None:
+        hits = check_docs.find_prohibited_policy_hits(
+            "Compare viable options; record consequential choices as ADRs with "
+            "status, rationale, consequences, and supersession links. "
+            "Keep the completed task file after completion and external review."
+        )
+        self.assertIn("record consequential choices as adrs", hits)
+        self.assertIn("supersession links", hits)
+        self.assertIn("keep the completed task file", hits)
+
+    def test_prohibited_policy_allows_historical_adr_recovery(self) -> None:
+        self.assertEqual(
+            check_docs.find_prohibited_policy_hits(
+                "Historical ADR files are recoverable from Git and are not the "
+                "current architecture catalog."
+            ),
+            [],
+        )
+
+    def test_live_governance_has_no_prohibited_policy(self) -> None:
+        self.assertEqual(check_docs.check_prohibited_policy(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

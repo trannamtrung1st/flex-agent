@@ -49,6 +49,33 @@ STALE_AUTHORITY_PATTERNS = [
     "catalog membership, order, and tier counts are unchanged",
     "adr catalog (binding until phase 4)",
     "technical realization: approved adr",
+    "remaining on disk until phase 5",
+]
+
+# Live workflow must not recreate historical-record surfaces. Historical
+# mentions such as "Historical ADR files are recoverable from Git" are allowed.
+PROHIBITED_POLICY_PATTERNS = [
+    "record consequential choices as adrs",
+    "publish approved architecture, adrs",
+    "approved adrs within their area of authority",
+    "adrs under docs/architecture",
+    "governing specs, adrs",
+    "docs/, adrs, specs",
+    "explicit decision record",
+    "version control and decision records",
+    "supersession links",
+    "adr with `proposed",
+    "new or superseding adr",
+    "technical designs, adrs,",
+    "reliability, or adrs",
+    "technology decisions, or adrs",
+    "retain completed task history",
+    "keep the completed task file",
+    "keep completed files after completion",
+    "do not remove completed task files",
+    "maintainers may clean them up",
+    "maintainers can retain completed",
+    "keep its file after completion",
 ]
 
 STALE_AUTHORITY_ALLOWLIST: set[Path] = set()
@@ -62,6 +89,20 @@ HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$")
 
 def iter_markdown_files() -> list[Path]:
     return sorted([ROOT / "README.md", *DOCS.rglob("*.md")])
+
+
+def iter_governance_markdown_files() -> list[Path]:
+    """Docs plus live harness surfaces that instruct agents."""
+    candidates: list[Path] = [
+        ROOT / "README.md",
+        ROOT / "AGENTS.md",
+        *DOCS.rglob("*.md"),
+        *(WORK.rglob("*.md") if WORK.exists() else []),
+        *(ROOT / ".agents" / "skills").rglob("*.md"),
+        *(ROOT / ".cursor" / "skills").rglob("*.md"),
+        *(ROOT / ".cursor" / "rules").rglob("*.mdc"),
+    ]
+    return sorted({path.resolve() for path in candidates if path.is_file()})
 
 
 def is_external_scheme(target: str) -> bool:
@@ -170,6 +211,24 @@ def check_stale_authority(files: list[Path]) -> list[str]:
                 errors.append(
                     f"{path.relative_to(ROOT)}: stale historical-authority pattern '{pattern}'"
                 )
+    return errors
+
+
+def find_prohibited_policy_hits(text: str) -> list[str]:
+    lowered = text.lower()
+    return [pattern for pattern in PROHIBITED_POLICY_PATTERNS if pattern in lowered]
+
+
+def check_prohibited_policy(files: list[Path] | None = None) -> list[str]:
+    errors: list[str] = []
+    for path in files if files is not None else iter_governance_markdown_files():
+        if _stale_allowlisted(path):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for pattern in find_prohibited_policy_hits(text):
+            errors.append(
+                f"{path.relative_to(ROOT)}: prohibited snapshot-first policy '{pattern}'"
+            )
     return errors
 
 
@@ -303,6 +362,21 @@ def check_work_hygiene() -> list[str]:
         errors.append(".work/README.md must describe snapshot-first retention")
     if "not current authority" not in text and "not authoritative" not in text:
         errors.append(".work/README.md must state that task files are not current authority")
+    if "git owns history" not in text:
+        errors.append(".work/README.md must state that Git owns history")
+    if "planned" not in text or "in-progress" not in text:
+        errors.append(".work/README.md must keep planned/in-progress tasks in .work/active")
+    if "review" not in text or ("delete" not in text and "deleted" not in text):
+        errors.append(
+            ".work/README.md must delete completed tasks after required review"
+        )
+    for phrase in (
+        "retain completed task history",
+        "do not remove completed task files",
+        "keep completed files after completion",
+    ):
+        if phrase in text:
+            errors.append(f".work/README.md must not instruct '{phrase}'")
     return errors
 
 
@@ -323,16 +397,18 @@ def report_spec_status() -> None:
 
 def main() -> int:
     files = iter_markdown_files()
-    anchor_cache = heading_anchor_cache(files)
+    governance_files = iter_governance_markdown_files()
+    anchor_cache = heading_anchor_cache(governance_files)
     errors: list[str] = []
     errors.extend(check_ui_current_catalog())
     errors.extend(check_current_state_index())
     errors.extend(check_work_hygiene())
     errors.extend(check_spec_files_exist())
     errors.extend(check_unlisted_feature_specs())
-    errors.extend(check_links(files, anchor_cache))
+    errors.extend(check_links(governance_files, anchor_cache))
     errors.extend(check_deprecated_terms(files))
-    errors.extend(check_stale_authority(files))
+    errors.extend(check_stale_authority(governance_files))
+    errors.extend(check_prohibited_policy(governance_files))
     errors.extend(check_duplicate_ids())
     errors.extend(check_mermaid(files))
     errors.extend(check_catalog_membership(FEATURES / "README.md", "features/README.md"))

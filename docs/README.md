@@ -34,7 +34,7 @@ decision without explicit supersession.
 
 | Concern | Authoritative source | Governs |
 | --- | --- | --- |
-| Product meaning and scope | [Concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or product decision record | Domain vocabulary, relationships, scope boundaries, product invariants |
+| Product meaning and scope | [Concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or approved product decision | Domain vocabulary, relationships, scope boundaries, product invariants |
 | Observable system behavior | Feature specification with stable `REQ-*` and `AC-*` IDs | What the system must do, who may do it, and how success is verified |
 | User interaction | UI/UX specification | Journeys, interaction states, content, accessibility, and visual design |
 | Technical realization | Architecture document | Implementation approach, data ownership, deployment, and technical trade-offs |
