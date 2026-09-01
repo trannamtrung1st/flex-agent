@@ -631,7 +631,6 @@ These defaults are approved with this specification and govern MVP authorization
 
 ## Traceability
 
-
 The traceability matrix covers the generic platform contract. Rows that reference participants, enrollments, evaluations, or result release are assessment MVP profile mappings.
 
 | Requirement/AC | Automated verification | Playwright/manual evidence |

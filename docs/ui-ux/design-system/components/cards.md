@@ -195,7 +195,7 @@ that use `.work-well__title` still pick up the size. Choose
 
 - `seat="stack"` — unframed nested records (`framed={false}`). Resolves
   `inset="flush"` and head `mark="title"`: a 2px `--hairline` under the title
-  + ident cluster (`width: max-content`, capped at the well). Do not shrink
+  and ident cluster (`width: max-content`, capped at the well). Do not shrink
   ident to the title width — a short title must not wrap a sentence ident
   into a column. Keep idents to one short line so the cluster does not reach
   the bay edge.

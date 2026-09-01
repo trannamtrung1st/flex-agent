@@ -793,14 +793,14 @@ the reviewed manifest.
 
 ## Phase 6 - Validate and reconcile
 
-- [ ] Run the complete validation matrix below and record exact results.
-- [ ] Reconcile the final repository against approved product intent, actual
+- [x] Run the complete validation matrix below and record exact results.
+- [x] Reconcile the final repository against approved product intent, actual
   code/tests, the post-review UX baseline, surviving invariants, Gate A, and
   this task.
 - [ ] Obtain independent product/requirements, architecture, UI/UX,
   security/privacy, operations, documentation, tester, and repository-process
   review; resolve every blocking finding.
-- [ ] Prepare the final current-state matrix, deletion manifest, surviving
+- [x] Prepare the final current-state matrix, deletion manifest, surviving
   invariant/evidence list, known gaps, verification evidence, and any
   not-applicable rationale for owner review.
 
@@ -1539,6 +1539,83 @@ tokens in `src/` or `contracts/` after Phase 4 comment/schema edits.
 - `python3 -m unittest discover -s scripts -p 'test_*.py'` — 18 OK
 - Playwright visual verification — not applicable (no UI behavior change)
 
+## Phase 6 execution record and Gate B package
+
+Recorded 2026-09-01 on `item-0d7215912a29` against Git parent `c2f1e16` plus
+this checkpoint. **Not independent Gate B approval.** Producer in-tree notes
+must not close blocking findings.
+
+### Validation matrix (exact commands)
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `python3 scripts/check_docs.py` | passed | exit 0, `Documentation validation passed.` P0 seven files present; no ADR directory; empty placeholder allowlist |
+| `python3 scripts/impeccable_context.py generate` then `check` | passed | adapters regenerated after DS `cards.md` lint wording; `Impeccable context adapters are current.` |
+| Historical-authority / path / terminology | passed (docs) | `check_docs.py` stale-authority empty allowlist; no `retired-authority.md`; no `binding until phase 4` / `all 19 feature` in `docs/` |
+| Requirements integrity | passed | Seven P0 specs; unique `REQ-*`/`AC-*`; deferred names in MVP scope only |
+| Markdown lint (CI globs) | passed after Phase 6 fixes | `markdownlint-cli2` v0.17.2, 135 files, 0 errors on `AGENTS.md`, `docs/**/*.md`, Cursor/Agents skills+rules, `.work/README.md`, `.work/templates/**`. Config now disables MD025 because `.work` templates use multiple H1s. Fixed MD012 in `auth-resource-isolation.md`, MD004 parse in `cards.md`, MD032/MD047 in impeccable skills |
+| Architecture extraction (in-tree) | recorded | Live owners exist (`mvp-architecture.md`, session/evaluation/review contracts, `frontend-architecture.md`, `backend-module-architecture.md`, `docs/operations/README.md`, `docs/contributing/workspace.md`). `docs/architecture/decisions/` absent. Independent reviewer still audits the Gate A matrix |
+| Operational/security/compatibility | recorded | Seven OpenRouter `synthetic-development-phase*.md` present; `database/migrations/up` has 63 SQL files (untouched); contracts tests 8/8 pass; no `per ADR-` in `src/` or `contracts/` |
+| Current-state | recorded | `docs/current-state.md` remains non-normative; Interaction Controller deferred; only this reset is active work |
+| Work hygiene | passed | `.work/active/` contains only `repository-baseline-reset.md` |
+| Skill/rule parity | passed | `.cursor/skills` and `.agents/skills` directory sets match; every `SKILL.md` byte-identical including impeccable |
+| UI pattern-adoption governance | passed (guidance present) | `AGENTS.md`, `.cursor/rules/00` and `06`, `implementation-workflow` skill, `frontend-developer` skill, `docs/ui-ux/README.md` require classify-then-clone. No new production UI in this reset |
+| Focused script tests | passed | `python3 -m unittest discover -s scripts -p 'test_*.py'` 18 OK; `node --test build/scripts/frontend-isolation-lib.test.mjs` 21 pass |
+| Frontend isolation check | passed | `node build/scripts/check-frontend-isolation.mjs` — Frontend isolation check passed |
+| `pnpm --dir contracts test` | passed | 8 tests OK |
+| `pnpm verify:web` / `pnpm build` | not run (proportionate) | Phase 5/6 changed docs, skills, scripts, `.work`, markdownlint config — not `web/` source. Isolation checks cover the frontend invariant this reset governs |
+| `pnpm verify:dotnet` | not run (proportionate) | No `src/` or migration edits on this leaf |
+| `pnpm verify:oidc` / Playwright MCP | not applicable | No routed UI, profile, or authenticated-browser contract change. Do not claim visual verification |
+
+### Reconciliation (in-tree)
+
+Approved product intent remains in concept-model / MVP scope / seven P0 specs.
+Architecture and flows are current owners. Design System v1.0 Shipboard remains
+the visual baseline. Gate A inventories were executed in Phase 5; surviving
+evidence matches the Phase 5 deletion manifest. Known P0 implementation gaps
+stay in `docs/current-state.md` and must not be treated as permission to skip
+controls.
+
+Non-blocking in-tree observation: `auth-resource-isolation.md` Traceability
+still names a `web-legacy` gateway journey in a Playwright/manual cell. That
+is implemented-status drift already classified in Gate A / current-state; it
+is not a restore instruction.
+
+### In-tree specialist-check notes (not Gate B)
+
+| Concern | Note |
+| --- | --- |
+| Product / requirements | P0 catalog and deferred-scope absorption look intact; unique IDs unchanged |
+| Architecture | Current docs own technical realization; ADR files gone; matrix still needs independent review |
+| UI/UX | Flows are the journey catalog; DS v1.0 unchanged except lint wording in `cards.md` |
+| Security / privacy | Isolation/deny-by-default language remains in intended specs; no authz code edited |
+| Operations | OpenRouter seven phase files retained; default-off unchanged |
+| Documentation | Snapshot-first catalogs; adapters regenerated |
+| Tester / process | Focused validators recorded; full web/dotnet/OIDC suites intentionally not claimed |
+| Repository process | Skill trees parity OK; reset task retained; no second diary created |
+
+### Canonical baseline map (for Gate B)
+
+| Concern | Current owner |
+| --- | --- |
+| Product meaning | `docs/product/concept-model.md`, `mvp-scope.md`, `overview.md` |
+| Observable behavior | Seven P0 files under `docs/requirements/features/` |
+| User interaction | `docs/ui-ux/README.md` + `docs/ui-ux/flows/*` + DS v1.0 |
+| Technical realization | `docs/architecture/*` excluding deleted `decisions/` |
+| Implemented behavior | Code and tests |
+| Status index | `docs/current-state.md` (non-normative) |
+| Active work | `.work/active/repository-baseline-reset.md` only |
+| History | Git |
+
+Deletion manifest: Phase 5 execution record in this task. Surviving
+invariants: product runtime auditability, applied migrations, compatibility
+fixtures, OpenRouter qualification files, this reset task.
+
+Work surface: this reset `in-progress`; no other `.work/active` tasks; no
+planned Interaction Controller task.
+
+Independent Gate B remains **pending**.
+
 # Current state
 
 Phase 0 freeze is recorded on 2026-09-01 against live Git, not the 2026-08-31
@@ -1556,10 +1633,10 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 5 deletions are recorded below. Next leaf is Phase 6
-validate/reconcile (`item-0d7215912a29`). Do not mark this reset complete.
-Do not delete this task. Do not weaken TDD, review, security, Playwright, or
-runtime-audit rules.
+Current action: Phase 6 validation and Gate B package are recorded below.
+Next leaf is independent Gate B focused_output review (not this producer).
+Do not mark this reset complete. Do not delete this task. In-tree specialist
+notes are not Gate B approval.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1622,25 +1699,25 @@ Do not treat those Status values as intended product meaning.
 | Check | Status | Evidence required after execution |
 | --- | --- | --- |
 | Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed Phase 0 freeze | 2026-09-01 freeze: exit 0, `Documentation validation passed.` |
-| New documentation validator and link/fragment scan | passed Phase 5 | 2026-09-01: `python3 scripts/check_docs.py` exit 0 after deletions; P0-only catalog; no placeholder allowlist |
-| Generated adapter consistency | passed Phase 5 | `python3 scripts/impeccable_context.py generate` then `check` exit 0 |
-| Historical-authority scan | passed Phase 5 | `check_docs.py` stale-authority patterns with empty allowlist; no live ADR catalog/retirement/change-record files |
-| Path and terminology scan | passed Phase 5 (docs) | `check_docs.py` link scan exit 0; remaining ADR identity tokens in applied migrations reported in Phase 5 record |
-| Requirements integrity | passed Phase 5 | Seven P0 specs remain; unique `REQ-*`/`AC-*`; placeholder files deleted; deferred names in MVP scope |
-| Work hygiene | passed Phase 5 | `.work/active/` contains only this reset task; completed/blocked/planned extras and duplicate proposals removed |
-| Focused script tests | passed Phase 5 | `python3 -m unittest discover -s scripts -p 'test_*.py'` 18 tests OK |
-| Markdown lint | pending Phase 6 | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
-| Architecture extraction audit | pending Gate B | ADR-001..021 extraction matrix independently reviewed; current owners live without ADR files |
-| Operational/security/compatibility evidence audit | pending Phase 6 / Gate B | Qualification, runbook, immutable migration/fixture, security verification, and runtime-audit artifacts remain; OpenRouter seven phase files retained |
-| Current-state audit | recorded Phase 5 | `docs/current-state.md` updated after deletions; independent Gate B still pending |
-| Skill/rule parity | pending Phase 6 | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
-| UI pattern-adoption governance | pending Phase 6 | Applicable guidance requires a recorded pre-build classification |
-| Frontend verification | pending | `pnpm verify:web` if required; this leaf is source-only docs/work hygiene |
-| .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` if required; this leaf did not change runtime code |
-| Build and delivery checks | pending | proportionate to changed files |
-| Authenticated browser verification | not applicable this leaf | No rendered UI behavior change; Playwright screenshots not claimed |
+| New documentation validator and link/fragment scan | passed Phase 6 | Re-run 2026-09-01: `python3 scripts/check_docs.py` exit 0 after lint-driven adapter regenerate |
+| Generated adapter consistency | passed Phase 6 | `impeccable_context.py generate` then `check` exit 0 |
+| Historical-authority scan | passed Phase 6 | `check_docs.py` stale-authority empty allowlist; no live ADR catalog/retirement/change-record files |
+| Path and terminology scan | passed Phase 6 (docs) | `check_docs.py` link scan exit 0; immutable ADR tokens remain in migrations listed in Phase 5 |
+| Requirements integrity | passed Phase 6 | Seven P0 specs; unique `REQ-*`/`AC-*`; no placeholder files |
+| Work hygiene | passed Phase 6 | `.work/active/` contains only this reset task |
+| Focused script tests | passed Phase 6 | 18 Python script tests OK; 21 frontend-isolation-lib tests OK |
+| Markdown lint | passed Phase 6 | CI globs 135 files, 0 errors (`markdownlint-cli2` v0.17.2); MD025 disabled for `.work` multi-H1 templates |
+| Architecture extraction audit | in-tree recorded; Gate B pending | Live owners present; ADR directory absent; independent review not closed |
+| Operational/security/compatibility evidence audit | in-tree recorded; Gate B pending | Seven OpenRouter phase files; 63 applied up-migrations; contracts 8/8; isolation check passed |
+| Current-state audit | recorded Phase 6 | Index still non-normative; gaps/default-off/deferred controller honest; Gate B pending |
+| Skill/rule parity | passed Phase 6 | Cursor/Agents skill dirs and SKILL.md bytes match |
+| UI pattern-adoption governance | passed Phase 6 | Classify-then-clone language in AGENTS, rules 00/06, implementation-workflow, frontend-developer, UI README |
+| Frontend verification | proportionate passed | Isolation lib tests + `check-frontend-isolation.mjs` passed; full `pnpm verify:web` not run (no `web/` source change) |
+| .NET/architecture/contract verification | proportionate | `pnpm --dir contracts test` 8/8; `pnpm verify:dotnet` not run (no `src/` change) |
+| Build and delivery checks | proportionate not run | No `web/` build graph change; isolation check is the delivery invariant for this reset |
+| Authenticated browser verification | not applicable | No routed UI / OIDC / profile contract change; Playwright screenshots not claimed |
 | Delegated Gate A | passed 2026-09-01 | Copied persist `review-focused-output-01` rev 11: `approved` / verification `verified`; scope `item-48819dbb36d9`; loop id `review-focused-output-01`; reviewer `tdp-session-7a472fad0d97`; reviewed Git `ceb2b5565e31744c2daef6bdd2a09945a24a7cea`. Producer did not author the respond. |
-| Independent cross-concern review | pending | Product/requirements, architecture, UI/UX, security/privacy, operations, documentation, tester/process findings resolved |
+| Independent cross-concern review | pending Gate B | In-tree notes recorded in Phase 6 package; not independent approval |
 | Delegated Gate B | pending | Independent reviewer acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
 
 Execution may split expensive checks into focused and full gates, but may not
@@ -1675,9 +1752,9 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 6 validate/reconcile
-  (`item-0d7215912a29`). Phase 5 removed historical surfaces per the final
-  deletion manifest; this reset task remains.
+- Current execution blocker: none. Next leaf is independent Gate B review
+  (`item-c478fbc81dbb` chain). Phase 6 recorded the validation matrix and Gate
+  B package; producer did not approve Gate B.
 
 # Completion
 

@@ -3,3 +3,5 @@ config:
   MD013: false
   MD033: false
   MD041: false
+  # `.work` task/template files use multiple H1 section titles by contract.
+  MD025: false

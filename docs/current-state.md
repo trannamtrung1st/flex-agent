@@ -187,7 +187,9 @@ synthetic pin is not production qualification.
 ## Active work
 
 Only this reset is the in-progress execution cursor for the baseline. Do not
-treat completed tasks as current planned work.
+treat completed tasks as current planned work. Phase 6 recorded validation
+evidence and a Gate B package in that task; independent Gate B is still
+pending.
 
 ## Phase 3 in-tree review (historical)
 
