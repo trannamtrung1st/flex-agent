@@ -113,7 +113,7 @@ def fingerprint(paths: tuple[Path, ...]) -> str:
     digest = hashlib.sha256()
     digest.update(GENERATOR_ID.encode("utf-8"))
     for path in paths:
-        digest.update(path.as_posix().encode("utf-8"))
+        digest.update(path.relative_to(ROOT).as_posix().encode("utf-8"))
         digest.update(path.read_bytes())
     return digest.hexdigest()
 

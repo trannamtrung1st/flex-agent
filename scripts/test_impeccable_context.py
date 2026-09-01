@@ -1,13 +1,18 @@
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
 from impeccable_context import (
+    GENERATOR_ID,
+    PRODUCT_SOURCES,
+    ROOT,
     SECRET_PATTERN,
     check_adapters,
     check_impeccable_tracked_paths,
     check_impeccable_tracked_secrets,
     complete_sentences,
+    fingerprint,
     is_impeccable_guard_relpath,
     render_design,
     render_product,
@@ -16,6 +21,14 @@ from impeccable_context import (
 
 
 class ImpeccableContextTests(unittest.TestCase):
+    def test_fingerprint_is_stable_across_checkout_prefixes(self) -> None:
+        digest = hashlib.sha256()
+        digest.update(GENERATOR_ID.encode("utf-8"))
+        for path in PRODUCT_SOURCES:
+            digest.update(path.relative_to(ROOT).as_posix().encode("utf-8"))
+            digest.update(path.read_bytes())
+        self.assertEqual(fingerprint(PRODUCT_SOURCES), digest.hexdigest())
+
     def test_product_adapter_is_non_authoritative_and_fingerprinted(self) -> None:
         body = render_product()
         self.assertIn("Not authoritative", body)
