@@ -1,9 +1,9 @@
 ---
 id: repository-baseline-reset
-status: planned
+status: in-progress
 created: 2026-08-29
-updated: 2026-08-31
-activation_gate: in-flight-work-reconciled-clean-freeze-and-ui-baseline-approved
+updated: 2026-09-01
+activation_gate: owner-activated-with-delegated-intermediate-review
 ---
 
 # Goal
@@ -31,9 +31,9 @@ and genuinely active/planned work discoverable without reconstructing
 supersession chains, completed projects, migration diaries, or old production
 UI behavior.
 
-This is the implementation-ready plan for that reset. It does not authorize
-execution. Do not start the reset until the activation gates below are met and
-the owner explicitly approves this plan.
+This is the implementation-ready plan for that reset. The owner activated direct
+TDP execution on 2026-09-01 under the delegated intermediate-review rules below.
+Do not proceed past any unmet Phase 0 prerequisite or delegated review checkpoint.
 
 # Activation gates and prerequisites
 
@@ -66,6 +66,21 @@ the owner explicitly approves this plan.
    material product, security/privacy, or architecture ambiguity found during
    execution is resolved in its owning canonical source before dependent
    deletion proceeds.
+
+## Owner activation and delegated intermediate review
+
+On 2026-09-01, the owner explicitly activated this task for a direct TDP run and
+authorized execution to proceed without pausing for separate human approval at
+Gate A or Gate B. The owner will review the final result.
+
+This delegation changes the approval actor, not the substance of either gate.
+Gate A and Gate B remain mandatory execution checkpoints. Their complete evidence
+packages must be independently reviewed by the TDP reviewer, every blocking finding
+must be resolved, and the reviewer decision and evidence must be recorded below
+before dependent work proceeds. The producer may not approve its own output. Any
+material product, requirements, architecture, UI/UX, security/privacy, operational,
+or scope ambiguity that the approved sources and recorded interim defaults do not
+resolve remains a blocker requiring owner input.
 
 The post-review UI/UX baseline is an input to this reset, not work to recreate
 inside it. If the review changes the file set proposed below, update this plan's
@@ -596,32 +611,32 @@ Future feature delivery must:
 
 ## Phase 0 - Activate, freeze, and resolve concurrent work
 
-- [ ] Verify the activation prerequisites and change this task to
-  `in-progress` only after explicit owner instruction.
-- [ ] Finish, pause, or supersede every concurrent execution cursor. Reconcile
+- [x] Record the 2026-09-01 owner activation, verify every remaining activation
+  prerequisite, and retain `in-progress` status while execution continues.
+- [x] Finish, pause, or supersede every concurrent execution cursor. Reconcile
   `shipboard-production-ux-reset.md` and
   `create-assessment-campaign-commission.md`; normalize every task status to
   the repository's hyphenated status vocabulary before inventory.
-- [ ] Reconcile the concurrent task/artifact cleanup against `ea97a88`,
+- [x] Reconcile the concurrent task/artifact cleanup against `ea97a88`,
   including paths already absent from the worktree. Either complete it as
   separately accepted work with retained-evidence proof or restore it; do not
   inherit an unexplained staged deletion set into the reset.
-- [ ] Restore a green pre-reset baseline for documentation and generated
+- [x] Restore a green pre-reset baseline for documentation and generated
   adapters, including regeneration or reconciliation of `DESIGN.md` from its
   accepted canonical inputs.
-- [ ] Record the inspected Git commit, branch, dirty working-tree paths, staged
+- [x] Record the inspected Git commit, branch, dirty working-tree paths, staged
   state, untracked paths, concurrent agents/tasks, generated artifacts, and
   exact approved post-review UI/UX baseline.
-- [ ] Require a clean index and worktree at the freeze, except for this task's
+- [x] Require a clean index and worktree at the freeze, except for this task's
   intentional activation edit. If the owner explicitly accepts a different
   snapshot, record every included path and why it is safe before proceeding;
   an unbounded dirty tree is never an accepted baseline.
-- [ ] Do not treat uncommitted or in-progress changes as established baseline
+- [x] Do not treat uncommitted or in-progress changes as established baseline
   truth unless the owner explicitly accepts them into reset scope.
-- [ ] Decide and record whether each conflicting in-flight task will complete,
+- [x] Decide and record whether each conflicting in-flight task will complete,
   pause, be superseded, or rebase before consolidation. Only one reset cursor
   may modify a classified target.
-- [ ] Freeze inventories for authorities, links, code boundaries, validation,
+- [x] Freeze inventories for authorities, links, code boundaries, validation,
   generated material, work status, immutable/compatibility artifacts, and
   operational evidence.
 
@@ -633,7 +648,7 @@ exceptions, green baseline validators, and Git recovery path are known.
 
 ## Phase 1 - Classify every material artifact
 
-- [ ] Classify each important file or directory as: current normative
+- [>] Classify each important file or directory as: current normative
   authority; current implementation guidance; current operational or
   compatibility evidence; implemented-status evidence; active or explicitly
   approved planned work; temporary legacy implementation; historical
@@ -665,10 +680,10 @@ extraction target, and no deletion candidate lacks a verified disposition.
 - [ ] Produce the exact no-deletion rewrite sequence and rollback/recovery
   procedure.
 
-### Approval Gate A - Target authority approval
+### Delegated Gate A - Target authority approval
 
-Before any canonical rewrite, governance cutover, or deletion, obtain explicit
-owner approval of:
+Before any canonical rewrite, governance cutover, or deletion, obtain independent
+TDP reviewer approval under the owner's 2026-09-01 delegation of:
 
 - the target authority model and file structure;
 - the concern/owner/lifecycle boundaries and consolidation map;
@@ -781,9 +796,10 @@ the reviewed manifest.
   invariant/evidence list, known gaps, verification evidence, and any
   not-applicable rationale for owner review.
 
-### Approval Gate B - Consolidated baseline acceptance
+### Delegated Gate B - Consolidated baseline acceptance
 
-Before declaring the reset complete, obtain explicit owner approval of:
+Before declaring the reset complete, obtain independent TDP reviewer approval under
+the owner's 2026-09-01 delegation of:
 
 - the consolidated canonical baseline and authority map;
 - the final deletion manifest and confirmation that required operational,
@@ -811,16 +827,129 @@ Do not mark the reset complete or remove this task before Gate B approval.
 Keep these records in this task during execution so approvals and deletion
 decisions are reviewable without creating a second plan or migration diary.
 
+## Phase 0 freeze record
+
+Inspected 2026-09-01 during TDP production of `item-76f0df7773cc`. Live facts
+replace the 2026-08-31 readiness snapshot.
+
+| Field | Live freeze value |
+| --- | --- |
+| Branch | `main` tracking `origin/main` |
+| Inspected commit (parent of this freeze checkpoint) | `cda98826844480770bab7603506cc241638a15f4` |
+| `origin/main` | identical to inspected commit |
+| Readiness comparison commit | `ea97a88bf30a99423f6460099104ef2ba3e161a7` |
+| Dirty paths before this freeze checkpoint | only unstaged `M .work/active/repository-baseline-reset.md` (owner activation plus this freeze record) |
+| Staged paths | none |
+| Untracked paths | none |
+| Bounded accepted dirty exception | this reset task file only, until the Phase 0 checkpoint commit lands it |
+| Git recovery | restore `cda9882` to drop uncommitted freeze edits; after the Phase 0 checkpoint commit, recover that commit from `git log -- .work/active/repository-baseline-reset.md`. Do not `reset --hard` unless the owner requests it. |
+
+### Concurrent-task disposition
+
+`.work/active/` contains **55** Markdown files. Hyphenated statuses only; no
+`in_progress`.
+
+| Status | Count | Disposition |
+| --- | --- | --- |
+| `completed` | 52 | Historical completed work on the active surface; classify in Phase 1; not concurrent execution |
+| `in-progress` | 1 | `.work/active/repository-baseline-reset.md` — the only allowed reset cursor |
+| `planned` | 1 | `.work/active/text-interaction-controller-contract.md` — retain until Phase 5 Product Lead reconfirm; not an execution cursor |
+| `blocked` | 1 | `.work/active/impeccable-frontend-rebuild.md` — owner-superseded predecessor (2026-08-28); not an active cursor |
+
+Named activation cursors:
+
+- `shipboard-production-ux-reset.md`: `completed`; `owner_visual_pass: accepted`;
+  `updated: 2026-08-31`.
+- `create-assessment-campaign-commission.md`: `completed`; hyphenated status;
+  `updated: 2026-08-29`.
+- `.work/resources/`: `multi-channel-agent-output-proposal.md` and
+  `text-interaction-controller-proposal.md` remain as non-authoritative inputs.
+
+### Deletions since `ea97a88`
+
+`git log --diff-filter=D ea97a88..HEAD` reports **259** deletions, all in
+`cda9882` (*Freeze Shipboard class grammar…*). Worktree versus `HEAD` has **no**
+uncommitted deletions. `overlay-closed-bezel.md` is absent at both `ea97a88` and
+`HEAD` (not in this deletion window).
+
+These deletions are **separately accepted Shipboard work already on
+`origin/main`**, not a Gate A deletion set and not restored:
+
+| Class | Count | Retained-evidence proof |
+| --- | --- | --- |
+| `.playwright-mcp/**` inspection PNGs | 231 | Recoverable from Git at `cda9882`; ephemeral browser artifacts, not operational evidence |
+| Completed `.work/active/*.md` cleanup | 24 | Recoverable from Git at `cda9882^` / `cda9882`; listed below |
+| Production/DS helper source removals in the same Shipboard commit | 4 | Recoverable from Git; replacements live in the Shipboard typed OperateArea/work-wrapper commit |
+
+Deleted task files (24): `activities-registry-polish.md`,
+`assign-dialog-single-scroll.md`, `assign-table-pattern-consistency.md`,
+`assignment-station-pattern-consistency.md`, `ceremony-foot-hairline-bleed.md`,
+`create-campaign-ds-gaps.md`, `dialog-tooltip-top-layer.md`,
+`etched-frame-clip-rule.md`, `gallery-document-scroll.md`,
+`gallery-seated-dialog-scroll.md`, `harness-attach-running-origins.md`,
+`home-my-work-consistency.md`, `home-plate-grid-promotion.md`,
+`impeccable-document-docs-sync.md`, `in-plate-host-hairline.md`,
+`nested-scroll-ownership.md`, `plate-foot-air-resolved-note.md`,
+`plate-foot-hairline-composition.md`, `plate-foot-hairline.md`,
+`setup-note-remaining-polish.md`, `setup-resolved-note-alert.md`,
+`toast-dock-placement.md`, `version-list-generic-composition.md`,
+`viewport-aware-overlays.md`.
+
+Deleted implementation files (4): `web/src/components/content/SafeContent.tsx`,
+`web/src/design-system/components/select/useDismissOnOutsidePointer.ts`,
+`web/src/design-system/components/state/AcknowledgmentGate.tsx`,
+`web/src/hooks/useTheme.ts`.
+
+### Approved UI baseline at freeze
+
+- Design System `docs/ui-ux/design-system/README.md`: **Approved v1.0**, last
+  reviewed **2026-08-31**, Shipboard Terminal visual authority.
+- `docs/ui-ux/README.md`: replacement P0 journey specs **Approved v1.0** after
+  the Shipboard production UX reset; retirement ledger still catalog-pinned.
+- Production composition freeze: commit `cda9882` on `main`.
+- Owner visual pass: recorded on `shipboard-production-ux-reset.md`.
+
+### Freeze inventories (counts, not classifications)
+
+| Inventory | Count / note |
+| --- | --- |
+| `docs/**/*.md` | 129 |
+| `docs/architecture/decisions/*.md` | 22 (ADR-001–021 plus decisions README) |
+| `docs/requirements/features/*.md` | 20 (7 P0 + 12 placeholders + features README) |
+| `docs/ui-ux/**/*.md` | 60 |
+| `docs/operations/**/*.md` | 10 |
+| `database/migrations/up/*.sql` | 63 (through `0062` plus additive `0056a`) |
+| `.agents/skills/**/SKILL.md` | 15 |
+| `.cursor/skills/**/SKILL.md` | 14 |
+| Generated adapters | `PRODUCT.md`, `DESIGN.md` current per impeccable check |
+
+### Immutable / checksum exceptions (do not rewrite)
+
+- Applied SQL under `database/migrations/up/**` (including ADR-token provenance).
+- Historical migration/compatibility fixtures and readers; OpenAI-compatible
+  example profiles under `docs/operations/provider-profiles/` and matching
+  tests/modules.
+- Checksum-sensitive ADR labels remain non-authoritative provenance per the
+  recorded interim default.
+
+### Pre-reset validators (this freeze)
+
+| Command | Result |
+| --- | --- |
+| `python3 scripts/check_docs.py` | exit 0; `Documentation validation passed.` |
+| `python3 scripts/impeccable_context.py check` | exit 0; `Impeccable context adapters are current.` |
+| `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py' -v` | exit 0; `Ran 15 tests in 0.007s` `OK` |
+
 ## Approval Gate A record
 
 | Field | Value |
 | --- | --- |
-| Status | pending |
-| Approved by | pending |
+| Status | pending delegated review |
+| Approved by | Independent TDP reviewer under owner delegation |
 | Approved at | pending |
 | Reviewed Git reference | pending |
 | Decision and scope | pending |
-| Required changes or conditions | pending |
+| Required changes or conditions | Owner delegated intermediate approval on 2026-09-01; all substantive Gate A evidence and blocking-finding requirements remain |
 
 ## Classification and deletion manifest
 
@@ -836,58 +965,34 @@ until its replacement or retained evidence has been verified.
 
 | Field | Value |
 | --- | --- |
-| Status | pending |
-| Approved by | pending |
+| Status | pending delegated review |
+| Approved by | Independent TDP reviewer under owner delegation |
 | Approved at | pending |
 | Reviewed Git reference | pending |
 | Baseline and deletion-manifest decision | pending |
 | Validation and independent-review summary | pending |
-| Required follow-up or cleanup | pending |
+| Required follow-up or cleanup | Owner delegated intermediate approval on 2026-09-01 and will review the final result |
 
 # Current state
 
-Planned only. **Readiness decision on 2026-08-31: NO-GO until the blockers below
-are cleared.** No baseline-reset implementation, deletion, or broad rewrite has
-started.
+Phase 0 freeze is recorded on 2026-09-01 against live Git, not the 2026-08-31
+readiness snapshot. See **Phase 0 freeze record**.
 
-Readiness inspection reference: branch `main`, commit
-`ea97a88bf30a99423f6460099104ef2ba3e161a7`, synchronized with `origin/main` at
-inspection time. The working tree was not an acceptable freeze: inspection
-first observed 576 tracked changes and 31 untracked paths, then 603 tracked
-changes and four untracked paths, and most recently 570 tracked changes with no
-untracked paths as concurrent cleanup continued. Changes span repository
-governance, task files, documentation, migrations/host code, frontend, tests,
-and Playwright evidence. Counts may continue moving while current work remains
-uncommitted and therefore must be regenerated at activation.
+Activation/freeze parent: branch `main`,
+`cda98826844480770bab7603506cc241638a15f4`, equal to `origin/main`. The only
+dirty path before the Phase 0 checkpoint commit is this task file. Concurrent
+execution cursors are completed, blocked-superseded, or planned; this reset is
+the only `in-progress` cursor. Deletions since `ea97a88` (259 paths, all in
+`cda9882`) are separately accepted Shipboard work with Git recovery, not an
+uncommitted deletion set.
 
-`shipboard-production-ux-reset.md` is now `completed` with owner visual
-acceptance recorded on 2026-08-31; its UI-baseline prerequisite is satisfied.
-`create-assessment-campaign-commission.md` is substantively complete with all
-completion checks marked, but still uses the invalid status `in_progress`; its
-metadata and durable-truth disposition must be reconciled before the reset.
-`impeccable-frontend-rebuild.md` remains a blocked, owner-superseded historical
-predecessor and is not an active cursor. Concurrent cleanup removed
-`overlay-closed-bezel.md` from the worktree during this review and staged or
-removed many completed tasks and Playwright artifacts; those paths remain
-pre-reset reconciliation inputs through Git.
+Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
+approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
+and 15 adapter unit tests passed on this freeze.
 
-This plan itself became `MM` while the review was in progress: a concurrent
-cursor staged an intermediate version while the final readiness edits remained
-unstaged. Do not commit or activate from that split index state. After all
-concurrent work stops, intentionally stage the final file once and review its
-complete cached diff.
-
-Design System v1.0 is approved and records a 2026-08-31 review, including the
-current production-page plus Component Deck donor hierarchy. The latest
-readiness preflight passes `scripts/check_docs.py`,
-`scripts/impeccable_context.py check`, and all 15 focused adapter unit tests.
-These gates must pass again against the clean activation freeze.
-
-Next action is to leave this task `planned`, normalize the completed create
-task, finish or revert the concurrent cleanup, reconcile this plan's split
-index state, and produce a clean committed freeze. Then rerun Phase 0 discovery
-and baseline validation against that exact state and obtain explicit
-activation.
+Current action: Phase 1 classification in this task. No canonical rewrite,
+governance cutover, or deletion until delegated Gate A focused_output review
+is persisted and copied here.
 
 # Decisions and interim defaults
 
@@ -925,10 +1030,10 @@ activation.
 
 | Check | Status | Evidence required after execution |
 | --- | --- | --- |
-| Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed readiness preflight | Passed 2026-08-31 after concurrent canonical UI edits and `DESIGN.md` were reconciled; must pass again at the clean freeze |
+| Pre-reset documentation baseline: `python3 scripts/check_docs.py` | passed Phase 0 freeze | 2026-09-01 freeze: exit 0, `Documentation validation passed.` |
 | New documentation validator and link/fragment scan | pending | `python3 scripts/check_docs.py` passes against the new catalog |
 | Markdown lint | pending | CI-equivalent lint passes for `README.md`, `docs/**`, harness rules/skills, `.work/README.md`, template, and retained active plans |
-| Generated adapter consistency | passed readiness preflight | `python3 scripts/impeccable_context.py check` and 15 focused adapter unit tests passed 2026-08-31; must pass again at the clean freeze |
+| Generated adapter consistency | passed Phase 0 freeze | 2026-09-01: `python3 scripts/impeccable_context.py check` exit 0; `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py' -v` 15 tests OK |
 | Historical-authority scan | pending | No live docs/harness requirement for ADRs, supersession chains, retirement/change records, migration diaries, or completed-task retention; allowlisted immutable artifacts reported separately |
 | Path and terminology scan | pending | No stale deleted doc path, `web-legacy` current claim, old UI authority, or obsolete terminology remains |
 | Requirements integrity | pending | Seven P0 specs/cataloged current behavior, unique `REQ-*`/`AC-*`, no scope loss, no placeholder files required |
@@ -943,9 +1048,9 @@ activation.
 | .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` (or current equivalents) pass |
 | Build and delivery checks | pending | `pnpm build`, applicable supply-chain/OCI checks, and path-sensitive build metadata pass proportionate to changed files |
 | Authenticated browser verification | pending | Run `pnpm verify:oidc` if reset changes any routed docs-derived UI, build/profile path, or authenticated-browser contract; otherwise record reviewed not-applicable rationale |
-| Approval Gate A | pending | Explicit approval record covers the target authority model, governance migration, deletion candidates, evidence preservation, and gap representation before rewriting begins |
+| Delegated Gate A | pending | Independent reviewer approval record covers the target authority model, governance migration, deletion candidates, evidence preservation, and gap representation before rewriting begins |
 | Independent cross-concern review | pending | Product/requirements, architecture, UI/UX, security/privacy, operations, documentation, tester/process findings resolved |
-| Approval Gate B | pending | Explicit acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
+| Delegated Gate B | pending | Independent reviewer acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
 
 Execution may split expensive checks into focused and full gates, but may not
 claim completion from searches or Markdown links alone. UI screenshots are
@@ -960,17 +1065,16 @@ artifacts must nevertheless remain green.
   owner visual sign-off; Design System v1.0 remains approved and current.
 - Cleared prerequisite: documentation, generated adapter, and focused adapter
   unit checks pass in the current working state.
-- Current blocker: `create-assessment-campaign-commission.md` is substantively
-  complete but still has nonstandard `in_progress` metadata. Normalize and
-  reconcile it before activation.
-- Current blocker: concurrent task/artifact cleanup is uncommitted and the
-  worktree remains materially dirty, so there is no stable freeze or reviewed
-  deletion manifest yet.
-- Current blocker: this plan is split between staged and unstaged versions
-  (`MM`) because concurrent staging occurred during the review; reconcile and
-  review one final cached version before activation.
-- Approval blocker: this plan requires explicit owner approval before
-  activation.
+- Cleared prerequisite: `create-assessment-campaign-commission.md` has normalized
+  `completed` metadata.
+- Cleared prerequisite: the activation reference was clean and synchronized with
+  `origin/main` before the intentional activation edit.
+- Cleared prerequisite: the owner activated direct execution on 2026-09-01 and
+  delegated intermediate Gate A and Gate B decisions to independent TDP review.
+- Cleared Phase 0: live freeze recorded; deletions since `ea97a88` accepted via
+  `cda9882` on `origin/main` with Git recovery; pre-reset validators green.
+- Current execution blocker: none. Next leaf is Phase 1 classification. Do not
+  rewrite canonical sources until delegated Gate A review is persisted.
 
 # Completion
 
