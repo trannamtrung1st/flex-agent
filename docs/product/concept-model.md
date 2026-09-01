@@ -6,24 +6,23 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.5 |
+| **Status** | In review |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.5 |
-| **Effective date** | 2026-08-16 |
-| **Last reviewed** | 2026-08-23 |
-| **Approval reference** | v0.5 person-like persona and honest Agent identity boundary (`PROP-AGENT-1`) approved 2026-08-16; amended 2026-08-23 to define Enrollment-scoped Accommodation meaning without expanding the P0 workflow; supersedes v0.4 and preserves its P0-compatible Agent Decision/output semantics |
-| **Related decisions** | Approved `PROP-AGENT-1`, [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
+| **Last reviewed** | 2026-09-01 |
+| **Related decisions** | `PROP-AGENT-1` in this document; structured Agent Invocation, Decision, next-timer, and P0 output-envelope meaning also appear in [MVP scope](mvp-scope.md) and the [text Session runtime contract](../architecture/session-runtime-contract.md) |
 
-Version 0.5 is **approved** and supersedes v0.4. It approves the person-like
-persona and honest Agent identity boundary in `PROP-AGENT-1` without expanding
-the MVP or enabling general Agent authoring, voice, human-likeness treatment, or
-additional P0 effects. It preserves canonical Agent Invocation, Invocation
-Trigger, Agent Decision, Agent Output, requested-action, next-timer, and
-presentation-versus-visibility semantics from v0.4. Normative system behavior
-remains governed by approved feature specifications. The approved 2026-08-23
-amendment defines Accommodation as separate Enrollment-scoped state; it does
-not permit mutation of a Cohort baseline or create Participant self-service.
+This document states current concept meaning. `PROP-AGENT-1` permits a
+person-like persona and requires honest Agent identity without expanding the
+MVP or enabling general Agent authoring, voice, human-likeness treatment, or
+additional P0 effects. Canonical Agent Invocation, Invocation Trigger, Agent
+Decision, Agent Output, requested-action, next-timer, and
+presentation-versus-visibility semantics remain in force. Accommodation is
+separate Enrollment-scoped state; it does not permit mutation of a Cohort
+baseline or create Participant self-service. Observable system behavior remains
+governed by feature specifications. This Phase 3 rewrite is recoverable beside
+the previous Git version and is **not** the Phase 4 authority cutover.
 
 ## Purpose
 

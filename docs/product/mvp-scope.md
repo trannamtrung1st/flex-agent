@@ -6,23 +6,22 @@ First product experience, platform direction, explicit non-goals, and deferred c
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.4 |
+| **Status** | In review |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
-| **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-21 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider/host sequencing review and 2026-08-20 vendor-neutral OpenAI-compatible endpoint decision preserved product scope; 2026-08-21 delivery sequencing review separated deterministic adapter migration from exact-profile live qualification without changing MVP scope or enablement gates; supersedes v0.3 |
-| **Related decisions** | Approved [Concept model v0.5](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
+| **Last reviewed** | 2026-09-01 |
+| **Related decisions** | [Concept model](concept-model.md); P0-compatible Agent Decision output envelope in [text Session runtime contract](../architecture/session-runtime-contract.md) |
 
-Version 0.4 is **approved** and supersedes v0.3. It preserves the seven-step MVP
-slice, text-only examination, and optional bounded next-timer replacement. It
-records the P0-compatible Agent Decision output envelope without enabling voice
-or additional presentation channels. Approved feature specifications govern
-observable behavior. It remains compatible with approved Concept model v0.5:
-`PROP-AGENT-1` permits person-like personas for existing Agent revisions but
-does not add general Agent authoring, photographic human representation, voice,
-or another MVP capability.
+This document states current MVP, deferred, and non-goal boundaries. The
+seven-step MVP slice, text-only examination, and optional bounded next-timer
+replacement remain in force. The P0-compatible Agent Decision output envelope
+does not enable voice or additional presentation channels. Feature
+specifications govern observable behavior. `PROP-AGENT-1` permits person-like
+personas for existing Agent revisions but does not add general Agent authoring,
+photographic human representation, voice, or another MVP capability. This
+Phase 3 rewrite is recoverable beside the previous Git version and is **not**
+the Phase 4 authority cutover.
 
 ## First product experience
 
@@ -85,9 +84,44 @@ workflow behavior.
 - Advanced calibration and analytics
 - Direct, embedded, and API-triggered activities (campaign remains the MVP activity form)
 
+### Deferred capability constraints (not P0 requirements)
+
+These sentences migrate unique placeholder and related-decision meaning into
+this scope document. They do **not** approve the deferred capabilities or
+create new `REQ-*` IDs. Placeholder feature files remain until Phase 5.
+
+- **Agent library (P1).** General Agent-library authoring remains deferred.
+  When that specification is authored, it must carry `PROP-AGENT-1` into
+  testable persona authoring, revision, preview, validation, honest Agent
+  attribution, real-person impersonation prevention, and later human-likeness
+  extension boundaries. The P0 assessment flow may select existing
+  pre-provisioned Agent revisions and does not gain general Agent authoring.
+- **Harness library (P1).** Reusable harness authoring beyond
+  assessment-required selection remains deferred. The placeholder body adds
+  no extra sentences.
+- **Interruptible voice (next release).** Voice remains out of MVP. The
+  structured Agent Invocation/Decision seam does not approve interruptible
+  voice.
+- **Tool execution (next release).** Tools remain out of MVP. A
+  `request_tool` recommendation in an Agent Decision is not an approved
+  execution capability.
+- **Configurable workflow stages (next release).** Richer configurable
+  stages remain out of MVP. Trusted workflow triggers and non-authoritative
+  transition proposals do not approve a configurable-stage product.
+- **Harness snapshot comparison/restoration, dynamic memory, memory
+  candidates, harness improvement proposals, shared multi-participant
+  sessions, calibration/analytics, and alternative activity forms** remain
+  named deferred themes in this document and in the feature catalog. Their
+  placeholder bodies add no extra sentences.
+
+A synthetic-development model-provider profile may exercise non-sensitive
+local evidence. It does not qualify production, accept Participant data, or
+replace exact-profile live qualification for a real assessment provider.
+
 ## MVP executable workflow
 
-The slice above decomposes into seven bounded outcomes. Each becomes a P0 feature specification before implementation.
+The slice above decomposes into seven bounded outcomes. Each is governed by a
+P0 feature specification.
 
 | Step | Outcome | P0 spec |
 | --- | --- | --- |
@@ -189,49 +223,13 @@ Reviewers can:
 
 Deferred participant and reviewer capabilities: voice and tools align with [Next release](#next-release-explicitly-deferred-from-mvp); memory candidate proposals align with [Later release](#later-release). Reusable agent and harness library authoring is P1 in the [Requirements feature catalog](../requirements/README.md#p1-foundation-expansion).
 
-## Next step: P0 realization
+## Governing requirements and interaction
 
-All seven P0 feature specifications, the detailed Session, Evaluation, and
-Review/Release architecture contracts, and the bounded component/provider
-defaults are approved — see
-[P0 authoring order](../requirements/README.md#p0-authoring-order),
-[ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and
-[ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
-The P0 Activity journey and all five P0 surface interaction specifications,
-including [Result and Release](../ui-ux/result-release.md), are also approved.
-Continue remaining production gates after the Sessions runtime slice defined by
-[ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
-Structured Agent Invocation/Decision, next-timer, and P0-compatible output
-envelope behavior exists in Sessions, contracts, PostgreSQL, and the synthetic
-Participant path. Production HTTP SSE and Worker polling are implemented host
-successors; the human OIDC application-session foundation is implemented and
-independently reviewed while Docker-backed Keycloak/`0033` evidence remains
-open. Exact-profile provider qualification, hosted Session start/configuration, and other production gates remain against
-approved Concept model v0.5, MVP scope v0.4, and current approved feature
-specifications,
-[ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
-[ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
-and
-[ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md).
-In parallel, complete ADR-008's applicable compatibility and
-provider-credential evidence. The approved
-[OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md)
-may use real free-model calls for non-sensitive local chat but cannot qualify a
-real assessment provider or replace the OpenAI-compatible endpoint
-qualification track (formerly Direct OpenAI Phase B). Qualify at least one
-concrete provider deployment profile for each claimed execution profile without
-making its model a product dependency. The deterministic OpenAI-compatible
-adapter migration may complete before an exact live profile is available; that
-does not qualify or enable the adapter, and exact-profile live evidence remains
-mandatory before real use. Canonical Session runtime schemas and fixtures exist;
-HTTP runtime validation and live-provider contract suites remain open. An
-affected integration must pass its gates before acceptance or real use; the
-production pilot must pass the broader evidence gates in
-[MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
-Apply the approved [design system](../ui-ux/design-system/README.md) and
-interaction specifications throughout specification-driven implementation and
-end-to-end verification while preserving the approved product scope and feature
-boundaries.
+The seven P0 feature specifications, [MVP operational defaults](../requirements/mvp-operational-defaults.md),
+and P0 UI/UX interaction specifications govern observable assessment-slice
+behavior. Architecture contracts describe technical realization. Implemented
+status is not product meaning; do not treat shipped surfaces as additional
+requirements.
 
 ## Platform differentiation (product level)
 

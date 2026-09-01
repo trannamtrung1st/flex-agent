@@ -4,11 +4,13 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**All seven P0 specifications are approved at their current versions.** Nineteen
-spec files exist. [`resolved-session-configuration.md`](resolved-session-configuration.md)
-v0.4 and [`session-text-lifecycle.md`](session-text-lifecycle.md) v0.5 include
-the approved P0-compatible Agent Decision output envelope.
-All P1–P3 files remain placeholders. No eighth P0 feature is added.
+**Seven P0 specifications are In review** after the Phase 3 current-tense
+rewrite. `REQ-*` and `AC-*` identifiers are unchanged.
+[`resolved-session-configuration.md`](resolved-session-configuration.md) and
+[`session-text-lifecycle.md`](session-text-lifecycle.md) include the
+P0-compatible Agent Decision output envelope. All P1–P3 files remain
+placeholders. No eighth P0 feature is added. Catalog membership, order, and
+tier counts are unchanged.
 
 ## Purpose
 

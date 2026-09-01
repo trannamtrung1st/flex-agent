@@ -707,12 +707,12 @@ record**. The producer did not author that respond.
 
 ## Phase 3 - Consolidate current truth without deleting sources
 
-- [>] Rewrite product sources in current tense without changing meaning or
+- [x] Rewrite product sources in current tense without changing meaning or
   converting examples/future ideas into requirements.
-- [ ] Reconcile approved requirements, preserve stable `REQ-*`/`AC-*`, move
+- [x] Reconcile approved requirements, preserve stable `REQ-*`/`AC-*`, move
   volatile implementation claims to `docs/current-state.md`, and extract any
   unique scope from placeholder specifications.
-- [ ] Rewrite current architecture and focused contracts. Extract ADR-001
+- [>] Rewrite current architecture and focused contracts. Extract ADR-001
   through ADR-021 one by one into current constraints or mark them historical
   only, but leave every ADR in place during this phase.
 - [ ] Rewrite `docs/ui-ux/README.md` as application-level UX architecture and
@@ -947,6 +947,10 @@ Deleted implementation files (4): `web/src/components/content/SafeContent.tsx`,
 | `python3 scripts/check_docs.py` | exit 0; `Documentation validation passed.` |
 | `python3 scripts/impeccable_context.py check` | exit 0; `Impeccable context adapters are current.` |
 | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py' -v` | exit 0; `Ran 15 tests in 0.007s` `OK` |
+
+Phase 3 product/requirements (2026-09-01): same three commands passed after
+`python3 scripts/impeccable_context.py generate` regenerated `PRODUCT.md`.
+No visual verification claimed (source-only documentation).
 
 ## Approval Gate A record
 
@@ -1467,11 +1471,33 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 3 product and requirements current-tense rewrite
-(`item-3c9cd9e9a2c1`). Independent Gate A focused_output persist
-`review-focused-output-01` is `approved` and copied into **Approval Gate A
-record**. Canonical rewrite may begin; governance cutover remains Phase 4;
-deletions remain Phase 5.
+Current action: Phase 3 architecture and ADR absorption
+(`item-a8dbad2a8346`) and Phase 3 UI/UX (`item-87f71e2b96ef`) after the
+product/requirements leaf. Product overview, concept model, MVP scope, P0
+specs, operational defaults, and entry-point READMEs are In review. Unique
+placeholder scope is in `mvp-scope.md` deferred-capability constraints.
+Volatile P0 implementation-matrix Implementation/Status cells are queued
+below for the operations leaf's `docs/current-state.md`; they are not new
+requirements. No `docs/current-state.md` and no README current-state route
+yet. Catalog membership/order/tier counts unchanged. Placeholder files remain.
+
+### Queued P0 implementation-matrix claims (not requirements)
+
+Removed from seven P0 Traceability tables on this leaf. Full Implementation
+cells remain in Git at `4994076862e088bbc1ea25436ab2a6b95dfdb704`. The Phase 3
+operations leaf must materialize derived links only, not restated REQ/AC.
+
+| Spec | Rows queued | Prior Status values |
+| --- | --- | --- |
+| `auth-resource-isolation.md` | 15 | Partial (3), Gap (12) |
+| `resolved-session-configuration.md` | 9 | Partial (3), Gap (6) |
+| `assessment-setup.md` | 9 | Implemented (1), Partial (8) |
+| `submission-attempts.md` | 8 | Partial (7), Gap (1) |
+| `session-text-lifecycle.md` | 9 | Partial (8), Gap (1) |
+| `evidence-evaluation.md` | 10 | Gap (10) |
+| `review-result-release.md` | 10 | Gap (10) |
+
+Do not treat those Status values as intended product meaning.
 
 # Decisions and interim defaults
 
@@ -1566,8 +1592,9 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 3 product and
-  requirements (`item-3c9cd9e9a2c1`).
+- Current execution blocker: none. Next leaves are Phase 3 architecture
+  (`item-a8dbad2a8346`) and UI/UX (`item-87f71e2b96ef`). Phase 3 product and
+  requirements rewrite is recorded; catalogs remain validator-compatible.
 
 # Completion
 

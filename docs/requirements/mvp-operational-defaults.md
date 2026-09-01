@@ -7,29 +7,31 @@ sessions, protected-data lifecycle, and recovery placement.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved |
+| **Status** | In review |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Version** | 0.4 |
-| **Approved date** | 2026-08-06 |
-| **Last amended** | 2026-08-23 |
-| **Approval reference** | v0.4 accommodation-record lifecycle class approved 2026-08-23; supersedes v0.3 while preserving its authentication/session decisions |
+| **Last reviewed** | 2026-09-01 |
 | **Applies to** | MVP reference deployment and any deployment that does not supply a stricter approved Organization policy |
 | **Governs** | Observable operational limits and lifecycle defaults; it does not select infrastructure products or make a compliance claim |
 
 These values resolve `Q-ARCH-10` through `Q-ARCH-13` from the initial MVP
-architecture review. Version 0.2 clarified that external malware scanning is a
-policy-controlled validation step and is not mandatory for the initial
-text/Markdown-only categories. Version 0.3 approves pre-provisioned human
-identity mapping, one server-derived Organization per application session, and
-bounded upstream account-disablement and forced-logout propagation without
-making ordinary provider availability the authority for an existing session.
-Version 0.4 adds the approved Accommodation and fairness-exception lifecycle
-class without treating business expiry as a disposition clock.
-Organization policy may impose stricter limits or shorter retention where
-dependencies permit, but lower scopes may not widen
-approved Organization bounds. A deployment-specific override must be explicit,
-versioned, authorized, auditable, and tested before protected data is accepted.
+architecture review. External malware scanning is a policy-controlled
+validation step and is not mandatory for the initial text/Markdown-only
+categories. Human identity mapping uses pre-provisioned bindings, one
+server-derived Organization per application session, and bounded upstream
+account-disablement and forced-logout propagation without making ordinary
+provider availability the authority for an existing session. Accommodation
+and fairness-exception records use a lifecycle class that does not treat
+business expiry as a disposition clock. Organization policy may impose
+stricter limits or shorter retention where dependencies permit, but lower
+scopes may not widen approved Organization bounds. A deployment-specific
+override must be explicit, versioned, authorized, auditable, and tested
+before protected data is accepted.
+
+This Phase 3 rewrite is recoverable beside the previous Git version and is
+**not** the Phase 4 authority cutover. `REQ-OPS-*` and `AC-OPS-*` identifiers
+are unchanged.
 
 ## Submission intake defaults
 

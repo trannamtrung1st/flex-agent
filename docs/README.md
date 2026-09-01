@@ -1,8 +1,10 @@
 # Flex Agent Documentation
 
-Authoritative product and engineering documentation for the Flex Agent platform.
+Authoritative product and engineering documentation for the Flex Agent
+platform.
 
-The repository root [`README.md`](../README.md) is the GitHub landing page: current documentation phase, entry links, and the validation command.
+The repository root [`README.md`](../README.md) is the landing page: entry
+links and the documentation validation command.
 
 ## Audience routes
 
@@ -23,48 +25,49 @@ The repository root [`README.md`](../README.md) is the GitHub landing page: curr
 
 ## Authority by concern
 
-Documents govern different concerns. A document overrides another **only within its area of authority**. Cross-area conflicts require review in the governing area — an ADR must not silently redefine product meaning or scope, and a feature spec must not silently override an approved product decision without explicit supersession.
+Documents govern different concerns. A document overrides another **only
+within its area of authority**. Cross-area conflicts require review in the
+governing area — an architecture document must not silently redefine product
+meaning or scope, and a feature spec must not silently override a product
+decision without explicit supersession.
 
 | Concern | Authoritative source | Governs |
 | --- | --- | --- |
-| Product meaning and scope | Approved [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or product decision record | Domain vocabulary, relationships, scope boundaries, product invariants |
-| Observable system behavior | Approved feature specification with stable `REQ-*` and `AC-*` IDs | What the system must do, who may do it, and how success is verified |
-| User interaction | Approved UI/UX specification | Journeys, interaction states, content, accessibility, and visual design |
-| Technical realization | Approved architecture decision (ADR) | Implementation approach, data ownership, deployment, and technical trade-offs |
+| Product meaning and scope | [Concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or product decision record | Domain vocabulary, relationships, scope boundaries, product invariants |
+| Observable system behavior | Feature specification with stable `REQ-*` and `AC-*` IDs | What the system must do, who may do it, and how success is verified |
+| User interaction | UI/UX specification | Journeys, interaction states, content, accessibility, and visual design |
+| Technical realization | Architecture document | Implementation approach, data ownership, deployment, and technical trade-offs |
 | Implemented behavior | Code and tests | Must trace back to the sources above |
 
 **Conflict resolution rules:**
 
-- A conflicting ADR triggers product or requirements review; it does not override product semantics.
-- A feature spec that changes domain meaning requires an updated or superseding product document.
-- Implementation that diverges from approved specs is a defect unless explicitly superseded.
-- Clearly labeled proposals (`Proposed`, open questions with interim defaults) inform discussion but do not govern behavior. A `Q-*` interim default is working guidance only until decided or promoted to an approved requirement/`PROP-*`.
+- A conflicting architecture decision triggers product or requirements
+  review; it does not override product semantics.
+- A feature spec that changes domain meaning requires an updated or
+  superseding product document.
+- Implementation that diverges from governing specs is a defect unless
+  explicitly superseded.
+- Clearly labeled proposals (`Proposed`, open questions with interim
+  defaults) inform discussion but do not govern behavior. A `Q-*` interim
+  default is working guidance only until decided or promoted to an approved
+  requirement/`PROP-*`.
 
-Illustrative examples in product documents are not MVP commitments unless captured in an approved spec.
+Illustrative examples in product documents are not MVP commitments unless
+captured in a feature specification.
+
+Current repository governance, catalogs, and validators remain binding until
+Phase 4 cutover. Phase 3 replacement sources stay In review.
 
 ## Document status
 
 | Status | Meaning |
 | --- | --- |
 | `Draft` | Work in progress; not authoritative for implementation or downstream authoring |
-| `In review` | Under review; not yet approved |
+| `In review` | Under review; not yet the cutover authority |
 | `Approved` | Authoritative for the governed concern |
 | `Implemented` | Approved and reflected in the product |
 | `Proposed` | Suggested default or option requiring explicit approval |
 | `Superseded` | Replaced by a newer document or version; retained for history |
-
-## Current maturity
-
-| Area | Status | Notes |
-| --- | --- | --- |
-| Product | Concept model v0.5; overview and MVP scope v0.4 approved | [Product hub](product/README.md): person-like persona, honest Agent identity, and Enrollment-scoped Accommodation meaning approved without expanding text-only assessment scope |
-| Requirements | Seven P0 specifications approved at current versions; operational defaults v0.4 current | [Feature catalog](requirements/README.md#feature-catalog-overview); resolved configuration v0.4 and text Session v0.5 add the P0 output profile without an eighth P0 feature; [MVP operational defaults](requirements/mvp-operational-defaults.md) v0.4 adds the approved Accommodation lifecycle class |
-| UI/UX | Replacement P0 IA and five surface specifications Approved v1.0 after the Shipboard production UX reset; former versions at Git `eb9c398` are retired ([ledger](ui-ux/retired-authority.md)); design-system v1.0 approved | The approved [Submission and Attempt specification](ui-ux/submission-attempt.md) governs Accommodation input, distinct approval, baseline/effective timing, and timezone fallback; [Text Session](ui-ux/text-session.md) keeps envelope, output-id, audience, and timer internals hidden while presenting existing accessible message and no-action states. Shared [design system](ui-ux/design-system/README.md) v1.0 is Shipboard Terminal. Voice and Interaction Controller controls are not P0. |
-| Architecture | Approved v0.10 baseline and twenty-one ADRs | [MVP architecture](architecture/mvp-architecture.md) v0.10, amended 2026-08-23 with `AR-DEC-26`–`AR-DEC-27`, governs effective timing/Accommodation ownership and parallel v2 Enrollment projections in addition to its existing approved boundaries. [ADR-012](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) govern Invocation/Decision, next-timer, and the P0 output envelope while preserving ADR-011 streaming. Approved [ADR-015](architecture/decisions/ADR-015-session-timer-lane-service-delegation.md) and [ADR-016](architecture/decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) govern Worker timer delegation, workload identity, and bounded Invocation delegation. [ADR-017](architecture/decisions/ADR-017-assessment-source-authority-and-activation-transaction.md) governs Assessment activation ownership; amended [ADR-018](architecture/decisions/ADR-018-enrollment-request-limit-scope.md) makes the separate PostgreSQL-backed replica-independent Enrollment quota ready for implementation without moving identity policy into NGINX or selecting Redis. Approved [ADR-019](architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md) assigns SPA Query, form, icon, and transport ownership without changing `AR-DEC-12` or Session runtime authority. [ADR-021](architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md) supersedes ADR-020 dual-build production topology. ADR-008 and ADR-010 preserve the vendor-neutral provider and implementation-stack boundaries. |
-| Feature specifications | Catalog complete; seven P0 specifications approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
-| Implementation | Sessions runtime foundation and host successor slices completed; feature status remains Partial | Executable API, Worker, SPA, Sessions module, PostgreSQL Session runtime migrations `0005`–`0029`, human-authentication migrations `0030`–`0033`, Assessment migrations `0034`–`0042`, Enrollment migration `0043`, synthetic Participant Text Session, production HTTP SSE with Session-scoped reauthorization, Worker polling/Invocation processing foundations, locked restores, architecture/runtime tests, OCI build inputs, and implementation CI are present. See [workspace development](contributing/workspace.md). The Worker reference path for [ADR-016](architecture/decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) workload identity and bounded Invocation delegation is implemented and independently reviewed. The human OIDC application-session foundation and first Enrollment assignment/discovery slice are implemented and independently reviewed. Docker-backed PostgreSQL migrations through `0043`, Keycloak `26.7.0` signed logout-token compatibility, canonical gateway PKCE/session/logout/fail-closed Playwright (`pnpm verify:oidc`), and NGINX restricted-route probes now have executable evidence; remaining real MFA, key-rotation, clock-skew, account-disablement, outage, multi-instance callback, and full `AC-OPS-4` stay Partial. The distinct OpenRouter synthetic-development adapter, fail-closed Worker composition, deterministic contracts, and bounded live harness are implemented and independently reviewed. Phase 28 labels the pinned GPT-OSS 20B/Darkbloom adapter harness `qualified_for: synthetic_development` after both phases completed with `finish_reason: stop`; this does not enable hosted Participant chat or authorize real data, Production, or Staging. The vendor-neutral OpenAI-compatible adapter migration is implemented and independently reviewed under `openai_compatible` / `sessions.openai_compatible.v1`; historical `direct_openai` / `sessions.openai.v1` identities remain inspectable but cannot enable execution. Deterministic migration evidence does not qualify or enable an exact live profile, so the adapter remains default-off until a successor exact-profile qualification passes. Private-endpoint live destination-policy evidence, vLLM evidence, hosted Session creation, backup/restore, and remaining ADR-010 gates are still open. Timer polling and Invocation processing remain default-off. |
-| Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
-| Templates | Active | Reusable authoring templates (not authoritative content) |
 
 ## Documentation areas
 
@@ -78,43 +81,27 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 specs; all seven P0 specifications approved at their current versions
-- [MVP operational defaults](requirements/mvp-operational-defaults.md) — approved intake, authentication-session, lifecycle, and recovery-placement defaults
+- [Feature specifications](requirements/features/README.md) — catalog of P0–P3 specification files
+- [MVP operational defaults](requirements/mvp-operational-defaults.md) — intake, authentication-session, lifecycle, and recovery-placement defaults
 
 ### UI/UX
 
-- [UI/UX documentation](ui-ux/README.md) — Approved v1.0 platform Activity IA,
-  end-to-end P0 assessment Campaign journey, five approved P0 surface
-  specifications, retirement ledger for former versions, and the approved shared design
-  system
+- [UI/UX documentation](ui-ux/README.md) — application UX architecture, P0 journeys, and the shared design system
 
 ### Architecture
 
 - [Architecture documentation](architecture/README.md) — system boundaries, data, integration, runtime, and deployment
-- [Approved MVP architecture](architecture/mvp-architecture.md) — end-to-end P0 boundaries, ownership, runtime flows, trust model, quality attributes, traceability, resilience, and evolution boundaries
-- [Approved text Session runtime contract](architecture/session-runtime-contract.md) — ordering, timing, durable-before-display incremental Agent-response publication, SSE/reconnect, optional-broker boundary, terminalization, and recovery
-- [Approved Evidence and Evaluation execution contract](architecture/evaluation-execution-contract.md) — Evidence locators/sealing, evaluator composition, completion, lineage, and reconstruction
-- [Approved Human review, Result, and Release contract](architecture/review-result-release-contract.md) — exact candidate selection, revision, decision, Result construction, visibility, Release, notifications, and correction
-- [ADR-007: OSS-first self-hostable deployment](architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md) — portable on-premises reference deployment and optional cloud adapters
-- [ADR-008: bounded OSS component set and provider/deployment defaults](architecture/decisions/ADR-008-bounded-oss-component-set.md) — approved reference products, optional adapters, model-provider profiles, external recovery responsibility, version policy, and evidence gates
-- [ADR-009: MVP detailed contracts](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) — approved Session, Evaluation, Review/Release, provider-streaming, broker, and notification boundaries
-- [ADR-010: .NET implementation stack](architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) — approved .NET/React runtime, schemas, persistence, Grate migrations, testing, workspace, and dependency policy
-- [ADR-011: participant-visible Agent-response streaming](architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) — approved durable fragments, exact replay, incomplete-stream recovery, cutoff, validation, and backpressure
-- [ADR-012: structured Agent Invocation and Decision](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) — approved provider-neutral Invocation/Decision boundary
-- [ADR-013: Agent-requested next-timer replacement](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) — approved optional one-lane next-timer replacement
-- [ADR-014: Agent output envelope and P0 compatibility](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) — approved P0 Decision-output envelope and historical v1 reconstruction
-- [ADR-015: Session timer-lane service delegation](architecture/decisions/ADR-015-session-timer-lane-service-delegation.md) — approved Worker timer-lane delegation realization of ADR-002
-- [ADR-016: Worker workload identity and bounded Invocation delegation](architecture/decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) — approved portable Worker authentication, actor binding, and per-Session Invocation-execution delegation
-- [ADR-019: frontend state and library boundaries](architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md) — approved SPA Query, form, icon, and transport ownership
-- [ADR-020: frontend rebuild transition and design-lab isolation](architecture/decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) — superseded dual-build production pointer; design-lab isolation lessons retained
-- [ADR-021: production frontend reset and single-SPA topology](architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md) — one production SPA in `web/`, isolated design lab, fail-closed publication, no `web-legacy/` runtime
-- [Frontend architecture](architecture/frontend-architecture.md) — Query/form layering, cache lifecycle, single-SPA topology, and lab isolation
-- [Architecture decisions](architecture/decisions/README.md) — approved ADR catalog, status, and proposal template
+- [MVP architecture](architecture/mvp-architecture.md) — end-to-end P0 boundaries, ownership, runtime flows, trust model, and quality attributes
+- [Text Session runtime contract](architecture/session-runtime-contract.md)
+- [Evidence and Evaluation execution contract](architecture/evaluation-execution-contract.md)
+- [Human review, Result, and Release contract](architecture/review-result-release-contract.md)
+- [Frontend architecture](architecture/frontend-architecture.md)
+- [Architecture decisions](architecture/decisions/README.md) — current ADR catalog (binding until Phase 4 cutover)
 
 ### Contributor guidance
 
 - [Development harness](contributing/development-harness.md) — Cursor rules, role skills, TDD policy, and Playwright MCP expectations
-- [Provider deployment profiles](operations/provider-profiles/README.md) — non-secret OpenAI-compatible target example, approved OpenRouter synthetic-development profile, Keycloak OIDC contract profile, and fail-closed qualification boundaries
+- [Provider deployment profiles](operations/provider-profiles/README.md) — provider profiles, Keycloak OIDC contract, and qualification boundaries
 
 ### Templates
 

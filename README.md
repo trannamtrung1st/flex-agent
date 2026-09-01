@@ -1,10 +1,12 @@
 # Flex Agent
 
-Specification-driven platform for configurable agent workflows, assessment sessions, evidence-based evaluation, and governed result release.
+Specification-driven platform for configurable agent workflows, assessment
+sessions, evidence-based evaluation, and governed result release.
 
-**Current phase:** P0 design and realization with an executable workspace scaffold. See the
-[current documentation maturity](docs/README.md#current-maturity) and
-[next work](docs/product/overview.md#what-to-do-next).
+Authoritative product and engineering documentation lives in
+[`docs/`](docs/README.md). Current intended meaning lives in product and
+requirements documents. Code and verified tests describe implemented behavior.
+Git owns history.
 
 ## Develop
 
@@ -20,8 +22,6 @@ pnpm verify:oidc
 ```
 
 ## Start here
-
-Authoritative product and engineering documentation lives in [`docs/`](docs/README.md).
 
 | Need | Documentation |
 | --- | --- |
