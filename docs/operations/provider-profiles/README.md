@@ -3,6 +3,10 @@
 This directory holds **non-secret**, operator-reviewable examples for installed
 model-provider profiles. It does not select a product-default model.
 
+Current operator index, ADR-007 deploy pointers, ADR-008 default-off rules, and
+OpenRouter phase-file retention:
+[Operations](../README.md).
+
 - Runtime composition stays default-off (`Sessions:ModelExecution:Adapter=fail_closed`).
 - A real Session uses the frozen trusted binding, not Worker-global
   `Sessions:ModelDeployment:*` values, for provider, endpoint, model, and

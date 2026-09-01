@@ -721,14 +721,14 @@ record**. The producer did not author that respond.
 - [x] Reconcile the approved Design System and Design Lab references without
   allowing lab fixtures or legacy production behavior to authorize product
   behavior.
-- [>] Create the non-normative `docs/current-state.md` index from actual
+- [x] Create the non-normative `docs/current-state.md` index from actual
   modules, endpoints, migrations, schemas, routes, builds, tests, current work,
   and operational gates. Link intended and planned classifications to their
   owners rather than restating their contracts.
-- [ ] Consolidate current operations/runbooks/profiles while preserving all
+- [x] Consolidate current operations/runbooks/profiles while preserving all
   qualification, compatibility, security, and verification evidence still
   required for safe operation or reproducibility.
-- [ ] Review the replacement sources by product/requirements, architecture,
+- [x] Review the replacement sources by product/requirements, architecture,
   UI/UX, security/privacy, operations, and documentation concern while the old
   sources remain recoverable in the same tree.
 
@@ -740,7 +740,7 @@ No historical source has been deleted.
 
 ## Phase 4 - Cut over governance and validation
 
-- [ ] Atomically approve the replacement canonical sources and update
+- [>] Atomically approve the replacement canonical sources and update
   `AGENTS.md`, Cursor rules, both role/workflow skill trees, contributor
   guidance, `.work/README.md`, and templates to the Gate-A-approved authority
   and retention model.
@@ -958,11 +958,22 @@ unchanged. No adapter regeneration (DESIGN/PRODUCT inputs unchanged).
 
 Phase 3 UI/UX (2026-09-01): `python3 scripts/impeccable_context.py generate`
 regenerated `DESIGN.md` after README/DS/implementation-guide input changes.
-`python3 scripts/check_docs.py` and `python3 scripts/impeccable_context.py check`
-plus 15 adapter unit tests recorded after the focused commit. Originals,
-`retired-authority.md`, and `design-system/change-record.md` remain. Six
-`docs/ui-ux/flows/` copies are In review. No visual verification claimed
-(source-only documentation).
+`python3 scripts/check_docs.py` exit 0 (`Documentation validation passed.`).
+`python3 scripts/impeccable_context.py check` exit 0 (`Impeccable context
+adapters are current.`). Adapter unit tests: `Ran 15 tests in 0.008s` `OK`.
+Originals, `retired-authority.md`, and `design-system/change-record.md`
+remain. Six `docs/ui-ux/flows/` copies are In review. No visual verification
+claimed (source-only documentation).
+
+Phase 3 operations (2026-09-01): created `docs/current-state.md` (70 derived
+P0 status rows linking Git `4994076`; live module/route/migration/test
+inventory; no REQ/AC rewrite). README.md and docs/README.md route to that
+file. Operations ADR-007/008 pointers in `docs/operations/`. Seven OpenRouter
+phase files retained. In-tree review recorded in current-state. Validators
+re-run on this leaf: `python3 scripts/impeccable_context.py generate` wrote
+PRODUCT.md (docs/README.md is a PRODUCT source). `python3 scripts/check_docs.py`
+exit 0. `python3 scripts/impeccable_context.py check` exit 0. Adapter tests
+`Ran 15 tests in 0.007s` `OK`. No deletions.
 
 ## Approval Gate A record
 
@@ -1091,9 +1102,11 @@ applied. **Applied this leaf:** ADR-001, 005, 009, 011–014 → session
 contract; 002, 003, 018, 017 (module) → backend-module + mvp-architecture;
 004, 006, 007 (arch), 010 stack facts, 015–016 (arch), 017 (activation) →
 mvp-architecture; 019, 021 → frontend-architecture; 020 historical only.
-**Not applied (matrix only):** 007 operations pointers, 008 operations +
-verification, 010 contribution/verification, remaining verification.
-`docs/architecture/decisions/` unchanged.
+**Not applied (matrix only):** 010 contribution/verification, remaining
+verification (`build/toolchain.json` governing stays Phase 4).
+Phase 3 operations (2026-09-01): **007 operations pointers** and **008
+operations** applied under `docs/operations/` (README + provider-profile
+index/OpenRouter retention). ADR files unchanged.
 
 #### 4. Governance and validator changes (Phase 4 only)
 
@@ -1488,18 +1501,19 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Phase 3 operations (`item-2e7864079029`) after UI/UX leaf
-complete. Architecture and code-contract ADR-001–021 rows are applied in
-current `docs/architecture/` files excluding `decisions/`. Operations,
-contribution, and verification rows remain matrix-only. ADR catalog and every
-ADR file remain. Product/requirements and UI/UX leaves are complete. Do not
-add `docs/current-state.md` until the operations leaf.
+Current action: Phase 4 cutover (`item-7190be5d0f02`) after Phase 3 operations
+leaf. `docs/current-state.md` exists; README routes added; operations ADR-007/008
+rows applied; architecture/product/UI leaves complete. ADRs remain on disk.
+Do not delete historical sources. Do not amend `build/toolchain.json` governing
+until Phase 4.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
-Removed from seven P0 Traceability tables on this leaf. Full Implementation
-cells remain in Git at `4994076862e088bbc1ea25436ab2a6b95dfdb704`. The Phase 3
-operations leaf must materialize derived links only, not restated REQ/AC.
+Removed from seven P0 Traceability tables on the product leaf. Full
+Implementation cells remain in Git at
+`4994076862e088bbc1ea25436ab2a6b95dfdb704`. Phase 3 operations materialized
+those Status values as derived links in `docs/current-state.md` (70 rows),
+not by rewriting P0 requirements.
 
 | Spec | Rows queued | Prior Status values |
 | --- | --- | --- |
@@ -1561,7 +1575,7 @@ Do not treat those Status values as intended product meaning.
 | Requirements integrity | pending | Seven P0 specs/cataloged current behavior, unique `REQ-*`/`AC-*`, no scope loss, no placeholder files required |
 | Architecture extraction audit | pending | ADR-001..021 extraction matrix independently reviewed; every current constraint has one canonical target before deletion |
 | Operational/security/compatibility evidence audit | pending | Every qualification, runbook, immutable migration/fixture, security verification, and runtime-audit artifact is classified; retained evidence remains directly usable after narrative cleanup |
-| Current-state audit | pending | Module/endpoint/migration/schema/route/test inventory agrees with `docs/current-state.md`; intended, implemented, temporary legacy, approved planned, gap, and default-off behavior are explicit |
+| Current-state audit | recorded Phase 3 ops | `docs/current-state.md` 2026-09-01 inventory + 70 derived P0 status links; independent Gate B still pending |
 | Work hygiene | pending | `.work/active/` contains only in-progress or explicitly planned tasks; no completed/blocked/cancelled/superseded files or duplicate proposal resources |
 | Skill/rule parity | pending | Codex/Cursor copies are semantically equivalent and snapshot-first language is consistent |
 | UI pattern-adoption governance | pending | Applicable guidance requires a recorded pre-build classification; sampled UI tasks select approved Design System modules, a matching accepted production-page donor, and a Component Deck specimen, use a Lab journey only when the family lacks a production donor, or document, shape, approve, and establish a genuine new reusable pattern before production use |
@@ -1606,11 +1620,10 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is Phase 3 operations
-  (`item-2e7864079029`): operations ADR rows, create `docs/current-state.md`,
-  README current-state route. UI/UX README owns application UX architecture;
-  six distinct `docs/ui-ux/flows/` copies are In review; originals and
-  retirement/change-record files remain; DESIGN.md regenerated.
+- Current execution blocker: none. Next leaf is Phase 4 atomic cutover
+  (`item-7190be5d0f02`). Phase 3 operations recorded `docs/current-state.md`,
+  README routes, operations ADR pointers, OpenRouter evidence retention, and
+  in-tree review. No deletions.
 
 # Completion
 

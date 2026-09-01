@@ -13,6 +13,7 @@ links and the documentation validation command.
 | Understand product vision and positioning | [Product overview](product/overview.md) |
 | Define or review domain concepts, relationships, and invariants | [Concept model](product/concept-model.md) |
 | Understand MVP boundaries and non-goals | [MVP scope](product/mvp-scope.md) |
+| See derived intended vs implemented status | [Current state](current-state.md) |
 | Find or author feature specifications | [Feature catalog](requirements/README.md#feature-catalog-overview) and [P0 authoring order](requirements/README.md#p0-authoring-order) |
 | Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
@@ -98,10 +99,19 @@ Phase 4 cutover. Phase 3 replacement sources stay In review.
 - [Frontend architecture](architecture/frontend-architecture.md)
 - [Architecture decisions](architecture/decisions/README.md) — current ADR catalog (binding until Phase 4 cutover)
 
+### Operations
+
+- [Operations](operations/README.md) — reference-deploy pointers, default-off execution, retained qualification evidence
+- [Provider deployment profiles](operations/provider-profiles/README.md) — provider profiles, Keycloak OIDC contract, and qualification boundaries
+
+### Current state
+
+- [Current state](current-state.md) — derived, non-normative intended/implemented/legacy/planned/default-off/gap index. Not a behavior or scope owner.
+
 ### Contributor guidance
 
 - [Development harness](contributing/development-harness.md) — Cursor rules, role skills, TDD policy, and Playwright MCP expectations
-- [Provider deployment profiles](operations/provider-profiles/README.md) — provider profiles, Keycloak OIDC contract, and qualification boundaries
+- [Workspace development](contributing/workspace.md) — pinned toolchain and Compose commands
 
 ### Templates
 
@@ -119,6 +129,7 @@ Use terms consistently across all documents. Authoritative definitions: [Concept
 | Does it state observable behavior the system must provide? | `docs/requirements/` |
 | Does it define user-facing interaction, content, or visual design? | `docs/ui-ux/` |
 | Does it explain technical realization, data ownership, or deployment? | `docs/architecture/` |
+| Does it only classify intended vs implemented status? | `docs/current-state.md` (non-normative) |
 
 ## Authoring guidelines
 

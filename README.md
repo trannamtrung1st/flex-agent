@@ -29,6 +29,7 @@ pnpm verify:oidc
 | Review observable behavior and acceptance criteria | [Requirements](docs/requirements/README.md) |
 | Design user journeys and interaction states | [UI/UX](docs/ui-ux/README.md) |
 | Review technical boundaries and decisions | [Architecture](docs/architecture/README.md) |
+| See derived intended vs implemented status | [Current state](docs/current-state.md) |
 
 ## Validate documentation
 
