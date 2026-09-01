@@ -682,7 +682,7 @@ extraction target, and no deletion candidate lacks a verified disposition.
 
 ### Delegated Gate A - Target authority approval
 
-- [>] Request independent TDP focused_output review of this Gate A package
+- [x] Request independent TDP focused_output review of this Gate A package
   (item-b83e84eb7ea0). The producer does not approve. Copy the persisted
   reviewer respond into the Gate A record before any canonical rewrite.
 
@@ -701,9 +701,13 @@ If Gate A changes the model, update this task before execution continues. Gate
 A authorizes migration only; current repository governance remains binding
 until the Phase 4 atomic cutover passes.
 
+Satisfied 2026-09-01: independent persist `review-focused-output-01` is
+`approved` (verification `verified`) and copied into **Approval Gate A
+record**. The producer did not author that respond.
+
 ## Phase 3 - Consolidate current truth without deleting sources
 
-- [ ] Rewrite product sources in current tense without changing meaning or
+- [>] Rewrite product sources in current tense without changing meaning or
   converting examples/future ideas into requirements.
 - [ ] Reconcile approved requirements, preserve stable `REQ-*`/`AC-*`, move
   volatile implementation claims to `docs/current-state.md`, and extract any
@@ -946,16 +950,43 @@ Deleted implementation files (4): `web/src/components/content/SafeContent.tsx`,
 
 ## Approval Gate A record
 
+Copied from independent persist `review-focused-output-01` (producer did not
+author the respond). Gate A authorizes migration only; current repository
+governance remains binding until Phase 4.
+
 | Field | Value |
 | --- | --- |
-| Status | package ready; decision pending independent focused_output review |
-| Approved by | Independent TDP reviewer under owner delegation (not the producer) |
-| Approved at | pending persist of reviewer respond |
-| Reviewed Git reference | pending copy from focused_output persist; producer checkpoint is the Phase 2 commit on this task |
-| Decision and scope | pending reviewer; package substance is the sections below plus Phase 0 freeze, Phase 1 manifest, and the Target baseline / Consolidation map already in this task |
-| Required changes or conditions | Owner delegated intermediate approval on 2026-09-01; producer must not treat this package as Gate A approval |
+| Status | approved (copied from persist; not producer approval) |
+| Approved by | Independent TDP reviewer under owner 2026-09-01 delegation (not the producer). Persist `reviewer_binding`: role `reviewer`, kind `reviewer`, provider `cursor`, `session_instance_id` `tdp-session-7a472fad0d97`, `provider_session_id` `005bbd38-d4a9-44ad-97e7-a75daace0e64`, generation 1, state `bound` |
+| Approved at | persist `review-focused-output-01` revision 11; `lifecycle_status`/`status` `approved`; `verification_result.decision` `verified`; `verification_result.stage` `finding_verification`; `review_incomplete` null |
+| Focused_output loop id | `review-focused-output-01` |
+| Scope | `kind`/`type` `focused_output`; `item_ids` includes `item-48819dbb36d9`; `finding_set_id` `review-focused-output-01-fs-02`; `target_revision` 4; `target_digest` `c53a08e9c1aeda99ee9ea797fa6843fdd2161da8e43ea96bcf4d700f24a05cce` |
+| Reviewed Git reference | evidence-revision checkpoint `ceb2b5565e31744c2daef6bdd2a09945a24a7cea` (`output-phase2-gate-a-inventories-rev02`); package commit `a60e6c6fcd018aebc4d44c1ea65c94d202a7409d`; freeze parent `cda98826844480770bab7603506cc241638a15f4` |
+| Decision and scope | Independent reviewer closed the loop as `approved` after verifying resolved blocking findings against the Gate A package in this task (target authority model, consolidation map, deletion-candidate inventories §5.1–§5.3, immutable/runtime-audit exceptions, honest gaps, rewrite sequence, rollback). Canonical sources, governance, and deletion candidates were unchanged by the review. |
+| Required changes or conditions | No remaining unresolved required findings. `finding-001`/`002`/`003` (`family-001`) `resolved`; `finding-004` (`family-002`) `invalid`. No new direct side effects. Open questions below keep their recorded interim defaults; Gate A working classification for named OpenRouter phase files is retain-until-Phase-3/5 recheck. Phase 4 remains the authority cutover. |
 
-### Gate A package (producer evidence, not approval)
+### Gate A persist copy (not producer-authored)
+
+- Loop: `review-focused-output-01`, revision 11, `revise_at` `major` (initial
+  respond requested changes; verification then closed the loop).
+- Initial independent respond (producer did not author):
+  `temp/tdp-inputs/runs/run-20260831T172348-9b56ac/agent-requests/review-respond-focused-output-r3-a01.json`
+  against `target_revision` 3 /
+  `5d5a8ea6d41d43acd69f07b7305da2289f184c05d75646d33e6c3bab23af6059`.
+- Closing independent verification respond (producer did not author):
+  `temp/tdp-inputs/runs/run-20260831T172348-9b56ac/agent-requests/review-respond-finding_verification-focused-output-r4-a01.json`
+  against `target_revision` 4 /
+  `c53a08e9c1aeda99ee9ea797fa6843fdd2161da8e43ea96bcf4d700f24a05cce`.
+- Persist file:
+  `temp/tdp-inputs/runs/run-20260831T172348-9b56ac/reviews/review-focused-output-01.json`
+  (`status`/`lifecycle_status` `approved`, `verification_result.decision`
+  `verified`).
+- Closing verification summary (quoted from persist): producer challenge to
+  `finding-004` accepted as invalid; evidence revision 4 (commit `ceb2b55`,
+  `output-phase2-gate-a-inventories-rev02`) resolves `family-001`; no new
+  direct side effects; canonical sources unchanged.
+
+### Gate A package (producer evidence; independently approved for migration)
 
 Reviewed against live freeze parent `cda9882` and classification commit
 `f7d490afabbd74bb029a13405ea5823ac4c3ccd8`. This package does not change
@@ -1254,7 +1285,7 @@ Steps 2 and 3 may proceed after step 1; step 4 depends on both 2 and 3.
 
 | Stage | Recovery |
 | --- | --- |
-| Before Phase 3 | `git checkout` / reset only if owner requests; freeze parent `cda9882`; Phase 0 `f1c2d73`; Phase 1 `f7d490a`; this Gate A package commit |
+| Before Phase 3 | `git checkout` / reset only if owner requests; freeze parent `cda9882`; Phase 0 `f1c2d73`; Phase 1 `f7d490a`; package `a60e6c6`; inventories `ceb2b55`; this Gate A copy-back commit |
 | During Phase 3 | Revert the leaf commit; old sources still present; validators still old |
 | After Phase 4 before Phase 5 | Revert the cutover commit to restore old governance; replacement docs remain but become non-effective if validators revert with it — revert cutover as one commit |
 | After Phase 5 | Restore deleted paths from Git by path from the Phase 5 parent; do not reconstruct from memory |
@@ -1436,12 +1467,11 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: independent Gate A focused_output review of the package in
-this task, after 2026-09-01 evidence revision that named placeholder
-extraction sentences (§5.1), OpenRouter phase files (§5.2), and the
-completed/blocked task freeze set (§5.3). No canonical rewrite, governance
-cutover, or deletion until that reviewer respond is persisted and copied
-here.
+Current action: Phase 3 product and requirements current-tense rewrite
+(`item-3c9cd9e9a2c1`). Independent Gate A focused_output persist
+`review-focused-output-01` is `approved` and copied into **Approval Gate A
+record**. Canonical rewrite may begin; governance cutover remains Phase 4;
+deletions remain Phase 5.
 
 # Decisions and interim defaults
 
@@ -1453,23 +1483,26 @@ here.
 - Prefer direct current-state statements with rationale where rationale is a
   live correctness constraint.
 - **Open question - final UI/UX flow filenames. Decision owner:** Product/UI/UX
-  Lead at Gate A. **Interim default:** place each approved representative
-  journey under `docs/ui-ux/flows/` while keeping distinct documents for
-  distinct owners, stable traceability, or review boundaries; move shared
-  application architecture into `docs/ui-ux/README.md`. Rationale: minimizes
-  overlap without forcing an arbitrary file-count target before the owner's
-  post-review baseline exists.
+  Lead. Gate A persist `review-focused-output-01` approved the package that
+  records this working default; it did not invent new filenames. **Interim
+  default:** place each approved representative journey under
+  `docs/ui-ux/flows/` while keeping distinct documents for distinct owners,
+  stable traceability, or review boundaries; move shared application
+  architecture into `docs/ui-ux/README.md`. Rationale: minimizes overlap
+  without forcing an arbitrary file-count target.
 - **Open question - Interaction Controller plan priority. Interim default:**
   retain it as planned only if the Product Lead explicitly reconfirms it during
   Phase 5; otherwise preserve deferred scope in product docs and delete the
   task. Rationale: a proposal is not genuine planned work by age alone.
 - **Open question - current OpenRouter evidence retention. Decision owner:**
-  Operations/Architecture Lead at Gate A. **Interim default:** retain every
-  current machine-verifiable or human-readable record needed to reproduce,
-  qualify, secure, or audit the active profile; remove only narrative history
-  proven redundant after the canonical current profile and evidence index are
-  complete. Rationale: Git history alone is insufficient for evidence needed
-  by present operational gates.
+  Operations/Architecture Lead. Gate A persist accepted §5.2 named-file
+  working classification: retain-until-Phase-3/5 recheck for each of the
+  seven `synthetic-development-phase*.md` files. **Interim default:** retain
+  every current machine-verifiable or human-readable record needed to
+  reproduce, qualify, secure, or audit the active profile; remove only
+  narrative history proven redundant after the canonical current profile and
+  evidence index are complete. Rationale: Git history alone is insufficient
+  for evidence needed by present operational gates.
 - **Open question - immutable ADR labels. Interim default:** allow ADR tokens
   only inside checksum-sensitive applied migrations/fixtures and exact wire
   compatibility examples, explicitly non-authoritative. Rationale: rewriting
@@ -1497,7 +1530,7 @@ here.
 | .NET/architecture/contract verification | pending | `pnpm verify:dotnet` and `pnpm --dir contracts test` (or current equivalents) pass |
 | Build and delivery checks | pending | `pnpm build`, applicable supply-chain/OCI checks, and path-sensitive build metadata pass proportionate to changed files |
 | Authenticated browser verification | pending | Run `pnpm verify:oidc` if reset changes any routed docs-derived UI, build/profile path, or authenticated-browser contract; otherwise record reviewed not-applicable rationale |
-| Delegated Gate A | pending | Independent reviewer approval record covers the target authority model, governance migration, deletion candidates, evidence preservation, and gap representation before rewriting begins |
+| Delegated Gate A | passed 2026-09-01 | Copied persist `review-focused-output-01` rev 11: `approved` / verification `verified`; scope `item-48819dbb36d9`; loop id `review-focused-output-01`; reviewer `tdp-session-7a472fad0d97`; reviewed Git `ceb2b5565e31744c2daef6bdd2a09945a24a7cea`. Producer did not author the respond. |
 | Independent cross-concern review | pending | Product/requirements, architecture, UI/UX, security/privacy, operations, documentation, tester/process findings resolved |
 | Delegated Gate B | pending | Independent reviewer acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
 
@@ -1528,9 +1561,13 @@ artifacts must nevertheless remain green.
 - Cleared Phase 2: Gate A package recorded (target model, extraction matrix,
   deletion migration requirements, immutable exceptions, gaps, rewrite
   sequence, rollback). 2026-09-01 review revision added Gate A §5.1–§5.3
-  named inventories. Producer has not approved Gate A.
-- Current execution blocker: none for packaging. Dependent rewrites wait on
-  independent focused_output persist for `item-48819dbb36d9`.
+  named inventories.
+- Cleared delegated Gate A: independent focused_output persist
+  `review-focused-output-01` is `approved` (verification `verified`); copied
+  into this task. Producer did not author the respond. Blocking findings
+  resolved or invalid. Canonical sources unchanged by the copy-back.
+- Current execution blocker: none. Next leaf is Phase 3 product and
+  requirements (`item-3c9cd9e9a2c1`).
 
 # Completion
 
