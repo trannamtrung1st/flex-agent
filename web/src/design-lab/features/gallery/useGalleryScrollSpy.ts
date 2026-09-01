@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gallerySections, resolveGallerySectionHash } from "./gallerySections";
+import { gallerySections, resolveGallerySectionHash, type GallerySectionId } from "./gallerySections";
 
 const sectionIds = gallerySections.flatMap((group) => group.items.map((item) => item.id));
 
 const SCROLL_SETTLE_MS = 150;
 const NAV_LOCK_MS = 10_000;
 
-type HashLock = { id: string; until: number };
+type HashLock = { id: GallerySectionId; until: number };
 
 function sectionAtSpyLine(id: string, offset: number) {
   const section = document.getElementById(id);
@@ -41,7 +41,7 @@ export function useGalleryScrollSpy() {
     return (header?.offsetHeight ?? 48) + 18;
   }, []);
 
-  const lockHash = useCallback((id: string) => {
+  const lockHash = useCallback((id: GallerySectionId) => {
     hashLock.current = { id, until: Date.now() + NAV_LOCK_MS };
     setActiveId(id);
   }, []);
@@ -152,7 +152,7 @@ export function useGalleryScrollSpy() {
     };
   }, [headerOffset, initial, lockHash]);
 
-  const navigate = useCallback((id: string) => {
+  const navigate = useCallback((id: GallerySectionId) => {
     const section = document.getElementById(id);
     if (!section) return;
     lockHash(id);

@@ -10,7 +10,7 @@ import { InputSections } from "./sections/InputSections";
 import { LayoutPrimitiveSections } from "./sections/LayoutPrimitiveSections";
 import { LayoutSections } from "./sections/LayoutSections";
 import { NavigationSections } from "./sections/NavigationSections";
-import { gallerySections } from "./gallerySections";
+import { gallerySections, resolveGallerySectionHash } from "./gallerySections";
 import { useGalleryScrollSpy } from "./useGalleryScrollSpy";
 
 export function GalleryDeck() {
@@ -20,8 +20,8 @@ export function GalleryDeck() {
   const onDeckClick = (event: MouseEvent<HTMLDivElement>) => {
     const link = (event.target as HTMLElement).closest<HTMLAnchorElement>(".deck-rail a[href^='#']");
     if (!link) return;
-    const id = link.hash.slice(1);
-    if (!gallerySections.some((group) => group.items.some((item) => item.id === id))) return;
+    const id = resolveGallerySectionHash(link.hash);
+    if (!id) return;
     event.preventDefault();
     navigate(id);
   };

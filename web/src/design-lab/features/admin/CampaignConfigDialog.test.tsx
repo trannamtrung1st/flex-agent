@@ -154,9 +154,9 @@ describe("CampaignConfigDialog", () => {
     );
 
     const dialog = screen.getByRole("dialog", { name: /Campaign Configuration/i });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Check readiness", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check readiness" }));
     expect(await within(dialog).findByRole("status")).toHaveTextContent(/Readiness check passed/);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm activation", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm activation" }));
     expect(within(dialog).queryByRole("status")).not.toBeInTheDocument();
     expect(within(dialog).getByText(/Confirm activation. This design lab/)).toBeInTheDocument();
   });
@@ -174,7 +174,7 @@ describe("CampaignConfigDialog", () => {
 
     const dialog = screen.getByRole("dialog", { name: /Campaign Configuration/i });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Session limit" }), { target: { value: "bad" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Check readiness", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Check readiness" }));
 
     const summary = await within(dialog).findByRole("alert");
     expect(within(summary).getByRole("heading", { name: "Readiness blocked" })).toBeInTheDocument();
