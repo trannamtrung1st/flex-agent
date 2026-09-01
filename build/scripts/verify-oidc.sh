@@ -39,9 +39,6 @@ require_prereqs() {
   if ! command -v curl >/dev/null 2>&1; then
     missing+=("curl")
   fi
-  if ! command -v pnpm >/dev/null 2>&1 && ! command -v corepack >/dev/null 2>&1; then
-    missing+=("pnpm")
-  fi
   if ((${#missing[@]} > 0)); then
     echo "::error::verify:oidc missing prerequisites: ${missing[*]}"
     echo "verify:oidc requires: ${missing[*]}" >&2
