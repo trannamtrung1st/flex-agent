@@ -220,7 +220,10 @@ jobs:
       - name: Verify OIDC harness
         env:
           FLEXAGENT_COMPOSE_PROJECT: flex-agent-oidc-${{ github.run_id }}
-        run: bash build/scripts/verify-oidc.sh
+        run: |
+          NODE_BIN="$(dirname "$(command -v node)")"
+          export PATH="${NODE_BIN}:${PATH}"
+          bash build/scripts/verify-oidc.sh
 
       - name: Tear down OIDC Compose
         if: always()
