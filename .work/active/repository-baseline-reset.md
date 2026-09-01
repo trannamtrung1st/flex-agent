@@ -797,7 +797,7 @@ the reviewed manifest.
 - [x] Reconcile the final repository against approved product intent, actual
   code/tests, the post-review UX baseline, surviving invariants, Gate A, and
   this task.
-- [ ] Obtain independent product/requirements, architecture, UI/UX,
+- [x] Obtain independent product/requirements, architecture, UI/UX,
   security/privacy, operations, documentation, tester, and repository-process
   review; resolve every blocking finding.
 - [x] Prepare the final current-state matrix, deletion manifest, surviving
@@ -805,6 +805,10 @@ the reviewed manifest.
   not-applicable rationale for owner review.
 
 ### Delegated Gate B - Consolidated baseline acceptance
+
+- [x] Request independent TDP focused_output review of this Gate B package
+  (item-c478fbc81dbb). The producer does not approve. Copy the persisted
+  reviewer respond into the Gate B record before marking the reset complete.
 
 Before declaring the reset complete, obtain independent TDP reviewer approval under
 the owner's 2026-09-01 delegation of:
@@ -818,6 +822,12 @@ the owner's 2026-09-01 delegation of:
 - the revised feature-delivery and task-retention behavior.
 
 Do not mark the reset complete or remove this task before Gate B approval.
+
+Satisfied 2026-09-01: independent persist `review-focused-output-02` is
+`approved` and copied into **Approval Gate B record**. The producer did not
+author that respond. No required/blocking findings were reported. Two optional
+minor findings were owner-actioned `accept_as_is` after workspace commit
+`a344427`. The reset remains `in-progress` until Phase 7.
 
 ## Phase 7 - Complete and clean up the reset task
 
@@ -1486,15 +1496,35 @@ is actually a hidden requirement.
 
 ## Approval Gate B record
 
+Copied from independent persist `review-focused-output-02` (producer did not
+author the respond). This record is not producer approval. The reset is not
+marked complete by this copy.
+
 | Field | Value |
 | --- | --- |
-| Status | pending delegated review |
-| Approved by | Independent TDP reviewer under owner delegation |
-| Approved at | pending |
-| Reviewed Git reference | pending |
-| Baseline and deletion-manifest decision | pending |
-| Validation and independent-review summary | pending |
-| Required follow-up or cleanup | Owner delegated intermediate approval on 2026-09-01 and will review the final result |
+| Status | approved (copied from persist; not producer approval) |
+| Approved by | Independent TDP reviewer under owner 2026-09-01 delegation (not the producer). Persist `reviewer_binding`: role `reviewer`, kind `reviewer`, provider `cursor`, `session_instance_id` `tdp-session-3f54bb0f8390`, `provider_session_id` `0d3d1b77-5b4d-426a-9754-7940a29c2e83`, generation 1, state `bound` |
+| Approved at | persist `review-focused-output-02` revision 7; `lifecycle_status`/`status` `approved`; `review_incomplete` null; no `verification_result` (no required findings; optional findings closed by owner `accept_as_is` without a finding_verification cycle) |
+| Focused_output loop id | `review-focused-output-02` |
+| Scope | `kind`/`type` `focused_output`; `item_ids` includes `item-0d7215912a29`; `finding_set_id` `review-focused-output-02-fs-02`; `target_revision` 12; `target_digest` `9c69c7231718f4847a87a302d32bc0140205d99eb461e3b4b878160119f22960` |
+| Reviewed Git reference | optional-finding workspace checkpoint `a344427f3303448d73237c2156abb7987817547c` (`Keep MD025 on product docs and record the real verify:dotnet skip rationale.`); Phase 6 package commit `b18f013`; freeze parent `cda98826844480770bab7603506cc241638a15f4` |
+| Baseline and deletion-manifest decision | Independent reviewer closed the loop as `approved` against the Phase 6 Gate B package in this task (canonical baseline map, Phase 5 deletion manifest, surviving operational/security/compatibility/runtime-audit evidence, non-normative current-state index, work surface of this reset only, validation matrix). No further canonical rewrite or deletion is authorized by this leaf. |
+| Validation and independent-review summary | Independent re-run in the reviewer respond confirmed `check_docs.py`, `impeccable_context.py check`, 18 script tests, 21 frontend-isolation-lib tests, `check-frontend-isolation.mjs`, and contracts 8/8. No required/blocking findings. Optional `finding-001` (verify:dotnet skip rationale) and `finding-002` (MD025 scope) are minor; producer `accept_as_is` after `a344427`. In-tree specialist notes remain non-approval. |
+| Required follow-up or cleanup | Owner will review the final result. Phase 7 may mark this task `completed` and leave it on `.work/active/`. Bounded task-file cleanup is subsequent follow-up after mandatory whole-output review, not this leaf. |
+
+### Gate B persist copy (not producer-authored)
+
+- Loop: `review-focused-output-02`, revision 7, `revise_at` `major`.
+- Independent discovery respond (producer did not author):
+  `temp/tdp-inputs/runs/run-20260831T172348-9b56ac/agent-requests/review-respond-focused-output-r12-a01.json`
+  against `target_revision` 12 /
+  `9c69c7231718f4847a87a302d32bc0140205d99eb461e3b4b878160119f22960`.
+- Persist file:
+  `temp/tdp-inputs/runs/run-20260831T172348-9b56ac/reviews/review-focused-output-02.json`
+  (`status`/`lifecycle_status` `approved`).
+- Optional findings: `finding-001`/`finding-002` (`review-focused-output-02-fs-02`),
+  both `minor`, owner-actioned `accept_as_is` at artifact revision 12 after
+  workspace commit `a344427`. No remaining unresolved required findings.
 
 ## Phase 5 execution record
 
@@ -1546,10 +1576,10 @@ this checkpoint. **Not independent Gate B approval.** Producer in-tree notes
 must not close blocking findings.
 
 Gate B focused_output optional findings (`review-focused-output-02-fs-02`):
-producer `fix` for `finding-001` (correct `verify:dotnet` skip rationale for
-reset-wide comment/schema-description edits in `3f85078`) and `finding-002`
-(keep MD025 enabled by default; override only under
-`.work/templates/.markdownlint-cli2.yaml`). These do not mark Gate B approved.
+workspace commit `a344427` applied the recommended skip-rationale and MD025
+scope changes; producer then `accept_as_is` on both minors. Independent persist
+`review-focused-output-02` later closed `approved`. This package text is not a
+second producer approval.
 
 ### Validation matrix (exact commands)
 
@@ -1560,7 +1590,7 @@ reset-wide comment/schema-description edits in `3f85078`) and `finding-002`
 | Historical-authority / path / terminology | passed (docs) | `check_docs.py` stale-authority empty allowlist; no `retired-authority.md`; no `binding until phase 4` / `all 19 feature` in `docs/` |
 | Requirements integrity | passed | Seven P0 specs; unique `REQ-*`/`AC-*`; deferred names in MVP scope only |
 | Markdown lint (CI globs) | passed after Phase 6 fixes; MD025 re-scoped in Gate B optional-finding fix | Default `.markdownlint-cli2.yaml` keeps MD025 enabled; `.work/templates/.markdownlint-cli2.yaml` sets `MD025: false` for the multi-H1 template contract. Re-run 2026-09-01: `npx markdownlint-cli2@0.17.2` on CI globs — `markdownlint-cli2` v0.17.2, 135 files, 0 errors. Phase 6 also fixed MD012 in `auth-resource-isolation.md`, MD004 parse in `cards.md`, MD032/MD047 in impeccable skills |
-| Architecture extraction (in-tree) | recorded | Live owners exist (`mvp-architecture.md`, session/evaluation/review contracts, `frontend-architecture.md`, `backend-module-architecture.md`, `docs/operations/README.md`, `docs/contributing/workspace.md`). `docs/architecture/decisions/` absent. Independent reviewer still audits the Gate A matrix |
+| Architecture extraction (in-tree) | recorded | Live owners exist (`mvp-architecture.md`, session/evaluation/review contracts, `frontend-architecture.md`, `backend-module-architecture.md`, `docs/operations/README.md`, `docs/contributing/workspace.md`). `docs/architecture/decisions/` absent. Independent persist `review-focused-output-02` approved with no required findings |
 | Operational/security/compatibility | recorded | Seven OpenRouter `synthetic-development-phase*.md` present; `database/migrations/up` has 63 SQL files (untouched); contracts tests 8/8 pass; no `per ADR-` in `src/` or `contracts/` |
 | Current-state | recorded | `docs/current-state.md` remains non-normative; Interaction Controller deferred; only this reset is active work |
 | Work hygiene | passed | `.work/active/` contains only `repository-baseline-reset.md` |
@@ -1620,7 +1650,9 @@ fixtures, OpenRouter qualification files, this reset task.
 Work surface: this reset `in-progress`; no other `.work/active` tasks; no
 planned Interaction Controller task.
 
-Independent Gate B remains **pending**.
+Independent Gate B persist `review-focused-output-02` is **approved** and
+copied above. This Phase 6 package remains producer evidence; it is not a
+second approval.
 
 # Current state
 
@@ -1639,11 +1671,11 @@ Design System v1.0 and the 2026-08-31 Shipboard owner visual pass remain the
 approved UI baseline. Pre-reset `check_docs.py`, `impeccable_context.py check`,
 and 15 adapter unit tests passed on this freeze.
 
-Current action: Gate B focused_output optional findings `finding-001` and
-`finding-002` are being fixed in the Phase 6 package evidence (skip rationale
-and MD025 scope). Independent Gate B focused_output review is still pending.
-Do not mark this reset complete. Do not delete this task. In-tree specialist
-notes are not Gate B approval.
+Current action: independent Gate B persist `review-focused-output-02` is
+copied into this record (reviewer `tdp-session-3f54bb0f8390`). Next leaf is
+Phase 7 completion without deleting this task. Do not mark this reset
+complete in this leaf. Do not delete this task. In-tree specialist notes are
+not a second Gate B approval.
 
 ### Queued P0 implementation-matrix claims (not requirements)
 
@@ -1714,9 +1746,9 @@ Do not treat those Status values as intended product meaning.
 | Work hygiene | passed Phase 6 | `.work/active/` contains only this reset task |
 | Focused script tests | passed Phase 6 | 18 Python script tests OK; 21 frontend-isolation-lib tests OK |
 | Markdown lint | passed Phase 6; MD025 re-scoped after Gate B optional finding | Re-run after scoped config: CI globs 135 files, 0 errors (`markdownlint-cli2` v0.17.2). MD025 remains enabled in the default config; only `.work/templates/.markdownlint-cli2.yaml` disables it for the multi-H1 template contract |
-| Architecture extraction audit | in-tree recorded; Gate B pending | Live owners present; ADR directory absent; independent review not closed |
-| Operational/security/compatibility evidence audit | in-tree recorded; Gate B pending | Seven OpenRouter phase files; 63 applied up-migrations; contracts 8/8; isolation check passed |
-| Current-state audit | recorded Phase 6 | Index still non-normative; gaps/default-off/deferred controller honest; Gate B pending |
+| Architecture extraction audit | recorded Phase 6; Gate B persist approved | Live owners present; ADR directory absent; independent persist `review-focused-output-02` approved with no required findings |
+| Operational/security/compatibility evidence audit | recorded Phase 6; Gate B persist approved | Seven OpenRouter phase files; 63 applied up-migrations; contracts 8/8; isolation check passed |
+| Current-state audit | recorded Phase 6; Gate B persist approved | Index still non-normative; gaps/default-off/deferred controller honest |
 | Skill/rule parity | passed Phase 6 | Cursor/Agents skill dirs and SKILL.md bytes match |
 | UI pattern-adoption governance | passed Phase 6 | Classify-then-clone language in AGENTS, rules 00/06, implementation-workflow, frontend-developer, UI README |
 | Frontend verification | proportionate passed | Isolation lib tests + `check-frontend-isolation.mjs` passed; full `pnpm verify:web` not run (no `web/` source change) |
@@ -1724,8 +1756,8 @@ Do not treat those Status values as intended product meaning.
 | Build and delivery checks | proportionate not run | No `web/` build graph change; isolation check is the delivery invariant for this reset |
 | Authenticated browser verification | not applicable | No routed UI / OIDC / profile contract change; Playwright screenshots not claimed |
 | Delegated Gate A | passed 2026-09-01 | Copied persist `review-focused-output-01` rev 11: `approved` / verification `verified`; scope `item-48819dbb36d9`; loop id `review-focused-output-01`; reviewer `tdp-session-7a472fad0d97`; reviewed Git `ceb2b5565e31744c2daef6bdd2a09945a24a7cea`. Producer did not author the respond. |
-| Independent cross-concern review | pending Gate B | In-tree notes recorded in Phase 6 package; not independent approval |
-| Delegated Gate B | pending | Independent reviewer acceptance covers the final baseline, deletion manifest, surviving evidence/invariants, current-state matrix, work surface, and verification results |
+| Independent cross-concern review | passed 2026-09-01 via Gate B persist | Persist `review-focused-output-02` approved covering `item-0d7215912a29`; no required/blocking findings; two optional minors `accept_as_is` after `a344427`. In-tree notes remain non-approval. |
+| Delegated Gate B | passed 2026-09-01 | Copied persist `review-focused-output-02` rev 7: `approved`; scope `item-0d7215912a29`; loop id `review-focused-output-02`; reviewer `tdp-session-3f54bb0f8390`; reviewed Git `a344427f3303448d73237c2156abb7987817547c`. Producer did not author the respond. |
 
 Execution may split expensive checks into focused and full gates, but may not
 claim completion from searches or Markdown links alone. UI screenshots are
@@ -1759,9 +1791,12 @@ artifacts must nevertheless remain green.
   `review-focused-output-01` is `approved` (verification `verified`); copied
   into this task. Producer did not author the respond. Blocking findings
   resolved or invalid. Canonical sources unchanged by the copy-back.
-- Current execution blocker: none. Next leaf is independent Gate B review
-  (`item-c478fbc81dbb` chain). Phase 6 recorded the validation matrix and Gate
-  B package; producer did not approve Gate B.
+- Cleared delegated Gate B: independent focused_output persist
+  `review-focused-output-02` is `approved`; copied into this task. Producer did
+  not author the respond. No required/blocking findings. Optional minors
+  `accept_as_is` after `a344427`. Canonical sources unchanged by the copy-back.
+- Current execution blocker: none. Next leaf is Phase 7 complete the reset
+  task (`item-948817441989`) without deleting this file.
 
 # Completion
 
