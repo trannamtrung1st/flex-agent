@@ -32,7 +32,9 @@ export function useGalleryScrollSpy() {
     return resolved ?? sectionIds[0];
   }, []);
   const [activeId, setActiveId] = useState(initial);
-  const hashLock = useRef<HashLock | null>(null);
+  const hashLock = useRef<HashLock | null>(
+    initial !== sectionIds[0] ? { id: initial, until: 8.64e15 } : null,
+  );
 
   const headerOffset = useCallback(() => {
     const header = document.querySelector<HTMLElement>("header.page-strip");
@@ -49,9 +51,6 @@ export function useGalleryScrollSpy() {
     const resolved = resolveGallerySectionHash(window.location.hash);
     if (resolved && rawHash !== resolved) {
       window.history.replaceState(window.history.state, "", `#${resolved}`);
-    }
-    if (initial !== sectionIds[0]) {
-      lockHash(initial);
     }
     const header = document.querySelector<HTMLElement>("header.page-strip");
     const syncHeader = () => {

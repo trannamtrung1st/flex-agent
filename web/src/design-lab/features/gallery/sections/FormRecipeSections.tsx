@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import {
   ACCOMMODATION_VALUE_PLACEHOLDER,
   ActivationMark,
@@ -103,7 +103,7 @@ function CommissionRecipe({
   const titleError = (revealErrors || submitted) && !title.trim() ? "Enter a Campaign title" : undefined;
   const summaryErrors = titleError ? [{ message: titleError, href: `#${titleId}` }] : [];
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
     requestAnimationFrame(() => {
@@ -197,7 +197,7 @@ function InstrumentRecipe() {
         as="form"
         gap="6"
         noValidate
-        onSubmit={(event: FormEvent<HTMLFormElement>) => event.preventDefault()}
+        onSubmit={(event: SyntheticEvent<HTMLFormElement>) => event.preventDefault()}
       >
         <FormSection legend="Timing">
             <FormPair>
@@ -304,7 +304,7 @@ function LedgerRecipe() {
         as="form"
         gap="6"
         noValidate
-        onSubmit={(event: FormEvent<HTMLFormElement>) => event.preventDefault()}
+        onSubmit={(event: SyntheticEvent<HTMLFormElement>) => event.preventDefault()}
       >
         <FormField
           id="recipeMixTitle"

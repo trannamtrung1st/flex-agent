@@ -14,20 +14,26 @@ VITE_PID=""
 CLEANED=0
 
 require_prereqs() {
-  if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
-    echo "verify:oidc requires Docker Compose" >&2
-    exit 1
+  local missing=()
+  if ! command -v docker >/dev/null 2>&1; then
+    missing+=("docker")
+  elif ! docker compose version >/dev/null 2>&1; then
+    missing+=("docker-compose-v2")
   fi
   if ! command -v python3 >/dev/null 2>&1; then
-    echo "verify:oidc requires python3" >&2
-    exit 1
+    missing+=("python3")
   fi
   if ! command -v curl >/dev/null 2>&1; then
-    echo "verify:oidc requires curl" >&2
-    exit 1
+    missing+=("curl")
   fi
   if ! command -v pnpm >/dev/null 2>&1; then
-    echo "verify:oidc requires pnpm" >&2
+    missing+=("pnpm")
+  fi
+  if ((${#missing[@]} > 0)); then
+    echo "::error::verify:oidc missing prerequisites: ${missing[*]}"
+    echo "verify:oidc requires: ${missing[*]}" >&2
+    echo "PATH=${PATH}" >&2
+    command -v docker >/dev/null && docker compose version >&2 || true
     exit 1
   fi
 }
