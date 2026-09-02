@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
+
+if [[ "${FLEXAGENT_OIDC_PROFILE:-full}" == "ci" ]]; then
+  exec bash "${ROOT}/build/scripts/verify-oidc-ci.sh"
+fi
+
 if command -v corepack >/dev/null 2>&1; then
   corepack enable
   corepack prepare pnpm@9.6.0 --activate
@@ -41,7 +46,11 @@ require_prereqs() {
   fi
   if ((${#missing[@]} > 0)); then
     echo "::error::verify:oidc missing prerequisites: ${missing[*]}"
-    echo "verify:oidc requires: ${missing[*]}" >&2
+    if [[ " ${missing[*]} " == *" docker "* ]] || [[ " ${missing[*]} " == *" docker-compose-v2 "* ]]; then
+      echo "verify:oidc requires Docker Compose" >&2
+    else
+      echo "verify:oidc requires: ${missing[*]}" >&2
+    fi
     echo "PATH=${PATH}" >&2
     command -v docker >/dev/null && docker compose version >&2 || true
     exit 1
@@ -94,7 +103,7 @@ echo "==> Candidate/non-Production transition overlay"
 bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" \
   --project-name "${FLEXAGENT_COMPOSE_PROJECT}" \
   --overlay candidate \
-  up
+  recreate-api
 VITE_DEV_API_PROXY=http://127.0.0.1:18080 run_pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274 >/tmp/flex-agent-oidc-vite.log 2>&1 &
 VITE_PID=$!
 attempts=0

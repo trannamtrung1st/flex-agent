@@ -19,6 +19,7 @@
     "verify:supply-chain": "bash build/scripts/verify-supply-chain.sh",
     "verify:oci": "bash build/scripts/verify-oci.sh",
     "verify:oidc": "bash build/scripts/verify-oidc.sh",
+    "verify:oidc:ci": "FLEXAGENT_OIDC_PROFILE=ci bash build/scripts/verify-oidc.sh",
     "compose:up": "bash build/scripts/authenticated-browser-profile.sh up",
     "compose:down": "bash build/scripts/authenticated-browser-profile.sh down",
     "compose:reset": "bash build/scripts/authenticated-browser-profile.sh reset",

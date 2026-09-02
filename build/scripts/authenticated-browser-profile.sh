@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT}/deploy/compose/authenticated-browser.compose.yaml"
+PREBUILT_IMAGES_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.prebuilt-images.compose.yaml"
 CANDIDATE_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.candidate-dev.compose.yaml"
 DEMO_WORK_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.demo-work.compose.yaml"
 DEMO_WORK_SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed-demo-work.sql"
@@ -16,10 +17,12 @@ PROJECT_NAME="${FLEXAGENT_COMPOSE_PROJECT:-flex-agent-authenticated-browser}"
 MODE="canonical"
 COMMAND=""
 OVERLAYS=()
+USE_PREBUILT_IMAGES=0
 
 usage() {
-  echo "Usage: $0 [--overlay candidate] [--mode canonical|candidate] [--project-name NAME] [up|down|reset|status|validate|seed|recreate-api]"
+  echo "Usage: $0 [--overlay candidate] [--prebuilt-images] [--mode canonical|candidate] [--project-name NAME] [up|up-smoke|down|reset|status|validate|seed|recreate-api]"
   echo "Set FLEXAGENT_SEED_DEMO_WORK=0 to skip demo-work list fixtures (default: 1)."
+  echo "up-smoke stages infra, migrate/seed, then app services without rebuilding when --prebuilt-images is set."
   echo "recreate-api force-recreates only the API (RedirectUri). It does not regenerate secrets or reseed."
 }
 
@@ -46,6 +49,10 @@ compose_files() {
     echo -f
     echo "${overlay}"
   done
+  if [[ "${USE_PREBUILT_IMAGES}" == "1" ]]; then
+    echo -f
+    echo "${PREBUILT_IMAGES_OVERLAY}"
+  fi
   echo --project-name
   echo "${PROJECT_NAME}"
 }
@@ -160,10 +167,46 @@ recreate_api() {
   status
 }
 
+compose_up() {
+  if [[ "${USE_PREBUILT_IMAGES}" == "1" ]]; then
+    run_compose up -d --no-build "$@"
+  else
+    run_compose up -d --build --renew-anon-volumes "$@"
+  fi
+}
+
+wait_postgres_healthy() {
+  local attempts=0
+  until run_compose exec -T postgres pg_isready -U flexagent -d flexagent >/dev/null 2>&1; do
+    attempts=$((attempts + 1))
+    if [[ "${attempts}" -ge 60 ]]; then
+      echo "timed out waiting for postgres" >&2
+      run_compose ps >&2 || true
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+up_smoke() {
+  cleanup_generated
+  validate
+  compose_up postgres keycloak-db seaweedfs keycloak
+  wait_postgres_healthy
+  run_compose run --rm migrate
+  run_compose run --rm seed
+  if demo_work_enabled; then
+    run_compose run --rm seed-demo-work
+  fi
+  compose_up api spa nginx
+  wait_ready
+  echo "${ORIGIN}"
+}
+
 up() {
   cleanup_generated
   validate
-  run_compose up -d --build --renew-anon-volumes
+  compose_up
   wait_ready
   echo "${ORIGIN}"
 }
@@ -199,11 +242,15 @@ while [[ $# -gt 0 ]]; do
       PROJECT_NAME="${2:?project name required}"
       shift 2
       ;;
+    --prebuilt-images)
+      USE_PREBUILT_IMAGES=1
+      shift
+      ;;
     -h|--help|help)
       usage
       exit 0
       ;;
-    up|down|reset|status|validate|seed|recreate-api)
+    up|up-smoke|down|reset|status|validate|seed|recreate-api)
       COMMAND="$1"
       shift
       ;;
@@ -217,6 +264,7 @@ done
 case "${COMMAND:-up}" in
   validate) validate ;;
   up) up ;;
+  up-smoke) up_smoke ;;
   down) down ;;
   reset) reset ;;
   status) status ;;

@@ -1,0 +1,6 @@
+# CI smoke overlay: reuse locally built API/SPA images instead of rebuilding in Compose.
+services:
+  api:
+    image: ${FLEXAGENT_OIDC_API_IMAGE:-flex-agent-oidc-api:ci}
+  spa:
+    image: ${FLEXAGENT_OIDC_SPA_IMAGE:-flex-agent-oidc-spa:ci}

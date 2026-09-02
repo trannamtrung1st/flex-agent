@@ -184,49 +184,48 @@ jobs:
           push: false
           tags: flex-agent-spa:linux-amd64
 
-  oidc:
-    name: oidc
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.implementation == 'true'
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
-        with:
-          dotnet-version: |
-            10.0.100
-            10.0.x
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22.18.0"
-
-      - name: Set up Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: "3.12"
 
-      - name: Enable Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.6.0 --activate
-          dirname "$(command -v pnpm)" >> "${GITHUB_PATH}"
+      - name: Cache Playwright browsers
+        uses: actions/cache@1bd1bd42721ebfe88d8465acf725557f994dff36 # v4.2.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install JavaScript dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify OIDC harness
+      - name: OIDC live smoke
         env:
           FLEXAGENT_COMPOSE_PROJECT: flex-agent-oidc-${{ github.run_id }}
+          FLEXAGENT_OIDC_API_IMAGE: flex-agent-oidc-api:ci
+          FLEXAGENT_OIDC_SPA_IMAGE: flex-agent-oidc-spa:ci
+          FLEXAGENT_OIDC_SKIP_STATIC: "1"
+          FLEXAGENT_SEED_DEMO_WORK: "0"
         run: |
-          NODE_BIN="$(dirname "$(command -v node)")"
-          export PATH="${NODE_BIN}:${PATH}"
-          bash build/scripts/verify-oidc.sh
+          docker tag flex-agent-api:linux-amd64 flex-agent-oidc-api:ci
+          docker tag flex-agent-spa:linux-amd64 flex-agent-oidc-spa:ci
+          bash build/scripts/verify-oidc-ci.sh
 
       - name: Tear down OIDC Compose
         if: always()
         env:
           FLEXAGENT_COMPOSE_PROJECT: flex-agent-oidc-${{ github.run_id }}
         run: bash build/scripts/authenticated-browser-profile.sh --project-name "${FLEXAGENT_COMPOSE_PROJECT}" down || true
+
+  oidc:
+    name: oidc
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.implementation == 'true'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.12"
+
+      - name: Verify OIDC static gate
+        env:
+          FLEXAGENT_OIDC_SKIP_LIVE: "1"
+        run: bash build/scripts/verify-oidc-ci.sh
