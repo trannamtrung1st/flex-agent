@@ -87,6 +87,26 @@ const representativeMappings = [
     schemaComponent: "ProtectedItemPreviewV2",
     schemaPath: "schemas/v2/submission/protected-item-preview.v2.schema.json",
   },
+  {
+    schemaComponent: "MyWorkAttemptReadinessV2",
+    schemaPath: "schemas/v2/submission/my-work-attempt-readiness.v2.schema.json",
+  },
+  {
+    schemaComponent: "AcknowledgeAttemptNoticeCommandV2",
+    schemaPath: "schemas/v2/submission/acknowledge-attempt-notice-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "StartAttemptCommandV2",
+    schemaPath: "schemas/v2/submission/start-attempt-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "AcknowledgmentMutationOutcomeV2",
+    schemaPath: "schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json",
+  },
+  {
+    schemaComponent: "StartAttemptOutcomeV2",
+    schemaPath: "schemas/v2/submission/start-attempt-outcome.v2.schema.json",
+  },
 ];
 
 const commandVariantMappings = [

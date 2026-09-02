@@ -140,6 +140,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyWorkTimingV2'
+  /v2/assessment/my-work/{enrollmentId}/attempt:
+    get:
+      operationId: getMyWorkAttemptReadiness
+      responses:
+        '200':
+          description: Authoritative Attempt readiness for one Assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkAttemptReadinessV2'
+  /v2/assessment/my-work/{enrollmentId}/attempt/acknowledgments:
+    post:
+      operationId: acknowledgeAttemptNotice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcknowledgeAttemptNoticeCommandV2'
+      responses:
+        '200':
+          description: Durable acknowledgment recorded or reconciled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcknowledgmentMutationOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/attempt/start:
+    post:
+      operationId: startAttempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAttemptCommandV2'
+      responses:
+        '200':
+          description: Attempt started or equivalent retry reconciled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartAttemptOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/attempt/reconcile:
+    post:
+      operationId: reconcileAttempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAttemptCommandV2'
+      responses:
+        '200':
+          description: Lost start response reconciled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartAttemptOutcomeV2'
   /v2/assessment/my-work/{enrollmentId}/submission:
     get:
       operationId: getMyWorkSubmission
@@ -409,6 +467,16 @@ components:
       $ref: '../schemas/v2/submission/accepted-version-detail.v2.schema.json'
     ProtectedItemPreviewV2:
       $ref: '../schemas/v2/submission/protected-item-preview.v2.schema.json'
+    MyWorkAttemptReadinessV2:
+      $ref: '../schemas/v2/submission/my-work-attempt-readiness.v2.schema.json'
+    AcknowledgeAttemptNoticeCommandV2:
+      $ref: '../schemas/v2/submission/acknowledge-attempt-notice-command.v2.schema.json'
+    StartAttemptCommandV2:
+      $ref: '../schemas/v2/submission/start-attempt-command.v2.schema.json'
+    AcknowledgmentMutationOutcomeV2:
+      $ref: '../schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json'
+    StartAttemptOutcomeV2:
+      $ref: '../schemas/v2/submission/start-attempt-outcome.v2.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

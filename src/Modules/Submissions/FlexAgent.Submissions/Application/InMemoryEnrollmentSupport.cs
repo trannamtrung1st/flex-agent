@@ -8,7 +8,9 @@ public sealed class InMemoryEnrollmentUnitOfWork(
     InMemoryEnrollmentStore store,
     InMemoryEnrollmentOperationStore operations,
     RecordingEnrollmentAuditPort audit,
-    InMemoryAccommodationStore? accommodations = null) : IEnrollmentUnitOfWork
+    InMemoryAccommodationStore? accommodations = null,
+    InMemoryAttemptStore? attempts = null,
+    InMemoryStartOperationStore? startOperations = null) : IEnrollmentUnitOfWork
 {
     public bool AuditAccepted { get; set; } = true;
 
@@ -19,7 +21,7 @@ public sealed class InMemoryEnrollmentUnitOfWork(
         Func<IEnrollmentTransaction, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
-        var snapshot = new InMemoryEnrollmentSnapshot(store, operations, audit, accommodations);
+        var snapshot = new InMemoryEnrollmentSnapshot(store, operations, audit, accommodations, attempts, startOperations);
         var transaction = new InMemoryEnrollmentTransaction
         {
             AuditAccepted = AuditAccepted,
@@ -58,21 +60,31 @@ file sealed class InMemoryEnrollmentSnapshot
 
     private readonly InMemoryAccommodationStore? _accommodations;
     private readonly Accommodation[] _accommodationItems;
+    private readonly InMemoryAttemptStore? _attempts;
+    private readonly Attempt[] _attemptItems;
+    private readonly InMemoryStartOperationStore? _startOperations;
+    private readonly StartOperation[] _startOperationItems;
 
     public InMemoryEnrollmentSnapshot(
         InMemoryEnrollmentStore store,
         InMemoryEnrollmentOperationStore operations,
         RecordingEnrollmentAuditPort audit,
-        InMemoryAccommodationStore? accommodations)
+        InMemoryAccommodationStore? accommodations,
+        InMemoryAttemptStore? attempts,
+        InMemoryStartOperationStore? startOperations)
     {
         _store = store;
         _operations = operations;
         _audit = audit;
         _accommodations = accommodations;
+        _attempts = attempts;
+        _startOperations = startOperations;
         _enrollments = [.. store.Items];
         _events = [.. store.Events];
         _operationItems = [.. operations.Items];
         _accommodationItems = accommodations is null ? [] : [.. accommodations.Items];
+        _attemptItems = attempts is null ? [] : [.. attempts.Items];
+        _startOperationItems = startOperations is null ? [] : [.. startOperations.Items];
         _requiredWrites = audit.RequiredWrites;
         _availabilityWrites = audit.AvailabilityWrites;
         _lastResourceId = audit.LastResourceId;
@@ -88,6 +100,8 @@ file sealed class InMemoryEnrollmentSnapshot
             _accommodations.Restore(_accommodationItems);
         }
 
+        _attempts?.Restore(_attemptItems);
+        _startOperations?.Restore(_startOperationItems);
         _audit.Restore(_requiredWrites, _availabilityWrites, _lastResourceId, _lastResourceType);
     }
 }

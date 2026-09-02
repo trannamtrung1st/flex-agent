@@ -90,6 +90,11 @@ public sealed class ContractMappingParityTests
         Assert.Contains("MyWorkSubmissionV2", exported);
         Assert.Contains("AcceptedVersionDetailV2", exported);
         Assert.Contains("ProtectedItemPreviewV2", exported);
+        Assert.Contains("MyWorkAttemptReadinessV2", exported);
+        Assert.Contains("AcknowledgeAttemptNoticeCommandV2", exported);
+        Assert.Contains("StartAttemptCommandV2", exported);
+        Assert.Contains("AcknowledgmentMutationOutcomeV2", exported);
+        Assert.Contains("StartAttemptOutcomeV2", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -519,6 +524,67 @@ public sealed class ContractMappingParityTests
                 null,
                 "text/plain",
                 "Synthetic preview text."));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/acknowledge-attempt-notice-command.v2.schema.json",
+            new AcknowledgeAttemptNoticeCommandV2(
+                "v2",
+                Guid.Parse("11111111-1111-4111-8111-111111111111"),
+                Guid.Parse("22222222-2222-4222-8222-222222222222"),
+                "affirmed",
+                "attempt-ack-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-command.v2.schema.json",
+            new StartAttemptCommandV2(
+                "v2",
+                "attempt-start-synthetic-0001",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json",
+            new AcknowledgmentMutationOutcomeV2(
+                "v2",
+                true,
+                "acknowledgment.recorded",
+                Guid.Parse("33333333-3333-4333-8333-333333333333"),
+                "affirmed"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-outcome.v2.schema.json",
+            new StartAttemptOutcomeV2(
+                "v2",
+                true,
+                "attempt.activated",
+                "active_conflict",
+                Guid.Parse("44444444-4444-4444-8444-444444444444"),
+                1,
+                Guid.Parse("55555555-5555-4555-8555-555555555555"),
+                0,
+                ["continue_attempt", "return_to_my_work"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/my-work-attempt-readiness.v2.schema.json",
+            new MyWorkAttemptReadinessV2(
+                "v2",
+                Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+                "eligible",
+                1,
+                1,
+                "baseline",
+                1,
+                null,
+                null,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                [],
+                [],
+                [],
+                ["start_attempt", "return_to_my_work"]));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

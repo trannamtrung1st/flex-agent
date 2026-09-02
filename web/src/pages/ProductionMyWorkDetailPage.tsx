@@ -32,6 +32,7 @@ import {
   DialogPlateBody,
   DialogPlateFooter,
   DialogPlateHead,
+  ErrorSummary,
   FieldFile,
   FieldTextarea,
   FormField,
@@ -47,12 +48,14 @@ import {
   WorkWellHead,
   WorkWellSection,
 } from "../design-system";
+import { AcknowledgmentGate } from "../components/work/AcknowledgmentGate";
 import { DIRECT_TEXT_PLACEHOLDER } from "../content/fieldCopy";
 import { AssignmentSpine, type AssignmentStationView } from "../components/work/AssignmentSpine";
 import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
 import { SubmissionVersionList } from "../components/work/SubmissionVersionList";
 import type {
   CompleteIntakeItemCommandV2,
+  MyWorkAttemptReadinessV2,
   SubmissionMaterialCategoryV2,
   SubmissionPermittedActionV2,
 } from "../contracts/v2";
@@ -83,7 +86,10 @@ function assignmentPhaseCopy(
   intakeItemCount = 0,
 ): string {
   if (pending) return "Working…";
-  if (view === "attempt") return "Not available here";
+  if (view === "attempt") {
+    if (pending) return "Working…";
+    return "Attempt";
+  }
   if (permitted.includes("begin_intake")) return "Begin intake";
   if (intakeOpen && permitted.includes("finalize_intake") && intakeItemCount > 0) return "Submit version";
   if (intakeOpen) return "Intake receiving";
@@ -152,6 +158,8 @@ export function ProductionMyWorkDetailPage() {
   const textId = useId();
   const filesId = useId();
   const confirmId = useId();
+  const startConfirmId = useId();
+  const ackId = useId();
   const enrollmentClient = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const submissionClient = useMemo(() => createProductionSubmissionClient(fetchJson), [fetchJson]);
   const [assignment, setAssignment] = useState<AssignmentSummaryV1 | null>(null);
@@ -161,18 +169,25 @@ export function ProductionMyWorkDetailPage() {
   const [pending, setPending] = useState(false);
   const [directText, setDirectText] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const [view, setView] = useState<AssignmentStationView>("submission");
+  const [attempt, setAttempt] = useState<MyWorkAttemptReadinessV2 | null>(null);
+  const [ackedByNotice, setAckedByNotice] = useState<Record<string, boolean>>({});
+  const [startKey, setStartKey] = useState<string | null>(null);
+  const [startOccupied, setStartOccupied] = useState(false);
   const pushToast = usePushToast();
 
   const reload = useCallback(async () => {
-    const [work, timingResult, submissionResult] = await Promise.all([
+    const [work, timingResult, submissionResult, attemptResult] = await Promise.all([
       enrollmentClient.getMyWork(enrollmentId),
       enrollmentClient.getMyWorkTiming(enrollmentId).catch(() => null),
       submissionClient.getMyWorkSubmission(enrollmentId).catch(() => null),
+      submissionClient.getAttemptReadiness(enrollmentId).catch(() => null),
     ]);
     setAssignment(work.assignment);
     setTiming(timingResult);
     setSubmission(submissionResult);
+    setAttempt(attemptResult);
     setError(null);
   }, [enrollmentClient, enrollmentId, submissionClient]);
 
@@ -208,6 +223,44 @@ export function ProductionMyWorkDetailPage() {
     } catch (caught: unknown) {
       setError(enrollmentFailureCopy(caught, "The Submission could not be updated."));
       return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function confirmStartAttempt() {
+    if (!attempt) return;
+    setPending(true);
+    setStartOccupied(true);
+    try {
+      for (const notice of attempt.required_notices) {
+        const ack = await submissionClient.acknowledgeNotice(
+          enrollmentId,
+          notice.notice_id,
+          notice.source_version_id,
+          "affirmed",
+          createSubmissionIdempotencyKey(),
+        );
+        if (!ack.succeeded) {
+          setError(submissionFailureCopy(ack.outcome_code));
+          setStartOccupied(false);
+          return;
+        }
+      }
+      const key = startKey ?? createSubmissionIdempotencyKey();
+      setStartKey(key);
+      const started = await submissionClient.startAttempt(enrollmentId, key, attempt.start_command_digest);
+      if (!started.succeeded) {
+        setError(submissionFailureCopy(started.outcome_code));
+        setStartOccupied(false);
+        return;
+      }
+      await reload();
+      setStartConfirmOpen(false);
+      setStartOccupied(false);
+      pushToast({ label: "Attempt", copy: "Attempt is in progress. Entitlement was consumed on the server." });
+    } catch (caught: unknown) {
+      setError(enrollmentFailureCopy(caught, "The Attempt start outcome is uncertain. Entitlement was not changed locally."));
     } finally {
       setPending(false);
     }
@@ -352,6 +405,49 @@ export function ProductionMyWorkDetailPage() {
     );
   })() : undefined;
 
+  const noticesRequired = (attempt?.required_notices.length ?? 0) > 0;
+  const noticesAcknowledged = Boolean(
+    attempt
+    && attempt.required_notices.every((notice) => ackedByNotice[notice.notice_id]),
+  );
+  const canStart = Boolean(
+    attempt?.permitted_actions.includes("start_attempt") && (!noticesRequired || noticesAcknowledged),
+  );
+  const canContinue = Boolean(attempt?.permitted_actions.includes("continue_attempt") && attempt.active_session_id);
+  const attemptActions = view === "attempt" ? (
+    <GuidedTaskFoot arrangement="end">
+      {startOccupied && startKey ? (
+        <Key
+          variant="quiet"
+          disabled={pending}
+          onClick={() => {
+            if (!attempt || !startKey) return;
+            void runMutation(() =>
+              submissionClient.reconcileAttempt(enrollmentId, startKey, attempt.start_command_digest),
+            );
+          }}
+        >
+          Reconcile start
+        </Key>
+      ) : null}
+      {canContinue ? (
+        <Key variant="begin" to={`/sessions/${attempt?.active_session_id}`}>
+          Continue Attempt
+        </Key>
+      ) : null}
+      {attempt?.permitted_actions.includes("start_attempt") ? (
+        <Key
+          variant="begin"
+          disabled={pending || startOccupied || !canStart}
+          disabledReason={noticesRequired && !noticesAcknowledged ? "Record required acknowledgments before starting." : undefined}
+          onClick={() => setStartConfirmOpen(true)}
+        >
+          Start Attempt
+        </Key>
+      ) : null}
+    </GuidedTaskFoot>
+  ) : undefined;
+
   return (
     <AssignmentStationLayout
       instruments={(
@@ -380,8 +476,9 @@ export function ProductionMyWorkDetailPage() {
           released={released}
         />
       )}
-      actions={submissionActions}
+      actions={view === "attempt" ? attemptActions : submissionActions}
       overlays={(
+        <>
         <CeremonyDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} labelledBy={confirmId}>
           <DialogPlate>
             <DialogPlateHead title="Submit this version?" titleId={confirmId} />
@@ -416,18 +513,79 @@ export function ProductionMyWorkDetailPage() {
             />
           </DialogPlate>
         </CeremonyDialog>
+        <CeremonyDialog open={startConfirmOpen} onClose={() => setStartConfirmOpen(false)} labelledBy={startConfirmId}>
+          <DialogPlate>
+            <DialogPlateHead title="Start this Attempt?" titleId={startConfirmId} />
+            <DialogPlateBody>
+              <p>
+                Starting consumes one Attempt from the remaining server entitlement. A hosted live Session is not available from this application after start; My Work keeps the committed Session locator.
+              </p>
+            </DialogPlateBody>
+            <DialogPlateFooter
+              arrangement="split"
+              secondary={<Key variant="quiet" onClick={() => setStartConfirmOpen(false)}>Cancel</Key>}
+              primary={(
+                <Key variant="begin" disabled={pending} onClick={() => void confirmStartAttempt()}>
+                  Start Attempt
+                </Key>
+              )}
+            />
+          </DialogPlate>
+        </CeremonyDialog>
+        </>
       )}
     >
       {view === "attempt" ? (
         <WorkWell
           live={false}
           label="Attempt"
-          head={<WorkWellHead title="Attempt" ident="Separate committed server command" />}
+          head={<WorkWellHead title="Attempt" ident="Readiness · exact start" />}
         >
           <WorkWellSection>
-            <Alert variant="info" title="Start Attempt is not available from this SPA">
-              Attempt start remains a separate committed server command. No production Attempt-start HTTP contract is exposed to this application yet, so this surface will not invent a ready Session.
-            </Alert>
+            <Stack gap="4">
+              {error ? <ErrorSummary errors={[error]} /> : null}
+              {startOccupied ? <WaitPlate inset label="Starting Attempt…" /> : null}
+              {attempt ? (
+                <>
+                  <p>
+                    Remaining entitlement: {attempt.remaining_entitlement} of {attempt.baseline_attempt_limit}.
+                    Next ordinal {attempt.next_ordinal}. Source {attempt.entitlement_source}.
+                  </p>
+                  <p>Readiness: {wordsFromCode(attempt.readiness_state)}.</p>
+                  {attempt.active_session_id ? (
+                    <p>
+                      Committed Session locator: <CompactId tabbable value={attempt.active_session_id} />.
+                      Live Session commands are not available from this application.
+                    </p>
+                  ) : null}
+                  {attempt.bound_version_candidates.length > 0 ? (
+                    <p>
+                      Exact accepted Submission versions: {attempt.bound_version_candidates.map((item) => item.version_number).join(", ")}.
+                    </p>
+                  ) : (
+                    <Alert variant="warning" title="Accepted material required">
+                      Start requires at least one accepted Submission version on this assignment.
+                    </Alert>
+                  )}
+                  {attempt.required_notices.map((notice) => (
+                    <AcknowledgmentGate
+                      key={notice.notice_id}
+                      id={`${ackId}-${notice.notice_id}`}
+                      checked={Boolean(ackedByNotice[notice.notice_id])}
+                      onChange={(checked) => {
+                        setAckedByNotice((current) => ({ ...current, [notice.notice_id]: checked }));
+                      }}
+                    >
+                      I acknowledge the required {wordsFromCode(notice.notice_type)} for this exact notice version.
+                    </AcknowledgmentGate>
+                  ))}
+                </>
+              ) : (
+                <Alert variant="info" title="Attempt readiness unavailable">
+                  Authoritative Attempt readiness could not be loaded for this assignment.
+                </Alert>
+              )}
+            </Stack>
           </WorkWellSection>
         </WorkWell>
       ) : (

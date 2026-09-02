@@ -1,0 +1,11 @@
+{
+  "schema_version": "v2",
+  "succeeded": true,
+  "outcome_code": "attempt.activated",
+  "readiness_state": "active_conflict",
+  "attempt_id": "44444444-4444-4444-8444-444444444444",
+  "ordinal": 1,
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "remaining_entitlement": 0,
+  "permitted_actions": ["continue_attempt", "return_to_my_work"]
+}

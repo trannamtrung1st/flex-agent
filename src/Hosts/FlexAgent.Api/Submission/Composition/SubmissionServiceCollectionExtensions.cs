@@ -121,13 +121,25 @@ public sealed class SubmissionCleanupHostedService(
 
 internal sealed class ScopedExactAcceptedVersionReader(ISubmissionVersionStore versions) : IExactAcceptedVersionReader
 {
-    public async Task<AcceptedSubmissionVersion?> GetExactAsync(
+    public Task<AcceptedSubmissionVersion?> GetExactAsync(
         SubmissionParentScope scope,
         Guid versionId,
         object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        var version = await versions.FindVersionAsync(scope.OrganizationId, versionId, null, cancellationToken);
+        ArgumentNullException.ThrowIfNull(commitTransaction);
+        var transaction = commitTransaction as IEnrollmentTransaction
+            ?? throw new InvalidOperationException("commit.transaction.required");
+        return GetExactCoreAsync(scope, versionId, transaction, cancellationToken);
+    }
+
+    private async Task<AcceptedSubmissionVersion?> GetExactCoreAsync(
+        SubmissionParentScope scope,
+        Guid versionId,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var version = await versions.FindVersionAsync(scope.OrganizationId, versionId, transaction, cancellationToken);
         if (version is null
             || version.Scope.EnrollmentId != scope.EnrollmentId
             || version.Scope.ParticipantActorId != scope.ParticipantActorId)

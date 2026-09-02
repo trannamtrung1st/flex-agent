@@ -107,3 +107,70 @@ public sealed record ProtectedItemPreviewV2(
     string? Filename,
     string ContentType,
     string Content);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AcknowledgeAttemptNoticeCommandV2(
+    string SchemaVersion,
+    Guid NoticeId,
+    Guid SourceVersionId,
+    string Outcome,
+    string IdempotencyKey);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record StartAttemptCommandV2(
+    string SchemaVersion,
+    string IdempotencyKey,
+    string TrustedCommandDigest);
+
+public sealed record AttemptNoticeV2(
+    Guid NoticeId,
+    string NoticeType,
+    string RequiredOutcome,
+    string ProtectedContentRef,
+    Guid SourceVersionId,
+    string ContentDigest,
+    Guid SourceId);
+
+public sealed record AttemptHistoryItemV2(
+    Guid AttemptId,
+    int Ordinal,
+    string Status,
+    bool Consumed,
+    Guid? SessionId,
+    string StartedAtUtc,
+    string? TerminalAtUtc,
+    string? TerminalReasonCategory);
+
+public sealed record MyWorkAttemptReadinessV2(
+    string SchemaVersion,
+    Guid EnrollmentId,
+    string ReadinessState,
+    int NextOrdinal,
+    int RemainingEntitlement,
+    string EntitlementSource,
+    int BaselineAttemptLimit,
+    Guid? ActiveAttemptId,
+    Guid? ActiveSessionId,
+    string StartCommandDigest,
+    IReadOnlyList<AcceptedVersionSummaryV2> BoundVersionCandidates,
+    IReadOnlyList<AttemptHistoryItemV2> History,
+    IReadOnlyList<AttemptNoticeV2> RequiredNotices,
+    IReadOnlyList<string> PermittedActions);
+
+public sealed record AcknowledgmentMutationOutcomeV2(
+    string SchemaVersion,
+    bool Succeeded,
+    string OutcomeCode,
+    Guid? RecordId,
+    string? Outcome);
+
+public sealed record StartAttemptOutcomeV2(
+    string SchemaVersion,
+    bool Succeeded,
+    string OutcomeCode,
+    string? ReadinessState,
+    Guid? AttemptId,
+    int? Ordinal,
+    Guid? SessionId,
+    int RemainingEntitlement,
+    IReadOnlyList<string> PermittedActions);

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json",
+  "title": "Acknowledgment mutation outcome v2",
+  "description": "Server-derived durable acknowledgment record outcome.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "succeeded", "outcome_code"],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "succeeded": { "type": "boolean" },
+    "outcome_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "record_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "outcome": {
+      "type": ["string", "null"],
+      "enum": ["affirmed", "declined", "withdrawn", null]
+    }
+  }
+}

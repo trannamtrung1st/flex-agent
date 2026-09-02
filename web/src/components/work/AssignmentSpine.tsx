@@ -2,36 +2,35 @@ import { PhaseSpine, type PhaseSpineNode } from "../../design-system";
 
 export type AssignmentStationView = "submission" | "attempt";
 
-const NODES = [
-  { id: "submission" as const, label: "Submission", short: "Prepare and accept a version" },
-  { id: "attempt" as const, label: "Attempt", short: "Not available here" },
-] as const;
-
 export function AssignmentSpine({
   view,
   onSelect,
+  attemptShort = "Readiness and start",
 }: {
   view: AssignmentStationView;
   onSelect: (view: AssignmentStationView) => void;
+  attemptShort?: string;
 }) {
-  const nodes: PhaseSpineNode[] = NODES.map((node) => {
-    const viewing = view === node.id;
-    const locked = node.id === "attempt";
-    const state = locked ? "locked" : (viewing ? "current" : "rest");
-    const ariaLabel = locked
-      ? `${node.label} — not available from this application`
-      : `${node.label} — ${node.short}`;
-
-    return {
-      id: node.id,
-      label: node.label,
-      short: node.short,
-      state,
-      viewing,
-      ariaLabel,
-      onSelect: () => onSelect(node.id),
-    };
-  });
+  const nodes: PhaseSpineNode[] = [
+    {
+      id: "submission",
+      label: "Submission",
+      short: "Prepare and accept a version",
+      state: view === "submission" ? "current" : "rest",
+      viewing: view === "submission",
+      ariaLabel: "Submission — Prepare and accept a version",
+      onSelect: () => onSelect("submission"),
+    },
+    {
+      id: "attempt",
+      label: "Attempt",
+      short: attemptShort,
+      state: view === "attempt" ? "current" : "rest",
+      viewing: view === "attempt",
+      ariaLabel: `Attempt — ${attemptShort}`,
+      onSelect: () => onSelect("attempt"),
+    },
+  ];
 
   return <PhaseSpine nodes={nodes} aria-label="Assignment phases" />;
 }

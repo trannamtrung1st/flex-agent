@@ -12,6 +12,17 @@ using Npgsql;
 
 namespace FlexAgent.Submissions.Infrastructure;
 
+public sealed class AttachedPostgresEnrollmentTransaction(NpgsqlTransaction transaction) : IEnrollmentTransaction
+{
+    public bool AuditAccepted { get; set; } = true;
+
+    public bool OutboxAccepted { get; set; } = true;
+
+    public object CommitHandle => transaction;
+
+    public NpgsqlTransaction Transaction => transaction;
+}
+
 public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope) : IEnrollmentTransaction
 {
     public bool AuditAccepted { get; set; } = true;

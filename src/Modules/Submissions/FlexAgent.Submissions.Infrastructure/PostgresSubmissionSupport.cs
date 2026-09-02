@@ -468,6 +468,14 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
             row = await connection.QuerySingleOrDefaultAsync<VersionRow>(
                 new CommandDefinition(sql, new { OrganizationId = organizationId, VersionId = versionId }, dbTransaction, cancellationToken: cancellationToken));
         }
+        else if (transaction is AttachedPostgresEnrollmentTransaction attached)
+        {
+            connection = attached.Transaction.Connection
+                ?? throw new InvalidOperationException("commit.transaction.required");
+            dbTransaction = attached.Transaction;
+            row = await connection.QuerySingleOrDefaultAsync<VersionRow>(
+                new CommandDefinition(sql, new { OrganizationId = organizationId, VersionId = versionId }, dbTransaction, cancellationToken: cancellationToken));
+        }
         else
         {
             connection = await connections.OpenConnectionAsync(cancellationToken);
@@ -783,15 +791,25 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         string ArtifactVersionId);
 }
 
-public sealed class PostgresExactAcceptedVersionReader(PostgresSubmissionVersionStore versions) : IExactAcceptedVersionReader
+public sealed class PostgresExactAcceptedVersionReader(ISubmissionVersionStore versions) : IExactAcceptedVersionReader
 {
-    public async Task<AcceptedSubmissionVersion?> GetExactAsync(
+    public Task<AcceptedSubmissionVersion?> GetExactAsync(
         SubmissionParentScope scope,
         Guid versionId,
         object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        var version = await versions.FindVersionAsync(scope.OrganizationId, versionId, null, cancellationToken);
+        var transaction = new AttachedPostgresEnrollmentTransaction(PostgresCommitTransaction.Required(commitTransaction));
+        return GetExactCoreAsync(scope, versionId, transaction, cancellationToken);
+    }
+
+    private async Task<AcceptedSubmissionVersion?> GetExactCoreAsync(
+        SubmissionParentScope scope,
+        Guid versionId,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var version = await versions.FindVersionAsync(scope.OrganizationId, versionId, transaction, cancellationToken);
         if (version is null
             || version.Scope.EnrollmentId != scope.EnrollmentId
             || version.Scope.ParticipantActorId != scope.ParticipantActorId

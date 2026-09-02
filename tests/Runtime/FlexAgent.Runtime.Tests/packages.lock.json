@@ -463,6 +463,7 @@
       "flexagent.api": {
         "type": "Project",
         "dependencies": {
+          "Dapper": "[2.1.79, )",
           "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
           "FlexAgent.AssessmentConfiguration.Infrastructure": "[1.0.0, )",
           "FlexAgent.Contracts": "[1.0.0, )",

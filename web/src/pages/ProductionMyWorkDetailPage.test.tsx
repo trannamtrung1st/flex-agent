@@ -55,6 +55,33 @@ function submissionPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function attemptPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: "v2",
+    enrollment_id: "enr-1",
+    readiness_state: "eligible",
+    next_ordinal: 1,
+    remaining_entitlement: 1,
+    entitlement_source: "baseline",
+    baseline_attempt_limit: 1,
+    active_attempt_id: null,
+    active_session_id: null,
+    start_command_digest: "a".repeat(64),
+    bound_version_candidates: [
+      {
+        version_id: "ver-1",
+        version_number: 1,
+        accepted_at_utc: "2026-08-28T01:00:00Z",
+        item_count: 1,
+      },
+    ],
+    history: [],
+    required_notices: [],
+    permitted_actions: ["start_attempt"],
+    ...overrides,
+  };
+}
+
 function stubAuthenticatedFetch(handler: (url: string, init?: RequestInit) => ReturnType<typeof jsonResponse>) {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -162,10 +189,7 @@ describe("ProductionMyWorkDetailPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Attempt/ }));
     expect(screen.getByRole("heading", { name: "Attempt" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Assignment status")).toHaveTextContent(/Not available here/);
-    expect(screen.getByText(/No production Attempt-start HTTP contract/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Begin intake" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Start Attempt/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Attempt readiness unavailable/)).toBeInTheDocument();
   });
 
   it("finalizes an intake only after confirmation", async () => {
@@ -330,5 +354,92 @@ describe("ProductionMyWorkDetailPage", () => {
     const blockedSubmit = screen.getByRole("button", { name: "Submit version" });
     expect(blockedSubmit).toBeDisabled();
     expect(blockedSubmit).toHaveAccessibleDescription(/not permitted for this intake/);
+  });
+
+  it("requires each notice to be checked before Start Attempt is enabled", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          required_notices: [
+            {
+              notice_id: "notice-1",
+              notice_type: "instructions",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:1",
+              source_version_id: "src-v-1",
+              content_digest: "a".repeat(64),
+              source_id: "src-1",
+            },
+            {
+              notice_id: "notice-2",
+              notice_type: "consent",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:2",
+              source_version_id: "src-v-2",
+              content_digest: "b".repeat(64),
+              source_id: "src-2",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    expect(await screen.findByText(/Remaining entitlement/)).toBeInTheDocument();
+    const start = screen.getByRole("button", { name: /Start Attempt/ });
+    expect(start).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /required Instructions/ }));
+    expect(start).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /required Consent/ }));
+    expect(start).toBeEnabled();
+  });
+
+  it("keeps Reconcile start for uncertain outcomes and not for a known start refusal", async () => {
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt/start") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: false,
+          outcome_code: "attempt.ineligible",
+          remaining_entitlement: 1,
+          permitted_actions: ["return_to_my_work"],
+        });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload());
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    await waitFor(() => {
+      expect(screen.getByText(/not ready to start an Attempt/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
   });
 });

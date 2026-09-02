@@ -1,0 +1,14 @@
+{
+  "schema_version": "v2",
+  "enrollment_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "readiness_state": "ready",
+  "next_ordinal": 1,
+  "remaining_entitlement": 1,
+  "entitlement_source": "baseline",
+  "baseline_attempt_limit": 1,
+  "start_command_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "bound_version_candidates": [],
+  "history": [],
+  "required_notices": [],
+  "permitted_actions": ["start_attempt"]
+}

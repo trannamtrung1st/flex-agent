@@ -25,6 +25,30 @@ public sealed class SubmissionRequestValidatorTests
     }
 
     [Fact]
+    public void Start_attempt_validator_rejects_short_digest()
+    {
+        Assert.False(AttemptRequestValidators.IsValid(new StartAttemptCommandV2("v2", "attempt-start-synthetic-0001", "abc")));
+    }
+
+    [Fact]
+    public void Start_attempt_validator_rejects_uppercase_digest()
+    {
+        Assert.False(AttemptRequestValidators.IsValid(new StartAttemptCommandV2(
+            "v2",
+            "attempt-start-synthetic-0001",
+            new string('A', 64))));
+    }
+
+    [Fact]
+    public void Start_attempt_validator_accepts_valid_command()
+    {
+        Assert.True(AttemptRequestValidators.IsValid(new StartAttemptCommandV2(
+            "v2",
+            "attempt-start-synthetic-0001",
+            new string('a', 64))));
+    }
+
+    [Fact]
     public void Complete_item_validator_rejects_empty_content()
     {
         Assert.False(CompleteIntakeItemRequestValidator.IsValid(

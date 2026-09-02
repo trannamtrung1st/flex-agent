@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/acknowledge-attempt-notice-command.v2.schema.json",
+  "title": "Acknowledge Attempt notice command v2",
+  "description": "Participant command that records a durable outcome against an exact required notice version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "notice_id", "source_version_id", "outcome", "idempotency_key"],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "notice_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "source_version_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "outcome": { "type": "string", "enum": ["affirmed", "declined", "withdrawn"] },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    }
+  }
+}

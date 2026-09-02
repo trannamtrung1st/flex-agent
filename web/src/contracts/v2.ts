@@ -131,6 +131,96 @@ export interface ProtectedItemPreviewV2 {
   content: string;
 }
 
+export type AttemptReadinessStateV2 =
+  | 'eligible'
+  | 'too_early'
+  | 'expired'
+  | 'exhausted'
+  | 'missing_accepted_material'
+  | 'material_not_agent_readable'
+  | 'active_conflict'
+  | 'configuration_unavailable'
+  | 'enrollment_unavailable'
+  | 'dependency_unavailable';
+
+export type AttemptPermittedActionV2 =
+  | 'start_attempt'
+  | 'continue_attempt'
+  | 'return_to_my_work';
+
+export interface AcknowledgeAttemptNoticeCommandV2 {
+  schema_version: SchemaVersionV2;
+  notice_id: string;
+  source_version_id: string;
+  outcome: 'affirmed' | 'declined' | 'withdrawn';
+  idempotency_key: string;
+}
+
+export interface StartAttemptCommandV2 {
+  schema_version: SchemaVersionV2;
+  idempotency_key: string;
+  trusted_command_digest: string;
+}
+
+export interface MyWorkAttemptReadinessV2 {
+  schema_version: SchemaVersionV2;
+  enrollment_id: string;
+  readiness_state: AttemptReadinessStateV2;
+  next_ordinal: number;
+  remaining_entitlement: number;
+  entitlement_source: 'baseline' | 'retry';
+  baseline_attempt_limit: number;
+  active_attempt_id?: string | null;
+  active_session_id?: string | null;
+  start_command_digest: string;
+  bound_version_candidates: Array<{
+    version_id: string;
+    version_number: number;
+    accepted_at_utc: string;
+    item_count: number;
+  }>;
+  history: Array<{
+    attempt_id: string;
+    ordinal: number;
+    status: 'active' | 'completed' | 'aborted';
+    consumed: boolean;
+    session_id?: string | null;
+    started_at_utc: string;
+    terminal_at_utc?: string | null;
+    terminal_reason_category?: string | null;
+  }>;
+  required_notices: Array<{
+    notice_id: string;
+    notice_type: 'instructions' | 'consent' | 'data_use';
+    required_outcome: 'affirmed';
+    protected_content_ref: string;
+    source_version_id: string;
+    content_digest: string;
+    source_id: string;
+  }>;
+  permitted_actions: AttemptPermittedActionV2[];
+}
+
+export interface AcknowledgmentMutationOutcomeV2 {
+  schema_version: SchemaVersionV2;
+  succeeded: boolean;
+  outcome_code: string;
+  record_id?: string | null;
+  outcome?: string | null;
+}
+
+export interface StartAttemptOutcomeV2 {
+  schema_version: SchemaVersionV2;
+  succeeded: boolean;
+  outcome_code: string;
+  readiness_state?: AttemptReadinessStateV2 | null;
+  attempt_id?: string | null;
+  ordinal?: number | null;
+  session_id?: string | null;
+  remaining_entitlement: number;
+  permitted_actions: AttemptPermittedActionV2[];
+}
+
 export type AccommodationDimensionV2 =
   | 'submission_deadline_utc'
   | 'attempt_start_not_before_utc'

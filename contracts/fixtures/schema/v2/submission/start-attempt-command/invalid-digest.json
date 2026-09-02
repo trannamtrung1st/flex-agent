@@ -1,0 +1,5 @@
+{
+  "schema_version": "v2",
+  "idempotency_key": "attempt-start-synthetic-0001",
+  "trusted_command_digest": "not-a-digest"
+}

@@ -169,6 +169,31 @@
       "category": "protected_item_preview",
       "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/protected-item-preview.v2.schema.json",
       "fixture_dir": "fixtures/schema/v2/submission/protected-item-preview"
+    },
+    {
+      "category": "my_work_attempt_readiness",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/my-work-attempt-readiness.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/my-work-attempt-readiness"
+    },
+    {
+      "category": "acknowledge_attempt_notice_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/acknowledge-attempt-notice-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/acknowledge-attempt-notice-command"
+    },
+    {
+      "category": "start_attempt_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/start-attempt-command"
+    },
+    {
+      "category": "acknowledgment_mutation_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/acknowledgment-mutation-outcome"
+    },
+    {
+      "category": "start_attempt_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-outcome.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/start-attempt-outcome"
     }
   ],
   "digest_schemas": [

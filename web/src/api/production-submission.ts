@@ -3,11 +3,20 @@ import type {
   CompleteIntakeItemCommandV2,
   IntakeMutationOutcomeV2,
   IntakeRevisionCommandV2,
+  MyWorkAttemptReadinessV2,
   MyWorkSubmissionV2,
   ProtectedItemPreviewV2,
+  AcknowledgmentMutationOutcomeV2,
+  StartAttemptOutcomeV2,
 } from "../contracts/v2";
 
-export type { AcceptedVersionDetailV2, IntakeMutationOutcomeV2, MyWorkSubmissionV2, ProtectedItemPreviewV2 };
+export type {
+  AcceptedVersionDetailV2,
+  IntakeMutationOutcomeV2,
+  MyWorkAttemptReadinessV2,
+  MyWorkSubmissionV2,
+  ProtectedItemPreviewV2,
+};
 
 export function createSubmissionIdempotencyKey(): string {
   return `sub-${crypto.randomUUID()}`;
@@ -73,6 +82,53 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
         },
       );
     },
+    getAttemptReadiness(enrollmentId: string) {
+      return fetchJson<MyWorkAttemptReadinessV2>(`/v2/assessment/my-work/${enrollmentId}/attempt`);
+    },
+    acknowledgeNotice(
+      enrollmentId: string,
+      noticeId: string,
+      sourceVersionId: string,
+      outcome: "affirmed" | "declined" | "withdrawn",
+      idempotencyKey: string,
+    ) {
+      return fetchJson<AcknowledgmentMutationOutcomeV2>(
+        `/v2/assessment/my-work/${enrollmentId}/attempt/acknowledgments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schema_version: "v2",
+            notice_id: noticeId,
+            source_version_id: sourceVersionId,
+            outcome,
+            idempotency_key: idempotencyKey,
+          }),
+        },
+      );
+    },
+    startAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
+      return fetchJson<StartAttemptOutcomeV2>(`/v2/assessment/my-work/${enrollmentId}/attempt/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schema_version: "v2",
+          idempotency_key: idempotencyKey,
+          trusted_command_digest: trustedCommandDigest,
+        }),
+      });
+    },
+    reconcileAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
+      return fetchJson<StartAttemptOutcomeV2>(`/v2/assessment/my-work/${enrollmentId}/attempt/reconcile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schema_version: "v2",
+          idempotency_key: idempotencyKey,
+          trusted_command_digest: trustedCommandDigest,
+        }),
+      });
+    },
   };
 }
 
@@ -96,6 +152,19 @@ export function submissionFailureCopy(outcomeCode: string | undefined): string {
       return "Submission requirements are currently unavailable.";
     case "enrollment_not_active":
       return "This assignment is not active for new submission versions.";
+    case "attempt.denied":
+      return "This Attempt is not available.";
+    case "attempt.ineligible":
+      return "This assignment is not ready to start an Attempt.";
+    case "attempt.acknowledgment_invalid":
+      return "Required acknowledgments were not recorded. No Attempt started.";
+    case "attempt.idempotency_conflict":
+      return "This start request does not match the recorded command. No additional Attempt started.";
+    case "attempt.active_conflict":
+      return "An Attempt is already in progress for this assignment.";
+    case "attempt.unavailable":
+    case "attempt.audit_unavailable":
+      return "Attempt start is currently unavailable. Entitlement was not consumed.";
     default:
       return "The submission could not be accepted. No earlier version was changed.";
   }

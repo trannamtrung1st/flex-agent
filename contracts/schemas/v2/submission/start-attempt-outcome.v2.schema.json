@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-outcome.v2.schema.json",
+  "title": "Start Attempt outcome v2",
+  "description": "Server-derived Attempt start or reconcile outcome with the committed Session locator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "succeeded", "outcome_code", "remaining_entitlement", "permitted_actions"],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "succeeded": { "type": "boolean" },
+    "outcome_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "readiness_state": {
+      "type": ["string", "null"],
+      "enum": [
+        "eligible",
+        "too_early",
+        "expired",
+        "exhausted",
+        "missing_accepted_material",
+        "material_not_agent_readable",
+        "active_conflict",
+        "configuration_unavailable",
+        "enrollment_unavailable",
+        "dependency_unavailable",
+        null
+      ]
+    },
+    "attempt_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "ordinal": { "type": ["integer", "null"], "minimum": 1, "maximum": 2147483647 },
+    "session_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "remaining_entitlement": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": ["start_attempt", "continue_attempt", "return_to_my_work"]
+      }
+    }
+  }
+}
