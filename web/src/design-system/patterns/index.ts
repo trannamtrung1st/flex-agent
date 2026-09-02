@@ -20,12 +20,14 @@ export {
   matchingQueryKey,
   normalizeSelection,
   removeIds,
+  resolveActionIds,
   resolveSelectedIds,
   selectionCopy,
   toggleRow,
   transitionHeaderSelection,
   type HeaderSelectionState,
   type TableSelection,
+  type TableSelectionCapability,
 } from "./tableSelection";
 export {
   APPROVED_LAYOUT_IDS,

@@ -791,7 +791,7 @@ This approved journey is followed by these bounded documents:
 3. [Text Session interaction specification](text-session.md) — Approved.
 4. [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) — Approved.
 5. [Result and Release interaction specification](result-release.md) — Approved.
-6. [Design-system](../design-system/README.md) v1.0 (Approved) for Shipboard
+6. [Design-system](../design-system/README.md) v1.1 (Approved) for Shipboard
    Terminal shared presentation, refined as the interaction specifications
    identify repeated needs. This journey is not changed by the visual
    replacement.

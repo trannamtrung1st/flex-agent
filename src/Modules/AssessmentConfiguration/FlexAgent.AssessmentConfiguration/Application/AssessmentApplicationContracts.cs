@@ -187,6 +187,11 @@ public interface IAssessmentDraftHandler
         AssessmentActorContext actor,
         CancellationToken cancellationToken = default);
 
+    Task<AssessmentDecision<NumberedActivityListPage>> ListActivitiesPageAsync(
+        AssessmentActorContext actor,
+        NumberedActivityListRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<AssessmentDecision<ActivityDraft>> GetActivityAsync(
         AssessmentActorContext actor,
         Guid activityId,

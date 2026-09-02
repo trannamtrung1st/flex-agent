@@ -6,6 +6,8 @@
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-06
+- Last amended: 2026-09-02 — approved server-numbered Activity discovery
+  (`REQ-ACT-43`–`REQ-ACT-46`, `AC-ACT-28`–`AC-ACT-29`).
 - Source: [Activity](../../product/concept-model.md#activity), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [Group and cohort semantics](../../product/concept-model.md#group-and-cohort-semantics), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), and [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
 - Catalog entry: P0 #3 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md) and produces the cohort activation baseline consumed by [`resolved-session-configuration.md`](resolved-session-configuration.md).
@@ -65,6 +67,10 @@ All permissions are action- and resource-scoped under [`auth-resource-isolation.
 - Preserve draft revisions, activation attempts, successful baselines, failures, approved exceptions, and later superseding relationships without silently overwriting history.
 - Permit participant enrollment after activation under the unchanged cohort baseline, consistent with the MVP executable workflow.
 - Provide authorized readiness, confirmation, success, failure, history, and baseline-inspection states.
+- Provide an explicitly requested, server-numbered Activity registry page with
+  server-owned search, ordering, an authorized exact total, and bounded page
+  metadata; retain cursor paging for list contracts that do not promise a
+  complete count or random page access.
 
 ### Out of scope
 
@@ -246,6 +252,13 @@ Draft cohort ── authorized activation request ──► Validating
 - `REQ-ACT-40` — Activity, cohort, baseline, and activation-attempt records must follow the applicable approved retention, deletion, legal-hold, and export policy; this feature must not invent an independent duration or fabricate verification after a source is lawfully unavailable.
 - `REQ-ACT-41` — One currently authorized Activity administrator may activate a ready cohort after an explicit deliberate confirmation; routine activation does not require a second-person approval.
 - `REQ-ACT-42` — An exception to an upper-scope or fairness rule may be used only when a separately approved rule permits it and the exception has a current authorized actor, explicit reason, bounded scope, additional authorized approval, UTC timestamp, immutable reference, and required durable audit. An exception must never widen a non-bypassable organization boundary.
+
+### Authorized Activity discovery
+
+- `REQ-ACT-43` — The Activity-list contract must support an explicitly selected server-numbered mode. That mode must return one bounded page plus its one-based page number, page size, authorized `total_items`, and derived `total_pages`; `total_pages` is `0` when `total_items` is `0`. It must not require the browser to load the complete authorized set.
+- `REQ-ACT-44` — Search and supported ordering for a server-numbered Activity list must be applied by the server to the complete currently authorized result set before count and page extraction. Trimmed search matches Activity title or identifier case-insensitively and treats its characters as literal search text. An ordered sort specification may contain each of `title`, `activation`, `updated`, and `revision` at most once, each with `asc` or `desc`, and at most four entries; the default is `title asc`. Title order is case-insensitive, activation ascending orders Draft before Activated, updated order is chronological, and revision order is numeric. Every ordering must end with an ascending Activity-identifier tie-breaker; the browser must not sort or filter only the returned page and present it as the matching result set.
+- `REQ-ACT-45` — Rows, `total_items`, `total_pages`, empty state, and out-of-range metadata for one server-numbered response must derive from the same authorized filter scope and one consistent data observation. Inaccessible Activities must not affect any returned value.
+- `REQ-ACT-46` — Server-numbered Activity requests use a one-based positive page, default page `1`, default page size `16`, a server-enforced maximum page size of `50`, and a trimmed search limit of `200` characters. Unsupported, duplicate, or over-limit sort entries, unsupported directions, non-positive values, page sizes above the maximum, and search values above the limit must be rejected with a stable non-disclosing validation outcome. A page beyond the current final page returns an empty item page with the current authorized total and page metadata; it does not reveal inaccessible records or silently reinterpret the requested page.
 
 ## Data, evidence, and audit
 
@@ -550,7 +563,7 @@ The baseline is evidence about the conditions offered to a cohort. An authorized
 
 - **Given** assessment setup is considered for release
 - **When** its verification suite runs
-- **Then** tests cover unauthorized action, wrong organization/activity/cohort, forged parent, stale draft, mutable source, digest mismatch, capability widening, invalid memory choice, unapproved or stale exception, audit failure, retry, concurrent activation, and post-activation mutation
+- **Then** tests cover unauthorized action, wrong organization/activity/cohort, forged parent, stale draft, mutable source, digest mismatch, capability widening, invalid memory choice, unapproved or stale exception, invalid numbered-page/search/sort input, list/count leakage, audit failure, retry, concurrent activation, and post-activation mutation
 - **And** the feature is not release-ready while an applicable negative case is missing or failing.
 
 ### `AC-ACT-25` — Exceptions require separate bounded approval
@@ -577,6 +590,33 @@ The baseline is evidence about the conditions offered to a cohort. An authorized
 - **Then** each operation completes in no more than 2 seconds at the 95th percentile
 - **And** authentication-provider redirects and end-user network latency are excluded consistently
 - **And** a missed objective is observable without logging raw protected content.
+
+### `AC-ACT-28` — Activity registry is server-numbered and scope-safe
+
+- **Given** authorized and inaccessible Activities exist, including Activities
+  with equal values in the requested primary sort field
+- **When** an authorized administrator requests server-numbered Activity page
+  `N` with an accepted page size, search value, and ordered sort specification
+- **Then** the server searches and orders the complete authorized matching set,
+  applies the Activity-identifier tie-breaker, and returns only page `N`
+- **And** `total_items` and `total_pages` describe that same authorized matching
+  set and consistent data observation
+- **And** inaccessible Activities contribute no row, count, page, ordering, or
+  empty-state information.
+
+### `AC-ACT-29` — Numbered-page validation and result drift recover safely
+
+- **Given** an Activity-page request contains an unsupported, duplicate, or
+  over-limit sort specification, an unsupported direction, a non-positive page
+  or page size, a page size above `50`, or a trimmed search longer than `200`
+  characters
+- **When** the service validates the request
+- **Then** it returns a stable non-disclosing validation outcome without
+  querying or returning protected rows or totals
+- **And** when an otherwise valid page is beyond the current final page after
+  authorized data changes, the response is an empty requested page with the
+  current authorized total and page metadata so the client can return to a
+  valid page deliberately.
 
 ## Edge and failure cases
 
@@ -665,6 +705,7 @@ The following table preserves question and proposal history while linking each a
 | `Q-6`, `PROP-6` | Permit one authorized Activity administrator to perform routine activation after deliberate confirmation; require additional authorized approval only for a separately permitted exception. | `REQ-ACT-41`, `REQ-ACT-42`, `AC-ACT-7`, `AC-ACT-25` |
 | `Q-7`, `PROP-7` | Use Configuration-owned PostgreSQL source versions and readiness descriptors as the only activation-transaction source authority in this slice; exclude Sessions file registries and credential binding; fail closed in Production when a required owner cannot revalidate an exact version in-transaction. | [ADR-017](../../architecture/mvp-architecture.md), `REQ-ACT-9`–`REQ-ACT-16`, `REQ-ACT-24`, `AC-ACT-6`–`AC-ACT-8`, `AC-ACT-27` |
 | `Q-8`, `PROP-8` | When every required category is ready and no knowledge references are selected, readiness is `warning` and activation remains permitted. | `REQ-ACT-12`, `REQ-ACT-16`, `AC-ACT-4` |
+| Activity registry numbered paging confirmation | Support an explicit server-numbered Activity-list mode with server-owned search/order, exact authorized totals, deterministic ties, default page `1`, default size `16`, and maximum size `50`. Cursor list contracts remain count-optional and do not gain page jumps from this decision. | `REQ-ACT-43`–`REQ-ACT-46`, `AC-ACT-23`, `AC-ACT-28`, `AC-ACT-29` |
 | Audit durability confirmation | Classify cohort activation and approved exceptions as `required_durable`; fail the protected transition when durable audit acceptance fails. | `REQ-ACT-15`, `REQ-ACT-36`, `AC-ACT-17`, `AC-ACT-25`, ADR-003, ADR-004 |
 | Empty-cohort confirmation | Permit activation before participant assignment; later enrollment must not change the baseline. | `REQ-ACT-25`, `AC-ACT-12` |
 | Timing-boundary confirmation | Freeze cohort timing rules and bounds in setup; let P0 #4 own participant-specific accommodations and actual permitted timing, which session resolution records as session-bound values. | `REQ-ACT-16`, `REQ-ACT-23`, `REQ-ACT-25`, `REQ-ACT-31`, `REQ-ACT-32`, `AC-ACT-19` |
@@ -693,6 +734,7 @@ The following table preserves question and proposal history while linking each a
 | `REQ-ACT-25`, `REQ-ACT-31`–`REQ-ACT-34`, `AC-ACT-12`, `AC-ACT-19`, `AC-ACT-23` | Focused and PostgreSQL tests cover empty-cohort activation, bounds, timezone identity, and scoped list/count behavior. | Empty-cohort activation, confirmation, and activated-success screenshots exist. Later Enrollment handoff evidence remains open. |
 | `REQ-ACT-26`–`REQ-ACT-30`, `AC-ACT-9`–`AC-ACT-11`, `AC-ACT-26` | Focused tests cover no-read, exact snapshot, cross-scope memory, and prohibited Dynamic/tool/voice/shared-session capability paths. | Confirmation compact summary shows Stable no-read memory and disabled P0 capabilities. Snapshot-selector live UI remains unseeded. |
 | `REQ-ACT-35`–`REQ-ACT-40`, `AC-ACT-17`, `AC-ACT-20`, `AC-ACT-21` | Focused, PostgreSQL, and HTTP-negative tests cover durability failure, role/scope denial, access revocation, and baseline non-disclosure. | Component admin/degraded states exist; authenticated Administrator/Reviewer browser evidence remains open. |
+| `REQ-ACT-43`–`REQ-ACT-46`, `AC-ACT-23`, `AC-ACT-28`, `AC-ACT-29` | Assessment numbered-list, PostgreSQL isolation, HTTP contract/validation, and React Activities/selection tests cover server-owned search/order, totals, drift recovery, and page-only Assign capability. | Authenticated Activities first/last, search-empty, desktop, narrow, keyboard, and Assign page-only screenshots exist. Live pending/retry and live page-drift remain test-covered only. |
 | UX/accessibility requirements, `AC-ACT-22` | React tests cover accessible names, validation, navigation confirmation, compact confirmation sections, readiness, reconciliation-after-GET, access loss including denied save, and degraded summaries. | Authenticated warning, confirm compact summary, leave, activated, degraded, access-changed, keyboard, reduced-motion, and 400-percent chrome screenshots exist. 400-percent still clips chrome; both-theme matrix is incomplete; dedicated reconciling PNG is missing. |
 | Performance/reliability requirements, `AC-ACT-15`–`AC-ACT-18`, `AC-ACT-27`, `PROP-4` | Fault, timeout-adjacent, retry, uncertain-commit, and race tests pass. Local same-origin CSRF readiness p95 was 6 ms / 20 POSTs; activation p95 was 17.5 ms / 12 POSTs (OIDC excluded). | Pending/retry/conflict components and authenticated recovery screenshots exist. Multi-tenant load and OIDC-inclusive p95 were not measured. |
 | Security/privacy requirements, `AC-ACT-3`, `AC-ACT-5`, `AC-ACT-21`, `AC-ACT-23`–`AC-ACT-25` | Focused, HTTP-negative, and project gitleaks cover current MFA, CSRF, guessed identifiers, wrong scope, revoke-after-read, and sensitive baseline redaction cases. | Denied/access-loss components and an authenticated access-changed screenshot exist. Live OTP MFA is fixture-mapped; Reviewer browser evidence remains open. |

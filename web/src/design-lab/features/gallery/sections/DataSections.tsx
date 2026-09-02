@@ -323,7 +323,7 @@ function DatatableSpecimen({
           <DatatableTable ref={tableRef} id="dtTable" aria-describedby="dtCountValue">
             <thead>
               <tr>
-                <SelectHeader id="dtSelectAll" selection={selection} pageIds={pageIds} matchingIds={matchingIds} queryKey={queryKey} noun="enrollments" onTransition={setSelection} />
+                <SelectHeader id="dtSelectAll" selection={selection} pageIds={pageIds} capability={{ mode: "matching", queryKey, matchingIds, total: matchingIds.length }} noun="enrollments" onTransition={setSelection} />
                 <SortableHeader sortKey="id" label="Participant ID" sorts={sorts} onSort={sort} colMin="id" />
                 <SortableHeader sortKey="campaign" label="Campaign" sorts={sorts} onSort={sort} colMin="label" />
                 <SortableHeader sortKey="stage" label="Stage" sorts={sorts} onSort={sort} colMin="stage" />

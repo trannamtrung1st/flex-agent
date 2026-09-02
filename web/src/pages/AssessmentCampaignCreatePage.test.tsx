@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { ProductionApiError } from "../api/production-api";
 import {
   REQUIRED_SOURCE_CATEGORIES,
+  type NumberedActivityListQuery,
   type ProductionActivityList,
   type ProductionSourceOption,
 } from "../api/production-assessment";
@@ -26,7 +27,7 @@ function renderCreate(options?: {
   permittedActions?: string[];
   sources?: ProductionSourceOption[];
   createError?: Error;
-  loadActivities?: (signal?: AbortSignal) => Promise<ProductionActivityList>;
+  loadActivities?: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
   loadSourceOptions?: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
   onCreated?: (activityId: string) => void;
   queryClient?: ReturnType<typeof createFlexQueryClient>;
@@ -215,11 +216,11 @@ describe("AssessmentCampaignCreatePage", () => {
       expect(onCreated).toHaveBeenCalledWith("act-new");
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: assessmentKeys.activities(),
-      exact: true,
+      queryKey: assessmentKeys.activitiesRoot(),
+      exact: false,
       refetchType: "none",
     });
-    expect(queryClient.getQueryState(assessmentKeys.activities())?.fetchStatus).not.toBe("fetching");
+    expect(queryClient.isFetching({ queryKey: assessmentKeys.activitiesRoot() })).toBe(0);
   });
 
   it("does not submit a client-invalid title and focuses the linked error summary", async () => {

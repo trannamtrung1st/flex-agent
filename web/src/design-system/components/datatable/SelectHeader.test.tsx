@@ -12,8 +12,7 @@ describe("SelectHeader", () => {
               id="select-all"
               selection={EMPTY_SELECTION}
               pageIds={[]}
-              matchingIds={[]}
-              queryKey=""
+              capability={{ mode: "page" }}
               noun="rows"
               onTransition={() => undefined}
             />

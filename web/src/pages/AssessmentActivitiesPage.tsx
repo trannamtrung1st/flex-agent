@@ -1,13 +1,17 @@
-import { useCallback, useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  canonicalizeActivityListQuery,
   isAssessmentAccessLoss,
   REQUIRED_SOURCE_CATEGORIES,
+  type ActivitySortField,
+  type NumberedActivityListQuery,
   type ProductionActivityList,
   type ProductionActivitySummary,
   type ProductionSourceOption,
 } from "../api/production-assessment";
 import { sourceCategoryLabel } from "../features/assessment/campaignCreatePresentation";
 import {
+  Alert,
   CeremonyArea,
   CeremonyUnavailable,
   CeremonyWait,
@@ -28,7 +32,6 @@ import {
   SortableHeader,
   ToolbarReadout,
   ToolbarSearch,
-  useTableController,
 } from "../design-system";
 import { SEARCH_TITLE_OR_ID_PLACEHOLDER } from "../content/fieldCopy";
 import {
@@ -38,29 +41,53 @@ import {
 
 export interface AssessmentActivitiesPageProps {
   organizationId?: string;
-  loadActivities: (signal?: AbortSignal) => Promise<ProductionActivityList>;
+  loadActivities: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
   loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
 }
 
-type ActivitySortKey = "title" | "activation" | "revision" | "updated";
+type ActivitySortKey = ActivitySortField;
 
 export function AssessmentActivitiesPage({
   loadActivities,
   loadSourceOptions,
 }: AssessmentActivitiesPageProps) {
-  const activitiesQuery = useAssessmentActivitiesQuery(loadActivities);
+  const [search, setSearch] = useState("");
+  const [sorts, setSorts] = useState<{ key: ActivitySortKey; dir: "asc" | "desc" }[]>([{ key: "title", dir: "asc" }]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(16);
+  const query = useMemo(
+    () => canonicalizeActivityListQuery({
+      paging: "numbered",
+      page: page + 1,
+      pageSize,
+      q: search,
+      sort: sorts.map((spec) => ({ field: spec.key, direction: spec.dir })),
+    }),
+    [page, pageSize, search, sorts],
+  );
+  const activitiesQuery = useAssessmentActivitiesQuery(loadActivities, query);
   const canCreate = activitiesQuery.isFetchedAfterMount
     && activitiesQuery.isSuccess
     && activitiesQuery.data.permitted_actions.includes("create_assessment");
   const sourcesQuery = useAssessmentSourceOptionsQuery(loadSourceOptions, canCreate);
   const sources = sourcesQuery.data?.sources ?? [];
 
-  const loading = !activitiesQuery.isFetchedAfterMount || (canCreate && !sourcesQuery.isFetched);
+  const waitingForSources = canCreate && !sourcesQuery.isFetched;
+  const loading = (!activitiesQuery.data && !activitiesQuery.isError) || waitingForSources;
   const accessChanged = isAssessmentAccessLoss(activitiesQuery.error)
     || isAssessmentAccessLoss(sourcesQuery.error);
   const loadError = activitiesQuery.error instanceof Error && !isAssessmentAccessLoss(activitiesQuery.error)
     ? activitiesQuery.error.message
     : null;
+
+  const pagination = activitiesQuery.data?.pagination;
+  if (pagination && !activitiesQuery.isFetching) {
+    if (pagination.total_pages === 0 && page !== 0) {
+      setPage(0);
+    } else if (pagination.total_pages > 0 && pagination.page > pagination.total_pages) {
+      setPage(pagination.total_pages - 1);
+    }
+  }
 
   if (loading) {
     return (
@@ -93,6 +120,7 @@ export function AssessmentActivitiesPage({
         description="Create and resume Assessment Campaign drafts."
         note={loadError}
         danger
+        recovery={{ label: "Retry", onClick: () => { void activitiesQuery.refetch(); } }}
       />
     );
   }
@@ -101,60 +129,12 @@ export function AssessmentActivitiesPage({
   const missingCategory = REQUIRED_SOURCE_CATEGORIES.find((category) => !sources.some((source) => source.category === category));
   const rows = data?.activities ?? [];
   const offerCreate = canCreate && !missingCategory;
-
-  return (
-    <ActivityRegistry
-      rows={rows}
-      offerCreate={offerCreate}
-      advisory={canCreate && missingCategory ? {
-        label: "Sources",
-        copy: `No permitted ${sourceCategoryLabel(missingCategory)} revisions are available. A ready source set is required before a draft can be created.`,
-      } : undefined}
-    />
-  );
-}
-
-function ActivityRegistry({
-  rows,
-  offerCreate,
-  advisory,
-}: {
-  rows: readonly ProductionActivitySummary[];
-  offerCreate: boolean;
-  advisory?: { label: string; copy: string };
-}) {
-  const [search, setSearch] = useState("");
-  const [sorts, setSorts] = useState<{ key: ActivitySortKey; dir: "asc" | "desc" }[]>([{ key: "title", dir: "asc" }]);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(16);
-  const query = search.trim().toLowerCase();
-  const match = useCallback(
-    (row: ProductionActivitySummary) => {
-      if (!query) return true;
-      return row.title.toLowerCase().includes(query) || row.activity_id.toLowerCase().includes(query);
-    },
-    [query],
-  );
-  const getSortValue = useCallback((row: ProductionActivitySummary, key: ActivitySortKey) => {
-    switch (key) {
-      case "activation":
-        return row.has_activated_cohort ? 1 : 0;
-      case "revision":
-        return String(row.revision_number).padStart(8, "0");
-      case "updated":
-        return row.updated_at;
-      default:
-        return row.title.toLowerCase();
-    }
-  }, []);
-  const slice = useTableController({
-    rows,
-    match,
-    sorts,
-    page,
-    pageSize,
-    getSortValue,
-  });
+  const paginationMeta = data?.pagination;
+  const total = paginationMeta?.total_items ?? rows.length;
+  const pageCount = paginationMeta?.total_pages ?? 0;
+  const displayedPage = paginationMeta ? paginationMeta.page - 1 : page;
+  const displayedPageSize = paginationMeta?.page_size ?? pageSize;
+  const queryText = query.q;
 
   const handleSort = (key: ActivitySortKey) => {
     setSorts((prev) => {
@@ -180,12 +160,23 @@ function ActivityRegistry({
   return (
     <OperateArea
       bay="registry"
-      hug={registryTableHug(slice.total)}
+      hug={registryTableHug(rows.length)}
       frame="registry"
       label="Activities"
       title="Activities"
       description="Create and resume Assessment Campaign drafts."
-      advisory={advisory}
+      advisory={canCreate && missingCategory ? {
+        label: "Sources",
+        copy: `No permitted ${sourceCategoryLabel(missingCategory)} revisions are available. A ready source set is required before a draft can be created.`,
+      } : undefined}
+      context={loadError ? (
+        <Alert variant="danger" title="Could not refresh Activities">
+          {loadError}
+          <Key size="compact" onClick={() => void activitiesQuery.refetch()}>
+            Retry
+          </Key>
+        </Alert>
+      ) : undefined}
     >
       <DataTableShell
       toolbar={
@@ -195,7 +186,7 @@ function ActivityRegistry({
           readout={
             <ToolbarReadout
               label="Showing"
-              value={`${slice.total} campaign${slice.total === 1 ? "" : "s"}`}
+              value={`${total} campaign${total === 1 ? "" : "s"}`}
               valueId="activityCountValue"
             />
           }
@@ -215,7 +206,7 @@ function ActivityRegistry({
       }
       scrollProps={{ tabIndex: 0, "aria-label": "Campaign rows, scrollable" }}
       table={
-        <DatatableTable caption="Activities" hidden={slice.total === 0}>
+        <DatatableTable caption="Activities" hidden={total === 0}>
           <thead>
             <tr>
               <SortableHeader sortKey="title" sorts={sorts} onSort={handleSort} label="Campaign" colMin="id" />
@@ -225,7 +216,7 @@ function ActivityRegistry({
             </tr>
           </thead>
           <tbody>
-            {slice.pageRows.map((row) => {
+            {rows.map((row: ProductionActivitySummary) => {
               return (
                 <DatatableRow key={row.activity_id}>
                   <DatatableCell kind="id" colMin="id">
@@ -251,15 +242,15 @@ function ActivityRegistry({
         </DatatableTable>
       }
       empty={
-        slice.total === 0 ? (
+        total === 0 ? (
           <DatatableEmpty
             inset
-            label={query ? "No matching activities" : "No activities"}
-            note={query
+            label={queryText ? "No matching activities" : "No activities"}
+            note={queryText
               ? "Nothing matches the current search. Clear the search to restore the registry."
               : "No activities are available."}
           >
-            {query ? (
+            {queryText ? (
               <Key
                 size="compact"
                 onClick={() => {
@@ -275,13 +266,14 @@ function ActivityRegistry({
       }
       footer={
         <DataTablePagination
-          total={slice.total}
-          startIndex={slice.startIdx}
-          visibleCount={slice.pageRows.length}
-          page={slice.page}
-          pageCount={slice.pageCount}
+          total={total}
+          startIndex={total === 0 ? 0 : displayedPage * displayedPageSize}
+          visibleCount={rows.length}
+          page={displayedPage}
+          pageCount={pageCount}
           pageSize={pageSize}
           pageSizeOptions={[16, 32]}
+          waiting={activitiesQuery.isFetching}
           onPageSizeChange={(next) => {
             setPageSize(next);
             setPage(0);

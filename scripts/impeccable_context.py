@@ -201,7 +201,7 @@ def render_design() -> str:
             direction,
             "",
             "Read those modules (and the implementation guide's module index) before generating",
-            "or restyling UI. Approved design-system v1.0 is Shipboard Terminal. Do not treat",
+            "or restyling UI. Approved design-system v1.1 is Shipboard Terminal. Do not treat",
             "v0.1 Deep-Space styling as the target look.",
             "",
             "New production UI clones a matching existing production page and Component Deck",

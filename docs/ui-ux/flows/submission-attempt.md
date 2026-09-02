@@ -10,7 +10,7 @@
 | **Version** | 1.0 |
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
-| **Last amended** | 2026-09-02 — `UI-SUBM-DEC-13` uses server-backed DataTable paging (no registry Load more) |
+| **Last amended** | 2026-09-02 — `UI-SUBM-DEC-13` uses server-backed DataTable paging and `UI-SUBM-DEC-15` keeps P0 selection page-only until a bulk command owns matching scope. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Administrator Enrollment interaction and Participant Submission preparation, intake, accepted-version history, Attempt readiness, start, and recovery for a P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-2`](activity-campaign-journey.md#jrn-mvp-2-assign-participant) and [`JRN-MVP-3`](activity-campaign-journey.md#jrn-mvp-3-submit-work-and-start-attempt) |
@@ -141,7 +141,9 @@ The original decisions were approved on 2026-08-09. Version 0.2 amended
 The same day, `UI-SUBM-DEC-13` and `UI-SUBM-DEC-14` were clarified so paging
 and assign-success feedback match the design-system toast/advisory split.
 On 2026-09-02, `UI-SUBM-DEC-13` was amended so Participants tables use one
-server-backed DataTable pager instead of **Load more** plus a client window.
+server-backed DataTable pager instead of **Load more** plus a client window;
+`UI-SUBM-DEC-15` was amended so the current picker does not advertise a false
+cross-page matching selection.
 Stable IDs are retained for traceability and future supersession.
 
 | ID | Approved decision | Rationale and consequence |
@@ -160,7 +162,7 @@ Stable IDs are retained for traceability and future supersession.
 | `UI-SUBM-DEC-12` | Keep immutable baseline timing and current effective timing visibly distinct. When the browser cannot format the governing named timezone, show exact UTC plus the unchanged timezone identifier and state that local conversion is unavailable; never substitute the browser timezone. | Prevents an accommodation or display fallback from looking like a Cohort edit or changing the authoritative cutoff. |
 | `UI-SUBM-DEC-13` | Page Participants and participant-options with signed server cursors (`limit`, `cursor`, `has_more`). Do not load every row in the browser to exclude already-enrolled identities. Options may include currently enrolled Participants. | Client-side exclude-after-load-all does not scale. Equivalent retry is a toast labeled **Already assigned**, not a second **Enrollment active**. The Participants registry and Assign Participant picker each show one signed server page in the DataTable footer (rows-per-page plus Prev/Next). Next uses `next_cursor`; Prev uses the retained prior cursor. Do not accumulate pages in the browser, add **Load more**, or invent a total/page-jump. Assign picker search uses the authorized `q` prefix and restarts at the first page. Enrollment-list search and column sort are not offered until that list accepts query parameters; the table follows server cursor order. |
 | `UI-SUBM-DEC-14` | After a successful assign, stay on the Participants registry and show a toast labeled **Enrollment active** (copy is the permitted display identity). Do not require opening Enrollment detail. | Administrators usually continue assigning; bulk assign later should stay on the same registry. Detail remains available from the row identifier. Transient receipts use toast; see [alerts, advisories, and toasts](../design-system/components/alerts.md). |
-| `UI-SUBM-DEC-15` | Keep header select-all on the Assign Participant picker as reserved chrome for a future bulk-assign contract. P0 commit stays disabled unless exactly one row is selected. | Avoids ripping out selection grammar that bulk assign will need; `UI-SUBM-DEC-9` still governs the P0 command. |
+| `UI-SUBM-DEC-15` | Keep header select-all on the Assign Participant picker as reserved chrome for a future bulk-assign contract, but configure it as page-only in P0. Its checked transition selects or clears only the visible server page, and **Assign Participant** remains enabled only for exactly one selected row. | `UI-SUBM-DEC-9` still governs the P0 command. The shared table pattern may support a separate matching-scope mode only when the host supplies a stable server query scope and the consuming server action accepts that scope plus explicit exclusions. A cursor response and an exact total are not prerequisites for that generic mode; current-page IDs must never be presented as the complete matching set. |
 | `UI-SUBM-DEC-16` | **Close Enrollment** and **Revoke Enrollment** require confirmation that names the Enrollment, the terminal consequence (no new intake or Attempt start; history preserved), and the operation's required reason code. No free-text reason. | Matches the lifecycle command contract (`activity_or_enrollment_end`, `access_revoked`) and prevents an accidental terminal mutation. |
 
 ## Information architecture
@@ -332,6 +334,19 @@ The selector does not expose raw attributes unnecessary for disambiguation.
 The server derives Organization, Activity, cohort, baseline, Task, and
 Participant relationships. Hidden fields and URL parameters must not permit the
 administrator to choose those authoritative relationships.
+
+The P0 picker header selects or clears only Participants visible on the current
+server page. It must use page-only labels and must not offer a second **Select
+all matching** transition. Selection may remain visually available as reserved
+bulk chrome, but selecting more than one row does not enable the one-at-a-time
+P0 command.
+
+A later approved bulk-assign interaction may enable the shared matching-scope
+selection mode without loading every matching identifier. That mode requires a
+stable description of the server-owned query and explicit excluded identifiers;
+the committing service must reauthorize and resolve the matching set. An exact
+matching count may improve the label, but cursor pagination does not require a
+total count and the absence of one must use non-numeric **all matching** copy.
 
 On command:
 
@@ -952,7 +967,7 @@ None.
   remain delivery gaps; approval of this specification does not imply them.
 - Frontend and backend contracts must map each state to bounded server reason
   categories without moving workflow authority into the SPA.
-- The [design-system foundation](../design-system/README.md) (Approved v1.0)
+- The [design-system foundation](../design-system/README.md) (Approved v1.1)
   defines repeated upload, status, confirmation, protected-content viewer,
   error-summary, and responsive-record patterns without weakening this surface
   contract. Visual presentation follows Shipboard Terminal; this specification
@@ -966,7 +981,8 @@ None.
   Assignment workspace, independent state tracks, explicit version submission,
   deliberate Attempt confirmation, start reconciliation, server-authoritative
   timing, newest-first immutable history, deliberate exact-version access,
-  one-at-a-time P0 assignment, reserved select-all for future bulk, cursor-paged
+  one-at-a-time P0 assignment, honest page-only select-all with a separately
+  gated matching-scope mode for future bulk, cursor-paged
   lists that may include enrolled identities, stay-on-registry after assign,
   Close/Revoke confirmation with required reason codes, bounded/minimized
   accommodation input, baseline/effective timing separation, timezone fallback,

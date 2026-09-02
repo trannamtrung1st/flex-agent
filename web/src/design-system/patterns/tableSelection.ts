@@ -1,8 +1,12 @@
 export type TableSelection =
   | { mode: "explicit"; ids: string[] }
-  | { mode: "matching"; queryKey: string; total: number; excludedIds: string[] };
+  | { mode: "matching"; queryKey: string; total?: number; excludedIds: string[] };
 
 export type HeaderSelectionState = "none" | "partial" | "page" | "matching";
+
+export type TableSelectionCapability =
+  | { mode: "page" }
+  | { mode: "matching"; queryKey: string; total?: number; matchingIds?: readonly string[] };
 
 export const EMPTY_SELECTION: TableSelection = { mode: "explicit", ids: [] };
 
@@ -13,7 +17,16 @@ export function matchingQueryKey(parts: Record<string, string>) {
     .join("|");
 }
 
-export function isSelectionEmpty(selection: TableSelection, matchingIds: string[]) {
+export function completeMatchingIds(capability: TableSelectionCapability): readonly string[] | undefined {
+  return capability.mode === "matching" ? capability.matchingIds : undefined;
+}
+
+export function isSelectionEmpty(selection: TableSelection, matchingIds?: readonly string[]) {
+  if (selection.mode === "matching") {
+    if (matchingIds === undefined) return selection.total === 0;
+    return resolveSelectedIds(selection, matchingIds).length === 0;
+  }
+  if (matchingIds === undefined) return selection.ids.length === 0;
   return resolveSelectedIds(selection, matchingIds).length === 0;
 }
 
@@ -22,7 +35,7 @@ export function isSelected(selection: TableSelection, id: string) {
   return !selection.excludedIds.includes(id);
 }
 
-export function resolveSelectedIds(selection: TableSelection, matchingIds: string[]) {
+export function resolveSelectedIds(selection: TableSelection, matchingIds: readonly string[]) {
   if (selection.mode === "explicit") {
     const live = new Set(matchingIds);
     return selection.ids.filter((id) => live.has(id));
@@ -31,13 +44,23 @@ export function resolveSelectedIds(selection: TableSelection, matchingIds: strin
   return matchingIds.filter((id) => !excluded.has(id));
 }
 
+export function resolveActionIds(selection: TableSelection, matchingIds?: readonly string[]) {
+  if (selection.mode === "matching" && matchingIds === undefined) {
+    throw new Error("Matching selection cannot be resolved from the current page.");
+  }
+  return resolveSelectedIds(selection, matchingIds ?? []);
+}
+
 export function normalizeSelection(
   selection: TableSelection,
-  matchingIds: string[],
+  matchingIds: readonly string[] | undefined,
   queryKey: string,
 ): TableSelection {
   if (selection.mode === "matching" && selection.queryKey !== queryKey) {
     return EMPTY_SELECTION;
+  }
+  if (matchingIds === undefined) {
+    return selection.mode === "explicit" && selection.ids.length === 0 ? EMPTY_SELECTION : selection;
   }
   const live = new Set(matchingIds);
   if (selection.mode === "explicit") {
@@ -46,27 +69,38 @@ export function normalizeSelection(
   }
   const excludedIds = selection.excludedIds.filter((id) => live.has(id));
   if (excludedIds.length >= matchingIds.length) return EMPTY_SELECTION;
-  return { mode: "matching", queryKey, total: matchingIds.length, excludedIds };
+  return {
+    mode: "matching",
+    queryKey,
+    total: selection.total ?? matchingIds.length,
+    excludedIds,
+  };
 }
 
 export function deriveHeaderSelectionState(
   selection: TableSelection,
-  pageIds: string[],
-  matchingIds: string[],
+  pageIds: readonly string[],
+  capability: TableSelectionCapability,
 ): HeaderSelectionState {
   if (pageIds.length === 0) return "none";
 
   const selectedOnPage = pageIds.filter((id) => isSelected(selection, id));
   if (selectedOnPage.length === 0) return "none";
-
-  const allMatchingSelected =
-    matchingIds.length > 0 && matchingIds.every((id) => isSelected(selection, id));
-  const hasExclusions = selection.mode === "matching" && selection.excludedIds.length > 0;
-
-  if (allMatchingSelected && !hasExclusions) return "matching";
-
   if (selectedOnPage.length < pageIds.length) return "partial";
 
+  if (capability.mode === "page") return "page";
+
+  const matchingIds = capability.matchingIds;
+  if (matchingIds) {
+    const allMatchingSelected = matchingIds.length > 0 && matchingIds.every((id) => isSelected(selection, id));
+    const hasExclusions = selection.mode === "matching" && selection.excludedIds.length > 0;
+    if (allMatchingSelected && !hasExclusions) return "matching";
+    return "page";
+  }
+
+  if (selection.mode === "matching" && selection.queryKey === capability.queryKey) {
+    return "matching";
+  }
   return "page";
 }
 
@@ -79,11 +113,10 @@ export function headerCheckboxState(scope: HeaderSelectionState) {
 
 export function transitionHeaderSelection(
   selection: TableSelection,
-  pageIds: string[],
-  matchingIds: string[],
-  queryKey: string,
+  pageIds: readonly string[],
+  capability: TableSelectionCapability,
 ): TableSelection {
-  const scope = deriveHeaderSelectionState(selection, pageIds, matchingIds);
+  const scope = deriveHeaderSelectionState(selection, pageIds, capability);
 
   switch (scope) {
     case "none":
@@ -91,12 +124,17 @@ export function transitionHeaderSelection(
       if (selection.mode === "matching") {
         const excluded = new Set(selection.excludedIds);
         pageIds.forEach((id) => excluded.delete(id));
-        if (excluded.size >= matchingIds.length) return EMPTY_SELECTION;
+        const matchingIds = completeMatchingIds(capability);
+        if (matchingIds && excluded.size >= matchingIds.length) return EMPTY_SELECTION;
         return { ...selection, excludedIds: [...excluded] };
       }
       return togglePage(selection, pageIds, true);
     case "page":
-      return selectAllMatching(matchingIds, queryKey);
+      if (capability.mode === "page") return EMPTY_SELECTION;
+      return selectAllMatching(capability.queryKey, {
+        total: capability.total,
+        matchingIds: capability.matchingIds,
+      });
     case "matching":
       return EMPTY_SELECTION;
   }
@@ -104,20 +142,24 @@ export function transitionHeaderSelection(
 
 export function headerSelectionLabel(
   scope: HeaderSelectionState,
-  pageIds: string[],
-  matchingIds: string[],
+  pageIds: readonly string[],
+  capability: TableSelectionCapability,
   selection: TableSelection,
   noun: string,
 ) {
   const nounLabel = noun;
   const visibleCount = pageIds.length;
-  const matchingCount = matchingIds.length;
-  const totalSelected = resolveSelectedIds(selection, matchingIds).length;
+  const matchingIds = completeMatchingIds(capability);
+  const matchingCount = capability.mode === "matching"
+    ? (capability.total ?? matchingIds?.length)
+    : matchingIds?.length;
+  const totalSelected = matchingIds ? resolveSelectedIds(selection, matchingIds).length : undefined;
   const offPageExplicit =
     selection.mode === "explicit" &&
-    selection.ids.some((id) => !pageIds.includes(id) && matchingIds.includes(id));
+    Boolean(matchingIds) &&
+    selection.ids.some((id) => !pageIds.includes(id) && matchingIds!.includes(id));
   const showCrossPage =
-    scope === "page" && (totalSelected !== visibleCount || offPageExplicit);
+    scope === "page" && matchingIds !== undefined && (totalSelected !== visibleCount || offPageExplicit);
 
   switch (scope) {
     case "none":
@@ -131,20 +173,33 @@ export function headerSelectionLabel(
         tooltip: `Select all visible ${nounLabel}.`,
       };
     case "page": {
+      if (capability.mode === "page") {
+        return {
+          ariaLabel: `All ${padCount(visibleCount)} visible ${nounLabel} selected. Clear selection.`,
+          tooltip: "Clear selection.",
+        };
+      }
+      const matchingPhrase = matchingCount === undefined
+        ? `matching ${nounLabel}`
+        : `${padCount(matchingCount)} matching ${nounLabel}`;
       const crossPage =
-        showCrossPage
+        showCrossPage && totalSelected !== undefined
           ? `; ${padCount(totalSelected)} selected across matching results`
           : "";
       return {
-        ariaLabel: `All ${padCount(visibleCount)} visible ${nounLabel} selected${crossPage}. Select all ${padCount(matchingCount)} matching ${nounLabel}.`,
-        tooltip: `Select all ${padCount(matchingCount)} matching ${nounLabel}.`,
+        ariaLabel: `All ${padCount(visibleCount)} visible ${nounLabel} selected${crossPage}. Select all ${matchingPhrase}.`,
+        tooltip: `Select all ${matchingPhrase}.`,
       };
     }
-    case "matching":
+    case "matching": {
+      const matchingPhrase = matchingCount === undefined
+        ? `matching ${nounLabel}`
+        : `${padCount(matchingCount)} matching ${nounLabel}`;
       return {
-        ariaLabel: `All ${padCount(matchingCount)} matching ${nounLabel} selected. Clear selection.`,
+        ariaLabel: `All ${matchingPhrase} selected. Clear selection.`,
         tooltip: "Clear selection.",
       };
+    }
   }
 }
 
@@ -161,7 +216,7 @@ export function toggleRow(selection: TableSelection, id: string, checked: boolea
   return { ...selection, excludedIds: [...excluded] };
 }
 
-export function togglePage(selection: TableSelection, pageIds: string[], checked: boolean): TableSelection {
+export function togglePage(selection: TableSelection, pageIds: readonly string[], checked: boolean): TableSelection {
   if (selection.mode === "explicit") {
     const next = new Set(selection.ids);
     pageIds.forEach((id) => {
@@ -178,12 +233,25 @@ export function togglePage(selection: TableSelection, pageIds: string[], checked
   return { ...selection, excludedIds: [...excluded] };
 }
 
-export function selectAllMatching(matchingIds: string[], queryKey: string): TableSelection {
-  if (!matchingIds.length) return EMPTY_SELECTION;
-  return { mode: "matching", queryKey, total: matchingIds.length, excludedIds: [] };
+export function selectAllMatching(
+  queryKey: string,
+  options?: { total?: number; matchingIds?: readonly string[] },
+): TableSelection {
+  if (options?.matchingIds && options.matchingIds.length === 0) return EMPTY_SELECTION;
+  return {
+    mode: "matching",
+    queryKey,
+    total: options?.total ?? options?.matchingIds?.length,
+    excludedIds: [],
+  };
 }
 
-export function removeIds(selection: TableSelection, deletedIds: string[], matchingIds: string[], queryKey: string) {
+export function removeIds(
+  selection: TableSelection,
+  deletedIds: string[],
+  matchingIds: readonly string[] | undefined,
+  queryKey: string,
+) {
   const deleted = new Set(deletedIds);
   if (selection.mode === "explicit") {
     return normalizeSelection(
@@ -197,19 +265,31 @@ export function removeIds(selection: TableSelection, deletedIds: string[], match
       ...selection,
       excludedIds: selection.excludedIds.filter((id) => !deleted.has(id)),
     },
-    matchingIds.filter((id) => !deleted.has(id)),
+    matchingIds === undefined ? undefined : matchingIds.filter((id) => !deleted.has(id)),
     queryKey,
   );
 }
 
 export function selectionCopy(
   selection: TableSelection,
-  pageIds: string[],
-  matchingIds: string[],
+  pageIds: readonly string[],
+  matchingIds: readonly string[] | undefined,
   noun: string,
 ) {
   void noun;
-  const ids = resolveSelectedIds(selection, matchingIds);
+  if (selection.mode === "matching" && matchingIds === undefined) {
+    const excluded = selection.excludedIds.length;
+    const label = selection.total === undefined
+      ? (excluded > 0
+        ? `Matching selected · ${padCount(excluded)} excluded`
+        : "Matching selected")
+      : (excluded > 0
+        ? `${padCount(selection.total - excluded)} matching selected · ${padCount(excluded)} excluded`
+        : `${padCount(selection.total)} matching selected`);
+    return { count: selection.total === undefined ? null : selection.total - excluded, label };
+  }
+
+  const ids = resolveSelectedIds(selection, matchingIds ?? (selection.mode === "explicit" ? selection.ids : []));
   const count = ids.length;
   const excluded = selection.mode === "matching" ? selection.excludedIds.length : 0;
   const pageFullySelected = pageIds.length > 0 && pageIds.every((id) => isSelected(selection, id));
@@ -221,7 +301,7 @@ export function selectionCopy(
     label = excluded > 0
       ? `${padCount(count)} matching selected · ${padCount(excluded)} excluded`
       : `${padCount(count)} matching selected`;
-  } else if (onlyThisPage && matchingIds.length > pageIds.length) {
+  } else if (onlyThisPage && (matchingIds?.length ?? 0) > pageIds.length) {
     label = `${padCount(count)} selected on this page`;
   }
 

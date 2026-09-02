@@ -870,7 +870,7 @@ None. `PROP-UI-REL-1`–`PROP-UI-REL-12` were approved on 2026-08-09.
 
 ## Downstream gaps and review needed
 
-- The [design-system foundation](../design-system/README.md) (Approved v1.0)
+- The [design-system foundation](../design-system/README.md) (Approved v1.1)
   defines reusable protected Result, exact-preview, status, confirmation,
   error-summary, audience/policy summary, updated-Result, history, and
   responsive stacked-record patterns in conformance with this specification.

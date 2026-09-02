@@ -1,6 +1,6 @@
 # Shared design-system implementation
 
-Production-safe Shipboard Terminal modules. Approved design-system v1.0 is
+Production-safe Shipboard Terminal modules. Approved design-system v1.1 is
 visual acceptance authority. This tree owns promoted component implementations
 for both production features and the design lab.
 

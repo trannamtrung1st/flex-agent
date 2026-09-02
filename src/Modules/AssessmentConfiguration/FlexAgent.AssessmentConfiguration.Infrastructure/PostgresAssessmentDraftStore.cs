@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Dapper;
 using FlexAgent.AssessmentConfiguration.Application;
@@ -299,37 +300,103 @@ public sealed class PostgresAssessmentDraftStore(
     public async Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var activities = await connection.QueryAsync<ActivityRow>(
-            """
-            SELECT organization_id, activity_id, form, configured_type, current_revision_id,
-                   current_revision_number, has_activated_cohort, updated_at
-            FROM assessment_activities
-            WHERE organization_id = @OrganizationId
-            ORDER BY updated_at DESC
-            """,
-            new { OrganizationId = organizationId });
-
-        var drafts = new List<ActivityDraft>();
-        foreach (var activity in activities)
-        {
-            var revision = await connection.QuerySingleAsync<RevisionRow>(
+        var rows = await connection.QueryAsync<JoinedActivityRow>(
+            new CommandDefinition(
                 """
-                SELECT revision_id, revision_number, title, content
-                FROM assessment_activity_revisions
-                WHERE organization_id = @OrganizationId
-                  AND activity_id = @ActivityId
-                  AND revision_id = @RevisionId
+                SELECT activity.organization_id, activity.activity_id, activity.form, activity.configured_type,
+                       activity.has_activated_cohort, activity.updated_at,
+                       revision.revision_id, revision.revision_number, revision.title, revision.content
+                FROM assessment_activities AS activity
+                INNER JOIN assessment_activity_revisions AS revision
+                    ON revision.organization_id = activity.organization_id
+                   AND revision.activity_id = activity.activity_id
+                   AND revision.revision_id = activity.current_revision_id
+                WHERE activity.organization_id = @OrganizationId
+                ORDER BY activity.updated_at DESC
                 """,
-                new
-                {
-                    OrganizationId = organizationId,
-                    ActivityId = activity.ActivityId,
-                    RevisionId = activity.CurrentRevisionId,
-                });
-            drafts.Add(ToDraft(activity, revision));
+                new { OrganizationId = organizationId },
+                cancellationToken: cancellationToken));
+        return rows.Select(ToDraft).ToArray();
+    }
+
+    public async Task<NumberedActivityListPage> ListNumberedPageAsync(
+        Guid organizationId,
+        NumberedActivityListQuery query,
+        CancellationToken cancellationToken)
+    {
+        var search = query.Search.Length == 0 ? null : query.Search;
+        var parameters = new
+        {
+            OrganizationId = organizationId,
+            Search = search,
+            SearchPattern = search is null ? null : NumberedActivityListQuerying.LiteralContainsPattern(search),
+            Offset = (query.Page - 1) * query.PageSize,
+            Limit = query.PageSize,
+        };
+        var filter = """
+            FROM assessment_activities AS activity
+            INNER JOIN assessment_activity_revisions AS revision
+                ON revision.organization_id = activity.organization_id
+               AND revision.activity_id = activity.activity_id
+               AND revision.revision_id = activity.current_revision_id
+            WHERE activity.organization_id = @OrganizationId
+              AND (
+                    @Search IS NULL
+                    OR revision.title ILIKE @SearchPattern ESCAPE '\'
+                    OR activity.activity_id::text ILIKE @SearchPattern ESCAPE '\'
+                  )
+            """;
+        var orderBy = NumberedOrderBy(query);
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
+        var totalItems = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                "SELECT COUNT(*)::int " + filter,
+                parameters,
+                transaction,
+                cancellationToken: cancellationToken));
+        var rows = await connection.QueryAsync<JoinedActivityRow>(
+            new CommandDefinition(
+                $"""
+                SELECT activity.organization_id, activity.activity_id, activity.form, activity.configured_type,
+                       activity.has_activated_cohort, activity.updated_at,
+                       revision.revision_id, revision.revision_number, revision.title, revision.content
+                {filter}
+                ORDER BY {orderBy}
+                OFFSET @Offset LIMIT @Limit
+                """,
+                parameters,
+                transaction,
+                cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)query.PageSize);
+        return new NumberedActivityListPage(
+            rows.Select(ToDraft).ToArray(),
+            query.Page,
+            query.PageSize,
+            totalItems,
+            totalPages);
+    }
+
+    private static string NumberedOrderBy(NumberedActivityListQuery query)
+    {
+        var parts = new string[query.Sort.Count + 1];
+        for (var index = 0; index < query.Sort.Count; index++)
+        {
+            var entry = query.Sort[index];
+            var column = entry.Field switch
+            {
+                ActivityListSortField.Title => "LOWER(revision.title)",
+                ActivityListSortField.Activation => "activity.has_activated_cohort",
+                ActivityListSortField.Updated => "activity.updated_at",
+                ActivityListSortField.Revision => "activity.current_revision_number",
+                _ => throw new InvalidOperationException("unsupported activity sort field."),
+            };
+            parts[index] = entry.Direction == ActivityListSortDirection.Desc ? column + " DESC" : column + " ASC";
         }
 
-        return drafts;
+        parts[^1] = "activity.activity_id ASC";
+        return string.Join(", ", parts);
     }
 
     public async Task<AssessmentCohort?> FindCohortForActivityAsync(
@@ -562,6 +629,22 @@ public sealed class PostgresAssessmentDraftStore(
                 cancellationToken: cancellationToken));
     }
 
+    private static ActivityDraft ToDraft(JoinedActivityRow row)
+    {
+        var content = JsonSerializer.Deserialize<AssessmentDraftContent>(row.Content, JsonOptions)
+            ?? throw new InvalidOperationException("assessment revision content is unreadable.");
+        return new ActivityDraft(
+            row.OrganizationId,
+            row.ActivityId,
+            row.RevisionId,
+            row.RevisionNumber,
+            row.Form,
+            row.ConfiguredType,
+            content,
+            row.HasActivatedCohort,
+            row.UpdatedAt);
+    }
+
     private static ActivityDraft ToDraft(ActivityRow activity, RevisionRow revision)
     {
         var content = JsonSerializer.Deserialize<AssessmentDraftContent>(revision.Content, JsonOptions)
@@ -577,6 +660,18 @@ public sealed class PostgresAssessmentDraftStore(
             activity.HasActivatedCohort,
             activity.UpdatedAt);
     }
+
+    private sealed record JoinedActivityRow(
+        Guid OrganizationId,
+        Guid ActivityId,
+        string Form,
+        string ConfiguredType,
+        bool HasActivatedCohort,
+        DateTimeOffset UpdatedAt,
+        Guid RevisionId,
+        long RevisionNumber,
+        string Title,
+        string Content);
 
     private sealed record ActivityRow(
         Guid OrganizationId,

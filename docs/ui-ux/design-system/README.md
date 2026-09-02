@@ -7,18 +7,18 @@ Flex Agent.
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v1.0 |
+| **Status** | Approved v1.1 |
 | **Owner** | UI/UX Lead |
 | **Approvers** | Product Lead, UI/UX Lead |
-| **Version** | 1.0 |
-| **Effective date** | 2026-08-27 |
-| **Last reviewed** | 2026-08-31 |
-| **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
-| **Related decisions** | Current shared decisions `DS-DEC-1`–`DS-DEC-11`; font pin `DS-PROP-2`; resolved `Q-DS-1` |
+| **Version** | 1.1 |
+| **Effective date** | 2026-09-02 |
+| **Last reviewed** | 2026-09-02 |
+| **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. On 2026-09-02, server-numbered source neutrality and capability-aware matching selection were approved as `DS-DEC-12`–`DS-DEC-13`. |
+| **Related decisions** | Current shared decisions `DS-DEC-1`–`DS-DEC-13`; font pin `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |
 | **Change history** | Git owns visual evolution |
 
-**Approved v1.0** is the current shared visual contract: semantic tokens,
+**Approved v1.1** is the current shared visual contract: semantic tokens,
 reusable component presentation, accessibility foundations, and recurring Flex
 Agent UI patterns. Approved P0 interaction specifications still govern
 journeys, states, copy meaning, permissions, and accessibility contracts. All
@@ -142,6 +142,8 @@ product nouns into production.
 | `DS-DEC-9` | Use zero authored border-radius with notched clip-path corners. Circular geometry is allowed only for node terminals, Agent Core, radio marks, scrollbar thumbs, and equivalent instrument dots. | Added in v1.0 | Shipboard geometry; 400% zoom and overflow must not clip focus or content. |
 | `DS-DEC-10` | Use named Lucide imports for ordinary controls. Reserve custom drawn glyphs for brand, Agent Core, state nodes, wait instruments, and approved domain marks. | Added in v1.0 | Resolves prototype no-library rule against ADR-019 (`PC-13`). |
 | `DS-DEC-11` | Use Michroma for placards and Sometype Mono for body, data, and controls. Self-host the pinned Fontsource packages; keep system fallbacks for unload or failure. | Added in v1.0 | Shipboard two-voice typography; `DS-PROP-2` records the pin. |
+| `DS-DEC-12` | Keep numbered pagination presentation independent of row ownership: local and server-numbered tables use the same controlled footer, while cursor paging remains a distinct count-optional continuation mode. | Added in v1.1 | Prevents transport ownership from multiplying visual modes or causing fabricated cursor totals/page jumps. |
+| `DS-DEC-13` | Require table hosts to declare page-only or matching-scope selection capability. Matching selection uses a complete-local or stable server query scope plus exclusions, may omit an exact total, and must never infer all matches from current-page IDs. | Added in v1.1 | Makes header behavior honest after server paging and preserves a scalable path to separately authorized bulk actions. |
 
 ## Structure
 

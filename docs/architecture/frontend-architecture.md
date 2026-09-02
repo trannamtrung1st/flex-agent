@@ -6,9 +6,9 @@ ownership.
 
 ## Status and authority
 
-**Approved — 2026-09-01.** This guide currently owns SPA Query, form, icon,
+**Approved — 2026-09-02.** This guide currently owns SPA Query, form, icon,
 and transport ownership and single-SPA production topology with
-isolated design lab and no `web-legacy/` runtime. Dual-build
+isolated design lab, server-backed table query/selection ownership, and no `web-legacy/` runtime. Dual-build
 `web-legacy` topology is historical only and must not be restored.
 This guide does not introduce product behavior or replace feature or UI/UX
 specifications. Design-lab specimens and shipped production composition do
@@ -68,7 +68,7 @@ fail-closed also starts provider logout with `id_token_hint` so the next
 **Continue to sign in** is not bound to the refused account and Keycloak does
 not require a separate confirmation click.
 
-Styling follows design-system v1.0: primitive values in
+Styling follows design-system v1.1: primitive values in
 `web/src/styles/tokens.css`, semantic aliases in `semantic-aliases.css`, light
 remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names as visual
 authority. New production UI clones a matching existing production page and
@@ -204,11 +204,49 @@ Initial Assessment keys:
 | --- | --- |
 | `assessmentKeys.all` | `["assessment"]` |
 | `assessmentKeys.v1` | `["assessment", "v1"]` |
-| `assessmentKeys.activities()` | `["assessment", "v1", "activities", "list"]` |
+| `assessmentKeys.activitiesRoot()` | `["assessment", "v1", "activities", "list"]` |
+| `assessmentKeys.activities(query)` | `["assessment", "v1", "activities", "list", canonicalQuery]` |
 | `assessmentKeys.sourceOptions()` | `["assessment", "v1", "activities", "source-options"]` |
 
 Reserve `assessmentKeys.activity(activityId)` for later detail adoption. Do
 not create unused hooks merely to populate a hierarchy.
+
+Server-numbered Activity queries extend the root list key with one canonical object
+containing `paging`, `page`, `pageSize`, normalized search, and the ordered
+field/direction sort specifications. Semantically equivalent requests must have equal keys. A prefix
+invalidation at `assessmentKeys.activitiesRoot()` invalidates all
+cached Activity pages; a mutation must not invalidate only the page that was
+visible when the list changed.
+
+## Server-backed tables and selection ownership
+
+`DataTablePagination` is controlled presentation. Numbered props have the same
+shape whether rows were sliced locally or returned by the server; do not add a
+`server-numbered` visual variant. Feature Query owns server request, pending,
+error, retry, and returned page metadata. A server-paged page must not run local
+search or ordering and then label that subset as all matches.
+
+While a same-context replacement page is pending, Query may retain the last
+authorized page as placeholder presentation. The table remains busy, paging is
+disabled, and the retained page metadata is not relabeled as the requested
+page. Authorization-context replacement or access loss still purges it through
+the existing protected-cache lifecycle.
+
+Table-header selection declares its capability explicitly:
+
+- `page` mode selects or clears only IDs present on the current page;
+- `matching` mode is enabled only with a stable complete-local or server query
+  scope and stores that scope plus explicit exclusions; an exact total is
+  optional and affects copy only; and
+- client-side action helpers must not materialize a matching selection from
+  current-page records. A server-backed bulk action consumes a typed selection
+  descriptor through its domain API instead.
+
+Changing a query value that contributes to matching scope invalidates the old
+matching selection. A current-page cursor result is never passed as the full
+matching identifier set. The P0 Assign Participant picker uses page mode and
+still permits only one committed selection under `UI-SUBM-DEC-9` and
+`UI-SUBM-DEC-15`; the generic matching mode does not authorize bulk assignment.
 
 ## Activities coordination (first migrated slice)
 
@@ -230,8 +268,8 @@ The Activities list is the prerequisite query because server-returned
   cached protected content.
 
 Campaign creation uses a non-optimistic `useMutation`. On authoritative
-success, invalidate exactly `assessmentKeys.activities()` with `exact: true`
-and `refetchType: "none"`, then immediately run the existing
+success, invalidate the Activity-list key prefix with `refetchType: "none"` so
+every cached numbered page becomes stale, then immediately run the existing
 `onCreated(activityId)` navigation. Do not refetch the still-mounted list
 during navigation, do not await a list refetch, and do not invent a local
 Activity summary from submitted fields. The invalidated list refetches when it

@@ -11,7 +11,7 @@
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
 | **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of the retired specification at Git `eb9c398`. `UI-ACT-DEC-*` dispositions remain in force as AC-traced interaction rules. |
-| **Last amended** | 2026-08-30 — Save-draft success is a toast labeled **Draft** (`This revision is saved.`), not an Alert banner. |
+| **Last amended** | 2026-09-02 — `UI-ACT-DEC-7` adopts server-numbered Activity discovery with server-owned search and ordering. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Activity-administrator interaction for creating, saving, checking readiness, activating, and inspecting a P0 assessment Campaign and its cohort baseline |
 | **Journey** | [`JRN-MVP-1`](activity-campaign-journey.md#jrn-mvp-1-configure-and-activate-assessment-campaign) |
@@ -113,8 +113,9 @@ control.
 
 ## Approved interaction decision dispositions
 
-The following decisions were approved on 2026-08-09. Stable IDs are retained
-for traceability and future supersession.
+The original decisions were approved on 2026-08-09. `UI-ACT-DEC-7` was
+approved on 2026-09-02. Stable IDs are retained for traceability and future
+supersession.
 
 | ID | Approved decision | Rationale and consequence |
 | --- | --- | --- |
@@ -124,6 +125,7 @@ for traceability and future supersession.
 | `UI-ACT-DEC-4` | Confirm routine activation in one accessible confirmation dialog without a typed phrase or second-person approval. | Matches the approved single-administrator rule while keeping the immutable consequence explicit. |
 | `UI-ACT-DEC-5` | Present a readable baseline summary before technical provenance, with protected identifiers and digest details available only to separately authorized actors. | Supports fairness review while minimizing disclosure and cognitive load. |
 | `UI-ACT-DEC-6` | Treat an uncertain activation response as **Reconciling** and query authoritative state before offering another activation command. | Prevents blind duplicate activation and false failure or success. |
+| `UI-ACT-DEC-7` | Use server-numbered paging for the Activities registry. Search, sort, exact authorized total, and page extraction belong to one server query scope; changing search, sort, or rows per page returns to page 1. | Bounds the registry read without losing direct page access. The existing numbered DataTable footer remains the visual pattern; server ownership is query state, not a third pagination appearance. Cursor-paged tables remain count-optional and do not gain an invented page selector. |
 
 ## Information architecture
 
@@ -167,6 +169,27 @@ readiness, Participants, Enrollment). Authorized Activity and cohort context
 stays in the locator, BackKey, and in-page chrome; those locators are not
 invented as trail steps without pages. Opening an Activity does not imply
 permission for every child or source.
+
+### Activities registry
+
+The Activities registry uses the shared numbered DataTable footer and requests
+one server page at a time. It shows the exact authorized matching total returned
+with that page. Search and sortable headings change the server query; they do
+not filter or reorder only the visible rows.
+
+- Changing search, sort, sort direction, or rows per page returns to page 1.
+- Changing only the selected page retains the current search and ordering.
+- While a replacement page is pending, keep the current authorized page in
+  place, mark the registry busy, and disable duplicate paging requests. Do not
+  present the retained rows as the newly requested page.
+- On a recoverable page failure, keep the last authorized page, announce the
+  failure, and offer retry for the same query without clearing search.
+- If the requested page becomes empty because authorized data changed, use the
+  current returned page metadata to move deliberately to the final valid page;
+  do not guess a total or silently treat the empty page as page 1.
+- The page selector, range, toolbar count, empty result, and accessible status
+  all derive from the same returned authorized total. Inaccessible Activities
+  never affect them.
 
 ### Setup page hierarchy
 
@@ -819,6 +842,7 @@ because the viewport is narrow.
 | Interaction surface or state | Governing acceptance criteria | Repeatable verification after implementation | Playwright evidence after implementation |
 | --- | --- | --- | --- |
 | Create and resume scoped draft | `AC-ACT-1`–`AC-ACT-3`; `AC-AUTH-4`, `AC-AUTH-5`, `AC-AUTH-7`, `AC-AUTH-9`, `AC-AUTH-13` | Create, wrong scope, forged parent, source-list leakage, and resume contract tests | Empty and populated Activities; create success/failure; authorized deep link |
+| Server-numbered Activities registry | `AC-ACT-23`, `AC-ACT-28`, `AC-ACT-29`; `AC-AUTH-9`, `AC-AUTH-13` | Page/search/sort validation, deterministic ties, out-of-range recovery, consistent authorized count, wrong-scope and count-leakage tests | First/middle/final and emptied-current page; pending retained page; retry; search-empty; desktop, narrow, keyboard and accessibility snapshot |
 | Setup fields and exact source selection | `AC-ACT-2`–`AC-ACT-5`, `AC-ACT-19`, `AC-ACT-23` | Required category, exact revision, widening, timezone, and list/count tests | Each section; selector empty/loading/unavailable; field and summary validation |
 | Draft save, leave warning, and concurrency | `AC-ACT-1`, `AC-ACT-16`, `AC-ACT-18` | Revision, optimistic concurrency, idempotent save, failed save-and-leave, in-app navigation interception, browser unload warning, deliberate discard, and failure-preservation tests | Unsaved, leave-confirmation, saving, saved, validation, transient failure, and stale two-tab states |
 | Memory and MVP capability profile | `AC-ACT-9`–`AC-ACT-11`, `AC-ACT-26` | Default no-read, explicit snapshot, Dynamic/tool/voice/shared-session negative tests | Default and snapshot choice; invalid snapshot; read-only disabled-capability summary |
@@ -884,6 +908,6 @@ than implemented as an implicit choice.
 - [Activity journey and Campaign information architecture](activity-campaign-journey.md)
 - [Assessment setup requirements](../../requirements/features/assessment-setup.md)
 - [Authorization and resource isolation](../../requirements/features/auth-resource-isolation.md)
-- [Flex Agent design system](../design-system/README.md) (Approved v1.0)
+- [Flex Agent design system](../design-system/README.md) (Approved v1.1)
 - [MVP architecture](../../architecture/mvp-architecture.md)
 - [ADR-004: Assessment activation baseline and atomicity](../../architecture/mvp-architecture.md)

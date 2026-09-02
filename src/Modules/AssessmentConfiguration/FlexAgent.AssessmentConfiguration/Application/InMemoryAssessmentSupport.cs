@@ -121,12 +121,27 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         return Task.FromResult(cohort);
     }
 
+    public int ListNumberedPageCallCount { get; private set; }
+
     public Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<ActivityDraft>>(
             _drafts.Values
                 .Where(draft => draft.OrganizationId == organizationId)
                 .OrderByDescending(draft => draft.UpdatedAtUtc)
                 .ToArray());
+
+    public Task<NumberedActivityListPage> ListNumberedPageAsync(
+        Guid organizationId,
+        NumberedActivityListQuery query,
+        CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        ListNumberedPageCallCount++;
+        return Task.FromResult(
+            NumberedActivityListQuerying.Page(
+                _drafts.Values.Where(draft => draft.OrganizationId == organizationId),
+                query));
+    }
 
     public Task<AssessmentCohort?> FindCohortForActivityAsync(
         Guid organizationId,

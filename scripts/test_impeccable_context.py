@@ -48,7 +48,7 @@ class ImpeccableContextTests(unittest.TestCase):
         self.assertIn("docs/ui-ux/design-system/components/tables.md", body)
         self.assertIn("Not authoritative", body)
         self.assertIn("Do not treat this file as a token sheet", body)
-        self.assertIn("Approved v1.0", body)
+        self.assertIn("Approved v1.1", body)
         self.assertNotIn("#3CC0BF", body)
 
     def test_design_adapter_projects_v1_tokens(self) -> None:

@@ -1008,7 +1008,7 @@ None. `PROP-UI-REV-1`–`PROP-UI-REV-12` were approved on 2026-08-09.
 - The approved [Result and Release interaction specification](result-release.md)
   consumes the exact **Result ready · Not released** handoff without adding a
   Release action here or redefining the preview payload.
-- The [design-system foundation](../design-system/README.md) (Approved v1.0)
+- The [design-system foundation](../design-system/README.md) (Approved v1.1)
   defines reusable status, criterion list, source viewer, structured difference,
   confirmation, error-summary, protected-content, and responsive
   stacked-record patterns in conformance with this specification. Visual

@@ -203,10 +203,14 @@ describe("production assessment client", () => {
     const client = createProductionAssessmentClient(fetchJson);
     const controller = new AbortController();
 
-    await client.listActivities(controller.signal);
+    await client.listActivities(undefined, controller.signal);
     await client.listSourceOptions(controller.signal);
 
-    expect(fetchJson).toHaveBeenNthCalledWith(1, "/v1/assessment/activities", { signal: controller.signal });
+    expect(fetchJson).toHaveBeenNthCalledWith(
+      1,
+      "/v1/assessment/activities?paging=numbered&page=1&page_size=16&sort=title%3Aasc",
+      { signal: controller.signal },
+    );
     expect(fetchJson).toHaveBeenNthCalledWith(2, "/v1/assessment/source-options", { signal: controller.signal });
   });
 

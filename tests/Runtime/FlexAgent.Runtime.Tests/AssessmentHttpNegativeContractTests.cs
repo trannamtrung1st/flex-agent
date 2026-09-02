@@ -157,6 +157,93 @@ public sealed class AssessmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Numbered_list_rejects_unsupported_paging_and_invalid_bounds_without_activities()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions: [AssessmentAuthorizationActions.ReadActivity],
+            permitAuthorization: true);
+        using var cursor = await SendGetAsync(context, "/v1/assessment/activities?paging=cursor");
+        using var oversized = await SendGetAsync(context, "/v1/assessment/activities?paging=numbered&page_size=51");
+        using var duplicateSort = await SendGetAsync(
+            context,
+            "/v1/assessment/activities?paging=numbered&sort=title:asc,title:desc");
+        using var encoded = await SendGetAsync(
+            context,
+            "/v1/assessment/activities?paging=numbered&q=%2Awild%25");
+        var cursorBody = await cursor.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var oversizedBody = await oversized.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, cursor.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, duplicateSort.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, encoded.StatusCode);
+        Assert.Equal("no-store", encoded.Headers.CacheControl?.ToString());
+        Assert.Contains(AssessmentFailureCodes.InvalidField, cursorBody, StringComparison.Ordinal);
+        Assert.Contains(AssessmentFailureCodes.InvalidField, oversizedBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"activity_id\":\"", cursorBody, StringComparison.Ordinal);
+        using var encodedDocument = JsonDocument.Parse(await encoded.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("numbered", encodedDocument.RootElement.GetProperty("pagination").GetProperty("mode").GetString());
+        Assert.Equal(1, encodedDocument.RootElement.GetProperty("pagination").GetProperty("page").GetInt32());
+        Assert.Equal(16, encodedDocument.RootElement.GetProperty("pagination").GetProperty("page_size").GetInt32());
+        Assert.False(encodedDocument.RootElement.TryGetProperty("activities", out var activities) && activities.GetArrayLength() > 0);
+    }
+
+    [Fact]
+    public async Task Omitted_paging_keeps_the_legacy_complete_list_shape()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions: [AssessmentAuthorizationActions.ReadActivity],
+            permitAuthorization: true);
+        using var response = await SendGetAsync(context, "/v1/assessment/activities");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.True(document.RootElement.TryGetProperty("activities", out _));
+        Assert.True(document.RootElement.TryGetProperty("permitted_actions", out _));
+        Assert.False(document.RootElement.TryGetProperty("pagination", out _));
+    }
+
+    [Fact]
+    public async Task Numbered_list_pages_created_activities_and_returns_empty_out_of_range_metadata()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.ReadActivity,
+                AssessmentAuthorizationActions.CreateActivity,
+                AssessmentAuthorizationActions.SelectSources,
+            ],
+            permitAuthorization: true);
+        using var firstCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha"}""");
+        using var secondCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Beta"}""");
+        Assert.Equal(HttpStatusCode.Created, firstCreate.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, secondCreate.StatusCode);
+        using var page = await SendGetAsync(
+            context,
+            "/v1/assessment/activities?paging=numbered&page=1&page_size=1&sort=title:asc");
+        using var drifted = await SendGetAsync(
+            context,
+            "/v1/assessment/activities?paging=numbered&page=9&page_size=1&sort=title:asc");
+        using var pageDocument = JsonDocument.Parse(await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        using var driftedDocument = JsonDocument.Parse(await drifted.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Equal("Alpha", pageDocument.RootElement.GetProperty("activities")[0].GetProperty("title").GetString());
+        Assert.Equal(2, pageDocument.RootElement.GetProperty("pagination").GetProperty("total_items").GetInt32());
+        Assert.Equal(2, pageDocument.RootElement.GetProperty("pagination").GetProperty("total_pages").GetInt32());
+        Assert.Equal(0, driftedDocument.RootElement.GetProperty("activities").GetArrayLength());
+        Assert.Equal(9, driftedDocument.RootElement.GetProperty("pagination").GetProperty("page").GetInt32());
+        Assert.Equal(2, driftedDocument.RootElement.GetProperty("pagination").GetProperty("total_items").GetInt32());
+    }
+
+    [Fact]
     public async Task Create_without_antiforgery_is_rejected_before_session_authentication()
     {
         await using var factory = CreateFactory();

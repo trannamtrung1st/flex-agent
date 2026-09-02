@@ -231,8 +231,7 @@ export function CampaignRegistry({
                 id="campaignSelectAll"
                 selection={selection}
                 pageIds={pageIds}
-                matchingIds={matchingIds}
-                queryKey={queryKey}
+                capability={{ mode: "matching", queryKey, matchingIds, total: matchingIds.length }}
                 noun="campaigns"
                 onTransition={(next) => {
                   patch({ selection: next });

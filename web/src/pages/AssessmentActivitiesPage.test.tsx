@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import {
+  DEFAULT_ACTIVITY_LIST_QUERY,
+  type NumberedActivityListQuery,
   REQUIRED_SOURCE_CATEGORIES,
   type ProductionActivityList,
   type ProductionActivitySummary,
@@ -36,11 +38,56 @@ function activityRow(overrides: {
   };
 }
 
+function sortValue(row: ProductionActivitySummary, field: NumberedActivityListQuery["sort"][number]["field"]) {
+  switch (field) {
+    case "activation":
+      return row.has_activated_cohort ? 1 : 0;
+    case "revision":
+      return row.revision_number;
+    case "updated":
+      return row.updated_at;
+    default:
+      return row.title.toLowerCase();
+  }
+}
+
+function pageFromServer(
+  activities: ProductionActivitySummary[],
+  query: NumberedActivityListQuery,
+  permittedActions: string[],
+): ProductionActivityList {
+  const q = query.q.trim().toLowerCase();
+  const matched = activities.filter((row) =>
+    !q || row.title.toLowerCase().includes(q) || row.activity_id.toLowerCase().includes(q));
+  const sorted = [...matched].sort((left, right) => {
+    for (const spec of query.sort) {
+      const lv = sortValue(left, spec.field);
+      const rv = sortValue(right, spec.field);
+      if (lv < rv) return spec.direction === "asc" ? -1 : 1;
+      if (lv > rv) return spec.direction === "asc" ? 1 : -1;
+    }
+    return left.activity_id.localeCompare(right.activity_id);
+  });
+  const total = sorted.length;
+  const start = (query.page - 1) * query.pageSize;
+  return {
+    activities: sorted.slice(start, start + query.pageSize),
+    permitted_actions: permittedActions,
+    pagination: {
+      mode: "numbered",
+      page: query.page,
+      page_size: query.pageSize,
+      total_items: total,
+      total_pages: total === 0 ? 0 : Math.ceil(total / query.pageSize),
+    },
+  };
+}
+
 function renderActivities(options?: {
   activities?: ProductionActivitySummary[];
   permittedActions?: string[];
   sources?: ProductionSourceOption[];
-  loadActivities?: (signal?: AbortSignal) => Promise<ProductionActivityList>;
+  loadActivities?: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
   loadSourceOptions?: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
   queryClient?: ReturnType<typeof createFlexQueryClient>;
 }) {
@@ -58,10 +105,11 @@ function renderActivities(options?: {
       <MemoryRouter>
         <AssessmentActivitiesPage
           organizationId="org-1"
-          loadActivities={options?.loadActivities ?? (() => Promise.resolve({
-            activities: options?.activities ?? [],
-            permitted_actions: options?.permittedActions ?? ["create_assessment"],
-          } satisfies ProductionActivityList))}
+          loadActivities={options?.loadActivities ?? ((query) => Promise.resolve(pageFromServer(
+            options?.activities ?? [],
+            query,
+            options?.permittedActions ?? ["create_assessment"],
+          )))}
           loadSourceOptions={loadSourceOptions}
         />
       </MemoryRouter>
@@ -137,6 +185,23 @@ describe("AssessmentActivitiesPage", () => {
     expect(document.querySelector(".work-plane")).toHaveClass("registry-wall--hug");
   });
 
+  it("hugs a short last page from visible rows rather than matching total", async () => {
+    renderActivities({
+      permittedActions: [],
+      loadActivities: () => Promise.resolve({
+        activities: [
+          activityRow({ activity_id: "act-17", title: "Later A" }),
+          activityRow({ activity_id: "act-18", title: "Later B" }),
+        ],
+        permitted_actions: [],
+        pagination: { mode: "numbered", page: 2, page_size: 16, total_items: 18, total_pages: 2 },
+      }),
+    });
+    const campaign = await screen.findByRole("link", { name: /Later A/ });
+    expect(campaign.closest(".work-plane")).toHaveClass("registry-wall--hug");
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("17–18 OF 18");
+  });
+
   it("explains a missing required source category and withholds create", async () => {
     renderActivities({
       sources: REQUIRED_SOURCE_CATEGORIES.filter((category) => category !== "agent").map((category) => source(category)),
@@ -174,8 +239,10 @@ describe("AssessmentActivitiesPage", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Search campaign title or ID" }), {
       target: { value: "act-beta" },
     });
-    expect(screen.queryByRole("link", { name: /Alpha Campaign/ })).not.toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /Beta Campaign/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /Alpha Campaign/ })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: /Beta Campaign/ })).toBeInTheDocument();
   });
 
   it("sorts campaigns by activation state", async () => {
@@ -232,9 +299,10 @@ describe("AssessmentActivitiesPage", () => {
 
   it("does not request source options from cached create permission", async () => {
     const queryClient = createFlexQueryClient();
-    queryClient.setQueryData(assessmentKeys.activities(), {
+    queryClient.setQueryData(assessmentKeys.activities(DEFAULT_ACTIVITY_LIST_QUERY), {
       activities: [activityRow({ activity_id: "act-1", title: "Cached" })],
       permitted_actions: ["create_assessment"],
+      pagination: { mode: "numbered", page: 1, page_size: 16, total_items: 1, total_pages: 1 },
     });
     const loadSourceOptions = vi.fn(() => Promise.resolve({
       sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
@@ -271,15 +339,92 @@ describe("AssessmentActivitiesPage", () => {
   it("passes Query cancellation through the activities loader", async () => {
     const signals: AbortSignal[] = [];
     renderActivities({
-      loadActivities: (signal) => {
+      loadActivities: (_query, signal) => {
         if (signal) {
           signals.push(signal);
         }
 
-        return Promise.resolve({ activities: [], permitted_actions: [] });
+        return Promise.resolve({
+          activities: [],
+          permitted_actions: [],
+          pagination: { mode: "numbered", page: 1, page_size: 16, total_items: 0, total_pages: 0 },
+        });
       },
     });
     await screen.findByText("No activities are available.");
     expect(signals.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the last authorized page busy while the next page is pending", async () => {
+    let release: (() => void) | undefined;
+    const loadActivities = vi.fn((query: NumberedActivityListQuery) => {
+      if (query.page === 1) {
+        return Promise.resolve({
+          activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
+          permitted_actions: [],
+          pagination: { mode: "numbered" as const, page: 1, page_size: 16, total_items: 17, total_pages: 2 },
+        });
+      }
+      return new Promise<ProductionActivityList>((resolve) => {
+        release = () => resolve({
+          activities: [activityRow({ activity_id: "act-17", title: "Later" })],
+          permitted_actions: [],
+          pagination: { mode: "numbered", page: 2, page_size: 16, total_items: 17, total_pages: 2 },
+        });
+      });
+    });
+    renderActivities({ loadActivities, permittedActions: [] });
+    expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveAttribute("aria-busy", "true");
+    expect(footer).toHaveTextContent("01–01 OF 17");
+    expect(screen.getByRole("button", { name: /page\s*01/i })).toBeDisabled();
+    release?.();
+    expect(await screen.findByRole("link", { name: /Later/ })).toBeInTheDocument();
+  });
+
+  it("retries the exact failed query", async () => {
+    const loadActivities = vi.fn((query: NumberedActivityListQuery) => {
+      if (loadActivities.mock.calls.length === 1) {
+        return Promise.reject(new Error("temporary list failure"));
+      }
+      return Promise.resolve(pageFromServer(
+        [activityRow({ activity_id: "act-1", title: "Existing" })],
+        query,
+        [],
+      ));
+    });
+    renderActivities({ loadActivities, permittedActions: [] });
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    expect(loadActivities.mock.calls[0]?.[0]).toEqual(loadActivities.mock.calls[1]?.[0]);
+  });
+
+  it("recovers an out-of-range page using the returned totals", async () => {
+    const loadActivities = vi.fn((query: NumberedActivityListQuery) => {
+      if (query.page === 2) {
+        return Promise.resolve({
+          activities: [],
+          permitted_actions: [],
+          pagination: { mode: "numbered" as const, page: 2, page_size: 16, total_items: 1, total_pages: 1 },
+        });
+      }
+      return Promise.resolve({
+        activities: [activityRow({ activity_id: "act-1", title: "Existing" })],
+        permitted_actions: [],
+        pagination: { mode: "numbered" as const, page: 1, page_size: 16, total_items: 17, total_pages: 2 },
+      });
+    });
+    renderActivities({ loadActivities, permittedActions: [] });
+    expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(loadActivities.mock.calls.some((call) => call[0].page === 2)).toBe(true);
+      expect(loadActivities.mock.calls.at(-1)?.[0].page).toBe(1);
+    });
+    expect(screen.getByRole("link", { name: /Existing/ })).toBeInTheDocument();
   });
 });

@@ -49,6 +49,58 @@ export interface ProductionActivitySummary {
 export interface ProductionActivityList {
   activities: ProductionActivitySummary[];
   permitted_actions: string[];
+  pagination?: NumberedActivityListPagination;
+}
+
+export type ActivitySortField = "title" | "activation" | "updated" | "revision";
+export type ActivitySortDirection = "asc" | "desc";
+export type ActivitySortSpec = { field: ActivitySortField; direction: ActivitySortDirection };
+
+export type NumberedActivityListQuery = {
+  paging: "numbered";
+  page: number;
+  pageSize: number;
+  q: string;
+  sort: readonly ActivitySortSpec[];
+};
+
+export type NumberedActivityListPagination = {
+  mode: "numbered";
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+};
+
+export const DEFAULT_ACTIVITY_LIST_QUERY: NumberedActivityListQuery = {
+  paging: "numbered",
+  page: 1,
+  pageSize: 16,
+  q: "",
+  sort: [{ field: "title", direction: "asc" }],
+};
+
+export function canonicalizeActivityListQuery(query: NumberedActivityListQuery): NumberedActivityListQuery {
+  return {
+    paging: "numbered",
+    page: query.page,
+    pageSize: query.pageSize,
+    q: query.q.trim(),
+    sort: query.sort.map((entry) => ({ field: entry.field, direction: entry.direction })),
+  };
+}
+
+export function serializeActivityListQuery(query: NumberedActivityListQuery) {
+  const canonical = canonicalizeActivityListQuery(query);
+  const params = new URLSearchParams();
+  params.set("paging", "numbered");
+  params.set("page", String(canonical.page));
+  params.set("page_size", String(canonical.pageSize));
+  if (canonical.q) {
+    params.set("q", canonical.q);
+  }
+  params.set("sort", canonical.sort.map((entry) => `${entry.field}:${entry.direction}`).join(","));
+  return params.toString();
 }
 
 export interface ProductionActivityDetail {
@@ -210,8 +262,11 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
     fetchJson<ProductionActivityDetail>(`/v1/assessment/activities/${activityId}`);
 
   return {
-    listActivities: (signal?: AbortSignal) =>
-      fetchJson<ProductionActivityList>("/v1/assessment/activities", signal ? { signal } : undefined),
+    listActivities: (query: NumberedActivityListQuery = DEFAULT_ACTIVITY_LIST_QUERY, signal?: AbortSignal) =>
+      fetchJson<ProductionActivityList>(
+        `/v1/assessment/activities?${serializeActivityListQuery(query)}`,
+        signal ? { signal } : undefined,
+      ),
     listSourceOptions: (signal?: AbortSignal) =>
       fetchJson<{ sources: ProductionSourceOption[] }>(
         "/v1/assessment/source-options",

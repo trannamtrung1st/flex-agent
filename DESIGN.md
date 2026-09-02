@@ -7,11 +7,11 @@
 > Do not treat this file as a token sheet or component spec.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `5ff0f9c8db001ef7cc09a7d0dad9959d647c66b61accb79db8394be3b83f8c2d`
+Content fingerprint: `618929d3d7cfb29efb856349f80ddb774a2d6183b0fbd83c24271a18cc954a0e`
 
 ## Canonical sources
 
-- `docs/ui-ux/design-system/README.md` — Approved v1.0 (version 1.0)
+- `docs/ui-ux/design-system/README.md` — Approved v1.1 (version 1.1)
 - `docs/ui-ux/design-system/implementation-guide.md`
 - `docs/ui-ux/README.md`
 - `docs/ui-ux/design-system/foundation/colors.md`
@@ -34,10 +34,10 @@ Content fingerprint: `5ff0f9c8db001ef7cc09a7d0dad9959d647c66b61accb79db8394be3b8
 
 ## Projection
 
-**Approved v1.0** is the current shared visual contract: semantic tokens, reusable component presentation, accessibility foundations, and recurring Flex Agent UI patterns. Approved P0 interaction specifications still govern journeys, states, copy meaning, permissions, and accessibility contracts. All modules under this directory inherit this metadata unless they declare narrower metadata.
+**Approved v1.1** is the current shared visual contract: semantic tokens, reusable component presentation, accessibility foundations, and recurring Flex Agent UI patterns. Approved P0 interaction specifications still govern journeys, states, copy meaning, permissions, and accessibility contracts. All modules under this directory inherit this metadata unless they declare narrower metadata.
 
 Read those modules (and the implementation guide's module index) before generating
-or restyling UI. Approved design-system v1.0 is Shipboard Terminal. Do not treat
+or restyling UI. Approved design-system v1.1 is Shipboard Terminal. Do not treat
 v0.1 Deep-Space styling as the target look.
 
 New production UI clones a matching existing production page and Component Deck

@@ -14,7 +14,7 @@ acceptance criteria or redefine canonical concepts.
 This README is **Approved** application UX architecture. Current journey
 owners are the distinct files under [flows](flows/activity-campaign-journey.md).
 
-The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
+The [design system](design-system/README.md) is **Approved v1.1 Shipboard
 Terminal** visual authority. New production UI clones a matching existing
 production page and Component Deck specimen. The design lab is isolated
 composition evidence and is not a production journey specification.
@@ -226,7 +226,7 @@ Do not use **complete**, **approved**, **published**, **available**, or
 | [Text Session](flows/text-session.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-4` |
 | [Evidence, Evaluation, and Human Review](flows/evidence-evaluation-human-review.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-5` and `JRN-MVP-6` |
 | [Result and Release](flows/result-release.md) | Distinct flow owner | Approved v1.0 | `JRN-MVP-7` |
-| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
+| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.1 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
 
 Originals at `docs/ui-ux/*.md` for those journeys were removed in Phase 5;
 recover them from Git. They are not the current catalog.

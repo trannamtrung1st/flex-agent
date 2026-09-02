@@ -99,7 +99,15 @@ overlay scrolls `.dialog-body` or `.ceremony-body` ([modals](modals.md)).
   receives the full identifier. Dense registry tables omit per-cell tab stops;
   pass `tabbable` when a standalone or short picker surface should open the
   plaque on focus-visible. Gallery: `compact-id`.
-- Selection: teal select-mark; header cycles none → partial → page → matching.
+- Selection: teal select-mark. A page-only header cycles none/partial → page →
+  none and never labels current-page IDs as all matching results. A
+  matching-capable header cycles none/partial → page → matching → none only
+  when the host provides a stable server or complete-local matching scope.
+  Matching scope is a query descriptor plus explicit exclusions, not a browser
+  requirement to load every identifier. Its exact total is optional; omit the
+  number from accessible and visible copy when unknown. A consuming bulk action
+  must explicitly accept and reauthorize that descriptor. The P0 Assign picker
+  is page-only under `UI-SUBM-DEC-15`.
 - Only the object identifier and explicit keys open the record; ordinary cells
   remain selectable text.
 - Expansion: named Expand/Collapse; details as a clipped-border object, not a
@@ -112,9 +120,10 @@ overlay scrolls `.dialog-body` or `.ceremony-body` ([modals](modals.md)).
 - Bulk actions are all-or-nothing; mixed eligibility disables with a reason.
 - Production actions require server permission (`PC-09`).
 - Pagination is `DataTablePagination` in the shell footer. Use numbered mode when
-  the host knows a complete count. Use cursor mode for signed server pages
+  the host knows a complete count, whether its rows are local or server-backed;
+  server ownership does not create a third visual mode. Use cursor mode for signed server pages
   (`UI-SUBM-DEC-13`): rows-per-page plus Prev/Next, no page jump, no invented
-  total. See [pagination](pagination.md). Do not attach `ItemList` Load more to
+  total requirement. See [pagination](pagination.md). Do not attach `ItemList` Load more to
   a table.
 
 ## Narrow

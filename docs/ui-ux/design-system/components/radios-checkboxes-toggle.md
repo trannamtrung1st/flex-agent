@@ -15,7 +15,9 @@ Use only for consent and ceremony acknowledgment.
 ## Select-mark (row selection)
 
 Same square anatomy in teal, including partial/page/matching states. Never
-amber. Never used for consent.
+amber. Never used for consent. Matching presentation is enabled only when the
+table host supplies a complete-local or stable server matching scope; page-only
+tables do not display matching state.
 
 ## Radio
 

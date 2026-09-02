@@ -18,6 +18,7 @@ import {
   transitionHeaderSelection,
   type HeaderSelectionState,
   type TableSelection,
+  type TableSelectionCapability,
 } from "./tableSelection";
 
 export type ActionEligibility = { allowed: true } | { allowed: false; reason: string };
@@ -94,18 +95,17 @@ export const HeaderSelectionControl = forwardRef<
     id: string;
     selection: TableSelection;
     pageIds: string[];
-    matchingIds: string[];
-    queryKey: string;
+    capability: TableSelectionCapability;
     noun: string;
     onTransition: (next: TableSelection) => void;
   }
 >(function HeaderSelectionControl(
-  { id, selection, pageIds, matchingIds, queryKey, noun, onTransition },
+  { id, selection, pageIds, capability, noun, onTransition },
   ref,
 ) {
-  const scope = deriveHeaderSelectionState(selection, pageIds, matchingIds);
+  const scope = deriveHeaderSelectionState(selection, pageIds, capability);
   const { checked, indeterminate } = headerCheckboxState(scope);
-  const { ariaLabel, tooltip } = headerSelectionLabel(scope, pageIds, matchingIds, selection, noun);
+  const { ariaLabel, tooltip } = headerSelectionLabel(scope, pageIds, capability, selection, noun);
 
   return (
     <TooltipHost tip={tooltip}>
@@ -122,7 +122,7 @@ export const HeaderSelectionControl = forwardRef<
             if (el) el.indeterminate = indeterminate;
           }}
           onChange={() => {
-            onTransition(transitionHeaderSelection(selection, pageIds, matchingIds, queryKey));
+            onTransition(transitionHeaderSelection(selection, pageIds, capability));
           }}
         />
         <span className={`select-mark${selectMarkClass(scope, indeterminate)}`} aria-hidden="true" />
@@ -373,7 +373,7 @@ export function TableActionBar<T>({
   busyActionId?: string | null;
 }) {
   const copy = selectionCopy(selection, pageIds, matchingIds, noun);
-  const selected = copy.count > 0;
+  const selected = copy.count !== 0;
   const tableLevel = actions.filter((action) => actionSurfaces(action).includes("table"));
   const bulkActions = actions.filter((action) => actionSurfaces(action).includes("bulk"));
   const primary = bulkActions.filter((action) => action.placement === "primary");

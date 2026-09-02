@@ -5,7 +5,7 @@ is documentation, not a repository skill. Load the matching role skill from
 `.agents/skills/` or `.cursor/skills/` first, then use this guide with the
 governing requirements and UI/UX specifications.
 
-Design-system **v1.0 is Approved**. Use it as the target visual contract.
+Design-system **v1.1 is Approved**. Use it as the target visual contract.
 Do not use v0.1 Deep-Space styling as the target look.
 
 ## Before implementation

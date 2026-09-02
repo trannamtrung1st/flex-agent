@@ -1,3 +1,4 @@
+using System.Globalization;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Canonicalization;
 using FlexAgent.AssessmentConfiguration.Domain;
@@ -132,6 +133,7 @@ public static partial class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAssessmentDraftHandler drafts)
     {
+        context.Response.Headers.CacheControl = "no-store";
         var resolved = await TryActorAsync(context, coordinator, options);
         if (resolved is null)
         {
@@ -139,27 +141,54 @@ public static partial class AssessmentEndpointExtensions
             return;
         }
 
-        var result = await drafts.ListActivitiesAsync(resolved.Actor, context.RequestAborted);
+        if (!TryReadActivityListQuery(context.Request, out var numbered, out var omittedPaging))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
+            return;
+        }
+
+        if (omittedPaging)
+        {
+            var listed = await drafts.ListActivitiesAsync(resolved.Actor, context.RequestAborted);
+            if (!listed.Succeeded)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = listed.OutcomeCode });
+                return;
+            }
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                activities = listed.Value!.Select(ProjectActivitySummary),
+                permitted_actions = PermittedListActions(resolved),
+            });
+            return;
+        }
+
+        var result = await drafts.ListActivitiesPageAsync(resolved.Actor, numbered!, context.RequestAborted);
         if (!result.Succeeded)
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.StatusCode = AssessmentHttpStatus.IsAccessFailure(result.OutcomeCode)
+                ? StatusCodes.Status403Forbidden
+                : StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = result.OutcomeCode });
             return;
         }
 
+        var page = result.Value!;
         await context.Response.WriteAsJsonAsync(new
         {
-            activities = result.Value!.Select(draft => new
+            activities = page.Items.Select(ProjectActivitySummary),
+            permitted_actions = PermittedListActions(resolved),
+            pagination = new
             {
-                activity_id = draft.ActivityId,
-                title = draft.Content.Title,
-                revision_number = draft.RevisionNumber,
-                has_activated_cohort = draft.HasActivatedCohort,
-                updated_at = draft.UpdatedAtUtc.ToString("O"),
-            }),
-            permitted_actions = HasAction(resolved, AssessmentAuthorizationActions.CreateActivity)
-                ? new[] { "create_assessment" }
-                : Array.Empty<string>(),
+                mode = "numbered",
+                page = page.Page,
+                page_size = page.PageSize,
+                total_items = page.TotalItems,
+                total_pages = page.TotalPages,
+            },
         });
     }
 
@@ -700,6 +729,85 @@ public static partial class AssessmentEndpointExtensions
         }
 
         return labels;
+    }
+
+    private static object ProjectActivitySummary(ActivityDraft draft) => new
+    {
+        activity_id = draft.ActivityId,
+        title = draft.Content.Title,
+        revision_number = draft.RevisionNumber,
+        has_activated_cohort = draft.HasActivatedCohort,
+        updated_at = draft.UpdatedAtUtc.ToString("O"),
+    };
+
+    private static string[] PermittedListActions(ResolvedAssessmentActor resolved) =>
+        HasAction(resolved, AssessmentAuthorizationActions.CreateActivity)
+            ? ["create_assessment"]
+            : [];
+
+    private static bool TryReadActivityListQuery(
+        HttpRequest request,
+        out NumberedActivityListRequest? numbered,
+        out bool omittedPaging)
+    {
+        numbered = null;
+        omittedPaging = !request.Query.ContainsKey("paging");
+        if (omittedPaging)
+        {
+            return true;
+        }
+
+        if (!string.Equals(request.Query["paging"].ToString(), "numbered", StringComparison.Ordinal)
+            || !TryReadOptionalInt(request.Query["page"].ToString(), out var page)
+            || !TryReadOptionalInt(request.Query["page_size"].ToString(), out var pageSize)
+            || !TryReadSortTerms(request.Query["sort"].ToString(), out var sort))
+        {
+            return false;
+        }
+
+        numbered = new NumberedActivityListRequest(page, pageSize, request.Query["q"].ToString(), sort);
+        return true;
+    }
+
+    private static bool TryReadOptionalInt(string raw, out int? value)
+    {
+        value = null;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
+    private static bool TryReadSortTerms(string raw, out IReadOnlyList<ActivityListSortTerm>? sort)
+    {
+        sort = null;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return true;
+        }
+
+        var terms = new List<ActivityListSortTerm>();
+        foreach (var part in raw.Split(',', StringSplitOptions.None))
+        {
+            var separator = part.IndexOf(':');
+            if (separator <= 0 || separator != part.LastIndexOf(':') || separator == part.Length - 1)
+            {
+                return false;
+            }
+
+            terms.Add(new ActivityListSortTerm(part[..separator], part[(separator + 1)..]));
+        }
+
+        sort = terms;
+        return true;
     }
 
     private static bool HasAction(ResolvedAssessmentActor actor, string action) =>

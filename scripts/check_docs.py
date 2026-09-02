@@ -351,9 +351,13 @@ def check_unlisted_feature_specs() -> list[str]:
 def check_ui_current_catalog() -> list[str]:
     errors: list[str] = []
     ui_readme = (DOCS / "ui-ux" / "README.md").read_text(encoding="utf-8")
-    if "Approved v1.0" not in ui_readme:
+    if "Replacement P0 journey and interaction specifications are Approved v1.0" not in ui_readme:
         errors.append(
-            "docs/ui-ux/README.md must identify current P0 journeys or the design system as Approved v1.0"
+            "docs/ui-ux/README.md must identify current P0 journeys as Approved v1.0"
+        )
+    if "Approved v1.1 Shipboard" not in ui_readme:
+        errors.append(
+            "docs/ui-ux/README.md must identify the current design system as Approved v1.1 Shipboard"
         )
     return errors
 

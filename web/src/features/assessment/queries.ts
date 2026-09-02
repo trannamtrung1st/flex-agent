@@ -1,13 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ProductionActivityList, ProductionSourceOption, ProductionSourceRef } from "../../api/production-assessment";
+import {
+  canonicalizeActivityListQuery,
+  DEFAULT_ACTIVITY_LIST_QUERY,
+  type NumberedActivityListQuery,
+  type ProductionActivityList,
+  type ProductionSourceOption,
+  type ProductionSourceRef,
+} from "../../api/production-assessment";
 import { assessmentKeys } from "./queryKeys";
 
 export function useAssessmentActivitiesQuery(
-  listActivities: (signal?: AbortSignal) => Promise<ProductionActivityList>,
+  listActivities: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>,
+  query: NumberedActivityListQuery = DEFAULT_ACTIVITY_LIST_QUERY,
 ) {
+  const canonical = canonicalizeActivityListQuery(query);
   return useQuery({
-    queryKey: assessmentKeys.activities(),
-    queryFn: ({ signal }) => listActivities(signal),
+    queryKey: assessmentKeys.activities(canonical),
+    queryFn: ({ signal }) => listActivities(canonical, signal),
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -23,8 +33,8 @@ export function useAssessmentSourceOptionsQuery(
 }
 
 export const activitiesListInvalidation = {
-  queryKey: assessmentKeys.activities(),
-  exact: true,
+  queryKey: assessmentKeys.activitiesRoot(),
+  exact: false,
   refetchType: "none" as const,
 };
 

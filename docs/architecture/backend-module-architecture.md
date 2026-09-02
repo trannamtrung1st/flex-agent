@@ -5,12 +5,13 @@ the MVP modular monolith grows.
 
 ## Status and authority
 
-**Approved — 2026-09-01.** This guide currently owns backend module identity,
+**Approved — 2026-09-02.** This guide currently owns backend module identity,
 ports-and-adapters rules, authorization-kernel placement, append-only audit
 coupling, Assessment source/activation coordination, and replica-independent
-Enrollment admission constraints. It does not introduce product behavior or replace
-feature specifications. Prior versions are recoverable from Git. If this guide
-conflicts with product or requirements, stop and record the conflict.
+Enrollment admission constraints, plus bounded list-query and selection-scope
+realization. It does not introduce product behavior or replace feature
+specifications. Prior versions are recoverable from Git. If this guide conflicts
+with product or requirements, stop and record the conflict.
 
 Workspace, toolchain, and CI verification live in
 [Workspace development](../contributing/workspace.md) and
@@ -228,6 +229,52 @@ A repository interface does not make an operation safe by itself. Real
 PostgreSQL negative tests must prove wrong-Organization, wrong-resource,
 guessed-identifier, list/count, stale-authorization, and concurrent behavior
 for sensitive paths.
+
+## Bounded list-query and selection contracts
+
+Each list use case explicitly declares the paging strategies it supports. A
+browser may select only a strategy exposed by that use case; a generic query
+parameter must not force cursor, numbered, or unpaged behavior onto every
+repository. Module application contracts own their request and page types until
+at least two modules need one stable non-domain-specific representation.
+
+A server-numbered page carries one-based `page`, positive bounded `page_size`,
+`total_items`, and `total_pages` with its items. Search and allowlisted ordering
+run against the complete authorized matching set before count and page
+extraction. Rows and exact totals must come from the same trusted scope and one
+consistent database observation. Every ordering ends with a unique stable
+record-identifier tie-breaker. Transport sort values map through an allowlist;
+they are never interpolated as unchecked SQL.
+
+A cursor page carries bounded items, continuation state, and `has_more`. It does
+not require or imply a total count, offset, page number, or random page access.
+Signed cursors bind the trusted resource/filter/order scope needed by their
+owning contract and remain untrusted input until verified. Supplying a
+separately authorized exact count does not change cursor continuation semantics.
+
+Cross-page **matching selection** is separate from either paging strategy. The
+browser may hold a presentation key for a stable query and explicit excluded
+record identifiers. A server mutation that accepts matching selection must use
+a versioned allowlisted filter/selection descriptor, derive Organization and
+resource scope from trusted context, reauthorize, resolve the matching set at
+execution time, validate exclusions inside that set, and apply the operation's
+atomicity, partial-failure, idempotency, and audit rules. A browser query key,
+displayed count, cursor, or previously viewed row is never mutation authority.
+
+For a previously unpaged versioned response, adding a bounded page must use an
+explicit opt-in discriminant or a new projection version; omission must not
+silently change the old response from complete to partial. The first Activity
+slice uses `paging=numbered` as the opt-in on the existing v1 list and adds a
+`pagination` object with `mode`, `page`, `page_size`, `total_items`, and
+`total_pages` while retaining the existing `activities` and
+`permitted_actions` fields. Its query shape is
+`paging=numbered&page=<n>&page_size=<n>&q=<text>&sort=<field:direction,...>`;
+the transport adapter parses the ordered sort list and the application layer
+validates its allowlist and bounds. Calls that omit `paging` retain legacy unpaged
+semantics only for compatibility; the migrated production SPA must not use that
+path. Retiring it requires an explicit contract-version or compatibility
+decision. Existing Enrollment cursor response shapes are not changed by this
+Activity decision.
 
 ## Host and contract boundaries
 

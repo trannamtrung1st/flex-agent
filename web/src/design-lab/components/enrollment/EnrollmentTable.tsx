@@ -219,8 +219,7 @@ export function DataTable({
                 id="enrollmentSelectAll"
                 selection={selection}
                 pageIds={pageIds}
-                matchingIds={matchingIds}
-                queryKey={queryKey}
+                capability={{ mode: "matching", queryKey, matchingIds, total: matchingIds.length }}
                 noun="enrollments"
                 onTransition={(next) => {
                   patch({ selection: next });

@@ -18,11 +18,11 @@ Current owners:
 | Concern | Current document |
 | --- | --- |
 | MVP system shape, isolation, activation atomicity, deployment baseline, Worker lanes | [MVP architecture](mvp-architecture.md) |
-| Authorization kernel, audit, Enrollment admission | [Backend module architecture](backend-module-architecture.md) and MVP architecture |
+| Authorization kernel, audit, Enrollment admission, bounded list queries and matching-selection boundary | [Backend module architecture](backend-module-architecture.md) and MVP architecture |
 | Resolved configuration, Attempt start, streaming, Invocation/Decision, timers, envelope | [Text Session runtime contract](session-runtime-contract.md) |
 | Evidence and Evaluation realization | [Evidence and Evaluation execution contract](evaluation-execution-contract.md) |
 | Review, Result, and Release realization | [Human review, Result, and Release contract](review-result-release-contract.md) |
-| SPA Query/form/icon/transport and single-SPA / design-lab isolation | [Frontend architecture](frontend-architecture.md) |
+| SPA Query/form/icon/transport, server-backed table state/selection, and single-SPA / design-lab isolation | [Frontend architecture](frontend-architecture.md) |
 | OSS component and provider-profile defaults | [Operations](../operations/README.md) and [provider profiles](../operations/provider-profiles/README.md) |
 | Workspace, toolchain, and verification gates | [Workspace development](../contributing/workspace.md) and [MVP architecture](mvp-architecture.md) |
 
@@ -47,6 +47,7 @@ contracts.
 | Review timer-lane service delegation | [MVP architecture](mvp-architecture.md) |
 | Review Worker identity and Invocation delegation | [MVP architecture](mvp-architecture.md) |
 | Review Enrollment request-limit ownership and realization | [Backend module architecture](backend-module-architecture.md) |
+| Review server-numbered/cursor page and cross-page selection boundaries | [Backend module architecture](backend-module-architecture.md) and [frontend architecture](frontend-architecture.md) |
 | Review the implementation stack and workspace | [Workspace development](../contributing/workspace.md) |
 | Review frontend state, form, icon, and transport ownership | [Frontend architecture](frontend-architecture.md) |
 | Review single-SPA topology and design-lab isolation | [Frontend architecture](frontend-architecture.md) |

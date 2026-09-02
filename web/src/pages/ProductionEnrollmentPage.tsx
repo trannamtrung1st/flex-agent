@@ -42,10 +42,9 @@ import {
   InstantReadout,
   isSelected,
   Key,
-  matchingQueryKey,
   OperateArea,
   registryTableHug,
-  resolveSelectedIds,
+  resolveActionIds,
   SelectHeader,
   SelectMark,
   StaticHeader,
@@ -345,8 +344,7 @@ function EnrollmentRegistry({
   const assignSelectId = useId();
   const assignQuery = assignSearch.trim();
   const candidateIds = useMemo(() => candidates.map((candidate) => candidate.actor_id), [candidates]);
-  const assignQueryKey = matchingQueryKey({ assign: "candidates", q: assignQuery });
-  const selectedIds = resolveSelectedIds(selection, candidateIds);
+  const selectedIds = resolveActionIds(selection, candidateIds);
   const selectedCandidate = selectedIds.length === 1
     ? candidates.find((candidate) => candidate.actor_id === selectedIds[0])
     : undefined;
@@ -502,8 +500,7 @@ function EnrollmentRegistry({
                       id={assignSelectId}
                       selection={selection}
                       pageIds={candidateIds}
-                      matchingIds={candidateIds}
-                      queryKey={assignQueryKey}
+                      capability={{ mode: "page" }}
                       noun="participants"
                       onTransition={setSelection}
                     />

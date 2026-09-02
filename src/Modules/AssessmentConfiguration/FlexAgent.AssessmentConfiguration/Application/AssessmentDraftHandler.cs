@@ -294,6 +294,30 @@ public sealed class AssessmentDraftHandler(
         return AssessmentDecision<IReadOnlyList<ActivityDraft>>.Ok(drafts);
     }
 
+    public async Task<AssessmentDecision<NumberedActivityListPage>> ListActivitiesPageAsync(
+        AssessmentActorContext actor,
+        NumberedActivityListRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var specified = NumberedActivityListSpecification.TryCreate(request);
+        if (!specified.Succeeded || specified.Value is null)
+        {
+            return AssessmentDecision<NumberedActivityListPage>.Fail(specified.OutcomeCode);
+        }
+
+        var denied = await AuthorizeReadAsync(actor, Guid.Empty, cancellationToken);
+        if (denied is not null)
+        {
+            return AssessmentDecision<NumberedActivityListPage>.Fail(denied);
+        }
+
+        var page = await draftStore.ListNumberedPageAsync(
+            actor.Organization.OrganizationId,
+            specified.Value,
+            cancellationToken);
+        return AssessmentDecision<NumberedActivityListPage>.Ok(page);
+    }
+
     public async Task<AssessmentDecision<ActivityDraft>> GetActivityAsync(
         AssessmentActorContext actor,
         Guid activityId,
@@ -434,7 +458,12 @@ public interface IAssessmentDraftStore
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken);
+        Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken);
+
+        Task<NumberedActivityListPage> ListNumberedPageAsync(
+            Guid organizationId,
+            NumberedActivityListQuery query,
+            CancellationToken cancellationToken);
 
     Task<AssessmentCohort?> FindCohortForActivityAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken);
 

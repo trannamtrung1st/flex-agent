@@ -1,6 +1,6 @@
 # Current state
 
-Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-01**.
+Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-02**.
 
 This file owns **classification only**. It must not restate or override product
 meaning, `REQ-*`/`AC-*` contracts, UI/UX journeys, architecture documents, or
@@ -166,10 +166,11 @@ synthetic pin is not production qualification.
 | P0 `REQ-*`/`AC-*` | Intended | Seven P0 specs under [features](requirements/features/README.md) |
 | P1–P3 deferred capability names | Deferred (not requirements) | Named in [MVP scope](product/mvp-scope.md); no placeholder spec files |
 | Application UX architecture | Intended (Approved v1.0 journeys) | [UI/UX](ui-ux/README.md); [flows](ui-ux/flows/activity-campaign-journey.md) |
-| Design System v1.0 | Intended visual contract | [Design system](ui-ux/design-system/README.md) |
+| Design System v1.1 | Intended visual contract | [Design system](ui-ux/design-system/README.md) |
 | Architecture and code contracts | Intended | [Architecture](architecture/README.md) |
 | OIDC application session, scoped API, Worker identity | Partial implemented | `IdentityAccess`; Keycloak integration tests; remaining AUTH matrix rows are gaps |
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
+| Activities server-numbered paging and capability-aware table selection | Partial implemented | [implementation task](../.work/active/server-numbered-pagination-selection.md); `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; independent review still open |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
 | Submission intake / Attempt start | Partial / gap | Submissions module and tests; atomic Attempt start remains a named gap |
 | Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Sessions runtime tests exist; hosted production Session incomplete |
@@ -182,10 +183,13 @@ synthetic pin is not production qualification.
 | Compose SPA vs `web/` source lag | Temporary legacy | Prefer Vite `:5274` for source UI evidence |
 | Model execution adapter | Default-off | [Provider profiles](operations/provider-profiles/README.md) |
 | OpenRouter synthetic pin | Default-off / qualified synthetic only | [OpenRouter profile](operations/provider-profiles/openrouter-synthetic-development.md) |
-| Other `.work/active/*` | Planned Interaction Controller contract only | Completed reset and harness correction recovered from Git |
+| Other `.work/active/*` | Mixed planned/completed review state | Server-numbered paging/selection is completed pending review; Interaction Controller is planned; Participants cursor pager is completed pending review |
 
 ## Active work
 
-`.work/active/text-interaction-controller-contract.md` is `planned` and not
-activated. Completed reset and harness-correction records are retired from
-`.work/active`; recover them from Git.
+`.work/active/server-numbered-pagination-selection.md` is `completed` and remains
+temporarily for review. `.work/active/text-interaction-controller-contract.md`
+is `planned` and not implemented/activated. `.work/active/participants-registry-cursor-pager.md` is
+completed and remains temporarily for review. Completed reset and
+harness-correction records are retired from `.work/active`; recover them from
+Git.

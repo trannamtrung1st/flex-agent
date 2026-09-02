@@ -7,6 +7,7 @@ import {
   REQUIRED_SOURCE_CATEGORIES,
   resolveSelectedSources,
   sourceOptionIdentity,
+  type NumberedActivityListQuery,
   type ProductionActivityList,
   type ProductionSourceOption,
   type ProductionSourceRef,
@@ -52,7 +53,7 @@ import {
 import { assessmentKeys } from "../features/assessment/queryKeys";
 
 export interface AssessmentCampaignCreatePageProps {
-  loadActivities: (signal?: AbortSignal) => Promise<ProductionActivityList>;
+  loadActivities: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
   loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
   createActivity: (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => Promise<string>;
   onCreated: (activityId: string) => void;
