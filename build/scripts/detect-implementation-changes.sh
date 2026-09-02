@@ -18,14 +18,11 @@ emit() {
   fi
 }
 
+# Path comparison applies to push, pull_request, and local. EVENT_NAME is
+# accepted from CI but no longer changes the skip policy.
 EVENT_NAME="${EVENT_NAME:-${GITHUB_EVENT_NAME:-local}}"
+: "$EVENT_NAME"
 HEAD_SHA="${HEAD_SHA:-${GITHUB_SHA:-HEAD}}"
-
-if [[ "$EVENT_NAME" != "pull_request" ]]; then
-  emit true
-  exit 0
-fi
-
 BASE_SHA="${BASE_SHA:-${GITHUB_EVENT_BEFORE:-${GITHUB_BASE_SHA:-}}}"
 
 if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then

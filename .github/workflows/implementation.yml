@@ -12,7 +12,7 @@ permissions:
 concurrency:
   group: implementation-${{ github.workflow }}-${{ github.ref }}
   # PRs may cancel superseded runs. Push to main must not: a later docs-only
-  # commit would cancel an implementation SHA and then skip every gate.
+  # commit must not abort an implementation SHA that is still running.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -30,7 +30,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-        # Push to main always runs full gates. PRs keep path-based skipping.
+        # Push and PR both skip heavy jobs when BASE→HEAD has no implementation
+        # paths. Missing/zero/unreadable BASE_SHA still fail open.
         run: bash build/scripts/detect-implementation-changes.sh
 
   dotnet:

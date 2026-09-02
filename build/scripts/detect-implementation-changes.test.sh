@@ -70,9 +70,43 @@ assert_event_output() {
   failures=$((failures + 1))
 }
 
-assert_event_output push true
-assert_event_output local true
+assert_event_output push false
+assert_event_output local false
 assert_event_output pull_request false
+
+assert_failsafe() {
+  local event="$1"
+  local label="$2"
+  local got
+  if [[ $# -ge 3 ]]; then
+    got="$(
+      env -u GITHUB_OUTPUT -u GITHUB_EVENT_BEFORE -u GITHUB_BASE_SHA \
+        SKIP_IMPLEMENTATION_CHANGE_SELFTEST=1 \
+        EVENT_NAME="$event" \
+        BASE_SHA="$3" \
+        HEAD_SHA="$head_sha" \
+        bash "$SCRIPT_DIR/detect-implementation-changes.sh"
+    )"
+  else
+    got="$(
+      env -u GITHUB_OUTPUT -u GITHUB_EVENT_BEFORE -u GITHUB_BASE_SHA -u BASE_SHA \
+        SKIP_IMPLEMENTATION_CHANGE_SELFTEST=1 \
+        EVENT_NAME="$event" \
+        HEAD_SHA="$head_sha" \
+        bash "$SCRIPT_DIR/detect-implementation-changes.sh"
+    )"
+  fi
+  if [[ "$got" == "true" ]]; then
+    return 0
+  fi
+
+  echo "expected implementation=true fail-safe for $label, got: $got" >&2
+  failures=$((failures + 1))
+}
+
+assert_failsafe push "push with missing BASE_SHA"
+assert_failsafe push "push with zero BASE_SHA" 0000000000000000000000000000000000000000
+assert_failsafe push "push with unreadable BASE_SHA" ffffffffffffffffffffffffffffffffffffffff
 
 if [[ "$failures" -gt 0 ]]; then
   echo "detect-implementation-changes event policy failed ($failures)" >&2

@@ -244,7 +244,7 @@ deploy them.
 ## CI
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
-- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`). Every push to `main` runs that full job set. Pull requests still skip when the PR diff has no implementation paths (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh)). Pull-request updates cancel superseded Implementation runs; pushes to `main` do not.
+- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`). Push and pull-request runs skip the heavy jobs when the `BASE_SHA`→`HEAD_SHA` diff has no implementation paths (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh)); missing, zero, or unreadable `BASE_SHA` fail open. Pull-request updates cancel superseded Implementation runs; pushes to `main` do not, so a later docs-only commit cannot abort an implementation SHA.
 - [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](workspace.md))
 
 ## Gate coverage
