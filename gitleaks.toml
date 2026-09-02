@@ -21,6 +21,26 @@ paths = ['''(?i)\.work/active/''']
 regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic|intake-begin-synthetic|intake-complete-synthetic|intake-finalize-synthetic|attempt-ack-synthetic|attempt-start-synthetic)-\d{4}$''']
 
 [[rules.allowlists]]
+description = "Documented Attempt start synthetic idempotency keys in tests."
+condition = "AND"
+paths = [
+  '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/AttemptHttpNegativeContractTests\.cs$''',
+  '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/SubmissionRequestValidatorTests\.cs$''',
+  '''(?i)tests/Integration/FlexAgent\.Postgres\.Integration\.Tests/AttemptStartPersistenceTests\.cs$''',
+  '''(?i)tests/Contract/FlexAgent\.Contract\.Tests/ContractMappingParityTests\.cs$''',
+]
+regexes = ['''(?i)^(idempotency_key":")?(attempt-ack-synthetic|attempt-start-synthetic)-\d{4}"?$''']
+
+[[rules.allowlists]]
+description = "Synthetic SHA-256 command digests in Attempt start tests."
+condition = "AND"
+paths = [
+  '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/AttemptHttpNegativeContractTests\.cs$''',
+  '''(?i)tests/Integration/FlexAgent\.Postgres\.Integration\.Tests/AttemptStartPersistenceTests\.cs$''',
+]
+regexes = ['''^[a-fA-F0-9]{64}$''']
+
+[[rules.allowlists]]
 description = "Synthetic Submission HTTP negative-test idempotency keys."
 condition = "AND"
 paths = ['''(?i)tests/Runtime/FlexAgent.Runtime.Tests/SubmissionHttpNegativeContractTests.cs''']

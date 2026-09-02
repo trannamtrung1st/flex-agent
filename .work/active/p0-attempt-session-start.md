@@ -333,10 +333,11 @@ behavior.
 
 # Current state
 
-In progress after post-commit review of `1417072` (2026-09-02). Addressing
-Implementation CI NU1004/ESLint, commit-time source revalidation against
-`configuration_source_versions`, notice-set row-count integrity, parser digest
-before empty-set success, and a mandatory Session Attempt-mapping sink.
+Backend review of `1e8b25a` is approved for Attempt-start correctness. Follow-up
+in this working tree: explicit `AttemptMutationDisposition` client contract, and
+Gitleaks allowlists so [Implementation run 33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870)
+`supply-chain` secret scan can pass (`attempt-ack-synthetic` / start keys in
+Attempt HTTP tests). Local `gitleaks detect` is now clean.
 
 Still open: confirmation dialog facts, default Begin intake while an Attempt is
 in progress, hosted live Session, Production qualified model, Worker in Compose.
@@ -457,7 +458,8 @@ the plan.
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Unchanged UI except unused-import/typecast; no new Playwright this pass |
-| Independent backend/frontend/security/QA review | recorded | Post-`1417072` items 1–5 addressed in this pass |
+| Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; remaining items are product-completion gaps |
+| Implementation `supply-chain` | failing on `1e8b25a`; local fix ready | Run [33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870) failed secret scan. Local gitleaks clean after test-path allowlists. |
 
 # Blockers
 

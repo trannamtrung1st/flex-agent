@@ -22,6 +22,11 @@ export function createSubmissionIdempotencyKey(): string {
   return `sub-${crypto.randomUUID()}`;
 }
 
+export type AttemptMutationDisposition = {
+  succeeded: boolean;
+  outcome_code: string;
+};
+
 export function createProductionSubmissionClient(fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>) {
   return {
     getMyWorkSubmission(enrollmentId: string) {
@@ -91,7 +96,7 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
       sourceVersionId: string,
       outcome: "affirmed" | "declined" | "withdrawn",
       idempotencyKey: string,
-    ) {
+    ): Promise<AttemptMutationDisposition> {
       return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/acknowledgments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,7 +109,7 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
         }),
       });
     },
-    startAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
+    startAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string): Promise<AttemptMutationDisposition> {
       return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +120,7 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
         }),
       });
     },
-    reconcileAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
+    reconcileAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string): Promise<AttemptMutationDisposition> {
       return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/reconcile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,13 +172,14 @@ export function submissionFailureCopy(outcomeCode: string | undefined): string {
   }
 }
 
-async function readAttemptMutation<T extends { succeeded: boolean; outcome_code: string }>(
+async function readAttemptMutation(
   fetchJson: <TResponse>(path: string, init?: RequestInit) => Promise<TResponse>,
   path: string,
   init: RequestInit,
-): Promise<T> {
+): Promise<AttemptMutationDisposition> {
   try {
-    return await fetchJson<T>(path, init);
+    const body = await fetchJson<AttemptMutationDisposition>(path, init);
+    return { succeeded: body.succeeded, outcome_code: body.outcome_code };
   } catch (error) {
     if (isEnrollmentAccessLoss(error)) {
       throw error;
@@ -183,7 +189,7 @@ async function readAttemptMutation<T extends { succeeded: boolean; outcome_code:
       return {
         succeeded: false,
         outcome_code: error.outcomeCode,
-      } as unknown as T;
+      };
     }
 
     throw error;
