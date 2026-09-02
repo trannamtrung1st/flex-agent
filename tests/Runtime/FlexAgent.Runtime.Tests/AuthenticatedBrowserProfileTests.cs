@@ -276,8 +276,9 @@ public sealed class AuthenticatedBrowserProfileTests
 
         Assert.Contains("--prebuilt-images", script);
         Assert.Contains("up-smoke", script);
-        Assert.Contains("--pull never", script);
+        Assert.Contains("--no-build", script);
         Assert.Contains("run --rm --no-deps", script);
+        Assert.DoesNotContain("--pull never", script);
     }
 
     [Fact]

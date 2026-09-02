@@ -175,11 +175,6 @@ compose_up() {
   fi
 }
 
-compose_up_prebuilt_app() {
-  # Local CI tags look like Docker Hub names; never attempt a registry pull.
-  run_compose up -d --no-build --pull never "$@"
-}
-
 wait_postgres_healthy() {
   local attempts=0
   until run_compose exec -T postgres pg_isready -U flexagent -d flexagent >/dev/null 2>&1; do
@@ -203,15 +198,11 @@ up_smoke() {
   if demo_work_enabled; then
     run_compose run --rm --no-deps seed-demo-work
   fi
-  if [[ "${USE_PREBUILT_IMAGES}" == "1" ]]; then
-    if ! compose_up_prebuilt_app api spa nginx; then
-      echo "prebuilt app tier failed" >&2
-      run_compose ps >&2 || true
-      run_compose logs --tail=80 api spa nginx >&2 || true
-      exit 1
-    fi
-  else
-    compose_up api spa nginx
+  if ! compose_up api spa nginx; then
+    echo "app tier failed" >&2
+    run_compose ps >&2 || true
+    run_compose logs --tail=80 api spa nginx >&2 || true
+    exit 1
   fi
   wait_ready
   echo "${ORIGIN}"

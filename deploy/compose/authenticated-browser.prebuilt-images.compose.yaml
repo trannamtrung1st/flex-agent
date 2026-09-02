@@ -1,5 +1,6 @@
 # CI smoke overlay: reuse locally built API/SPA images instead of rebuilding in Compose.
-# Unsigned local tags must not be resolved from a registry.
+# Unsigned local tags must not be resolved from a registry. Do not set pull_policy on
+# nginx or other digest-pinned images; those still need a first pull on a clean runner.
 services:
   api:
     image: ${FLEXAGENT_OIDC_API_IMAGE:-flex-agent-oidc-api:ci}

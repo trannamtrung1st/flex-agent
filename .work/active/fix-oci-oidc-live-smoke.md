@@ -38,7 +38,7 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 
 # Current state
 
-Confirmed locally. Ready for required review of the snapshot; live GHA `oci` smoke remains the unverified path until CI runs after push.
+Confirmed locally. Overlay `pull_policy: never` applies only to API/SPA; app-tier `up` no longer uses `--pull never`, so nginx can pull on a clean runner.
 
 # Decisions
 
@@ -53,10 +53,10 @@ Confirmed locally. Ready for required review of the snapshot; live GHA `oci` smo
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| AuthenticatedBrowserProfileTests | pass | 17/17 after overlay, profile, workflow, and Playwright-deps assertions |
+| Live GHA `oci` OIDC smoke (#456) | fail | `--pull never` on nginx; overlay-only never-pull is the correction |
+| AuthenticatedBrowserProfileTests | pass | 17/17, including DoesNotContain `--pull never` |
 | `python3.12 scripts/test_authenticated_browser_compose.py` | pass | validator negatives ok |
-| `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pass | static complete (~3.6s) |
-| Live GHA `oci` OIDC smoke | pending | not runnable here; needs push to Implementation |
+| `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pass | static complete |
 
 # Blockers
 
