@@ -244,7 +244,7 @@ deploy them.
 ## CI
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
-- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`) on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
+- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`) on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh)). Pull-request updates cancel superseded Implementation runs; pushes to `main` do not, so a later docs-only commit cannot cancel an implementation SHA and then report green with every gate skipped.
 - [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](workspace.md))
 
 ## Gate coverage

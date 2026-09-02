@@ -62,7 +62,8 @@ When the project adopts additional concrete processes—such as feature discover
 - Isolated browser contexts prevent state leaking between QA sessions.
 - Screenshots, logs, and other artifacts are written to `.playwright-mcp/`.
 - Omit custom screenshot filenames with the pinned MCP version so files cannot bypass the configured output directory.
-- Only inspected PNG screenshots produced with synthetic accounts and data may be committed for external review.
+- Screenshots are required during UI work. Committing inspected synthetic PNGs is optional and only for reviews that need Git-inspectable images.
+- Do not cite `.playwright-mcp/*.png` in `.work/` or other Git-tracked records unless those files are present in the tree.
 - Accessibility snapshots, logs, traces, and browser state must remain untracked.
 - Use synthetic accounts and data; browser artifacts must not contain real participant data or secrets.
 

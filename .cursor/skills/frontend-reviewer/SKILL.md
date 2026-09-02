@@ -48,7 +48,7 @@ security, specification, or screenshot-evaluation failures.
 [Blocker|High|Medium|Low|Polish] <title>
 - Location: <path:line or route/state>
 - Spec/heuristic: <ID or principle>
-- Evidence: <repro + .playwright-mcp screenshot path>
+- Evidence: <repro + Git-tracked `.playwright-mcp/*.png` only when that file is in the tree; otherwise durable tests and “local MCP screenshot, not committed”>
 - Impact: <user consequence>
 - Recommendation: <specific direction>
 ```

@@ -153,3 +153,8 @@ Completion requires evidence, not checklist theater:
 - after that review and promotion, delete the task file
 
 Do not claim completion merely because checklist items were manually marked complete.
+
+The `# Verification` table may cite Git-tracked tests, commands, and committed
+files. Do not list `.playwright-mcp/*.png` paths unless those files are present
+in the tree. Local MCP screenshots remain required for UI work; when they are
+not committed, say so and name the durable test instead.

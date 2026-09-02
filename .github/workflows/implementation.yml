@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: implementation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PRs may cancel superseded runs. Push to main must not: a later docs-only
+  # commit would cancel an implementation SHA and then skip every gate.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:

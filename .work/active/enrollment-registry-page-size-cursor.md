@@ -52,7 +52,7 @@ Registry page-size change now matches the Assign picker: render-time waiting, cu
 | --- | --- | --- |
 | Red: Next still enabled after 16→32 with deferred first page | pass | vitest fail `toBeDisabled()` |
 | Green: `ProductionEnrollmentPage` tests | pass | 17 passed |
-| Browser: 16 then 32 first page, Next disabled when complete | pass | `.playwright-mcp/page-2026-09-02T13-23-07-290Z.png`, `13-23-34-783Z.png`, narrow footer `13-24-32-320Z.png` |
+| Browser: 16 then 32 first page, Next disabled when the new page is complete | pass | Local MCP screenshots (not committed). Durable race: `ProductionEnrollmentPage` “does not reuse the previous cursor while a new Participants page size is pending” |
 
 # Blockers
 

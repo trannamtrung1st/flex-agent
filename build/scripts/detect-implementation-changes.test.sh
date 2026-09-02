@@ -27,6 +27,7 @@ assert_no_match() {
   failures=$((failures + 1))
 }
 
+assert_matches .github/workflows/implementation.yml
 assert_matches gitleaks.toml
 assert_matches .gitleaksignore
 assert_matches build/scripts/verify-supply-chain.sh
