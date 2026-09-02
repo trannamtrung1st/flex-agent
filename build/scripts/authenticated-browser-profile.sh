@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Cold CI runners pull Keycloak/Postgres over the Docker API. Compose's default
+# 60s HTTP timeout aborts that pull and fails OIDC live smoke around one minute.
+export COMPOSE_HTTP_TIMEOUT="${COMPOSE_HTTP_TIMEOUT:-300}"
+export DOCKER_CLIENT_TIMEOUT="${DOCKER_CLIENT_TIMEOUT:-300}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT}/deploy/compose/authenticated-browser.compose.yaml"
 PREBUILT_IMAGES_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.prebuilt-images.compose.yaml"
@@ -63,6 +68,58 @@ demo_work_enabled() {
 
 run_compose() {
   docker compose $(compose_files) "$@"
+}
+
+docker_hub_mirror_ref() {
+  local image="$1"
+  case "${image}" in
+    quay.io/*|mcr.microsoft.com/*|mirror.gcr.io/*|ghcr.io/*)
+      return 1
+      ;;
+    */*)
+      printf 'mirror.gcr.io/%s\n' "${image}"
+      ;;
+    *)
+      printf 'mirror.gcr.io/library/%s\n' "${image}"
+      ;;
+  esac
+}
+
+pull_image() {
+  local image="$1"
+  local attempt=1
+  local mirror=""
+  local pull_timeout="${FLEXAGENT_DOCKER_PULL_TIMEOUT:-120}"
+  while [[ "${attempt}" -le 2 ]]; do
+    if DOCKER_CLIENT_TIMEOUT="${pull_timeout}" docker pull "${image}"; then
+      return 0
+    fi
+    echo "pull failed for ${image} (attempt ${attempt})" >&2
+    attempt=$((attempt + 1))
+    sleep $((attempt * 2))
+  done
+  if mirror="$(docker_hub_mirror_ref "${image}")"; then
+    echo "retrying ${image} via ${mirror}" >&2
+    if DOCKER_CLIENT_TIMEOUT="${pull_timeout}" docker pull "${mirror}"; then
+      docker tag "${mirror}" "${image%%@sha256:*}"
+      return 0
+    fi
+  fi
+  echo "unable to pull ${image}" >&2
+  return 1
+}
+
+ensure_pinned_images() {
+  local image
+  while read -r image; do
+    [[ -n "${image}" ]] || continue
+    [[ "${image}" == *@sha256:* ]] || continue
+    if docker image inspect "${image}" >/dev/null 2>&1; then
+      continue
+    fi
+    echo "==> Pull ${image}"
+    pull_image "${image}"
+  done < <(run_compose config --images | awk 'NF && !seen[$0]++')
 }
 
 ensure_generated_fixtures() {
@@ -179,9 +236,10 @@ wait_postgres_healthy() {
   local attempts=0
   until run_compose exec -T postgres pg_isready -U flexagent -d flexagent >/dev/null 2>&1; do
     attempts=$((attempts + 1))
-    if [[ "${attempts}" -ge 60 ]]; then
+    if [[ "${attempts}" -ge 90 ]]; then
       echo "timed out waiting for postgres" >&2
       run_compose ps >&2 || true
+      run_compose logs --tail=80 postgres >&2 || true
       exit 1
     fi
     sleep 1
@@ -191,7 +249,13 @@ wait_postgres_healthy() {
 up_smoke() {
   cleanup_generated
   validate
-  compose_up postgres keycloak-db seaweedfs keycloak
+  ensure_pinned_images
+  if ! compose_up postgres keycloak-db seaweedfs keycloak; then
+    echo "infra tier failed" >&2
+    run_compose ps >&2 || true
+    run_compose logs --tail=80 postgres keycloak-db keycloak seaweedfs >&2 || true
+    exit 1
+  fi
   wait_postgres_healthy
   run_compose run --rm --no-deps migrate
   run_compose run --rm --no-deps seed
@@ -211,6 +275,7 @@ up_smoke() {
 up() {
   cleanup_generated
   validate
+  ensure_pinned_images
   compose_up
   wait_ready
   echo "${ORIGIN}"

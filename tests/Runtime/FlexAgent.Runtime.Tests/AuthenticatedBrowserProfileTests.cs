@@ -282,6 +282,25 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
+    public void Smoke_profile_raises_daemon_timeouts_and_prepulls_digest_pinned_images()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "authenticated-browser-profile.sh"));
+
+        Assert.Contains("COMPOSE_HTTP_TIMEOUT", script);
+        Assert.Contains("DOCKER_CLIENT_TIMEOUT", script);
+        Assert.Contains("FLEXAGENT_DOCKER_PULL_TIMEOUT", script);
+        Assert.Contains("config --images", script);
+        Assert.Contains("mirror.gcr.io", script);
+        Assert.Contains("@sha256:", script);
+        Assert.Contains("infra tier failed", script);
+        Assert.Contains("ensure_pinned_images", script);
+    }
+
+    [Fact]
     public void Oidc_ci_script_installs_playwright_with_os_deps_in_ci()
     {
         var script = File.ReadAllText(Path.Combine(
@@ -306,6 +325,8 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("provenance: false", workflow);
         Assert.Contains("VITE_API_MODE=production", workflow);
         Assert.Contains("docker run --rm --entrypoint /bin/true", workflow);
+        Assert.Contains("COMPOSE_HTTP_TIMEOUT", workflow);
+        Assert.Contains("DOCKER_CLIENT_TIMEOUT", workflow);
         Assert.DoesNotContain("platforms: linux/amd64", workflow);
     }
 
