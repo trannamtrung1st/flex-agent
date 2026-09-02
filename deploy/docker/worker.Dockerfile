@@ -11,6 +11,9 @@ COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Ses
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/
 COPY src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/ src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/
 COPY src/Modules/Sessions/FlexAgent.Sessions.OpenRouter/ src/Modules/Sessions/FlexAgent.Sessions.OpenRouter/
+COPY src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/ src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/
+COPY src/Modules/Submissions/FlexAgent.Submissions/ src/Modules/Submissions/FlexAgent.Submissions/
+COPY src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/ src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/
 COPY src/Hosts/FlexAgent.Worker/ src/Hosts/FlexAgent.Worker/
 COPY contracts/schemas/v1/common/primitives.v1.schema.json contracts/schemas/v1/common/primitives.v1.schema.json
 COPY contracts/schemas/v2/session/agent-decision.v2.schema.json contracts/schemas/v2/session/agent-decision.v2.schema.json

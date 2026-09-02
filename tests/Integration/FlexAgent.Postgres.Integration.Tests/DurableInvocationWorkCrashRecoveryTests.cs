@@ -609,7 +609,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         var stalledGateway = new FaultInjectingSessionGateway(
             new PostgresInvocationWorkSessionGateway(
                 Fixture.Services.ConnectionAccessor,
-                new PostgresSessionRuntimeRepository(),
+                SessionPersistenceFixtures.RuntimeRepository(),
                 bindingSource,
                 settings,
                 authorizationKernel: (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
@@ -712,7 +712,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     private PostgresPublishAgentResponseCoordinator CreatePublicationPersist() =>
         new(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new PublishAgentResponseFragmentHandler());
 
     private PostgresModelProviderAttemptProvenanceWriter CreateAdmission(PreparedWork prepared)
@@ -744,7 +744,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             prepared.Select(item => item.Binding.Ownership.OrganizationId).ToArray());
         return new PostgresInvocationWorkSessionGateway(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             bindingSource,
             settings,
             authorizationKernel: authorize
@@ -759,7 +759,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
             repository,
@@ -800,7 +800,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
         var delegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
             Fixture,
@@ -1020,7 +1020,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var delegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
             Fixture,
             organization,
@@ -1055,7 +1055,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         await using var loadScope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken);
-        var loaded = await new PostgresSessionRuntimeRepository().LoadForUpdateAsync(
+        var loaded = await SessionPersistenceFixtures.RuntimeRepository().LoadForUpdateAsync(
             prepared.Binding.Ownership,
             prepared.Binding,
             loadScope.Transaction,

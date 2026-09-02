@@ -422,7 +422,8 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
               AND COALESCE(ref->>'sourceKey', ref->>'source_key') IN ('workflow', 'organization_policy')
             """;
         const string setSql = """
-            SELECT source_id AS SourceId, source_version_id AS SourceVersionId, source_content_digest AS ContentDigest
+            SELECT source_id AS SourceId, source_version_id AS SourceVersionId,
+                   source_content_digest AS ContentDigest, notice_count AS NoticeCount
             FROM configuration_participant_notice_projection_sets
             WHERE organization_id = @OrganizationId
               AND source_version_id = ANY(@SourceVersionIds)
@@ -430,7 +431,8 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
         const string noticeSql = """
             SELECT notice_id AS NoticeId, notice_type AS NoticeType, required_outcome AS RequiredOutcome,
                    protected_content_ref AS ProtectedContentRef, source_version_id AS SourceVersionId,
-                   content_digest AS ContentDigest, source_id AS SourceId
+                   content_digest AS ContentDigest, source_id AS SourceId,
+                   source_content_digest AS SourceContentDigest
             FROM configuration_participant_notice_projections
             WHERE organization_id = @OrganizationId
               AND source_version_id = ANY(@SourceVersionIds)
@@ -459,7 +461,7 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
                 }
 
                 var versionIds = frozen.Select(item => item.SourceVersionId).ToArray();
-                var registered = (await connection.QueryAsync<FrozenNoticeSource>(
+                var registered = (await connection.QueryAsync<FrozenNoticeSet>(
                     new CommandDefinition(
                         setSql,
                         new
@@ -477,13 +479,34 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
                     return null;
                 }
 
-                var rows = await connection.QueryAsync<RequiredNoticeProjection>(
+                var rows = (await connection.QueryAsync<NoticeProjectionRow>(
                     new CommandDefinition(
                         noticeSql,
                         new { OrganizationId = organizationId, SourceVersionIds = versionIds },
                         dbTransaction,
-                        cancellationToken: cancellationToken));
-                return rows.ToArray();
+                        cancellationToken: cancellationToken))).ToArray();
+                foreach (var set in registered)
+                {
+                    var matching = rows.Where(row => row.SourceVersionId == set.SourceVersionId).ToArray();
+                    if (matching.Length != set.NoticeCount
+                        || matching.Any(row =>
+                            row.SourceId != set.SourceId
+                            || !string.Equals(row.SourceContentDigest, set.ContentDigest, StringComparison.Ordinal)))
+                    {
+                        return null;
+                    }
+                }
+
+                return rows
+                    .Select(row => new RequiredNoticeProjection(
+                        row.NoticeId,
+                        row.NoticeType,
+                        row.RequiredOutcome,
+                        row.ProtectedContentRef,
+                        row.SourceVersionId,
+                        row.ContentDigest,
+                        row.SourceId))
+                    .ToArray();
             }
             finally
             {
@@ -514,4 +537,20 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
     }
 
     private sealed record FrozenNoticeSource(Guid SourceId, Guid SourceVersionId, string ContentDigest);
+
+    private sealed record FrozenNoticeSet(
+        Guid SourceId,
+        Guid SourceVersionId,
+        string ContentDigest,
+        int NoticeCount);
+
+    private sealed record NoticeProjectionRow(
+        Guid NoticeId,
+        string NoticeType,
+        string RequiredOutcome,
+        string ProtectedContentRef,
+        Guid SourceVersionId,
+        string ContentDigest,
+        Guid SourceId,
+        string SourceContentDigest);
 }

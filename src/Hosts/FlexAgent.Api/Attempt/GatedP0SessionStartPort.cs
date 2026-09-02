@@ -41,18 +41,26 @@ public sealed class GatedP0SessionStartPort(
             request.Scope.ParticipantActorId,
             request.AttemptId,
             request.SessionId);
-        var sources = await TryLoadFrozenBaselineSourcesAsync(
+        IReadOnlyList<ResolvedSourceReference> baselineSources;
+        IReadOnlyList<ResolvedSourceReference> revalidatedSources;
+        var loaded = await TryLoadFrozenAndRevalidatedSourcesAsync(
                 request.Scope,
                 npgsql,
                 cancellationToken);
-        if (sources is null)
+        if (loaded is null)
         {
             if (npgsql is not null)
             {
                 return new SessionStartCommitResult(false, AttemptFailureCodes.Unavailable, null, null);
             }
 
-            sources = RequiredDevelopmentSources(request.Scope.BaselineId);
+            baselineSources = RequiredDevelopmentSources(request.Scope.BaselineId);
+            revalidatedSources = baselineSources;
+        }
+        else
+        {
+            baselineSources = loaded.Value.Baseline;
+            revalidatedSources = loaded.Value.Revalidated;
         }
         var submissionRefs = request.SubmissionBindings
             .Where(binding => binding.ContentDigest.Length == 64)
@@ -71,8 +79,8 @@ public sealed class GatedP0SessionStartPort(
                 request.ConfigurationId,
                 request.ManifestId,
                 ownership,
-                sources,
-                sources,
+                baselineSources,
+                revalidatedSources,
                 policy,
                 model,
                 submissionRefs,
@@ -243,7 +251,9 @@ public sealed class GatedP0SessionStartPort(
         "capability",
     ];
 
-    private static async Task<IReadOnlyList<ResolvedSourceReference>?> TryLoadFrozenBaselineSourcesAsync(
+    private static async Task<(
+            IReadOnlyList<ResolvedSourceReference> Baseline,
+            IReadOnlyList<ResolvedSourceReference> Revalidated)?> TryLoadFrozenAndRevalidatedSourcesAsync(
         SubmissionParentScope scope,
         NpgsqlTransaction? transaction,
         CancellationToken cancellationToken)
@@ -283,7 +293,7 @@ public sealed class GatedP0SessionStartPort(
             return null;
         }
 
-        return rows
+        var baseline = rows
             .Where(row => row.SourceKey.Length > 0 && row.ContentDigest.Length == 64)
             .Select(row => new ResolvedSourceReference(
                 row.SourceKey,
@@ -291,10 +301,52 @@ public sealed class GatedP0SessionStartPort(
                 row.SourceVersionId,
                 row.ContentDigest))
             .ToArray();
+        var versionIds = baseline.Select(item => item.SourceVersionId).Distinct().ToArray();
+        var registered = (await connection.QueryAsync<RegisteredVersionRow>(
+            new CommandDefinition(
+                """
+                SELECT
+                    configuration_source_id AS SourceId,
+                    id AS SourceVersionId,
+                    content_digest AS ContentDigest
+                FROM configuration_source_versions
+                WHERE organization_id = @OrganizationId
+                  AND id = ANY(@VersionIds)
+                """,
+                new
+                {
+                    scope.OrganizationId,
+                    VersionIds = versionIds,
+                },
+                transaction,
+                cancellationToken: cancellationToken))).ToArray();
+        var revalidated = new List<ResolvedSourceReference>(baseline.Length);
+        foreach (var frozen in baseline)
+        {
+            var live = registered.FirstOrDefault(item =>
+                item.SourceId == frozen.SourceId && item.SourceVersionId == frozen.SourceVersionId);
+            if (live is null)
+            {
+                return null;
+            }
+
+            revalidated.Add(new ResolvedSourceReference(
+                frozen.SourceKey,
+                live.SourceId,
+                live.SourceVersionId,
+                live.ContentDigest));
+        }
+
+        return (baseline, revalidated);
     }
 
     private sealed record FrozenSourceRow(
         string SourceKey,
+        Guid SourceId,
+        Guid SourceVersionId,
+        string ContentDigest);
+
+    private sealed record RegisteredVersionRow(
         Guid SourceId,
         Guid SourceVersionId,
         string ContentDigest);

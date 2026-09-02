@@ -1348,6 +1348,32 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Equal(noticeId, notice.NoticeId);
         Assert.Equal(AssessmentDevelopmentSources.Workflow.VersionId, notice.SourceVersionId);
         Assert.DoesNotContain(listed!, item => item.NoticeId == strayNoticeId);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO configuration_participant_notice_projections (
+                organization_id, source_id, source_version_id, notice_id, notice_type, required_outcome,
+                protected_content_ref, content_digest, source_content_digest, created_at)
+            VALUES (
+                @OrganizationId, @WorkflowSourceId, @WorkflowVersionId, @ExtraNoticeId, 'consent', 'affirmed',
+                'notice:extra', @Digest, @WorkflowDigest, CLOCK_TIMESTAMP())
+            """,
+            new
+            {
+                OrganizationId = harness.OrganizationId,
+                WorkflowSourceId = AssessmentDevelopmentSources.Workflow.SourceId,
+                WorkflowVersionId = AssessmentDevelopmentSources.Workflow.VersionId,
+                WorkflowDigest = AssessmentDevelopmentSources.Workflow.ContentDigest,
+                ExtraNoticeId = Guid.CreateVersion7(),
+                Digest = digest,
+            });
+        Assert.Null(await port.ListRequiredAsync(
+            harness.OrganizationId,
+            enrollment.ActivityId,
+            enrollment.CohortId,
+            enrollment.BaselineId,
+            null,
+            CancellationToken));
     }
 
     private async Task<EnrollmentHarness> SeedActivatedAsync()

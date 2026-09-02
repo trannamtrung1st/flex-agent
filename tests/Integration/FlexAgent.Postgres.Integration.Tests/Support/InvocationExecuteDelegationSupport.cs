@@ -41,7 +41,7 @@ internal static class InvocationExecuteDelegationSupport
             organization.OrganizationId,
             organization.ActorId,
             AuthorizationActions.IssueServiceDelegation);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var issue = CreateIssue(organization, serviceActorId ?? organization.ActorId, DateTimeOffset.UtcNow);
         await using var scope = await PostgresTransactionScope.BeginAsync(
             fixture.Services.ConnectionAccessor,

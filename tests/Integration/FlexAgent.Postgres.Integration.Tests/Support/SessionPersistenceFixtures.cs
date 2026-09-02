@@ -1,9 +1,15 @@
+using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
+using FlexAgent.Sessions.Infrastructure;
 
 namespace FlexAgent.Postgres.Integration.Tests.Support;
 
 internal static class SessionPersistenceFixtures
 {
+    internal static PostgresSessionRuntimeRepository RuntimeRepository(
+        ISessionAttemptTerminalSink? sink = null) =>
+        new(sink ?? IgnoringSessionAttemptTerminalSink.Instance);
+
     internal static FrozenTextSessionRuntimePolicy ResolveEnabledTimerPolicy(
         int cooldownSeconds = 5,
         int maxTimerTriggeredInvocations = 8)

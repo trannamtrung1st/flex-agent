@@ -577,7 +577,7 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         await using (var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,

@@ -15,7 +15,7 @@ public sealed class SessionActorRelationshipStoreTests(PostgresIntegrationFixtur
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         var store = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
 
@@ -52,7 +52,7 @@ public sealed class SessionActorRelationshipStoreTests(PostgresIntegrationFixtur
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         var store = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
 
@@ -91,7 +91,7 @@ public sealed class SessionActorRelationshipStoreTests(PostgresIntegrationFixtur
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         var store = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
 
@@ -140,7 +140,7 @@ public sealed class SessionActorRelationshipStoreTests(PostgresIntegrationFixtur
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         var store = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
 
@@ -183,7 +183,7 @@ public sealed class SessionActorRelationshipStoreTests(PostgresIntegrationFixtur
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
         var store = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
         var reviewerId = Guid.NewGuid();

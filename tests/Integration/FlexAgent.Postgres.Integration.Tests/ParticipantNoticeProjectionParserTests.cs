@@ -7,6 +7,14 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class ParticipantNoticeProjectionParserTests
 {
     [Fact]
+    public void Missing_participant_notices_still_requires_the_declared_digest()
+    {
+        var (utf8, _) = Canonical("""{"schema_version":"v1"}""");
+        Assert.False(ParticipantNoticeProjectionParser.TryParse(utf8, new string('a', 64), out _, out var failure));
+        Assert.Equal(ParticipantNoticeProjectionCodes.DigestMismatch, failure);
+    }
+
+    [Fact]
     public void Missing_participant_notices_is_an_empty_verified_set()
     {
         var (utf8, digest) = Canonical("""{"schema_version":"v1"}""");

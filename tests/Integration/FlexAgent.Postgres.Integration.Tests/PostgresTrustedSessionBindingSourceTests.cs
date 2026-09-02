@@ -49,7 +49,7 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
             cooldownSeconds: 0,
             configurationDigest: configurationDigest);
         Assert.NotEqual(binding.Policy.PolicyDigest, binding.ConfigurationDigest);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         await using (var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken))
@@ -129,7 +129,7 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         await using var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken);

@@ -84,7 +84,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
 
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
@@ -415,7 +415,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             await CreateStoreAsync(),
             new PostgresInvocationWorkSessionGateway(
                 Fixture.Services.ConnectionAccessor,
-                new PostgresSessionRuntimeRepository(),
+                SessionPersistenceFixtures.RuntimeRepository(),
                 bindingSource,
                 settings),
             adapter,
@@ -432,7 +432,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         await using var loadScope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken);
-        var loaded = await new PostgresSessionRuntimeRepository().LoadForUpdateAsync(
+        var loaded = await SessionPersistenceFixtures.RuntimeRepository().LoadForUpdateAsync(
             prepared.Binding.Ownership,
             prepared.Binding,
             loadScope.Transaction,
@@ -449,7 +449,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var workerActorId = await WorkerActorIdAsync();
         await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
             Fixture,
@@ -651,7 +651,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             await WorkerActorIdAsync());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
 
         var admitted = await coordinator.AdmitAsync(
@@ -683,7 +683,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             await WorkerActorIdAsync());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
 
         var admitted = await coordinator.AdmitAsync(

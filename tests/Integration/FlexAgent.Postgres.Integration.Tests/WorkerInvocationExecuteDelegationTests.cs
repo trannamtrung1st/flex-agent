@@ -269,7 +269,7 @@ public sealed class WorkerInvocationExecuteDelegationTests(PostgresIntegrationFi
             workerActorId);
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
@@ -352,7 +352,7 @@ public sealed class WorkerInvocationExecuteDelegationTests(PostgresIntegrationFi
             workerActorId);
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new AdmitTrustedTriggerHandler());
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
@@ -436,7 +436,7 @@ public sealed class WorkerInvocationExecuteDelegationTests(PostgresIntegrationFi
             65_536);
         var gateway = new PostgresInvocationWorkSessionGateway(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             bindingSource,
             settings,
             authorizationKernel: (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,

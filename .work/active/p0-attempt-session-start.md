@@ -333,34 +333,13 @@ behavior.
 
 # Current state
 
-In progress after independent reviews (2026-09-02). This continuation added
-remaining HTTP negatives, a Postgres same-key advisory lock proof, and
-Playwright on canonical `:18080` (light theme, narrow Continue Attempt, 400%
-zoom cramped, keyboard focus on Continue Attempt). Hosted live Session remains
-an honest unavailable route.
+In progress after post-commit review of `1417072` (2026-09-02). Addressing
+Implementation CI NU1004/ESLint, commit-time source revalidation against
+`configuration_source_versions`, notice-set row-count integrity, parser digest
+before empty-set success, and a mandatory Session Attempt-mapping sink.
 
-Review findings addressed in this pass:
-
-- Development Session commit no longer substitutes hashed synthetic sources
-  when a PostgreSQL commit transaction cannot load a complete frozen baseline.
-- Acknowledgment bind UPDATE is organization-scoped via the Enrollment row.
-- Missing Attempt rows fail terminal mapping instead of no-op.
-- API/Worker compose the Session repository with a required terminal sink.
-- My Work maps HTTP 4xx start/ack/reconcile `outcome_code` as Attempt did not
-  start (clears occupied state). 5xx still uses uncertain reconciling.
-
-Still open from reviews (do not treat as done): confirmation dialog facts,
-notice save/fail UI, Attempt history and blocked-readiness copy, 409-era
-full `pnpm verify:web` / `dotnet test`, Worker in Compose, Production qualified
-model path, timing re-read off-transaction, notice digest vs protected bytes.
-
-The production Session route still honestly reports its host contract as unavailable.
-
-Confirmation pass 2026-09-02: focused coordinator 12, mapping 3, mapping
-persistence 2, HTTP negatives 14, My Work detail vitest 8, Compose
-`session-endpoint:ok`. Live Attempt still Active conflict with locator and
-Continue Attempt. Full `dotnet test` / `pnpm verify:web` still not rerun.
-SPA image on `:18080` remains older than `web/` source.
+Still open: confirmation dialog facts, default Begin intake while an Attempt is
+in progress, hosted live Session, Production qualified model, Worker in Compose.
 
 # Decisions
 
@@ -423,12 +402,16 @@ SPA image on `:18080` remains older than `web/` source.
   accepted-version reads under the commit transaction, notice projection sets
   (`0067`), and Session-to-Attempt terminal mapping now exist. Remaining High
   gaps are participant UX (confirmation facts, default phase while an Attempt
-  is in progress), resolver revalidation that currently compares frozen
-  baseline sources to themselves, Production qualified model/path, Compose
-  without Worker, and hosted live Session (successor task).
+  is in progress), Production qualified model/path, Compose without Worker,
+  and hosted live Session (successor task).
 - Existing Session persistence is reachable through a supplied PostgreSQL
-  transaction. Production API/Worker inject `ISessionAttemptTerminalSink`;
-  repository constructors without a sink still skip mapping (test-host drift).
+  transaction. `PostgresSessionRuntimeRepository` requires
+  `ISessionAttemptTerminalSink`; Session integration tests pass
+  `IgnoringSessionAttemptTerminalSink`.
+- PostgreSQL Development start loads frozen baseline sources and revalidated
+  `configuration_source_versions` rows under the same commit transaction.
+  Digest drift fails closed. In-memory Testing without a PostgreSQL
+  transaction still uses matching synthetic lists.
 - Exact-version adapters now require the commit transaction
   (`PostgresCommitTransaction.Required`). Keep regression coverage; do not
   restore a transaction-ignoring reader.
@@ -467,14 +450,14 @@ the plan.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Focused Submissions domain/application tests | passed | 2026-09-02: AttemptStartCoordinatorTests + mapping port 3 passed after missing-attempt fail-closed |
-| PostgreSQL migration/integration/fault tests | passed (partial) | 2026-09-02: AttemptStartPersistenceTests 6 passed (Production refuse, incomplete baseline fail-closed, frozen sources, advisory lock, digest share). Terminal mapping + ack bind tests passed. |
-| Runtime HTTP negative-contract tests | passed (partial) | 2026-09-02: AttemptHttpNegativeContractTests 14 passed (discover denial, foreign participant, admin-on-other, stale notice version, audit 503) |
-| Web unit/component tests | passed (partial) | 2026-09-02: ProductionMyWorkDetailPage 8 passed including HTTP 409 start refusal |
-| `pnpm verify:web` | pending | Full frontend regression/build/design-lab evidence not rerun |
-| Proportionate `.NET` solution/build/test gates | pending | Focused suites only; full `dotnet test` not run |
-| `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Canonical `:18080`. Light+narrow Continue Attempt. 400% zoom cramped. Keyboard focus on Continue Attempt. Session route unavailable. Confirm/cancel/notices not re-run (enrollment already started; empty notice receipts). Candidate `:5274` unused. |
-| Independent backend/frontend/security/QA review | recorded | 2026-09-02 distinct reviews. Blocker 409 and High synthetic-source fallback fixed after review. Remaining High UX items still open. |
+| Focused Submissions domain/application tests | passed | AttemptStartCoordinatorTests + mapping port previously green; included in full .NET 1812 |
+| PostgreSQL migration/integration/fault tests | passed | 2026-09-02: AttemptStartPersistenceTests 7 (includes registered digest drift). Notice list count mismatch fail-closed. Parser digest-before-empty. Mapping persistence 2. Full Postgres.Integration in verify-dotnet. |
+| Runtime HTTP negative-contract tests | passed | Included in `CI=true bash build/scripts/verify-dotnet.sh` |
+| Web unit/component tests | passed | `verify-web`: 622 production + 206 design-lab vitest |
+| `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
+| Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
+| `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Unchanged UI except unused-import/typecast; no new Playwright this pass |
+| Independent backend/frontend/security/QA review | recorded | Post-`1417072` items 1–5 addressed in this pass |
 
 # Blockers
 
@@ -502,8 +485,8 @@ product decision. Implementation must preserve these entry gates:
 # Completion
 
 - [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review

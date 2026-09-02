@@ -51,6 +51,15 @@ public static class ParticipantNoticeProjectionParser
                 return false;
             }
 
+            var recomputed = CanonicalJsonProcessor.CanonicalizeSha256Hex(
+                canonicalUtf8.Span,
+                new CanonicalJsonLimits(65_536, 64, 4_096, 4_096));
+            if (!string.Equals(recomputed, declaredSourceDigest, StringComparison.Ordinal))
+            {
+                failureCode = ParticipantNoticeProjectionCodes.DigestMismatch;
+                return false;
+            }
+
             if (!document.RootElement.TryGetProperty("participant_notices", out var array)
                 || array.ValueKind == JsonValueKind.Null)
             {
@@ -73,15 +82,6 @@ public static class ParticipantNoticeProjectionParser
                 }
 
                 parsed.Add(notice);
-            }
-
-            var recomputed = CanonicalJsonProcessor.CanonicalizeSha256Hex(
-                canonicalUtf8.Span,
-                new CanonicalJsonLimits(65_536, 64, 4_096, 4_096));
-            if (!string.Equals(recomputed, declaredSourceDigest, StringComparison.Ordinal))
-            {
-                failureCode = ParticipantNoticeProjectionCodes.DigestMismatch;
-                return false;
             }
 
             notices = parsed;

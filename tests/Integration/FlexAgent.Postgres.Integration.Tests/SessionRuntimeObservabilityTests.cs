@@ -22,7 +22,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
         {
             var organization = await Fixture.SeedOrganizationAsync($"-p95-{index}");
             var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-            var repository = new PostgresSessionRuntimeRepository();
+            var repository = SessionPersistenceFixtures.RuntimeRepository();
             var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
                 Fixture.Services.ConnectionAccessor,
                 repository,
@@ -67,7 +67,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
         {
             var organization = await Fixture.SeedOrganizationAsync($"-replay-{index}");
             var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-            var repository = new PostgresSessionRuntimeRepository();
+            var repository = SessionPersistenceFixtures.RuntimeRepository();
             var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
             await using (var scope = await PostgresTransactionScope.BeginAsync(
                 Fixture.Services.ConnectionAccessor,
@@ -87,7 +87,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
 
         var coordinator = new PostgresReplayAuthorizedSessionEventsCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             new ReplayAuthorizedSessionEventsHandler());
         foreach (var item in prepared)
         {
@@ -108,7 +108,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
     {
         var organization = await Fixture.SeedOrganizationAsync("-obs-audit");
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var telemetry = new SessionRuntimeTelemetry(sink);
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
@@ -156,7 +156,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
     {
         var organization = await Fixture.SeedOrganizationAsync("-obs-recover");
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var telemetry = new SessionRuntimeTelemetry(sink);
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
@@ -214,7 +214,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
     {
         var organization = await Fixture.SeedOrganizationAsync("-obs-throw-sink");
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
@@ -264,7 +264,7 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
     {
         var organization = await Fixture.SeedOrganizationAsync("-obs-throw-audit");
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,

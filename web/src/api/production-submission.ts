@@ -6,8 +6,6 @@ import type {
   MyWorkAttemptReadinessV2,
   MyWorkSubmissionV2,
   ProtectedItemPreviewV2,
-  AcknowledgmentMutationOutcomeV2,
-  StartAttemptOutcomeV2,
 } from "../contracts/v2";
 import { ProductionApiError } from "./production-api";
 import { isEnrollmentAccessLoss } from "./production-enrollment";
@@ -183,12 +181,9 @@ async function readAttemptMutation<T extends { succeeded: boolean; outcome_code:
 
     if (error instanceof ProductionApiError && error.outcomeCode && error.status < 500) {
       return {
-        schema_version: "v2",
         succeeded: false,
         outcome_code: error.outcomeCode,
-        remaining_entitlement: 0,
-        permitted_actions: [],
-      } as T;
+      } as unknown as T;
     }
 
     throw error;

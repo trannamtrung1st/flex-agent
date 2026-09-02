@@ -8,7 +8,7 @@ using Npgsql;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
-public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink? attemptTerminalSink = null)
+public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink attemptTerminalSink)
 {
     internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
     internal static Func<Task>? AfterPersistenceBeforeDelegationReauthAsync { get; set; }
@@ -1921,8 +1921,7 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
                     },
                     transaction,
                     cancellationToken: cancellationToken));
-            if (attemptTerminalSink is not null
-                && terminal.AttemptMapping is { Length: > 0 } mapping)
+            if (terminal.AttemptMapping is { Length: > 0 } mapping)
             {
                 await attemptTerminalSink.MapAsync(
                     ownership.OrganizationId,

@@ -115,7 +115,7 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
         var actor = harness.ParticipantActor;
         var port = new FlexAgent.Api.GatedP0SessionStartPort(
             new DevelopmentHostEnvironment(),
-            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+            SessionPersistenceFixtures.RuntimeRepository());
         var scope = new SubmissionParentScope(
             harness.OrganizationId,
             harness.ActivityId,
@@ -207,7 +207,7 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
             Guid.CreateVersion7());
         var port = new FlexAgent.Api.GatedP0SessionStartPort(
             new DevelopmentHostEnvironment { EnvironmentName = Microsoft.Extensions.Hosting.Environments.Production },
-            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+            SessionPersistenceFixtures.RuntimeRepository());
         var scope = new SubmissionParentScope(
             seeded.OrganizationId,
             Guid.CreateVersion7(),
@@ -261,7 +261,7 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
             Guid.CreateVersion7());
         var port = new FlexAgent.Api.GatedP0SessionStartPort(
             new DevelopmentHostEnvironment(),
-            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+            SessionPersistenceFixtures.RuntimeRepository());
         var scope = new SubmissionParentScope(
             seeded.OrganizationId,
             Guid.CreateVersion7(),
@@ -313,7 +313,7 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
             new AllowEnrollmentSessionPort());
         var port = new FlexAgent.Api.GatedP0SessionStartPort(
             new DevelopmentHostEnvironment(),
-            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+            SessionPersistenceFixtures.RuntimeRepository());
         var scope = new SubmissionParentScope(
             harness.OrganizationId,
             harness.ActivityId,
@@ -349,6 +349,79 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
         Assert.Contains(AssessmentDevelopmentSources.OrganizationPolicy.SourceId.ToString("D"), canonical, StringComparison.Ordinal);
         Assert.Contains(AssessmentDevelopmentSources.Workflow.SourceId.ToString("D"), canonical, StringComparison.Ordinal);
         Assert.Contains(AssessmentDevelopmentSources.Agent.ContentDigest, canonical, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Development_commit_fails_when_registered_source_digest_drifts()
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var enrollment = await connection.QuerySingleAsync<(Guid BaselineId, Guid TaskSourceId, string TaskDigest)>(
+            """
+            SELECT baseline_id, task_source_id, task_content_digest
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, harness.EnrollmentId });
+        var driftedBaselineId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO assessment_activation_baselines (
+                organization_id, activity_id, baseline_id, content_digest, procedure_id,
+                schema_version, canonicalization_version, document, created_at,
+                actor_id, correlation_id)
+            SELECT organization_id, activity_id, @DriftedBaselineId, content_digest, procedure_id,
+                   schema_version, canonicalization_version,
+                   replace(document::text, @WorkflowDigest, @DriftedDigest)::jsonb,
+                   CLOCK_TIMESTAMP(), actor_id, correlation_id
+            FROM assessment_activation_baselines
+            WHERE organization_id = @OrganizationId AND baseline_id = @BaselineId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                enrollment.BaselineId,
+                DriftedBaselineId = driftedBaselineId,
+                WorkflowDigest = AssessmentDevelopmentSources.Workflow.ContentDigest,
+                DriftedDigest = new string('f', 64),
+            });
+        var connections = Fixture.Services.ConnectionAccessor;
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(
+            connections,
+            new AllowEnrollmentSessionPort());
+        var port = new FlexAgent.Api.GatedP0SessionStartPort(
+            new DevelopmentHostEnvironment(),
+            SessionPersistenceFixtures.RuntimeRepository());
+        var scope = new SubmissionParentScope(
+            harness.OrganizationId,
+            harness.ActivityId,
+            harness.CohortId,
+            driftedBaselineId,
+            harness.EnrollmentId,
+            harness.ParticipantId,
+            enrollment.TaskSourceId,
+            Guid.CreateVersion7(),
+            enrollment.TaskDigest);
+        var request = new SessionStartCommitRequest(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            scope,
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, new string('b', 64))],
+            DateTimeOffset.UtcNow);
+
+        var committed = await unitOfWork.ExecuteAsync(
+            harness.ParticipantActor,
+            transaction => port.CommitActiveAsync(request, transaction.CommitHandle, CancellationToken),
+            CancellationToken);
+
+        Assert.False(committed.Succeeded);
+        Assert.Equal(AttemptFailureCodes.Unavailable, committed.OutcomeCode);
+        var runtimes = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM session_runtimes WHERE organization_id = @OrganizationId",
+            new { harness.OrganizationId });
+        Assert.Equal(0, runtimes);
     }
 
     [Fact]

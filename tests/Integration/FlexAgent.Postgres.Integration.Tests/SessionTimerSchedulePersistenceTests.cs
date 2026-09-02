@@ -277,7 +277,7 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
             CommitKernel());
         var second =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             bindingSource,
             CommitKernel());
         var command = new FireDueTimerCommand(
@@ -615,7 +615,7 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
             organization.OrganizationId,
             cooldownSeconds: 0,
             maxTimerTriggeredInvocations);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         DateTimeOffset startedAt = new(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
         await using (var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,

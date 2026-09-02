@@ -324,7 +324,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         await using var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken);
@@ -374,7 +374,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             organization.ActorId,
             AuthorizationActions.IssueServiceDelegation);
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var delegationId = Guid.NewGuid();
         PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = async () =>
         {
@@ -453,7 +453,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             organization.ActorId,
             AuthorizationActions.IssueServiceDelegation);
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var delegationId = Guid.NewGuid();
         using var canceled = new CancellationTokenSource();
         var kernel = new CancelOnFinalDenyKernel(
@@ -729,7 +729,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         }
 
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var delegationId = Guid.NewGuid();
         var correlationId = Guid.NewGuid();
         await using (var scope = await PostgresTransactionScope.BeginAsync(
@@ -1028,7 +1028,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         IAuditEventWriter? auditEventWriter = null) =>
         new(
             Fixture.Services.ConnectionAccessor,
-            new PostgresSessionRuntimeRepository(),
+            SessionPersistenceFixtures.RuntimeRepository(),
             bindingSource ?? new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
             (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
             auditEventWriter);

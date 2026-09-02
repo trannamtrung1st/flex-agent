@@ -15,7 +15,7 @@ public sealed class SessionCompletionConcurrencyTests(PostgresIntegrationFixture
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
-        var repository = new PostgresSessionRuntimeRepository();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
         var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
