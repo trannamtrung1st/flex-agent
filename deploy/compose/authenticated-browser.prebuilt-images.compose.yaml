@@ -1,6 +1,9 @@
 # CI smoke overlay: reuse locally built API/SPA images instead of rebuilding in Compose.
+# Unsigned local tags must not be resolved from a registry.
 services:
   api:
     image: ${FLEXAGENT_OIDC_API_IMAGE:-flex-agent-oidc-api:ci}
+    pull_policy: never
   spa:
     image: ${FLEXAGENT_OIDC_SPA_IMAGE:-flex-agent-oidc-spa:ci}
+    pull_policy: never

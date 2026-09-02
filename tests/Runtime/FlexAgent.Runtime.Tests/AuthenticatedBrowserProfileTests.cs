@@ -252,6 +252,63 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
+    public void Prebuilt_image_overlay_never_pulls_unsigned_ci_tags()
+    {
+        var overlay = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "deploy",
+            "compose",
+            "authenticated-browser.prebuilt-images.compose.yaml"));
+
+        Assert.Contains("FLEXAGENT_OIDC_API_IMAGE", overlay);
+        Assert.Contains("FLEXAGENT_OIDC_SPA_IMAGE", overlay);
+        Assert.Contains("pull_policy: never", overlay);
+    }
+
+    [Fact]
+    public void Smoke_profile_starts_prebuilt_app_images_without_a_registry_pull()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "authenticated-browser-profile.sh"));
+
+        Assert.Contains("--prebuilt-images", script);
+        Assert.Contains("up-smoke", script);
+        Assert.Contains("--pull never", script);
+        Assert.Contains("run --rm --no-deps", script);
+    }
+
+    [Fact]
+    public void Oidc_ci_script_installs_playwright_with_os_deps_in_ci()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "verify-oidc-ci.sh"));
+
+        Assert.Contains("playwright install --with-deps chromium", script);
+    }
+
+    [Fact]
+    public void Oci_workflow_loads_native_daemon_images_for_oidc_smoke()
+    {
+        var workflow = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            ".github",
+            "workflows",
+            "implementation.yml"));
+
+        Assert.Contains("driver: docker", workflow);
+        Assert.Contains("provenance: false", workflow);
+        Assert.Contains("VITE_API_MODE=production", workflow);
+        Assert.Contains("docker run --rm --entrypoint /bin/true", workflow);
+        Assert.DoesNotContain("platforms: linux/amd64", workflow);
+    }
+
+    [Fact]
     public void Profile_script_honors_demo_work_toggle_and_overlay()
     {
         var script = File.ReadAllText(Path.Combine(

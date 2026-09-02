@@ -80,7 +80,11 @@ bash "${PROFILE}" \
   up-smoke
 
 echo "==> Playwright PKCE smoke (OIDC-E2E-01)"
-run_pnpm --filter @flex-agent/oidc-playwright exec playwright install chromium
+if [[ "${CI:-}" == "true" ]]; then
+  run_pnpm --filter @flex-agent/oidc-playwright exec playwright install --with-deps chromium
+else
+  run_pnpm --filter @flex-agent/oidc-playwright exec playwright install chromium
+fi
 FLEXAGENT_OIDC_REPORT="${ARTIFACTS}/ci-smoke-playwright.json" \
   run_pnpm --filter @flex-agent/oidc-playwright exec playwright test \
     --project=canonical \
