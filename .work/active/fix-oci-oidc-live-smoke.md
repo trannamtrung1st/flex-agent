@@ -1,6 +1,6 @@
 ---
 id: fix-oci-oidc-live-smoke
-status: in-progress
+status: completed
 created: 2026-09-02
 updated: 2026-09-02
 ---
@@ -31,6 +31,7 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 
 - Full local `pnpm verify:oidc` duration/coverage
 - Node 20 deprecation warnings on third-party actions
+- Idempotent Compose `down` when `.generated/keycloak.env` is already deleted (P3 teardown noise)
 - Keycloak image, hostname, realm-import semantics, Buildx, pull policy, or application behavior unless new evidence requires it
 
 # Plan
@@ -49,10 +50,11 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 - [x] Green: realm 0644, secrets dir 0755, secret 0644, .generated 0700, keycloak.env 0600
 - [x] Focused tests + static OIDC gate
 - [x] Confirmation pass: scope `umask 077` to a subshell; lock Compose `:ro` mounts in tests
+- [x] Live GHA `oci-oidc-smoke` on `f06b1df` (run `33591149691`)
 
 # Current state
 
-Permission boundary implemented. Host `.generated/` is `0700`, `keycloak.env` is `0600`, bind-mounted realm/secret are `0644` and secrets dir `0755`. `umask 077` for first-time `keycloak.env` is confined to a subshell so later writes in the same process are not affected. Compose realm and secrets mounts stay `:ro`. Live GHA is the remaining proof.
+Resolved. Head `f06b1df`. Implementation run `33591149691` is green, including live `oci-oidc-smoke`: Keycloak and API healthy, Playwright `OIDC-E2E-01` PKCE login 1 passed (3.3s), `verify:oidc:ci complete`. Review approved `fa78c2e` and `f06b1df`. Durable truth is in the profile script, renderer, Compose `:ro` mounts, and tests. This task file is retired after review.
 
 # Decisions
 
@@ -62,6 +64,7 @@ Permission boundary implemented. Host `.generated/` is `0700`, `keycloak.env` is
 - Keep Keycloak readiness diagnostics from `cb45f6c` / `fbd2e86`.
 - Host confidentiality stays on `.generated/` (`0700`) and `keycloak.env` (`0600`); bind-mounted children are container-readable.
 - Do not chmod 777, run Keycloak/API as root, or dump container env in diagnostics.
+- Do not make further OCI/OIDC runtime changes for this incident. Teardown `keycloak.env not found` is leftover trap-then-workflow `down` noise; leave it unless cleanup code is touched later.
 
 # Findings / deviations
 
@@ -69,6 +72,7 @@ Permission boundary implemented. Host `.generated/` is `0700`, `keycloak.env` is
 - App-tier failure logs omitted Keycloak, and cleanup deleted the container before evidence survived.
 - Run `33589718112` confirmed Keycloak reached realm import and failed on `Permission denied` for the `0600` bind-mounted realm. API `appuser` (UID 10001) would hit the same class of failure on `.generated/secrets`.
 - Confirmation pass: process-wide `umask 077` after creating `keycloak.env` could leak onto later files in the same shell; chmod 644 still corrected realm/secret, but the umask is now scoped to a subshell.
+- Successful live path on `33591149691` is not a skipped-test green: Keycloak healthy, API healthy, `OIDC-E2E-01` passed.
 
 # Verification
 
@@ -78,7 +82,9 @@ Permission boundary implemented. Host `.generated/` is `0700`, `keycloak.env` is
 | AuthenticatedBrowserProfileTests bind-mount contract | pass | 21/21 including umask subshell and Compose `:ro` |
 | `python3.12 scripts/test_authenticated_browser_compose.py` | pass | includes umask subshell and `:ro` checks |
 | `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pass | static complete |
-| Live GHA after permission + umask confirmation | pending | |
+| Documentation run `33591149693` | pass | Success |
+| Implementation run `33591149691` | pass | Success; `dotnet`, `web`, `oidc`, `supply-chain`, OCI builds |
+| Live GHA `oci-oidc-smoke` `33591149691` on `f06b1df` | pass | Keycloak healthy; API healthy; Playwright `OIDC-E2E-01` 1 passed (3.3s); `verify:oidc:ci complete`; Compose teardown ok |
 
 # Blockers
 
@@ -88,7 +94,7 @@ None.
 
 - [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
+- [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Task state is safe and complete for external review
