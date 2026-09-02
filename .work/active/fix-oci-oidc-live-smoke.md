@@ -47,7 +47,7 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 
 # Current state
 
-Diagnostic-only change is local-green: `up_smoke` waits for Keycloak health after infra and dumps secret-safe inspect + logs (including Keycloak) before cleanup. No Keycloak runtime/config change. Job display name is `oci-oidc-smoke`.
+Diagnostic-only change is local-green: `up_smoke` waits for Keycloak health after infra and dumps secret-safe inspect + logs (including Keycloak) before cleanup. Fail-fast only on `exited`/`dead`; Compose ps uses `--all --quiet` so stopped Keycloak is still inspectable. No Keycloak runtime/config change. Job display name is `oci-oidc-smoke`.
 
 # Decisions
 

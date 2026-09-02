@@ -233,12 +233,12 @@ compose_up() {
 
 dump_oidc_diagnostics() {
   echo "==> OIDC compose diagnostics" >&2
-  run_compose ps -a >&2 || true
+  run_compose ps --all >&2 || true
   run_compose logs --tail=200 \
     postgres keycloak-db keycloak seaweedfs api spa nginx >&2 || true
 
   local keycloak_id
-  keycloak_id="$(run_compose ps -aq keycloak 2>/dev/null || true)"
+  keycloak_id="$(run_compose ps --all --quiet keycloak 2>/dev/null || true)"
   if [[ -n "${keycloak_id}" ]]; then
     docker inspect \
       --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}} health={{if .State.Health}}{{.State.Health.Status}}{{end}}' \
@@ -265,15 +265,15 @@ wait_keycloak_healthy() {
   local status=""
   local health=""
   while true; do
-    keycloak_id="$(run_compose ps -aq keycloak 2>/dev/null || true)"
+    keycloak_id="$(run_compose ps --all --quiet keycloak 2>/dev/null || true)"
     if [[ -n "${keycloak_id}" ]]; then
       status="$(docker inspect --format='{{.State.Status}}' "${keycloak_id}" 2>/dev/null || true)"
       health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${keycloak_id}" 2>/dev/null || true)"
       if [[ "${health}" == "healthy" ]]; then
         return 0
       fi
-      if [[ "${status}" != "running" ]]; then
-        echo "keycloak is not running (status=${status:-missing})" >&2
+      if [[ "${status}" == "exited" || "${status}" == "dead" ]]; then
+        echo "keycloak is not running (status=${status})" >&2
         dump_oidc_diagnostics
         exit 1
       fi

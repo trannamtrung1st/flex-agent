@@ -314,6 +314,8 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("OOMKilled", script);
         Assert.Contains(".State.ExitCode", script);
         Assert.Contains(".State.Health.Status", script);
+        Assert.Contains("exited", script);
+        Assert.Contains("ps --all --quiet keycloak", script);
         Assert.DoesNotContain(".Config.Env", script);
         Assert.DoesNotContain("{{json .}}", script);
 
