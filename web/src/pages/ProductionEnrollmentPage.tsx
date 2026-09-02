@@ -82,7 +82,16 @@ export function ProductionEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const enrollmentLoadGeneration = useRef(0);
   const candidateLoadGeneration = useRef(0);
+  const [armedEnrollmentPageSize, setArmedEnrollmentPageSize] = useState(enrollmentPageSize);
+  if (armedEnrollmentPageSize !== enrollmentPageSize) {
+    setArmedEnrollmentPageSize(enrollmentPageSize);
+    setEnrollmentWaiting(true);
+    setEnrollmentHasMore(false);
+    setEnrollmentNextCursor(null);
+    setEnrollmentStack([]);
+  }
   const candidateQueryKey = `${assignSearch}|${candidatePageSize}`;
   const [armedCandidateQuery, setArmedCandidateQuery] = useState(candidateQueryKey);
   if (armedCandidateQuery !== candidateQueryKey) {
@@ -117,15 +126,27 @@ export function ProductionEnrollmentPage() {
   }, []);
 
   const loadEnrollments = useCallback((cursor: string | null, limit: number, stack: string[]) => {
+    const generation = ++enrollmentLoadGeneration.current;
     setEnrollmentWaiting(true);
+    if (cursor === null) {
+      setEnrollmentHasMore(false);
+      setEnrollmentNextCursor(null);
+      setEnrollmentStack([]);
+    }
     return client.listEnrollments(activityId, cohortId, cursor, limit)
       .then((page) => {
+        if (generation !== enrollmentLoadGeneration.current) return;
         applyEnrollmentPage(page, stack);
       })
       .catch((caught: unknown) => {
+        if (generation !== enrollmentLoadGeneration.current) return;
         setError(enrollmentFailureCopy(caught, "Participants are not available."));
       })
-      .finally(() => setEnrollmentWaiting(false));
+      .finally(() => {
+        if (generation === enrollmentLoadGeneration.current) {
+          setEnrollmentWaiting(false);
+        }
+      });
   }, [activityId, applyEnrollmentPage, client, cohortId]);
 
   const loadCandidates = useCallback((cursor: string | null, limit: number, stack: string[], q: string) => {
@@ -157,18 +178,20 @@ export function ProductionEnrollmentPage() {
   }, [activityId, applyCandidatePage, client, cohortId]);
 
   useEffect(() => {
-    const signal = { cancelled: false };
+    const generation = ++enrollmentLoadGeneration.current;
     void client.listEnrollments(activityId, cohortId, null, enrollmentPageSize)
       .then((page) => {
-        if (!signal.cancelled) applyEnrollmentPage(page, []);
+        if (generation !== enrollmentLoadGeneration.current) return;
+        applyEnrollmentPage(page, []);
+        setEnrollmentWaiting(false);
       })
       .catch((caught: unknown) => {
-        if (!signal.cancelled) {
-          setError(enrollmentFailureCopy(caught, "Participants are not available."));
-        }
+        if (generation !== enrollmentLoadGeneration.current) return;
+        setError(enrollmentFailureCopy(caught, "Participants are not available."));
+        setEnrollmentWaiting(false);
       });
     return () => {
-      signal.cancelled = true;
+      enrollmentLoadGeneration.current += 1;
     };
   }, [activityId, applyEnrollmentPage, client, cohortId, enrollmentPageSize]);
 

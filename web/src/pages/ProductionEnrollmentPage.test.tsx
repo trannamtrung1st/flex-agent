@@ -662,6 +662,68 @@ describe("ProductionEnrollmentPage", () => {
     expect(await screen.findByRole("link", { name: "Pat Participant" })).toBeInTheDocument();
   });
 
+  it("disables Next and does not reuse the previous cursor while a new Participants page size is pending", async () => {
+    let releasePageSize: (() => void) | undefined;
+    const pageSizeWait = new Promise<void>((resolve) => {
+      releasePageSize = resolve;
+    });
+    const requested: string[] = [];
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/participant-options")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      if (url.includes("/enrollments") && init?.method !== "POST") {
+        requested.push(url);
+        if (url.includes("limit=32")) {
+          return pageSizeWait.then(() => jsonResponse({
+            schema_version: "v1",
+            items: [{
+              enrollment_id: "enr-32",
+              participant_actor_id: "p-32",
+              display_label: "Row Thirty Two",
+              status: "active",
+              revision: 1,
+              assigned_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
+              visibility: "administrator",
+              permitted_actions: [],
+            }],
+            has_more: false,
+          }));
+        }
+        return jsonResponse({
+          schema_version: "v1",
+          items: Array.from({ length: 16 }, (_, index) => ({
+            enrollment_id: `enr-${index + 1}`,
+            participant_actor_id: `p-${index + 1}`,
+            display_label: `Person ${String(index + 1).padStart(2, "0")}`,
+            status: "active",
+            revision: 1,
+            assigned_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+            visibility: "administrator",
+            permitted_actions: [],
+          })),
+          has_more: true,
+          next_cursor: "cur-16",
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("link", { name: "Person 01" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Rows16" }));
+    fireEvent.click(screen.getByRole("option", { name: "32 per page" }));
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(requested.some((url) => url.includes("cursor=cur-16") && url.includes("limit=32"))).toBe(false);
+    releasePageSize?.();
+    expect(await screen.findByRole("link", { name: "Row Thirty Two" })).toBeInTheDocument();
+  });
+
   it("labels the commit as Assigning Participant while the command is pending", async () => {
     let release!: () => void;
     const hold = new Promise<void>((resolve) => {
