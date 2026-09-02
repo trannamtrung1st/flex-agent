@@ -524,6 +524,11 @@ public sealed class EnrollmentCoordinator(
 
 public sealed class EnrollmentAuditUnavailableException : Exception;
 
+public sealed class EnrollmentStartInvariantException(StartOperation failedOperation) : Exception
+{
+    public StartOperation FailedOperation { get; } = failedOperation;
+}
+
 public sealed class EnrollmentStaleRevisionException : Exception;
 
 public sealed class EnrollmentLiveUniquenessException : Exception;

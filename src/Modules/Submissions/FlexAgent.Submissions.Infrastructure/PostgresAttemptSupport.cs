@@ -46,7 +46,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 new CommandDefinition(
                     """
                     SELECT attempt_id AS AttemptId, version_id AS VersionId, version_number AS VersionNumber,
-                           binding_order AS BindingOrder
+                           binding_order AS BindingOrder, content_digest AS ContentDigest
                     FROM submissions_attempt_submission_bindings
                     WHERE organization_id = @OrganizationId AND attempt_id = ANY(@AttemptIds)
                     ORDER BY attempt_id, binding_order
@@ -118,8 +118,8 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 new CommandDefinition(
                     """
                     INSERT INTO submissions_attempt_submission_bindings (
-                        organization_id, attempt_id, version_id, version_number, binding_order)
-                    VALUES (@OrganizationId, @AttemptId, @VersionId, @VersionNumber, @BindingOrder)
+                        organization_id, attempt_id, version_id, version_number, binding_order, content_digest)
+                    VALUES (@OrganizationId, @AttemptId, @VersionId, @VersionNumber, @BindingOrder, @ContentDigest)
                     """,
                     new
                     {
@@ -128,6 +128,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                         binding.VersionId,
                         binding.VersionNumber,
                         binding.BindingOrder,
+                        binding.ContentDigest,
                     },
                     postgres.Scope.Transaction,
                     cancellationToken: cancellationToken));
@@ -168,7 +169,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
             new CommandDefinition(
                 """
                 SELECT attempt_id AS AttemptId, version_id AS VersionId, version_number AS VersionNumber,
-                       binding_order AS BindingOrder
+                       binding_order AS BindingOrder, content_digest AS ContentDigest
                 FROM submissions_attempt_submission_bindings
                 WHERE organization_id = @OrganizationId AND attempt_id = @AttemptId
                 ORDER BY binding_order
@@ -233,7 +234,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 item.VersionId,
                 item.VersionNumber,
                 item.BindingOrder,
-                new string('0', 64))).ToArray());
+                item.ContentDigest)).ToArray());
 
     private static PostgresEnrollmentTransaction Require(IEnrollmentTransaction transaction) =>
         transaction as PostgresEnrollmentTransaction
@@ -276,7 +277,12 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
         string ConfigurationDigest,
         string ManifestDigest);
 
-    private sealed record BindingRow(Guid AttemptId, Guid VersionId, int VersionNumber, int BindingOrder);
+    private sealed record BindingRow(
+        Guid AttemptId,
+        Guid VersionId,
+        int VersionNumber,
+        int BindingOrder,
+        string ContentDigest);
 }
 
 public sealed class PostgresStartOperationStore : IStartOperationStore

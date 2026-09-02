@@ -64,7 +64,8 @@ internal static class SessionPersistenceFixtures
         Guid organizationId,
         int cooldownSeconds = 5,
         int maxTimerTriggeredInvocations = 8,
-        Guid? activityId = null)
+        Guid? activityId = null,
+        string? configurationDigest = null)
     {
         var policy = ResolveEnabledTimerPolicy(cooldownSeconds, maxTimerTriggeredInvocations);
         return new TrustedSessionBinding(
@@ -75,7 +76,7 @@ internal static class SessionPersistenceFixtures
                 Guid.NewGuid(),
                 Guid.NewGuid()),
             "cfg.p0.text",
-            policy.PolicyDigest,
+            configurationDigest ?? policy.PolicyDigest,
             "man.p0.text",
             policy,
             [],

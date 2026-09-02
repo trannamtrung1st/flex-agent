@@ -40,6 +40,40 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
     }
 
     [Fact]
+    public async Task Distinct_configuration_and_policy_digests_round_trip()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var configurationDigest = new string('d', 64);
+        var binding = SessionPersistenceFixtures.CreateBinding(
+            organization.OrganizationId,
+            cooldownSeconds: 0,
+            configurationDigest: configurationDigest);
+        Assert.NotEqual(binding.Policy.PolicyDigest, binding.ConfigurationDigest);
+        var repository = new PostgresSessionRuntimeRepository();
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var startedAt = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(
+                binding.Ownership,
+                SessionRuntime.CreateActive(binding, startedAt),
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var loaded = await new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor)
+            .GetAsync(binding.Ownership, CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(configurationDigest, loaded!.ConfigurationDigest);
+        Assert.Equal(binding.Policy.PolicyDigest, loaded.Policy.PolicyDigest);
+        Assert.NotEqual(loaded.ConfigurationDigest, loaded.Policy.PolicyDigest);
+    }
+
+    [Fact]
     public async Task Ownership_mismatch_returns_no_binding()
     {
         var prepared = await InsertSessionAsync();

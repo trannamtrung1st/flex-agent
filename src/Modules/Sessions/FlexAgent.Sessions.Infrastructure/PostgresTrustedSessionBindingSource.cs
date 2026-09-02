@@ -18,6 +18,7 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
             runtime.configuration_id,
             runtime.configuration_digest,
             runtime.manifest_id,
+            snapshot.configuration_digest AS snapshot_configuration_digest,
             snapshot.policy_digest,
             snapshot.policy_payload::text AS policy_payload,
             frozen.profile_id,
@@ -105,7 +106,7 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
         var policy = FrozenRuntimePolicySnapshot.TryParse(row.policy_payload, row.policy_digest);
         if (policy is null
             || string.IsNullOrWhiteSpace(row.configuration_id)
-            || !string.Equals(row.configuration_digest, policy.PolicyDigest, StringComparison.Ordinal))
+            || !string.Equals(row.configuration_digest, row.snapshot_configuration_digest, StringComparison.Ordinal))
         {
             return null;
         }
@@ -142,6 +143,7 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
         string configuration_id,
         string configuration_digest,
         string manifest_id,
+        string snapshot_configuration_digest,
         string policy_digest,
         string policy_payload,
         string? profile_id,

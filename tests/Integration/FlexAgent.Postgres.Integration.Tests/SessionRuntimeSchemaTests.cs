@@ -9,7 +9,10 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
 {
     private static readonly string[] RequiredSessionTables =
     [
+        "session_acknowledgment_records",
         "session_actor_relationships",
+        "session_initial_manifests",
+        "session_resolved_configurations",
         "session_runtimes",
         "session_events",
         "session_turns",

@@ -140,7 +140,9 @@ public sealed class AttemptStartCoordinatorTests
         Assert.False(started.Succeeded);
         Assert.Equal(AttemptFailureCodes.AcknowledgmentInvalid, started.OutcomeCode);
         Assert.Empty(harness.Attempts.Items);
-        Assert.Empty(harness.StartOperations.Items);
+        Assert.Equal(0, harness.Sessions.CommitCount);
+        Assert.Equal(StartOperationStates.Failed, Assert.Single(harness.StartOperations.Items).Status);
+        Assert.Equal(AttemptFailureCodes.AcknowledgmentInvalid, harness.StartOperations.Items[0].OutcomeCode);
         var readiness = await harness.Coordinator.GetAsync(
             ParticipantContext(),
             EnrollmentId,
@@ -148,6 +150,32 @@ public sealed class AttemptStartCoordinatorTests
         Assert.Equal(AttemptReadinessStates.Eligible, readiness.Value!.ReadinessState);
         Assert.Equal(1, readiness.Value.RemainingEntitlement);
     }
+
+    [Fact]
+    public async Task Unavailable_session_after_bind_records_failed_start_operation()
+    {
+        var harness = await CreateHarnessAsync();
+        harness.Sessions.Fail = true;
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        var started = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(started.Succeeded);
+        Assert.Empty(harness.Attempts.Items);
+        Assert.Equal(StartOperationStates.Failed, Assert.Single(harness.StartOperations.Items).Status);
+        Assert.Equal(1, RemainingEntitlement(harness));
+    }
+
+    private static int RemainingEntitlement(Harness harness) =>
+        AttemptEntitlementCalculator.Remaining(1, harness.Attempts.Items, [], Now);
 
     [Fact]
     public async Task Second_start_binds_a_new_unbound_acknowledgment_not_the_historical_row()
@@ -195,6 +223,7 @@ public sealed class AttemptStartCoordinatorTests
             new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", firstDigest),
             TestContext.Current.CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.Equal(Digest, harness.Attempts.Items[0].Binding.ConfigurationDigest);
 
         var completed = harness.Attempts.Items[0].Complete(Now.AddMinutes(1), "completed");
         Assert.True(completed.Succeeded);

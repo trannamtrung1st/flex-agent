@@ -43,11 +43,10 @@ public sealed class GatedP0SessionStartPort(
             request.SessionId);
         var sources = RequiredDevelopmentSources(request.Scope.BaselineId);
         var submissionRefs = request.SubmissionBindings
+            .Where(binding => binding.ContentDigest.Length == 64)
             .Select(binding => new ProtectedContentRef(
                 $"submission:{binding.VersionId:D}",
-                string.IsNullOrWhiteSpace(binding.ContentDigest) || binding.ContentDigest.Length != 64
-                    ? ProtectedContentRef.DigestUtf8(binding.VersionId.ToString("D"))
-                    : binding.ContentDigest))
+                binding.ContentDigest))
             .ToArray();
         if (submissionRefs.Length == 0)
         {
@@ -85,7 +84,7 @@ public sealed class GatedP0SessionStartPort(
             var binding = new TrustedSessionBinding(
                 ownership,
                 request.ConfigurationId.ToString("D"),
-                policy.PolicyDigest,
+                resolved.Value.ConfigurationDigest,
                 request.ManifestId.ToString("D"),
                 policy,
                 submissionRefs,

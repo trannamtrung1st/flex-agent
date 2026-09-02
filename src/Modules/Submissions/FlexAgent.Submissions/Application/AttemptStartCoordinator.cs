@@ -84,7 +84,8 @@ public sealed class AttemptStartCoordinator(
 
         try
         {
-            return await unitOfWork.ExecuteAsync(command.Actor, async transaction =>
+            StartOperation? failedAfterAbort = null;
+            var outcome = await unitOfWork.ExecuteAsync(command.Actor, async transaction =>
             {
                 if (!await sessions.RevalidateLiveAsync(command.Actor, transaction, cancellationToken))
                 {
@@ -260,7 +261,7 @@ public sealed class AttemptStartCoordinator(
                         exact.VersionId,
                         exact.VersionNumber,
                         index + 1,
-                        exact.Items.Count > 0 ? exact.Items[0].ContentDigest : exact.PolicyDigest));
+                        AttemptSubmissionProvenance.ForAcceptedVersion(exact)));
                 }
 
                 var attemptId = Guid.CreateVersion7();
@@ -268,6 +269,21 @@ public sealed class AttemptStartCoordinator(
                 var configurationId = Guid.CreateVersion7();
                 var manifestId = Guid.CreateVersion7();
                 var now = _clock.UtcNow;
+                var currentAcks = ackSelection.Bindable;
+                var bindError = await acknowledgments.BindToAttemptAsync(
+                    currentAcks,
+                    attemptId,
+                    enrollment.EnrollmentId,
+                    enrollment.ParticipantActorId,
+                    transaction.CommitHandle,
+                    cancellationToken);
+                if (bindError is not null)
+                {
+                    var blocked = StartOperationPolicy.Fail(claimed.Value, bindError, now).Value!;
+                    await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
+                    return Fail(bindError, readiness.State);
+                }
+
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(
                         attemptId,
@@ -283,26 +299,12 @@ public sealed class AttemptStartCoordinator(
                     || string.IsNullOrWhiteSpace(sessionCommit.ConfigurationDigest)
                     || string.IsNullOrWhiteSpace(sessionCommit.ManifestDigest))
                 {
-                    var blocked = StartOperationPolicy.Fail(
+                    transaction.AbortCommit();
+                    failedAfterAbort = StartOperationPolicy.Fail(
                         claimed.Value,
                         sessionCommit.OutcomeCode,
                         now).Value!;
-                    await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
                     return Fail(AttemptFailureCodes.Unavailable, AttemptReadinessStates.ConfigurationUnavailable);
-                }
-
-                var currentAcks = ackSelection.Bindable;
-                var bindError = await acknowledgments.BindToAttemptAsync(
-                    currentAcks,
-                    attemptId,
-                    enrollment.EnrollmentId,
-                    enrollment.ParticipantActorId,
-                    transaction.CommitHandle,
-                    cancellationToken);
-                if (bindError is not null)
-                {
-                    transaction.AbortCommit();
-                    return Fail(bindError, readiness.State);
                 }
 
                 var activated = Attempt.Activate(
@@ -322,8 +324,8 @@ public sealed class AttemptStartCoordinator(
                     bindings);
                 if (!activated.Succeeded)
                 {
-                    transaction.AbortCommit();
-                    return Fail(activated.OutcomeCode, readiness.State);
+                    throw new EnrollmentStartInvariantException(
+                        StartOperationPolicy.Fail(claimed.Value, activated.OutcomeCode, now).Value!);
                 }
 
                 await attempts.InsertAsync(activated.Value!, transaction, cancellationToken);
@@ -356,6 +358,17 @@ public sealed class AttemptStartCoordinator(
                     [AttemptClientActions.ContinueAttempt, AttemptClientActions.ReturnToMyWork]);
             },
             cancellationToken);
+            if (failedAfterAbort is not null)
+            {
+                await PersistFailedStartAsync(command.Actor, failedAfterAbort, cancellationToken);
+            }
+
+            return outcome;
+        }
+        catch (EnrollmentStartInvariantException exception)
+        {
+            await PersistFailedStartAsync(command.Actor, exception.FailedOperation, cancellationToken);
+            return Fail(exception.FailedOperation.OutcomeCode ?? AttemptFailureCodes.Unavailable);
         }
         catch (EnrollmentAuditUnavailableException)
         {
@@ -366,6 +379,19 @@ public sealed class AttemptStartCoordinator(
             return Fail(AttemptFailureCodes.Denied);
         }
     }
+
+    private async Task PersistFailedStartAsync(
+        EnrollmentActorContext actor,
+        StartOperation failed,
+        CancellationToken cancellationToken) =>
+        await unitOfWork.ExecuteAsync(
+            actor,
+            async transaction =>
+            {
+                await startOperations.UpsertAsync(failed, transaction, cancellationToken);
+                return true;
+            },
+            cancellationToken);
 
     private async Task<(string? Error, IReadOnlyList<CurrentAcknowledgmentFact> Bindable)> SelectBindableAcknowledgmentsAsync(
         EnrollmentActorContext actor,

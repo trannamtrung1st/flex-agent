@@ -276,6 +276,26 @@ public sealed class AttemptDomainTests
         Assert.False(StartOperationPolicy.HasActiveConflict([failed], "start-key-0002", Now.AddSeconds(2)));
     }
 
+    [Fact]
+    public void Version_content_digest_covers_every_ordered_item()
+    {
+        var first = new AcceptedVersionItem(Guid.Parse("11111111-1111-4111-8111-111111111111"), MaterialCategories.DirectText, null, 4, new string('b', 64), "obj-1", "v1");
+        var second = new AcceptedVersionItem(Guid.Parse("22222222-2222-4222-8222-222222222222"), MaterialCategories.DirectText, null, 4, new string('c', 64), "obj-2", "v1");
+        var version = new AcceptedSubmissionVersion(
+            Guid.CreateVersion7(),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7"),
+            2,
+            Scope(),
+            Digest,
+            null,
+            Now,
+            [second, first]);
+        var digest = AttemptSubmissionProvenance.ForAcceptedVersion(version);
+        Assert.Equal(64, digest.Length);
+        Assert.NotEqual(first.ContentDigest, digest);
+        Assert.Equal(digest, AttemptSubmissionProvenance.ForAcceptedVersion(version with { Items = [first, second] }));
+    }
+
     private static AttemptDecision<Attempt> Activate(int ordinal) =>
         Attempt.Activate(
             Guid.CreateVersion7(),

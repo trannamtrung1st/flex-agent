@@ -1754,10 +1754,12 @@ public sealed class PostgresSessionRuntimeRepository
         CancellationToken cancellationToken)
     {
         var binding = session.Binding;
-        if (!string.Equals(binding.ConfigurationDigest, binding.Policy.PolicyDigest, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(binding.ConfigurationDigest)
+            || binding.ConfigurationDigest.Length != 64
+            || string.IsNullOrWhiteSpace(binding.Policy.PolicyDigest)
+            || binding.Policy.PolicyDigest.Length != 64)
         {
-            throw new InvalidOperationException(
-                "Frozen policy digest must match the Session configuration digest.");
+            throw new InvalidOperationException("Frozen policy snapshot requires configuration and policy digests.");
         }
 
         await RequireConnection(transaction).ExecuteAsync(

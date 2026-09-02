@@ -406,6 +406,7 @@ describe("ProductionMyWorkDetailPage", () => {
   });
 
   it("keeps Reconcile start for uncertain outcomes and not for a known start refusal", async () => {
+    const startKeys: string[] = [];
     stubAuthenticatedFetch((url, init) => {
       if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
         return jsonResponse(assignmentPayload());
@@ -414,6 +415,10 @@ describe("ProductionMyWorkDetailPage", () => {
         return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
       }
       if (url.includes("/attempt/start") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}")) as { idempotency_key?: string };
+        if (body.idempotency_key) {
+          startKeys.push(body.idempotency_key);
+        }
         return jsonResponse({
           schema_version: "v2",
           succeeded: false,
@@ -441,6 +446,11 @@ describe("ProductionMyWorkDetailPage", () => {
     });
     expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
     expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    await waitFor(() => {
+      expect(startKeys).toHaveLength(2);
+    });
+    expect(startKeys[0]).not.toEqual(startKeys[1]);
   });
 
   it("clears occupied starting after a definitive reconcile outcome", async () => {

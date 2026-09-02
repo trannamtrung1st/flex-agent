@@ -278,6 +278,7 @@ export function ProductionMyWorkDetailPage() {
       if (!started.succeeded) {
         setError(submissionFailureCopy(started.outcome_code));
         setStartOccupied(false);
+        setStartKey(null);
         return;
       }
       await reload();
