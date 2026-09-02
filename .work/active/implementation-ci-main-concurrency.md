@@ -36,7 +36,7 @@ Every `main` push runs the full Implementation job set. Pull requests may still 
 
 # Current state
 
-Enrollment pagination task retired. Detector emits `true` for every non-PR event, including docs-only `main` pushes. Path skipping remains PR-only. Main still does not cancel in-progress Implementation runs.
+Enrollment pagination task retired. Detector emits `true` for every non-PR event. Nested event-policy self-tests must not inherit Actions `GITHUB_OUTPUT` (that emptied stdout and failed [run 33638987608](https://github.com/trannamtrung1st/flex-agent/actions/runs/33638987608)).
 
 # Decisions
 
@@ -52,6 +52,7 @@ Enrollment pagination task retired. Detector emits `true` for every non-PR event
 | --- | --- | --- |
 | Empty-diff `EVENT_NAME=push` → true | pass | `detect-implementation-changes.test.sh` event policy |
 | Empty-diff `EVENT_NAME=pull_request` → false | pass | same |
+| Self-test with `GITHUB_OUTPUT` set (Actions `changes` job) | pass | `env GITHUB_OUTPUT=... bash detect-implementation-changes.test.sh` |
 | `check_docs.py` | pass | Documentation validation passed |
 
 # Blockers

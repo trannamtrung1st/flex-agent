@@ -55,7 +55,8 @@ assert_event_output() {
   local expected="$2"
   local got
   got="$(
-    SKIP_IMPLEMENTATION_CHANGE_SELFTEST=1 \
+    env -u GITHUB_OUTPUT \
+      SKIP_IMPLEMENTATION_CHANGE_SELFTEST=1 \
       EVENT_NAME="$event" \
       BASE_SHA="$head_sha" \
       HEAD_SHA="$head_sha" \
