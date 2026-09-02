@@ -7,7 +7,6 @@ import {
   createProductionEnrollmentClient,
   enrollmentFailureCopy,
   enrollmentOutcomeCopy,
-  PARTICIPANT_OPTIONS_PAGE_LIMIT,
   type EnrollmentCandidateV1,
   type EnrollmentSummaryV1,
 } from "../api/production-enrollment";
@@ -43,31 +42,23 @@ import {
   InstantReadout,
   isSelected,
   Key,
-  KeyGroup,
   matchingQueryKey,
   OperateArea,
   registryTableHug,
   resolveSelectedIds,
   SelectHeader,
   SelectMark,
-  SortableHeader,
   StaticHeader,
   ToolbarReadout,
   ToolbarSearch,
   toggleRow,
-  useTableController,
   usePushToast,
   type TableSelection,
 } from "../design-system";
 import { SEARCH_NAME_OR_ID_PLACEHOLDER } from "../content/fieldCopy";
 
-type EnrollmentSortKey = "participant" | "enrollment" | "status" | "assigned" | "updated" | "revision";
-
-function appendById<T>(existing: readonly T[], incoming: readonly T[], id: (row: T) => string): T[] {
-  const seen = new Set(existing.map(id));
-  const extra = incoming.filter((row) => !seen.has(id(row)));
-  return extra.length === 0 ? [...existing] : [...existing, ...extra];
-}
+const PAGE_SIZE_OPTIONS = [16, 32] as const;
+const DEFAULT_PAGE_SIZE = 16;
 
 export function ProductionEnrollmentPage() {
   const { activityId = "", cohortId = "" } = useParams();
@@ -75,45 +66,109 @@ export function ProductionEnrollmentPage() {
   const client = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const assessment = useMemo(() => createProductionAssessmentClient(fetchJson), [fetchJson]);
   const [enrollments, setEnrollments] = useState<EnrollmentSummaryV1[] | null>(null);
-  const [enrollmentCursor, setEnrollmentCursor] = useState<string | null>(null);
   const [enrollmentHasMore, setEnrollmentHasMore] = useState(false);
+  const [enrollmentNextCursor, setEnrollmentNextCursor] = useState<string | null>(null);
+  const [enrollmentStack, setEnrollmentStack] = useState<string[]>([]);
+  const [enrollmentPageSize, setEnrollmentPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [enrollmentWaiting, setEnrollmentWaiting] = useState(false);
   const [candidates, setCandidates] = useState<EnrollmentCandidateV1[]>([]);
   const [candidateHasMore, setCandidateHasMore] = useState(false);
+  const [candidateNextCursor, setCandidateNextCursor] = useState<string | null>(null);
+  const [candidateStack, setCandidateStack] = useState<string[]>([]);
+  const [candidatePageSize, setCandidatePageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [candidateWaiting, setCandidateWaiting] = useState(false);
+  const [assignSearch, setAssignSearch] = useState("");
   const [campaignTitle, setCampaignTitle] = useState<string | undefined>();
   const [taskTitle, setTaskTitle] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [loadingMoreEnrollments, setLoadingMoreEnrollments] = useState(false);
   const pushToast = usePushToast();
+
+  const applyEnrollmentPage = useCallback((
+    page: { items: EnrollmentSummaryV1[]; next_cursor?: string | null; has_more: boolean },
+    stack: string[],
+  ) => {
+    setEnrollments(page.items);
+    setEnrollmentNextCursor(page.next_cursor ?? null);
+    setEnrollmentHasMore(page.has_more);
+    setEnrollmentStack(stack);
+    setError(null);
+  }, []);
+
+  const applyCandidatePage = useCallback((
+    page: { items: EnrollmentCandidateV1[]; next_cursor?: string | null; has_more: boolean },
+    stack: string[],
+  ) => {
+    setCandidates(page.items);
+    setCandidateNextCursor(page.next_cursor ?? null);
+    setCandidateHasMore(page.has_more);
+    setCandidateStack(stack);
+    setCandidateError(null);
+  }, []);
+
+  const loadEnrollments = useCallback((cursor: string | null, limit: number, stack: string[]) => {
+    setEnrollmentWaiting(true);
+    return client.listEnrollments(activityId, cohortId, cursor, limit)
+      .then((page) => {
+        applyEnrollmentPage(page, stack);
+      })
+      .catch((caught: unknown) => {
+        setError(enrollmentFailureCopy(caught, "Participants are not available."));
+      })
+      .finally(() => setEnrollmentWaiting(false));
+  }, [activityId, applyEnrollmentPage, client, cohortId]);
+
+  const loadCandidates = useCallback((cursor: string | null, limit: number, stack: string[], q: string) => {
+    setCandidateWaiting(true);
+    return client.listCandidates(activityId, cohortId, cursor, limit, q)
+      .then((page) => {
+        applyCandidatePage(page, stack);
+      })
+      .catch((caught: unknown) => {
+        setCandidateError(enrollmentFailureCopy(caught, "Assignable Participants are not available."));
+        setCandidates([]);
+        setCandidateHasMore(false);
+        setCandidateNextCursor(null);
+        setCandidateStack([]);
+      })
+      .finally(() => setCandidateWaiting(false));
+  }, [activityId, applyCandidatePage, client, cohortId]);
 
   useEffect(() => {
     const signal = { cancelled: false };
-    void client.listEnrollments(activityId, cohortId)
+    void client.listEnrollments(activityId, cohortId, null, enrollmentPageSize)
       .then((page) => {
-        if (signal.cancelled) return;
-        setEnrollments(page.items);
-        setEnrollmentCursor(page.next_cursor ?? null);
-        setEnrollmentHasMore(page.has_more);
-        setError(null);
+        if (!signal.cancelled) applyEnrollmentPage(page, []);
       })
       .catch((caught: unknown) => {
         if (!signal.cancelled) {
           setError(enrollmentFailureCopy(caught, "Participants are not available."));
         }
       });
-    void client.listCandidates(activityId, cohortId, null, PARTICIPANT_OPTIONS_PAGE_LIMIT)
-      .then((options) => {
-        if (signal.cancelled) return;
-        setCandidates(options.items);
-        setCandidateHasMore(options.has_more);
-        setCandidateError(null);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [activityId, applyEnrollmentPage, client, cohortId, enrollmentPageSize]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    void client.listCandidates(activityId, cohortId, null, candidatePageSize, assignSearch)
+      .then((page) => {
+        if (!signal.cancelled) applyCandidatePage(page, []);
       })
       .catch((caught: unknown) => {
         if (!signal.cancelled) {
           setCandidateError(enrollmentFailureCopy(caught, "Assignable Participants are not available."));
         }
       });
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [activityId, applyCandidatePage, assignSearch, candidatePageSize, client, cohortId]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
     void assessment.loadSetup(activityId)
       .then((view) => {
         if (signal.cancelled) return;
@@ -126,23 +181,7 @@ export function ProductionEnrollmentPage() {
     return () => {
       signal.cancelled = true;
     };
-  }, [activityId, assessment, client, cohortId]);
-
-  function loadMoreEnrollments() {
-    if (!enrollmentHasMore || !enrollmentCursor || loadingMoreEnrollments) return;
-    setLoadingMoreEnrollments(true);
-    void client.listEnrollments(activityId, cohortId, enrollmentCursor)
-      .then((page) => {
-        setEnrollments((current) => appendById(current ?? [], page.items, (row) => row.enrollment_id));
-        setEnrollmentCursor(page.next_cursor ?? null);
-        setEnrollmentHasMore(page.has_more);
-        setError(null);
-      })
-      .catch((caught: unknown) => {
-        setError(enrollmentFailureCopy(caught, "The next Participants page could not be loaded."));
-      })
-      .finally(() => setLoadingMoreEnrollments(false));
-  }
+  }, [activityId, assessment]);
 
   function assign(candidate: EnrollmentCandidateV1): Promise<boolean> {
     setPending(true);
@@ -158,23 +197,21 @@ export function ProductionEnrollmentPage() {
           ? { label: "Already assigned", copy: candidate.display_label }
           : enrollmentAssignedReceipt(candidate.display_label));
         return Promise.allSettled([
-          client.listEnrollments(activityId, cohortId),
-          client.listCandidates(activityId, cohortId, null, PARTICIPANT_OPTIONS_PAGE_LIMIT),
+          client.listEnrollments(activityId, cohortId, null, enrollmentPageSize),
+          client.listCandidates(activityId, cohortId, null, candidatePageSize, assignSearch),
         ]).then(([enrollmentRefresh, candidateRefresh]) => {
           if (enrollmentRefresh.status === "fulfilled") {
-            setEnrollments(enrollmentRefresh.value.items);
-            setEnrollmentCursor(enrollmentRefresh.value.next_cursor ?? null);
-            setEnrollmentHasMore(enrollmentRefresh.value.has_more);
+            applyEnrollmentPage(enrollmentRefresh.value, []);
           } else {
             setError(enrollmentFailureCopy(enrollmentRefresh.reason, "The assigned list could not be refreshed."));
           }
           if (candidateRefresh.status === "fulfilled") {
-            setCandidates(candidateRefresh.value.items);
-            setCandidateHasMore(candidateRefresh.value.has_more);
-            setCandidateError(null);
+            applyCandidatePage(candidateRefresh.value, []);
           } else {
             setCandidates([]);
             setCandidateHasMore(false);
+            setCandidateNextCursor(null);
+            setCandidateStack([]);
             setCandidateError(enrollmentFailureCopy(candidateRefresh.reason, "Assignable Participants are not available."));
           }
           return true;
@@ -214,15 +251,35 @@ export function ProductionEnrollmentPage() {
       candidates={candidates}
       pending={pending}
       enrollmentHasMore={enrollmentHasMore}
-      loadingMoreEnrollments={loadingMoreEnrollments}
-      onLoadMoreEnrollments={loadMoreEnrollments}
+      enrollmentWaiting={enrollmentWaiting}
+      enrollmentPageIndex={enrollmentStack.length}
+      enrollmentPageSize={enrollmentPageSize}
+      onEnrollmentPrevious={() => {
+        const stack = enrollmentStack.slice(0, -1);
+        void loadEnrollments(stack.at(-1) ?? null, enrollmentPageSize, stack);
+      }}
+      onEnrollmentNext={() => {
+        if (!enrollmentNextCursor) return;
+        void loadEnrollments(enrollmentNextCursor, enrollmentPageSize, [...enrollmentStack, enrollmentNextCursor]);
+      }}
+      onEnrollmentPageSize={(next) => setEnrollmentPageSize(next)}
       candidateHasMore={candidateHasMore}
+      candidateWaiting={candidateWaiting}
+      candidatePageIndex={candidateStack.length}
+      candidatePageSize={candidatePageSize}
+      assignSearch={assignSearch}
+      onAssignSearch={setAssignSearch}
+      onCandidatePrevious={() => {
+        const stack = candidateStack.slice(0, -1);
+        void loadCandidates(stack.at(-1) ?? null, candidatePageSize, stack, assignSearch);
+      }}
+      onCandidateNext={() => {
+        if (!candidateNextCursor) return;
+        void loadCandidates(candidateNextCursor, candidatePageSize, [...candidateStack, candidateNextCursor], assignSearch);
+      }}
+      onCandidatePageSize={(next) => setCandidatePageSize(next)}
       onAssign={assign}
       description={enrollmentAssignmentDescription(campaignTitle, taskTitle)}
-      advisory={enrollmentHasMore ? {
-        label: "Registry",
-        copy: "More Participants remain. Load more fetches the next server page. Search and sort apply to loaded rows.",
-      } : undefined}
       error={error}
       candidateError={candidateError}
     />
@@ -236,12 +293,23 @@ function EnrollmentRegistry({
   candidates,
   pending,
   enrollmentHasMore,
-  loadingMoreEnrollments,
-  onLoadMoreEnrollments,
+  enrollmentWaiting,
+  enrollmentPageIndex,
+  enrollmentPageSize,
+  onEnrollmentPrevious,
+  onEnrollmentNext,
+  onEnrollmentPageSize,
   candidateHasMore,
+  candidateWaiting,
+  candidatePageIndex,
+  candidatePageSize,
+  assignSearch,
+  onAssignSearch,
+  onCandidatePrevious,
+  onCandidateNext,
+  onCandidatePageSize,
   onAssign,
   description,
-  advisory,
   error,
   candidateError,
 }: {
@@ -251,102 +319,33 @@ function EnrollmentRegistry({
   candidates: readonly EnrollmentCandidateV1[];
   pending: boolean;
   enrollmentHasMore: boolean;
-  loadingMoreEnrollments: boolean;
-  onLoadMoreEnrollments: () => void;
+  enrollmentWaiting: boolean;
+  enrollmentPageIndex: number;
+  enrollmentPageSize: number;
+  onEnrollmentPrevious: () => void;
+  onEnrollmentNext: () => void;
+  onEnrollmentPageSize: (pageSize: number) => void;
   candidateHasMore: boolean;
+  candidateWaiting: boolean;
+  candidatePageIndex: number;
+  candidatePageSize: number;
+  assignSearch: string;
+  onAssignSearch: (value: string) => void;
+  onCandidatePrevious: () => void;
+  onCandidateNext: () => void;
+  onCandidatePageSize: (pageSize: number) => void;
   onAssign: (candidate: EnrollmentCandidateV1) => Promise<boolean>;
   description: string;
-  advisory?: { label: string; copy: string };
   error: string | null;
   candidateError: string | null;
 }) {
-  const [search, setSearch] = useState("");
-  const [sorts, setSorts] = useState<{ key: EnrollmentSortKey; dir: "asc" | "desc" }[]>([{ key: "participant", dir: "asc" }]);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(16);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignSearch, setAssignSearch] = useState("");
-  const [assignPage, setAssignPage] = useState(0);
-  const [assignPageSize, setAssignPageSize] = useState(16);
   const [selection, setSelection] = useState<TableSelection>(EMPTY_SELECTION);
   const assignTitleId = useId();
   const assignSelectId = useId();
-  const query = search.trim().toLowerCase();
-  const match = useCallback(
-    (row: EnrollmentSummaryV1) => {
-      if (!query) return true;
-      return row.display_label.toLowerCase().includes(query)
-        || row.status.toLowerCase().includes(query)
-        || row.enrollment_id.toLowerCase().includes(query)
-        || row.participant_actor_id.toLowerCase().includes(query);
-    },
-    [query],
-  );
-  const getSortValue = useCallback((row: EnrollmentSummaryV1, key: EnrollmentSortKey) => {
-    switch (key) {
-      case "enrollment":
-        return row.enrollment_id.toLowerCase();
-      case "status":
-        return row.status.toLowerCase();
-      case "assigned":
-        return row.assigned_at;
-      case "updated":
-        return row.updated_at;
-      case "revision":
-        return String(row.revision).padStart(8, "0");
-      default:
-        return row.display_label.toLowerCase();
-    }
-  }, []);
-  const slice = useTableController({
-    rows,
-    match,
-    sorts,
-    page,
-    pageSize,
-    getSortValue,
-  });
-
-  const handleSort = (key: EnrollmentSortKey) => {
-    setSorts((prev) => {
-      const idx = prev.findIndex((spec) => spec.key === key);
-      let next = prev.slice();
-      if (idx === -1) next.push({ key, dir: "asc" });
-      else if (next[idx].dir === "asc") next[idx] = { key, dir: "desc" };
-      else next.splice(idx, 1);
-      if (!next.length) next = [{ key: "participant", dir: "asc" }];
-      return next;
-    });
-    setPage(0);
-  };
-
-  const assignQuery = assignSearch.trim().toLowerCase();
-  const assignMatch = useCallback(
-    (row: EnrollmentCandidateV1) => {
-      if (!assignQuery) return true;
-      return row.display_label.toLowerCase().includes(assignQuery)
-        || row.actor_id.toLowerCase().includes(assignQuery);
-    },
-    [assignQuery],
-  );
-  const assignSlice = useTableController({
-    rows: candidates,
-    match: assignMatch,
-    sorts: [{ key: "participant" as const, dir: "asc" as const }],
-    page: assignPage,
-    pageSize: assignPageSize,
-    getSortValue: (row) => row.display_label.toLowerCase(),
-  });
+  const assignQuery = assignSearch.trim();
   const candidateIds = useMemo(() => candidates.map((candidate) => candidate.actor_id), [candidates]);
-  const assignPageIds = useMemo(
-    () => assignSlice.pageRows.map((candidate) => candidate.actor_id),
-    [assignSlice.pageRows],
-  );
-  const assignMatchingIds = useMemo(
-    () => assignSlice.visibleRows.map((candidate) => candidate.actor_id),
-    [assignSlice.visibleRows],
-  );
-  const assignQueryKey = matchingQueryKey({ assign: "candidates" });
+  const assignQueryKey = matchingQueryKey({ assign: "candidates", q: assignQuery });
   const selectedIds = resolveSelectedIds(selection, candidateIds);
   const selectedCandidate = selectedIds.length === 1
     ? candidates.find((candidate) => candidate.actor_id === selectedIds[0])
@@ -355,28 +354,26 @@ function EnrollmentRegistry({
   function closeAssignDialog() {
     setAssignOpen(false);
     setSelection(EMPTY_SELECTION);
-    setAssignSearch("");
-    setAssignPage(0);
+    onAssignSearch("");
   }
 
-  const assignAction = candidates.length > 0 || candidateHasMore ? (
+  const assignAction = candidateError ? undefined : (
     <DatatableActions>
       <Key variant="quiet" size="compact" onClick={() => setAssignOpen(true)}>
         Assign
       </Key>
     </DatatableActions>
-  ) : undefined;
+  );
 
   return (
     <OperateArea
       bay="registry"
-      hug={registryTableHug(slice.total)}
+      hug={registryTableHug(rows.length)}
       frame="registry"
       label="Participants"
       title="Participants"
       description={description}
       back={<BackKey to={`/activities/${activityId}/setup`} label="Setup" />}
-      advisory={advisory}
       context={error || candidateError ? (
         <>
           {error ? <Alert variant="danger" title="Could not update Participants">{error}</Alert> : null}
@@ -391,40 +388,28 @@ function EnrollmentRegistry({
           actions={assignAction}
           readout={
             <ToolbarReadout
-              label="Showing"
-              value={`${slice.total} participant${slice.total === 1 ? "" : "s"}`}
+              label="This page"
+              value={`${rows.length} participant${rows.length === 1 ? "" : "s"}`}
               valueId="enrollmentCountValue"
-            />
-          }
-          search={
-            <ToolbarSearch
-              id="enrollmentSearchInput"
-              label="Search participant, enrollment, or status"
-              placeholder={SEARCH_NAME_OR_ID_PLACEHOLDER}
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(0);
-              }}
             />
           }
         />
       }
       scrollProps={{ tabIndex: 0, "aria-label": "Participant rows, scrollable" }}
       table={
-        <DatatableTable caption="Participants" hidden={slice.total === 0}>
+        <DatatableTable caption="Participants" hidden={rows.length === 0}>
           <thead>
             <tr>
-              <SortableHeader sortKey="participant" sorts={sorts} onSort={handleSort} label="Participant" colMin="id" />
-              <SortableHeader sortKey="enrollment" sorts={sorts} onSort={handleSort} label="Enrollment" colMin="compactId" />
-              <SortableHeader sortKey="status" sorts={sorts} onSort={handleSort} label="Record" colMin="state" />
-              <SortableHeader sortKey="assigned" sorts={sorts} onSort={handleSort} label="Assigned" colMin="instant" />
-              <SortableHeader sortKey="updated" sorts={sorts} onSort={handleSort} label="Updated" colMin="instant" />
-              <SortableHeader sortKey="revision" sorts={sorts} onSort={handleSort} label="Rev" colMin="rev" />
+              <StaticHeader label="Participant" colMin="id" />
+              <StaticHeader label="Enrollment" colMin="compactId" />
+              <StaticHeader label="Record" colMin="state" />
+              <StaticHeader label="Assigned" colMin="instant" />
+              <StaticHeader label="Updated" colMin="instant" />
+              <StaticHeader label="Rev" colMin="rev" />
             </tr>
           </thead>
           <tbody>
-            {slice.pageRows.map((row) => {
+            {rows.map((row) => {
               const record = enrollmentRecordVariant(row.status);
               return (
                 <DatatableRow key={row.enrollment_id}>
@@ -459,60 +444,27 @@ function EnrollmentRegistry({
         </DatatableTable>
       }
       empty={
-        slice.total === 0 ? (
+        rows.length === 0 ? (
           <DatatableEmpty
             inset
-            label={query ? "No matching Participants" : "No Participants assigned"}
-            note={query
-              ? "Nothing matches the current search. Clear the search to restore the registry."
-              : "Assign an eligible Participant to this cohort."}
-          >
-            {query ? (
-              <Key
-                size="compact"
-                onClick={() => {
-                  setSearch("");
-                  setPage(0);
-                }}
-              >
-                Clear search
-              </Key>
-            ) : null}
-          </DatatableEmpty>
+            label="No Participants assigned"
+            note="Assign an eligible Participant to this cohort."
+          />
         ) : null
       }
       footer={
-        <>
-          {enrollmentHasMore ? (
-            <KeyGroup justify="start">
-              <Key
-                variant="quiet"
-                size="compact"
-                waiting={loadingMoreEnrollments}
-                disabled={loadingMoreEnrollments}
-                onClick={onLoadMoreEnrollments}
-              >
-                Load more Participants
-              </Key>
-            </KeyGroup>
-          ) : null}
-          <DataTablePagination
-          total={slice.total}
-          startIndex={slice.startIdx}
-          visibleCount={slice.pageRows.length}
-          page={slice.page}
-          pageCount={slice.pageCount}
-          pageSize={pageSize}
-          pageSizeOptions={[16, 32]}
-          onPageSizeChange={(next) => {
-            setPageSize(next);
-            setPage(0);
-          }}
-          onPageChange={setPage}
-          onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-          onNext={() => setPage((current) => current + 1)}
+        <DataTablePagination
+          paging="cursor"
+          visibleCount={rows.length}
+          pageIndex={enrollmentPageIndex}
+          pageSize={enrollmentPageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          hasMore={enrollmentHasMore}
+          waiting={enrollmentWaiting}
+          onPageSizeChange={onEnrollmentPageSize}
+          onPrevious={onEnrollmentPrevious}
+          onNext={onEnrollmentNext}
         />
-        </>
       }
     />
     <CeremonyDialog open={assignOpen} onClose={closeAssignDialog} labelledBy={assignTitleId}>
@@ -525,8 +477,8 @@ function EnrollmentRegistry({
                 ariaLabel="Assignable Participant controls"
                 readout={
                   <ToolbarReadout
-                    label="Showing"
-                    value={`${assignSlice.total} participant${assignSlice.total === 1 ? "" : "s"}`}
+                    label="This page"
+                    value={`${candidates.length} participant${candidates.length === 1 ? "" : "s"}`}
                     valueId="assignCountValue"
                   />
                 }
@@ -536,24 +488,21 @@ function EnrollmentRegistry({
                     label="Search participant or actor"
                     placeholder={SEARCH_NAME_OR_ID_PLACEHOLDER}
                     value={assignSearch}
-                    onChange={(event) => {
-                      setAssignSearch(event.target.value);
-                      setAssignPage(0);
-                    }}
+                    onChange={(event) => onAssignSearch(event.target.value)}
                   />
                 }
               />
             }
             scrollProps={{ "aria-label": "Assignable Participant rows, scrollable" }}
             table={
-              <DatatableTable caption="Assignable Participants" hidden={assignSlice.total === 0}>
+              <DatatableTable caption="Assignable Participants" hidden={candidates.length === 0}>
                 <thead>
                   <tr>
                     <SelectHeader
                       id={assignSelectId}
                       selection={selection}
-                      pageIds={assignPageIds}
-                      matchingIds={assignMatchingIds}
+                      pageIds={candidateIds}
+                      matchingIds={candidateIds}
                       queryKey={assignQueryKey}
                       noun="participants"
                       onTransition={setSelection}
@@ -563,7 +512,7 @@ function EnrollmentRegistry({
                   </tr>
                 </thead>
                 <tbody>
-                  {assignSlice.pageRows.map((candidate) => (
+                  {candidates.map((candidate) => (
                     <DatatableRow
                       key={candidate.actor_id}
                       selected={isSelected(selection, candidate.actor_id)}
@@ -596,7 +545,7 @@ function EnrollmentRegistry({
               </DatatableTable>
             }
             empty={
-              assignSlice.total === 0 ? (
+              candidates.length === 0 ? (
                 <DatatableEmpty
                   inset
                   label={assignQuery ? "No matching Participants" : "No assignable Participants"}
@@ -605,13 +554,7 @@ function EnrollmentRegistry({
                     : "No assignable Participants are on this page."}
                 >
                   {assignQuery ? (
-                    <Key
-                      size="compact"
-                      onClick={() => {
-                        setAssignSearch("");
-                        setAssignPage(0);
-                      }}
-                    >
+                    <Key size="compact" onClick={() => onAssignSearch("")}>
                       Clear search
                     </Key>
                   ) : null}
@@ -620,20 +563,16 @@ function EnrollmentRegistry({
             }
             footer={
               <DataTablePagination
-                total={assignSlice.total}
-                startIndex={assignSlice.startIdx}
-                visibleCount={assignSlice.pageRows.length}
-                page={assignSlice.page}
-                pageCount={assignSlice.pageCount}
-                pageSize={assignPageSize}
-                pageSizeOptions={[16, 32]}
-                onPageSizeChange={(next) => {
-                  setAssignPageSize(next);
-                  setAssignPage(0);
-                }}
-                onPageChange={setAssignPage}
-                onPrevious={() => setAssignPage((current) => Math.max(0, current - 1))}
-                onNext={() => setAssignPage((current) => current + 1)}
+                paging="cursor"
+                visibleCount={candidates.length}
+                pageIndex={candidatePageIndex}
+                pageSize={candidatePageSize}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                hasMore={candidateHasMore}
+                waiting={candidateWaiting}
+                onPageSizeChange={onCandidatePageSize}
+                onPrevious={onCandidatePrevious}
+                onNext={onCandidateNext}
               />
             }
           />

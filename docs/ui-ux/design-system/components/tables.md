@@ -111,6 +111,11 @@ overlay scrolls `.dialog-body` or `.ceremony-body` ([modals](modals.md)).
   production table needs them.
 - Bulk actions are all-or-nothing; mixed eligibility disables with a reason.
 - Production actions require server permission (`PC-09`).
+- Pagination is `DataTablePagination` in the shell footer. Use numbered mode when
+  the host knows a complete count. Use cursor mode for signed server pages
+  (`UI-SUBM-DEC-13`): rows-per-page plus Prev/Next, no page jump, no invented
+  total. See [pagination](pagination.md). Do not attach `ItemList` Load more to
+  a table.
 
 ## Narrow
 

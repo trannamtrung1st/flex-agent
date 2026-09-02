@@ -10,7 +10,7 @@
 | **Version** | 1.0 |
 | **Prepared date** | 2026-08-28 |
 | **Approved date** | 2026-08-28 |
-| **Last amended** | 2026-08-30 — `UI-SUBM-DEC-13`–`UI-SUBM-DEC-16` clarified (registry cursor **Load more**, picker DataTable paging, assign receipt as toast) |
+| **Last amended** | 2026-09-02 — `UI-SUBM-DEC-13` uses server-backed DataTable paging (no registry Load more) |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Administrator Enrollment interaction and Participant Submission preparation, intake, accepted-version history, Attempt readiness, start, and recovery for a P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-2`](activity-campaign-journey.md#jrn-mvp-2-assign-participant) and [`JRN-MVP-3`](activity-campaign-journey.md#jrn-mvp-3-submit-work-and-start-attempt) |
@@ -139,9 +139,10 @@ The original decisions were approved on 2026-08-09. Version 0.2 amended
 `UI-SUBM-DEC-10` and approved `UI-SUBM-DEC-11`–`UI-SUBM-DEC-12` on
 2026-08-23. `UI-SUBM-DEC-13`–`UI-SUBM-DEC-16` were added on 2026-08-30.
 The same day, `UI-SUBM-DEC-13` and `UI-SUBM-DEC-14` were clarified so paging
-and assign-success feedback match the design-system toast/advisory split and
-the Participants registry **Load more** instrument. Stable IDs are retained
-for traceability and future supersession.
+and assign-success feedback match the design-system toast/advisory split.
+On 2026-09-02, `UI-SUBM-DEC-13` was amended so Participants tables use one
+server-backed DataTable pager instead of **Load more** plus a client window.
+Stable IDs are retained for traceability and future supersession.
 
 | ID | Approved decision | Rationale and consequence |
 | --- | --- | --- |
@@ -157,7 +158,7 @@ for traceability and future supersession.
 | `UI-SUBM-DEC-10` | Own the P0 fairness-exception approval interaction in a bounded section on the Enrollment. Show a non-committed **Approval required** state to the requester; expose **Approve exception** and **Reject exception** only to a different separately authorized actor; and fail closed when no approved route or approver exists. | Preserves `REQ-ACT-42`, makes the exact baseline/request/effect visible in context, avoids an unnecessary governance destination, and prevents self-approval or policy widening. This resolves `Q-SUBM-UX-1`. |
 | `UI-SUBM-DEC-11` | Present only the currently permitted subset of four timing dimensions—Submission deadline, earliest Attempt start, latest Attempt start, and per-Attempt duration—as one normalized replacement value per request. Use a policy-supplied reason selection and collect no free-text reason or diagnosis. | Keeps the form bounded, understandable, and privacy-minimized while preventing client-authored dimensions, deltas, composition, or production reason vocabularies. |
 | `UI-SUBM-DEC-12` | Keep immutable baseline timing and current effective timing visibly distinct. When the browser cannot format the governing named timezone, show exact UTC plus the unchanged timezone identifier and state that local conversion is unavailable; never substitute the browser timezone. | Prevents an accommodation or display fallback from looking like a Cohort edit or changing the authoritative cutoff. |
-| `UI-SUBM-DEC-13` | Page Participants and participant-options with signed server cursors (`limit`, `cursor`, `has_more`). Do not load every row in the browser to exclude already-enrolled identities. Options may include currently enrolled Participants. | Client-side exclude-after-load-all does not scale. Equivalent retry is a toast labeled **Already assigned**, not a second **Enrollment active**. Search and sort apply to fetched pages. When the Participants registry `has_more`, OperateArea advisory plus **Load more Participants** fetch the next signed cursor. The Assign Participant picker pages the **already fetched** option set with DataTable pagination; a **Load more** control inside the picker (next options cursor) remains deferred. |
+| `UI-SUBM-DEC-13` | Page Participants and participant-options with signed server cursors (`limit`, `cursor`, `has_more`). Do not load every row in the browser to exclude already-enrolled identities. Options may include currently enrolled Participants. | Client-side exclude-after-load-all does not scale. Equivalent retry is a toast labeled **Already assigned**, not a second **Enrollment active**. The Participants registry and Assign Participant picker each show one signed server page in the DataTable footer (rows-per-page plus Prev/Next). Next uses `next_cursor`; Prev uses the retained prior cursor. Do not accumulate pages in the browser, add **Load more**, or invent a total/page-jump. Assign picker search uses the authorized `q` prefix and restarts at the first page. Enrollment-list search and column sort are not offered until that list accepts query parameters; the table follows server cursor order. |
 | `UI-SUBM-DEC-14` | After a successful assign, stay on the Participants registry and show a toast labeled **Enrollment active** (copy is the permitted display identity). Do not require opening Enrollment detail. | Administrators usually continue assigning; bulk assign later should stay on the same registry. Detail remains available from the row identifier. Transient receipts use toast; see [alerts, advisories, and toasts](../design-system/components/alerts.md). |
 | `UI-SUBM-DEC-15` | Keep header select-all on the Assign Participant picker as reserved chrome for a future bulk-assign contract. P0 commit stays disabled unless exactly one row is selected. | Avoids ripping out selection grammar that bulk assign will need; `UI-SUBM-DEC-9` still governs the P0 command. |
 | `UI-SUBM-DEC-16` | **Close Enrollment** and **Revoke Enrollment** require confirmation that names the Enrollment, the terminal consequence (no new intake or Attempt start; history preserved), and the operation's required reason code. No free-text reason. | Matches the lifecycle command contract (`activity_or_enrollment_end`, `access_revoked`) and prevents an accidental terminal mutation. |

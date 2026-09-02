@@ -51,17 +51,17 @@ describe("production enrollment client", () => {
   it("passes a signed list cursor on the next page request", async () => {
     const fetchJson = vi.fn().mockResolvedValue({ schema_version: "v1", items: [], has_more: false });
     const client = createProductionEnrollmentClient(fetchJson);
-    await client.listEnrollments("act-1", "coh-1", "cur-1");
+    await client.listEnrollments("act-1", "coh-1", "cur-1", 16);
     await client.listCandidates("act-1", "coh-1", "cur-2");
-    await client.listCandidates("act-1", "coh-1", null, 50);
+    await client.listCandidates("act-1", "coh-1", null, 16, "Pat");
     expect(fetchJson.mock.calls[0]?.[0]).toBe(
-      "/v1/assessment/activities/act-1/cohorts/coh-1/enrollments?cursor=cur-1",
+      "/v1/assessment/activities/act-1/cohorts/coh-1/enrollments?cursor=cur-1&limit=16",
     );
     expect(fetchJson.mock.calls[1]?.[0]).toBe(
       "/v1/assessment/activities/act-1/cohorts/coh-1/participant-options?cursor=cur-2",
     );
     expect(fetchJson.mock.calls[2]?.[0]).toBe(
-      "/v1/assessment/activities/act-1/cohorts/coh-1/participant-options?limit=50",
+      "/v1/assessment/activities/act-1/cohorts/coh-1/participant-options?limit=16&q=Pat",
     );
   });
 

@@ -78,27 +78,34 @@ export function createEnrollmentIdempotencyKey(): string {
 /** Local demo fixture has 31 assignable participants; API maximum is 50. */
 export const PARTICIPANT_OPTIONS_PAGE_LIMIT = 50;
 
-function withCursor(path: string, cursor?: string | null): string {
-  if (!cursor) return path;
-  return `${path}?cursor=${encodeURIComponent(cursor)}`;
+function listQuery(
+  path: string,
+  params: { cursor?: string | null; limit?: number; q?: string | null },
+): string {
+  const query = new URLSearchParams();
+  if (params.cursor) query.set("cursor", params.cursor);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  const prefix = params.q?.trim();
+  if (prefix) query.set("q", prefix);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return `${path}${suffix}`;
 }
 
 export function createProductionEnrollmentClient(fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>) {
   return {
-    listCandidates(activityId: string, cohortId: string, cursor?: string | null, limit?: number) {
-      const query = new URLSearchParams();
-      if (cursor) query.set("cursor", cursor);
-      if (limit !== undefined) query.set("limit", String(limit));
-      const suffix = query.size > 0 ? `?${query.toString()}` : "";
+    listCandidates(activityId: string, cohortId: string, cursor?: string | null, limit?: number, q?: string | null) {
       return fetchJson<CandidatePageV1>(
-        `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options${suffix}`,
+        listQuery(
+          `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/participant-options`,
+          { cursor, limit, q },
+        ),
       );
     },
-    listEnrollments(activityId: string, cohortId: string, cursor?: string | null) {
+    listEnrollments(activityId: string, cohortId: string, cursor?: string | null, limit?: number) {
       return fetchJson<EnrollmentPageV1>(
-        withCursor(
+        listQuery(
           `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/enrollments`,
-          cursor,
+          { cursor, limit },
         ),
       );
     },

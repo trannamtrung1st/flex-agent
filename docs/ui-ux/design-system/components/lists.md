@@ -40,8 +40,9 @@ not tables. Callers pass data plus `renderItem` so row content stays generic
 - Optional `scroll` names a region (`"{label}, scrollable"` by default) with
   contained overflow. Use it when the list is seated inside another scroll
   parent (Component Deck, dialog body). Datatable paging stays
-  [DataTablePagination](pagination.md); do not use `ItemList` as a table
-  footer.
+  [DataTablePagination](pagination.md). Use `ItemList` `loadMore` only for
+  named record lists, never as a table footer or as a second pager beside a
+  DataTable.
 
 Deck specimen: `item-list`. The Deck demos delayed `waiting` so the occupied
 Load more key and end-trigger `WaitPanel` are inspectable.
