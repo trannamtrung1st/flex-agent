@@ -312,22 +312,20 @@ behavior.
   and PostgreSQL tests, then full repository gates. Record exact commands,
   counts, exit status, and any environment blocker below; do not convert an
   unavailable integration environment into a pass.
-- [x] Attach to the documented healthy candidate origin (`:5274` with canonical
-  API `:18080`) and use the synthetic Participant account. Through real
-  interactions verify eligible, blocked, confirm/cancel, acknowledgment save,
-  stale/failed/uncertain acknowledgment, starting, duplicate-disabled,
-  reconcile, precommit failure, active conflict, abort/history, and
-  permission-loss states at desktop and narrow widths,
-  including keyboard order, focus enter/restore, announcements, reduced motion,
-  400% zoom/reflow, light/dark, and screenshots under `.playwright-mcp/`.
+- [>] Attach to the documented healthy candidate origin (`:5274` with canonical
+  API `:18080`) and use the synthetic Participant account. Live seed verifies
+  active conflict, history, and **Continue Attempt** at desktop and narrow
+  widths. Eligible confirm/cancel, acknowledgment save, uncertain
+  acknowledgment, starting, reconcile, and retry-ordinal dialog remain
+  unit-tested only until a seed without an active Attempt is available.
 - [x] Request distinct backend, frontend, security/privacy, and QA reviews.
   Resolve every blocking finding in this task, rerun affected checks, and record
   reviewer evidence without asking reviewers to edit the implementation.
   Backend/security High Development synthetic fallback and frontend Blocker 409
-  occupied-start were fixed this pass. Confirmation facts (`UI-SUBM-DEC-4`) and
-  active-Attempt landing on **Continue Attempt** were closed this pass.
-  Remaining High UX (notice persistence UI, history, narrow foot overlap) is
-  still open and is not required to close this start slice.
+  occupied-start were fixed earlier. Confirmation facts (`UI-SUBM-DEC-4`) and
+  active-Attempt landing on **Continue Attempt** remain. This cleanup pass
+  keeps acknowledgment save/saved/failed, uncertain-ack recovery, retry
+  ordinal copy, and Attempt history in scope until review accepts them.
 - [x] Reconcile this plan with actual changes and governing specs; update
   `docs/current-state.md` only to the demonstrated boundary, create/activate the
   separately tracked hosted-text-session successor if authorized, then remove
@@ -357,14 +355,22 @@ completed successfully (`changes`, `dotnet`, `web`, `oidc`, `supply-chain`,
 readable without GitHub auth, so the remote CycloneDX line cannot be grepped
 here; local SPA SBOM generation on this tree has no `invalid: fast-uri`.
 
-In-scope UX closed this pass: Start Attempt confirmation now shows Attempt N of
-M, entitlement source, duration, start window, Submission version/item summary,
-acknowledgment state, consumption consequence, and **Start Attempt N**. An
-active Attempt lands on **Attempt in progress** with **Continue Attempt** and
-does not offer Begin intake as the default next action.
+Review of `38738f6` kept this task open. The follow-up pass (uncommitted until
+requested) separates local checkbox intent from durably recorded
+acknowledgments, persists acknowledgments before occupying start, reuses
+acknowledgment idempotency keys across uncertain `/acknowledgments` outcomes,
+uses retry copy `Attempt N · Authorized retry (baseline limit M)` with a
+realistic `next_ordinal: 3` fixture, and renders `attempt.history`.
+
+Confirmation pass: Start dialog includes an honest Agent-inspection line
+(readiness has no per-item inspection facts). Narrow guided-task bay clearance
+is `7.5rem` so history can sit above the fixed foot. Live candidate `:5274`
+still lands seeded Q3 on **Attempt in progress** with history **Attempt 1
+active. Consumed.** Confirmation/retry/uncertain-ack remain unit-covered.
+Do not retire this file until review of this commit.
 
 Successor/operational only: hosted live Session, Production qualified model
-selection, Worker in Compose. Do not treat those as remaining P0 start work.
+selection, Worker in Compose.
 
 # Decisions
 
@@ -426,10 +432,13 @@ selection, Worker in Compose. Do not treat those as remaining P0 start work.
 - Attempt ownership, durable acknowledgments, atomic Development start, exact
   accepted-version reads under the commit transaction, notice projection sets
   (`0067`), and Session-to-Attempt terminal mapping now exist. Confirmation
-  facts and active-Attempt landing are implemented. Remaining High items are
-  successor/operational (hosted live Session, Production qualified model,
-  Worker in Compose) plus residual UX (notice persistence UI, history, narrow
-  foot overlap) that this start slice does not need to close.
+  facts, active-Attempt landing, local-versus-recorded acknowledgment copy,
+  uncertain-ack recovery without start occupation, retry ordinal wording, and
+  Attempt history rendering are implemented in source and focused web tests.
+  Remaining High items are successor/operational (hosted live Session,
+  Production qualified model, Worker in Compose).   Residual in-scope UX: live (non-unit) ack/uncertain/retry dialog evidence
+  on a seed that is not already active-conflict. Per-item Agent-inspection
+  remains absent from the readiness contract; the dialog states that honestly.
 - Existing Session persistence is reachable through a supplied PostgreSQL
   transaction. `PostgresSessionRuntimeRepository` requires
   `ISessionAttemptTerminalSink`; Session integration tests pass
@@ -479,10 +488,10 @@ the plan.
 | Focused Submissions domain/application tests | passed | AttemptStartCoordinatorTests + mapping port previously green; included in full .NET 1812 |
 | PostgreSQL migration/integration/fault tests | passed | 2026-09-02: AttemptStartPersistenceTests 7 (includes registered digest drift). Notice list count mismatch fail-closed. Parser digest-before-empty. Mapping persistence 2. Full Postgres.Integration in verify-dotnet. |
 | Runtime HTTP negative-contract tests | passed | Included in `CI=true bash build/scripts/verify-dotnet.sh` |
-| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 10/10 including confirmation facts and active-Attempt landing |
+| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 12/12 including local-vs-recorded ack copy, retry ordinal 3 of baseline 2, uncertain-ack recovery, history, and Agent-inspection honesty |
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
-| `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Candidate `:5274` + `demo.participant` on seeded Q3 assignment: phase **Attempt in progress**, Attempt station, **Continue Attempt**, no Begin intake. Confirmation facts covered by unit test; live seed already has an active conflict so the dialog was not opened. API restored to canonical RedirectUri. |
+| `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Candidate `:5274` + `demo.participant` on seeded Q3: **Attempt in progress**, history **Attempt 1 active. Consumed.** above **Continue Attempt** at desktop 1280 and scrolled narrow 390. Start dialog / retry / uncertain-ack not live (active conflict). |
 | Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; `c966ddb` P2 hex allowlist addressed; `61ff0f9` approved (AJV-compatible `fast-uri` 3.1.6). Remaining items are product-completion gaps |
 | Implementation `supply-chain` | green on `61ff0f9` | [33658231713](https://github.com/trannamtrung1st/flex-agent/actions/runs/33658231713) conclusion success; `pnpm audit` and `Generate SBOM` succeeded. Local CycloneDX has no `invalid: fast-uri`. Remote log text not downloadable without GitHub auth. |
 
@@ -516,4 +525,4 @@ product decision. Implementation must preserve these entry gates:
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Task state is safe and complete for external review
+- [ ] Task state is safe and complete for external review

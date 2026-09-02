@@ -564,7 +564,7 @@ describe("ProductionMyWorkDetailPage", () => {
       }
       if (url.includes("/attempt")) {
         return jsonResponse(attemptPayload({
-          next_ordinal: 1,
+          next_ordinal: 3,
           remaining_entitlement: 1,
           baseline_attempt_limit: 2,
           entitlement_source: "retry",
@@ -592,16 +592,19 @@ describe("ProductionMyWorkDetailPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /required Instructions/ }));
     fireEvent.click(screen.getByRole("button", { name: "Start Attempt" }));
     const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
-    expect(dialog).toHaveTextContent("Attempt 1 of 2");
+    expect(dialog).toHaveTextContent("Attempt 3 · Authorized retry (baseline limit 2)");
     expect(dialog).toHaveTextContent("Separately authorized retry entitlement");
     expect(dialog).toHaveTextContent("15 minutes");
     expect(dialog).toHaveTextContent("Submission Version 1");
     expect(dialog).toHaveTextContent("1 item");
-    expect(dialog).toHaveTextContent("Required acknowledgments recorded");
+    expect(dialog).toHaveTextContent("Per-item Agent-inspection is not itemized on this readiness projection");
+    expect(dialog).toHaveTextContent("Agent-reading is not a start blocker");
+    expect(dialog).toHaveTextContent("Required acknowledgments selected locally (not yet recorded)");
+    expect(dialog).not.toHaveTextContent("Required acknowledgments recorded");
     expect(dialog).toHaveTextContent(
       "If start succeeds, this Attempt is consumed and the selected Submission version is fixed for this Session",
     );
-    expect(within(dialog).getByRole("button", { name: "Start Attempt 1" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Start Attempt 3" })).toBeEnabled();
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
@@ -639,5 +642,105 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.getByRole("link", { name: "Continue Attempt" })).toHaveAttribute("href", "/sessions/sess-1");
     expect(screen.queryByRole("button", { name: "Begin intake" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start Attempt" })).not.toBeInTheDocument();
+  });
+
+  it("recovers from uncertain acknowledgment without occupying start", async () => {
+    const ackKeys: string[] = [];
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt/acknowledgments") && init?.method === "POST") {
+        if (typeof init.body === "string") {
+          const body = JSON.parse(init.body) as { idempotency_key?: string };
+          if (body.idempotency_key) ackKeys.push(body.idempotency_key);
+        }
+        return jsonResponse({}, 500);
+      }
+      if (url.includes("/attempt/start") && init?.method === "POST") {
+        throw new Error("start must not run before acknowledgments persist");
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          required_notices: [
+            {
+              notice_id: "notice-1",
+              notice_type: "instructions",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:1",
+              source_version_id: "src-v-1",
+              content_digest: "a".repeat(64),
+              source_id: "src-1",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /required Instructions/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
+    await waitFor(() => {
+      expect(screen.getByText(/could not be updated|uncertain|not recorded/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Start Attempt 1" })).toBeEnabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
+    await waitFor(() => {
+      expect(ackKeys).toHaveLength(2);
+    });
+    expect(ackKeys[0]).toEqual(ackKeys[1]);
+  });
+
+  it("renders Attempt history from the readiness projection", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          readiness_state: "eligible",
+          next_ordinal: 2,
+          remaining_entitlement: 1,
+          baseline_attempt_limit: 2,
+          history: [
+            {
+              attempt_id: "att-1",
+              ordinal: 1,
+              status: "aborted",
+              consumed: true,
+              session_id: "sess-1",
+              started_at_utc: "2026-08-28T01:00:00Z",
+              terminal_at_utc: "2026-08-28T01:10:00Z",
+              terminal_reason_category: "session_aborted",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    expect(await screen.findByText(/Attempt 1 aborted after start/)).toBeInTheDocument();
+    expect(screen.getByText(/Consumed/)).toBeInTheDocument();
+    expect(screen.getByText(/Remaining entitlement: 1\. Attempt 2 of 2/)).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -131,19 +131,50 @@ function formatAttemptWindow(timing: MyWorkTimingV2 | null): string {
   return `Opens ${opens}. Exclusive end ${closes}.`;
 }
 
+function agentInspectionSummary(attempt: MyWorkAttemptReadinessV2): string {
+  if (attempt.readiness_state === "material_not_agent_readable") {
+    return "Required material is not Agent-readable.";
+  }
+  if (attempt.bound_version_candidates.length === 0) {
+    return "Agent-inspection summary is unavailable until an accepted version exists.";
+  }
+  return "Per-item Agent-inspection is not itemized on this readiness projection. Agent-reading is not a start blocker.";
+}
+
 function boundVersionSummary(attempt: MyWorkAttemptReadinessV2): string {
   const latest = [...attempt.bound_version_candidates].sort((a, b) => b.version_number - a.version_number)[0];
-  if (!latest) return "No accepted Submission version is available to bind.";
-  return `Submission Version ${latest.version_number}, ${formatItemCount(latest.item_count)}.`;
+  if (!latest) return `No accepted Submission version is available to bind. ${agentInspectionSummary(attempt)}`;
+  return `Submission Version ${latest.version_number}, ${formatItemCount(latest.item_count)}. ${agentInspectionSummary(attempt)}`;
+}
+
+function attemptOrdinalCopy(attempt: MyWorkAttemptReadinessV2): string {
+  if (attempt.entitlement_source === "retry") {
+    return `Attempt ${attempt.next_ordinal} · Authorized retry (baseline limit ${attempt.baseline_attempt_limit})`;
+  }
+  return `Attempt ${attempt.next_ordinal} of ${attempt.baseline_attempt_limit}`;
 }
 
 function acknowledgmentStateCopy(
   attempt: MyWorkAttemptReadinessV2,
-  ackedByNotice: Record<string, boolean>,
+  selectedByNotice: Record<string, boolean>,
+  recordedByNotice: Record<string, boolean>,
 ): string {
   if (attempt.required_notices.length === 0) return "No required acknowledgments.";
-  const recorded = attempt.required_notices.every((notice) => ackedByNotice[notice.notice_id]);
-  return recorded ? "Required acknowledgments recorded" : "Required acknowledgments not yet recorded";
+  const recorded = attempt.required_notices.every((notice) => recordedByNotice[notice.notice_id]);
+  if (recorded) return "Required acknowledgments recorded";
+  const selected = attempt.required_notices.every((notice) => selectedByNotice[notice.notice_id]);
+  if (selected) return "Required acknowledgments selected locally (not yet recorded)";
+  return "Required acknowledgments not yet selected";
+}
+
+function attemptHistoryCopy(entry: MyWorkAttemptReadinessV2["history"][number]): string {
+  if (entry.status === "aborted") {
+    return `Attempt ${entry.ordinal} aborted after start. ${entry.consumed ? "Consumed." : "Not consumed."}`;
+  }
+  if (entry.status === "completed") {
+    return `Attempt ${entry.ordinal} completed. ${entry.consumed ? "Consumed." : "Not consumed."}`;
+  }
+  return `Attempt ${entry.ordinal} active. ${entry.consumed ? "Consumed." : "Not consumed."}`;
 }
 
 function formatByteLimit(bytes: number): string {
@@ -219,6 +250,8 @@ export function ProductionMyWorkDetailPage() {
   const [view, setView] = useState<AssignmentStationView>("submission");
   const [attempt, setAttempt] = useState<MyWorkAttemptReadinessV2 | null>(null);
   const [ackedByNotice, setAckedByNotice] = useState<Record<string, boolean>>({});
+  const [recordedByNotice, setRecordedByNotice] = useState<Record<string, boolean>>({});
+  const ackKeysRef = useRef<Record<string, string>>({});
   const [startKey, setStartKey] = useState<string | null>(null);
   const [startOccupied, setStartOccupied] = useState(false);
   const pushToast = usePushToast();
@@ -305,25 +338,43 @@ export function ProductionMyWorkDetailPage() {
     }
   }
 
+  async function persistRequiredAcknowledgments(): Promise<boolean> {
+    if (!attempt) return false;
+    for (const notice of attempt.required_notices) {
+      const key = ackKeysRef.current[notice.notice_id] ?? createSubmissionIdempotencyKey();
+      ackKeysRef.current[notice.notice_id] = key;
+      const ack = await submissionClient.acknowledgeNotice(
+        enrollmentId,
+        notice.notice_id,
+        notice.source_version_id,
+        "affirmed",
+        key,
+      );
+      if (!ack.succeeded) {
+        setError(submissionFailureCopy(ack.outcome_code));
+        return false;
+      }
+      setRecordedByNotice((current) => ({ ...current, [notice.notice_id]: true }));
+    }
+    return true;
+  }
+
   async function confirmStartAttempt() {
     if (!attempt) return;
     setPending(true);
+    try {
+      const acknowledged = await persistRequiredAcknowledgments();
+      if (!acknowledged) return;
+    } catch (caught: unknown) {
+      setError(enrollmentFailureCopy(caught, "Required acknowledgments were not recorded. No Attempt started."));
+      return;
+    } finally {
+      setPending(false);
+    }
+
+    setPending(true);
     setStartOccupied(true);
     try {
-      for (const notice of attempt.required_notices) {
-        const ack = await submissionClient.acknowledgeNotice(
-          enrollmentId,
-          notice.notice_id,
-          notice.source_version_id,
-          "affirmed",
-          createSubmissionIdempotencyKey(),
-        );
-        if (!ack.succeeded) {
-          setError(submissionFailureCopy(ack.outcome_code));
-          setStartOccupied(false);
-          return;
-        }
-      }
       const key = startKey ?? createSubmissionIdempotencyKey();
       setStartKey(key);
       const started = await submissionClient.startAttempt(enrollmentId, key, attempt.start_command_digest);
@@ -516,7 +567,7 @@ export function ProductionMyWorkDetailPage() {
         <Key
           variant="begin"
           disabled={pending || startOccupied || !canStart}
-          disabledReason={noticesRequired && !noticesAcknowledged ? "Record required acknowledgments before starting." : undefined}
+          disabledReason={noticesRequired && !noticesAcknowledged ? "Select required acknowledgments before starting." : undefined}
           onClick={() => setStartConfirmOpen(true)}
         >
           Start Attempt
@@ -600,7 +651,7 @@ export function ProductionMyWorkDetailPage() {
                     rows={[
                       {
                         term: "Attempt",
-                        value: `Attempt ${attempt.next_ordinal} of ${attempt.baseline_attempt_limit}`,
+                        value: attemptOrdinalCopy(attempt),
                       },
                       {
                         term: "Entitlement",
@@ -622,7 +673,7 @@ export function ProductionMyWorkDetailPage() {
                       },
                       {
                         term: "Acknowledgments",
-                        value: acknowledgmentStateCopy(attempt, ackedByNotice),
+                        value: acknowledgmentStateCopy(attempt, ackedByNotice, recordedByNotice),
                       },
                     ]}
                   />
@@ -666,14 +717,14 @@ export function ProductionMyWorkDetailPage() {
               {attempt ? (
                 <>
                   <p>
-                    Remaining entitlement: {attempt.remaining_entitlement} of {attempt.baseline_attempt_limit}.
-                    Next ordinal {attempt.next_ordinal}. Source {attempt.entitlement_source}.
+                    Remaining entitlement: {attempt.remaining_entitlement}. {attemptOrdinalCopy(attempt)}.
+                    Source {attempt.entitlement_source}.
                   </p>
                   <p>Readiness: {wordsFromCode(attempt.readiness_state)}.</p>
                   {attempt.active_session_id ? (
                     <p>
                       Committed Session locator: <CompactId tabbable value={attempt.active_session_id} />.
-                      Live Session commands are not available from this application.
+                      Continue opens the hosted text Session for this Attempt.
                     </p>
                   ) : null}
                   {attempt.bound_version_candidates.length > 0 ? (
@@ -695,8 +746,26 @@ export function ProductionMyWorkDetailPage() {
                       }}
                     >
                       I acknowledge the required {wordsFromCode(notice.notice_type)} for this exact notice version.
+                      {recordedByNotice[notice.notice_id]
+                        ? " Recorded on the server."
+                        : ackedByNotice[notice.notice_id]
+                          ? " Selected locally. Not recorded until the server accepts the acknowledgment."
+                          : ""}
                     </AcknowledgmentGate>
                   ))}
+                  {attempt.history.length > 0 ? (
+                    <Stack gap="2">
+                      <p>Attempt history</p>
+                      {attempt.history
+                        .slice()
+                        .sort((a, b) => a.ordinal - b.ordinal)
+                        .map((entry) => (
+                          <p key={entry.attempt_id}>{attemptHistoryCopy(entry)}</p>
+                        ))}
+                    </Stack>
+                  ) : (
+                    <p>No Attempt history yet.</p>
+                  )}
                 </>
               ) : (
                 <Alert variant="info" title="Attempt readiness unavailable">

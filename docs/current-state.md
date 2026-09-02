@@ -172,7 +172,7 @@ synthetic pin is not production qualification.
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
 | Activities server-numbered paging and capability-aware table selection | Partial implemented | `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; numbered Activities list and page/matching table selection are in code and tests |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
-| Submission intake / Attempt start | Partial implemented | Submissions module, atomic Development Attempt start, My Work readiness/locator, Start Attempt confirmation facts (`UI-SUBM-DEC-4`), and active-Attempt landing on **Continue Attempt**; Production/Staging remain fail-closed; hosted live Session is a separate gap |
+| Submission intake / Attempt start | Partial implemented | Submissions module, atomic Development Attempt start, My Work readiness/locator, Start Attempt confirmation facts (`UI-SUBM-DEC-4`), local-versus-recorded acknowledgments, Attempt history on My Work, and active-Attempt landing on **Continue Attempt**; Production/Staging remain fail-closed; hosted live Session is a separate gap |
 | Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Atomic start creates an Active Session locator; production SPA still reports the host contract unavailable; successor `.work/active/hosted-text-session.md` |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
@@ -188,8 +188,8 @@ synthetic pin is not production qualification.
 ## Active work
 
 `.work/active/p0-attempt-session-start.md` is `in-progress` pending review of
-the confirmation-facts and active-Attempt landing pass. Hosted live Session
-remains unclaimed.
+the acknowledgment, history, and retry-confirmation cleanup. Hosted live
+Session remains unclaimed.
 `.work/active/hosted-text-session.md` and
 `.work/active/text-interaction-controller-contract.md` are `planned` and not
 activated. Completed Participants cursor-pager, server-numbered pagination,

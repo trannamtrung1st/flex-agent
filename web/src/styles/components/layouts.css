@@ -290,7 +290,7 @@
 
   .layout-guided__bay {
     padding: 0;
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .layout-guided__main,
@@ -575,7 +575,7 @@ html:has(.layout-guided:not([data-nested])) .toast-dock:is([data-placement$="-st
   }
 
   html:has(.layout-guided:not([data-nested])) .toast-dock[data-placement^="bottom"] {
-    --toast-dock-offset-block: calc(88px + env(safe-area-inset-bottom, 0px));
+    --toast-dock-offset-block: calc(7.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
