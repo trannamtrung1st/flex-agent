@@ -1,0 +1,36 @@
+{
+  "schema_version": "v1",
+  "projection_kind": "historical",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "lifecycle_state": "completed",
+  "session_version": 12,
+  "last_confirmed_sequence": "90",
+  "cutoff_sequence": "90",
+  "authoritative_observed_at": "2026-09-03T01:00:00Z",
+  "agent": {
+    "display_name": "Assessment Agent"
+  },
+  "bound_submission": {
+    "summary": "Accepted Submission version 1",
+    "accepted_version_count": 1
+  },
+  "transcript": {
+    "items": [
+      {
+        "item_id": "msg.synthetic.0009",
+        "author": "agent",
+        "status": "complete",
+        "content": "The Session is complete.",
+        "occurred_at": "2026-09-03T00:59:00Z",
+        "sequence_start": "80",
+        "sequence_end": "90",
+        "turn_id": "turn.synthetic.0009"
+      }
+    ],
+    "older_available": true,
+    "oldest_sequence": "80",
+    "newest_sequence": "90"
+  },
+  "permitted_actions": ["view_transcript", "return_to_my_work"],
+  "recovery_category": "none"
+}

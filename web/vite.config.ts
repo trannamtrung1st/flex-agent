@@ -25,6 +25,12 @@ export default defineConfig(({ mode }) => {
         "/v1": {
           target: devApiProxy,
           changeOrigin: true,
+          timeout: 0,
+        },
+        "/v1/sessions": {
+          target: devApiProxy,
+          changeOrigin: true,
+          timeout: 0,
         },
         "/v2": {
           target: devApiProxy,

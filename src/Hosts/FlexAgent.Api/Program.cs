@@ -51,5 +51,6 @@ app.MapHumanAuthenticationEndpoints();
 app.MapAssessmentEndpoints();
 app.MapEnrollmentEndpoints();
 app.MapProductionSessionEventEndpoints();
+app.MapHostedSessionEndpoints();
 
 app.Run();

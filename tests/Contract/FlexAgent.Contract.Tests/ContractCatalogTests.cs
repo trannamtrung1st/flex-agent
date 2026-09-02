@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(38, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(41, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(5, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(44, schemas.Count);
+        Assert.Equal(47, schemas.Count);
     }
 
     [Theory]
@@ -83,6 +83,12 @@ public sealed class ContractCatalogTests
         Assert.Contains("StartAttemptCommandV2", content, StringComparison.Ordinal);
         Assert.Contains("AcknowledgmentMutationOutcomeV2", content, StringComparison.Ordinal);
         Assert.Contains("StartAttemptOutcomeV2", content, StringComparison.Ordinal);
+        Assert.Contains("SessionSnapshotV1", content, StringComparison.Ordinal);
+        Assert.Contains("SessionCommandOutcomeV1", content, StringComparison.Ordinal);
+        Assert.Contains("SessionHostedEventEnvelopeV1", content, StringComparison.Ordinal);
+        Assert.Contains("/v1/sessions/{sessionId}", content, StringComparison.Ordinal);
+        Assert.Contains("/v1/sessions/{sessionId}/commands", content, StringComparison.Ordinal);
+        Assert.Contains("/v1/sessions/{sessionId}/events", content, StringComparison.Ordinal);
         Assert.Contains("/v2/assessment/my-work/{enrollmentId}/submission", content, StringComparison.Ordinal);
         Assert.Contains("/v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/decide", content, StringComparison.Ordinal);
         Assert.Contains("/v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/revoke", content, StringComparison.Ordinal);
@@ -113,6 +119,9 @@ public sealed class ContractCatalogTests
             ["StartAttemptCommandV2"] = "../schemas/v2/submission/start-attempt-command.v2.schema.json",
             ["AcknowledgmentMutationOutcomeV2"] = "../schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json",
             ["StartAttemptOutcomeV2"] = "../schemas/v2/submission/start-attempt-outcome.v2.schema.json",
+            ["SessionSnapshotV1"] = "../schemas/v1/session/snapshot.v1.schema.json",
+            ["SessionCommandOutcomeV1"] = "../schemas/v1/session/command-outcome.v1.schema.json",
+            ["SessionHostedEventEnvelopeV1"] = "../schemas/v1/session/hosted-event-envelope.v1.schema.json",
         };
         foreach (var (component, relativeSchema) in required)
         {

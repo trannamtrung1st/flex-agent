@@ -55,10 +55,10 @@ export function ProductionAppShell() {
     location.pathname,
   );
 
-  if (assigned === "guided-task") {
+  if (assigned === "guided-task" || assigned === "live-session") {
     return (
       <ToastHost>
-        <LayoutAssignment id="guided-task">
+        <LayoutAssignment id={assigned}>
           <Outlet />
         </LayoutAssignment>
       </ToastHost>

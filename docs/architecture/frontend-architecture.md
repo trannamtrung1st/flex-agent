@@ -54,8 +54,8 @@ browser harness):
 | Surface | Current host contract | SPA posture |
 | --- | --- | --- |
 | Auth session, Assessment shell, setup, Enrollment, My Work, Submission intake | Exposed under `/auth`, `/v1/assessment`, `/v2/assessment` | Implemented in `web/src/api/` and production pages |
-| Attempt start | Not mapped on the production host | Assignment shows an honest unavailable notice; no invented Session |
-| Text Session commands and snapshot GET | Typed envelopes exist; production host maps SSE `GET /sessions/{id}/events` only | `/sessions/:sessionId` stays contract-unavailable |
+| Attempt start | Mapped under `/v2/assessment/my-work/{enrollmentId}/attempt` | Implemented; Continue uses the committed Session locator |
+| Text Session snapshot, commands, and hosted events | `GET/POST /v1/sessions/{sessionId}` and `GET /v1/sessions/{sessionId}/events`; compatibility SSE remains `GET /sessions/{sessionId}/events` | `/sessions/:sessionId` is the Participant live-session route; `/operations` and `/transcript` are separate management records |
 | Review, Result, Release | Architecture contract exists; no production host HTTP group | Destinations stay contract-unavailable |
 
 Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions/{id}/events`, and `/browser`

@@ -73,6 +73,161 @@ export interface SessionStateEventPayloadV1 {
   turn_id?: string;
 }
 
+export interface SessionAgentIdentityV1 {
+  display_name: string;
+}
+
+export interface SessionTimingProjectionV1 {
+  policy: 'disabled' | 'active_duration' | 'absolute_deadline';
+  remaining_seconds?: number | null;
+  warning_code?: 'none' | 'approaching' | 'imminent' | null;
+  pause_started_at?: string;
+}
+
+export interface SessionBoundSubmissionSummaryV1 {
+  summary: string;
+  accepted_version_count: number;
+}
+
+export interface SessionSnapshotTranscriptItemV1 {
+  item_id: string;
+  author: 'participant' | 'agent';
+  status: 'accepted' | 'streaming' | 'complete' | 'incomplete' | 'cancelled' | 'unavailable';
+  sequence_start: PositiveInt64WireString;
+  sequence_end: PositiveInt64WireString;
+  content?: string | null;
+  occurred_at?: string;
+  turn_id?: string;
+}
+
+export interface SessionTranscriptPageV1 {
+  items: SessionSnapshotTranscriptItemV1[];
+  older_available: boolean;
+  oldest_sequence?: PositiveInt64WireString;
+  newest_sequence?: PositiveInt64WireString;
+}
+
+export interface SessionActivityProjectionV1 {
+  work_state: 'idle' | 'queued' | 'working' | 'no_action' | 'failed';
+  turn_id?: string;
+  resolution_category?: 'message_stream' | 'no_action' | 'suppressed_failure' | 'execution_failure';
+}
+
+export interface SessionCommandReconciliationV1 {
+  last_outcome_code: string;
+  last_command_id?: string;
+}
+
+export type SessionProjectionKindV1 = 'participant' | 'administrator' | 'historical';
+
+export type SessionLifecycleStateV1 =
+  | 'ready'
+  | 'active'
+  | 'paused'
+  | 'completing'
+  | 'completed'
+  | 'terminated'
+  | 'aborted';
+
+export type SessionPermittedActionV1 =
+  | 'send_message'
+  | 'complete_session'
+  | 'reconcile'
+  | 'pause_session'
+  | 'resume_session'
+  | 'terminate_session'
+  | 'view_transcript'
+  | 'return_to_my_work';
+
+export type SessionRecoveryCategoryV1 =
+  | 'none'
+  | 'reconcile_snapshot'
+  | 'retry_later'
+  | 'sign_in'
+  | 'unavailable';
+
+export interface SessionSnapshotV1 {
+  schema_version: SchemaVersionV1;
+  projection_kind: SessionProjectionKindV1;
+  session_id: string;
+  lifecycle_state: SessionLifecycleStateV1;
+  session_version: number;
+  last_confirmed_sequence: NonnegativeInt64WireString;
+  authoritative_observed_at: string;
+  permitted_actions: SessionPermittedActionV1[];
+  recovery_category: SessionRecoveryCategoryV1;
+  cutoff_sequence?: PositiveInt64WireString;
+  agent?: SessionAgentIdentityV1;
+  timing?: SessionTimingProjectionV1;
+  bound_submission?: SessionBoundSubmissionSummaryV1;
+  transcript?: SessionTranscriptPageV1;
+  activity?: SessionActivityProjectionV1;
+  command_reconciliation?: SessionCommandReconciliationV1;
+}
+
+export interface SessionCommandOutcomeV1 {
+  schema_version: SchemaVersionV1;
+  succeeded: boolean;
+  outcome_category: 'accepted' | 'duplicate' | 'rejected' | 'conflict' | 'uncertain';
+  outcome_code: string;
+  command_id: string;
+  command_type:
+    | 'session.message.send.v1'
+    | 'session.pause.v1'
+    | 'session.resume.v1'
+    | 'session.complete.v1'
+    | 'session.terminate.v1'
+    | 'session.reconcile.v1';
+  session_id: string;
+  permitted_recovery_action: 'none' | 'reconcile_snapshot' | 'retry_same_command' | 'wait' | 'return';
+  permitted_actions: SessionPermittedActionV1[];
+  session_version?: number | null;
+  session_sequence?: NonnegativeInt64WireString;
+  accepted_message_id?: string;
+}
+
+export interface SessionHostedEventPayloadV1 {
+  summary: string;
+  lifecycle_state?: SessionLifecycleStateV1;
+  remaining_seconds?: number | null;
+  warning_code?: 'none' | 'approaching' | 'imminent';
+  message_id?: string;
+  turn_id?: string;
+  work_state?: 'idle' | 'queued' | 'working' | 'no_action' | 'failed';
+  resolution_category?: 'message_stream' | 'no_action' | 'suppressed_failure' | 'execution_failure';
+  agent_message_id?: string;
+  fragment_sequence?: number;
+  text_delta?: string;
+  assembled_content_digest?: string;
+  fragment_count?: number;
+  cutoff_sequence?: PositiveInt64WireString;
+  access_state?: 'authorized' | 'revalidate' | 'revoked';
+  recovery_category?: SessionRecoveryCategoryV1;
+}
+
+export type SessionHostedEventTypeV1 =
+  | 'session.hosted.lifecycle.changed.v1'
+  | 'session.hosted.timing.updated.v1'
+  | 'session.hosted.warning.issued.v1'
+  | 'session.hosted.message.accepted.v1'
+  | 'session.hosted.agent.work.v1'
+  | 'session.hosted.agent.no_action.v1'
+  | 'session.hosted.agent.fragment.v1'
+  | 'session.hosted.agent.complete.v1'
+  | 'session.hosted.terminal.v1'
+  | 'session.hosted.access.changed.v1'
+  | 'session.hosted.reconcile.required.v1';
+
+export interface SessionHostedEventEnvelopeV1 {
+  schema_version: SchemaVersionV1;
+  event_type: SessionHostedEventTypeV1;
+  session_id: string;
+  session_sequence: PositiveInt64WireString;
+  session_version: number;
+  occurred_at: string;
+  payload: SessionHostedEventPayloadV1;
+}
+
 export interface SessionStateEventEnvelopeV1 {
   schema_version: SchemaVersionV1;
   event_type: string;

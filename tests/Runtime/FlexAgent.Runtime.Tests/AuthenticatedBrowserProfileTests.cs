@@ -70,7 +70,11 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("location /auth/", nginx);
         Assert.Contains("location /v1/assessment", nginx);
         Assert.Contains("location /v2/assessment", nginx);
+        Assert.Contains("location = /v1/sessions", nginx);
+        Assert.Contains("location /v1/sessions/", nginx);
+        Assert.DoesNotContain("location /v1/sessions {", nginx);
         Assert.Contains("location ~ ^/sessions/[^/]+/events", nginx);
+        Assert.DoesNotContain("location /v1 {", nginx);
         Assert.DoesNotContain("location /sessions/ {", nginx);
         Assert.Contains("proxy_pass http://api:8080", nginx);
         Assert.Contains("location /realms/flex-agent", nginx);
@@ -212,6 +216,22 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("repeat('e', 64)", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
+        Assert.Contains("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae", seed);
+        Assert.Contains("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf", seed);
+        Assert.Contains("service_delegation.issue", seed);
+        Assert.Contains("session.invocation.execute", seed);
+    }
+
+    [Fact]
+    public void Worker_uses_fail_closed_execution_and_an_explicit_service_actor()
+    {
+        var compose = File.ReadAllText(ComposePath());
+        Assert.Contains("Sessions__InvocationProcessing__Enabled: \"true\"", compose);
+        Assert.Contains("Sessions__TimerPolling__Enabled: \"true\"", compose);
+        Assert.Contains("Sessions__ModelExecution__Adapter: fail_closed", compose);
+        Assert.Contains("Sessions__WorkerServiceActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae", compose);
+        Assert.Contains("Sessions__DelegationIssuerActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf", compose);
+        Assert.Contains("WorkloadIdentity__Profile: synthetic.configured_actor", compose);
     }
 
     [Fact]

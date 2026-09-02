@@ -136,6 +136,8 @@ services:
       HumanAuthentication__SecretDirectory: /run/secrets
       HumanAuthentication__AcceptedAcr__0: acr:mfa
       HumanAuthentication__AcceptedAmr__0: mfa
+      Sessions__WorkerServiceActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae
+      Sessions__DelegationIssuerActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf
     volumes:
       - ./authenticated-browser/.generated/secrets:/run/secrets:ro
     healthcheck:
@@ -150,6 +152,31 @@ services:
       keycloak:
         condition: service_healthy
       seaweedfs:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/worker.Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Sessions: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
+      ConnectionStrings__Identity: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
+      Sessions__InvocationProcessing__Enabled: "true"
+      Sessions__TimerPolling__Enabled: "true"
+      Sessions__ModelExecution__Adapter: fail_closed
+      Sessions__WorkerServiceActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae
+      WorkloadIdentity__Profile: synthetic.configured_actor
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      postgres:
         condition: service_healthy
 
   spa:

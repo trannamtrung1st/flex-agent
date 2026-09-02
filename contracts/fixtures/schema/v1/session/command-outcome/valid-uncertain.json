@@ -1,0 +1,11 @@
+{
+  "schema_version": "v1",
+  "succeeded": false,
+  "outcome_category": "uncertain",
+  "outcome_code": "session.command.uncertain",
+  "command_id": "cmd.synthetic.0007",
+  "command_type": "session.complete.v1",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "permitted_recovery_action": "reconcile_snapshot",
+  "permitted_actions": ["reconcile"]
+}

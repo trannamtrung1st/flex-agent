@@ -33,9 +33,11 @@ describe("shouldHideProductionBreadcrumbs", () => {
     expect(shouldHideProductionBreadcrumbs("/activities/act-1/setup", administratorNav)).toBe(false);
   });
 
-  it("treats Session as open when My work is available", () => {
+  it("treats Session locators as open for assignment, operations, and review actors", () => {
     expect(isProductionDestinationOpen(participantNav, "sessions")).toBe(true);
-    expect(isProductionDestinationOpen(administratorNav, "sessions")).toBe(false);
+    expect(isProductionDestinationOpen(administratorNav, "sessions")).toBe(true);
+    expect(isProductionDestinationOpen([{ destination_id: "review", is_available: true }], "sessions")).toBe(true);
+    expect(isProductionDestinationOpen([{ destination_id: "home", is_available: true }], "sessions")).toBe(false);
   });
 });
 

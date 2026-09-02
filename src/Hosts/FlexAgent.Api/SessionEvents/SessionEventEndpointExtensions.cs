@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FlexAgent.Contracts.Session;
 using FlexAgent.Contracts.Transport;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
@@ -24,11 +25,20 @@ public static class SessionEventEndpointExtensions
     public static IEndpointRouteBuilder MapProductionSessionEventEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/sessions/{sessionId}/events", GetSessionEvents);
+        endpoints.MapGet("/v1/sessions/{sessionId}/events", GetHostedSessionEvents);
         return endpoints;
     }
 
-    private static async Task GetSessionEvents(HttpContext context, string sessionId)
+    private static Task GetHostedSessionEvents(HttpContext context, string sessionId) =>
+        StreamSessionEventsAsync(context, sessionId, hosted: true);
+
+    private static Task GetSessionEvents(HttpContext context, string sessionId) =>
+        StreamSessionEventsAsync(context, sessionId, hosted: false);
+
+    private static async Task StreamSessionEventsAsync(HttpContext context, string sessionId, bool hosted)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var telemetry = context.RequestServices.GetService<IHostedSessionTelemetry>();
         var identity = context.RequestServices.GetRequiredService<ISessionEventIdentityAdapter>();
         var handler = context.RequestServices.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>();
         var options = context.RequestServices.GetRequiredService<SessionEventSubscriptionOptions>();
@@ -38,12 +48,14 @@ public static class SessionEventEndpointExtensions
         if (actor is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            telemetry?.RecordSubscribe("unauthenticated", SubscribeElapsed(started));
             return;
         }
 
         if (!Guid.TryParse(sessionId, out var untrustedSessionId))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
+            telemetry?.RecordSubscribe("denied", SubscribeElapsed(started));
             return;
         }
 
@@ -59,6 +71,7 @@ public static class SessionEventEndpointExtensions
             || !MatchesBoundOrganization(context, authorization.OrganizationId))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
+            telemetry?.RecordSubscribe("denied", SubscribeElapsed(started));
             return;
         }
 
@@ -68,7 +81,7 @@ public static class SessionEventEndpointExtensions
         context.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
         var replay = await handler.ReplayAsync(command, cancellationToken);
-        if (!await WriteReplayOrCompleteAsync(context, replay, cancellationToken))
+        if (!await WriteReplayOrCompleteAsync(context, replay, hosted, cancellationToken))
         {
             return;
         }
@@ -83,7 +96,7 @@ public static class SessionEventEndpointExtensions
         {
             command = command with { UntrustedLastEventId = cursor };
             replay = await handler.ReplayAsync(command, cancellationToken);
-            if (!await WriteReplayOrCompleteAsync(context, replay, cancellationToken))
+            if (!await WriteReplayOrCompleteAsync(context, replay, hosted, cancellationToken))
             {
                 return;
             }
@@ -96,6 +109,7 @@ public static class SessionEventEndpointExtensions
 
         await context.Response.WriteAsync(": replay-complete\n\n", cancellationToken);
         await context.Response.Body.FlushAsync(cancellationToken);
+        telemetry?.RecordSubscribe("opened", SubscribeElapsed(started));
 
         var nextHeartbeatAt = DateTimeOffset.UtcNow + options.HeartbeatInterval;
         var nextRevalidateAt = DateTimeOffset.UtcNow + options.AuthorizationRevalidationInterval;
@@ -158,7 +172,7 @@ public static class SessionEventEndpointExtensions
                         return;
                     }
 
-                    await WriteEventsAsync(context, replay.Events, cancellationToken);
+                    await WriteEventsAsync(context, replay.Events, hosted, cancellationToken);
                     if (replay.Events.Count > 0)
                     {
                         cursor = replay.Events[^1].SessionSequence;
@@ -185,11 +199,12 @@ public static class SessionEventEndpointExtensions
     private static async Task<bool> WriteReplayOrCompleteAsync(
         HttpContext context,
         AuthorizedSessionEventReplayResult replay,
+        bool hosted,
         CancellationToken cancellationToken)
     {
         if (replay.Succeeded)
         {
-            await WriteEventsAsync(context, replay.Events, cancellationToken);
+            await WriteEventsAsync(context, replay.Events, hosted, cancellationToken);
             return true;
         }
 
@@ -238,11 +253,25 @@ public static class SessionEventEndpointExtensions
     private static async Task WriteEventsAsync(
         HttpContext context,
         IReadOnlyList<AuthorizedSessionProjectionEvent> events,
+        bool hosted,
         CancellationToken cancellationToken)
     {
         foreach (var evt in events)
         {
-            var payload = new SseSessionEventV1(
+            var json = hosted ? SerializeHosted(evt) : SerializeCompatibility(evt);
+            await context.Response.WriteAsync($"id: {evt.SessionSequence}\n", cancellationToken);
+            await context.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+        }
+
+        if (events.Count > 0)
+        {
+            await context.Response.Body.FlushAsync(cancellationToken);
+        }
+    }
+
+    private static string SerializeCompatibility(AuthorizedSessionProjectionEvent evt) =>
+        JsonSerializer.Serialize(
+            new SseSessionEventV1(
                 "v1",
                 evt.EventType,
                 evt.SessionId,
@@ -254,17 +283,50 @@ public static class SessionEventEndpointExtensions
                     evt.AgentMessageId,
                     evt.TextDelta,
                     AssembledContentDigest: evt.AssembledContentDigest,
-                    FragmentCount: evt.FragmentCount));
-            var json = JsonSerializer.Serialize(payload, JsonOptions);
-            await context.Response.WriteAsync($"id: {evt.SessionSequence}\n", cancellationToken);
-            await context.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                    FragmentCount: evt.FragmentCount)),
+            JsonOptions);
+
+    private static string SerializeHosted(AuthorizedSessionProjectionEvent evt)
+    {
+        var hostedType = evt.EventType switch
+        {
+            AuthorizedSessionEventTypes.AgentFragment => HostedSessionEventTypes.AgentFragment,
+            AuthorizedSessionEventTypes.AgentComplete => HostedSessionEventTypes.AgentComplete,
+            _ => evt.EventType,
+        };
+        if (!Guid.TryParse(evt.SessionId, out var sessionId))
+        {
+            sessionId = Guid.Empty;
         }
 
-        if (events.Count > 0)
-        {
-            await context.Response.Body.FlushAsync(cancellationToken);
-        }
+        return JsonSerializer.Serialize(
+            new SessionHostedEventEnvelopeV1(
+                "v1",
+                hostedType,
+                sessionId,
+                evt.SessionSequence,
+                0,
+                evt.OccurredAt,
+                new SessionHostedEventPayloadV1(
+                    evt.Summary,
+                    AgentMessageId: evt.AgentMessageId,
+                    FragmentSequence: evt.FragmentSequence,
+                    TextDelta: evt.TextDelta,
+                    AssembledContentDigest: evt.AssembledContentDigest,
+                    FragmentCount: evt.FragmentCount,
+                    WorkState: evt.WorkState,
+                    ResolutionCategory: evt.ResolutionCategory,
+                    TurnId: evt.TurnId,
+                    MessageId: evt.MessageId,
+                    LifecycleState: evt.LifecycleState,
+                    RecoveryCategory: evt.RecoveryCategory,
+                    AccessState: evt.AccessState,
+                    CutoffSequence: evt.CutoffSequence)),
+            JsonOptions);
     }
+
+    private static TimeSpan SubscribeElapsed(long started) =>
+        TimeSpan.FromSeconds((System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency);
 
     private static TimeSpan MinPositive(params TimeSpan[] values)
     {

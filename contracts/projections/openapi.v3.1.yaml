@@ -344,6 +344,75 @@ paths:
             text/event-stream:
               schema:
                 $ref: '#/components/schemas/SseSessionEventV1'
+  /v1/sessions/{sessionId}:
+    get:
+      operationId: getSessionSnapshot
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Actor-specific authoritative Session snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSnapshotV1'
+        '404':
+          description: Non-disclosing denial or unknown Session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v1/sessions/{sessionId}/commands:
+    post:
+      operationId: submitHostedSessionCommand
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCommandEnvelopeV1'
+      responses:
+        '200':
+          description: Stable Session command outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionCommandOutcomeV1'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v1/sessions/{sessionId}/events:
+    get:
+      operationId: streamHostedSessionEvents
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hosted actor-safe Session UI event stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SessionHostedEventEnvelopeV1'
 components:
   schemas:
     EnrollmentAssignCommandV1:
@@ -477,6 +546,12 @@ components:
       $ref: '../schemas/v2/submission/acknowledgment-mutation-outcome.v2.schema.json'
     StartAttemptOutcomeV2:
       $ref: '../schemas/v2/submission/start-attempt-outcome.v2.schema.json'
+    SessionSnapshotV1:
+      $ref: '../schemas/v1/session/snapshot.v1.schema.json'
+    SessionCommandOutcomeV1:
+      $ref: '../schemas/v1/session/command-outcome.v1.schema.json'
+    SessionHostedEventEnvelopeV1:
+      $ref: '../schemas/v1/session/hosted-event-envelope.v1.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

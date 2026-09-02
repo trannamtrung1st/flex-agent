@@ -194,6 +194,21 @@
       "category": "start_attempt_outcome",
       "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/start-attempt-outcome.v2.schema.json",
       "fixture_dir": "fixtures/schema/v2/submission/start-attempt-outcome"
+    },
+    {
+      "category": "session_snapshot",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/snapshot.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/snapshot"
+    },
+    {
+      "category": "session_command_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/command-outcome.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/command-outcome"
+    },
+    {
+      "category": "session_hosted_event_envelope",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/hosted-event-envelope.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/hosted-event-envelope"
     }
   ],
   "digest_schemas": [

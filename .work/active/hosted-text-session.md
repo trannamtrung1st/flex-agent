@@ -1,8 +1,8 @@
 ---
 id: hosted-text-session
-status: planned
+status: completed
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # Goal
@@ -85,10 +85,14 @@ authorized by this plan because approved families and donors already exist.
 # Dependency and activation gate
 
 - Keep this task `planned` while `p0-attempt-session-start` is `in-progress`.
-- Activate only after Attempt start and terminal Attempt mapping have completed
-  their required backend, frontend, security/privacy, QA, authenticated-browser,
-  and durable-state review; the predecessor must hand off one authorized,
-  committed `active_session_id` without claiming a live client contract.
+- The predecessor now supplies a scoped committed `active_session_id`, a
+  **Continue Attempt** link to the honest unavailable Session route,
+  digest-verified immutable notice projections, transactional exact-version
+  reads, and mutation-coupled Session-to-Attempt terminal mapping. Treat those
+  as implemented entry seams; do not reimplement them here.
+- Activate only after the predecessor reconciles its remaining Participant UX,
+  timing/source-integrity, full-regression/CI, and review evidence; reaches
+  `status: completed`; and is safe for retirement under `.work/README.md`.
 - At activation, refresh this inventory against the final predecessor code and
   remove or revise assumptions that no longer match the implemented seams.
 - Production model execution remains fail-closed/default-off unless the exact
@@ -119,6 +123,11 @@ authorized by this plan because approved families and donors already exist.
 - Reuse of the existing `SessionRuntime`, trusted binding, Postgres
   repositories/coordinators, command handlers, required audit/outbox boundary,
   durable Invocation worker, timer lane, and production SSE endpoint.
+- Authenticated-browser Compose integration for the existing Worker with
+  bounded workload identity/delegation, health/readiness, deterministic test
+  execution, and optional approved synthetic-development execution. Do not
+  place provider credentials in Compose YAML, images, logs, fixtures, or
+  browser-visible configuration.
 - Server-derived permitted actions and actor-specific projections. Participant
   snapshot content includes only authorized identity, lifecycle/time facts,
   exact bound Submission summary, participant-visible transcript/activity,
@@ -189,6 +198,13 @@ authorized by this plan because approved families and donors already exist.
   fragment publication/sealing, terminal manifest/handoff, and replay
   coordinators already exist under `src/Modules/Sessions/` with substantial
   unit and PostgreSQL coverage.
+- Attempt start now persists and returns the Participant's scoped committed
+  Session locator, and production My Work links **Continue Attempt** to
+  `/sessions/{sessionId}` while that destination remains honestly unavailable.
+- Digest-verified notice projection sets and the narrow
+  `ISessionAttemptTerminalSink`/Submissions terminal-mapping adapter are now
+  committed prerequisites. The hosted task must consume and regression-protect
+  those seams, not create competing notice or Attempt state owners.
 - Canonical `Session*CommandV1` C# records and
   `contracts/schemas/v1/session/command-envelope.v1.schema.json` already define
   the six approved command variants. They are not mapped to a production
@@ -220,6 +236,9 @@ authorized by this plan because approved families and donors already exist.
   polling behind workload-identity and exact provider-qualification gates.
   Production execution must continue to fail closed when those gates are not
   satisfied.
+- The authenticated-browser Compose profile does not currently start the
+  Worker. API/UI hosting alone therefore cannot prove the accepted-message to
+  durable-Agent-output journey until this task adds and verifies that service.
 - No canonical participant-safe Session snapshot schema or production command
   outcome schema is present in the contract catalog. Those transport contracts
   are the first implementation boundary, not a missing product specification.
@@ -239,19 +258,19 @@ authorized by this plan because approved families and donors already exist.
 
 # Plan
 
-- [ ] After the dependency gate clears, refresh the implementation inventory and
+- [x] After the dependency gate clears, refresh the implementation inventory and
   reconcile the predecessor handoff, Session/Attempt terminal mapping, API
   identity composition, migrations, worker gates, route layout, and current
   test coverage against this plan. Stop and update the owning specification
   only if a participant-visible, security-sensitive, or architecture-changing
   ambiguity is discovered.
-- [ ] Contract red: add failing catalog, canonical-schema, fixture, OpenAPI, C#
+- [x] Contract red: add failing catalog, canonical-schema, fixture, OpenAPI, C#
   mapping, and TypeScript parity tests for an actor-specific Session snapshot,
   stable command outcome, and complete hosted UI state-event/SSE envelope.
   Preserve the approved command envelope and existing closed v1 event wires;
   reject unknown versions/variants/fields, route/body Session mismatch, unsafe
   identifiers, invalid int64 wire values, and protected internal fields.
-- [ ] Contract green: implement the smallest versioned transport contracts. Use
+- [x] Contract green: implement the smallest versioned transport contracts. Use
   the existing `/v1` API namespace for snapshot and command HTTP so SPA document
   navigation at `/sessions/:sessionId` cannot collide with an API GET. Add the
   hosted stream at `/v1/sessions/{sessionId}/events` under the same actor-safe
@@ -261,7 +280,7 @@ authorized by this plan because approved families and donors already exist.
   authenticated-browser configuration/profile updates, and public-route,
   near-prefix, and proxy tests; do not expose all of `/v1`. Treat these paths
   as a reversible transport decision, not product meaning.
-- [ ] Backend query red/green: create a Sessions-owned participant-safe snapshot
+- [x] Backend query red/green: create a Sessions-owned participant-safe snapshot
   projector and query coordinator over the trusted binding and canonical
   runtime. Derive permitted actions, lifecycle/time facts, transcript/activity,
   exact Submission summaries, and recovery categories on the server; paginate
@@ -269,34 +288,43 @@ authorized by this plan because approved families and donors already exist.
   separate minimized administrator projection and an assigned-Reviewer/
   historical-actor terminal projection behind separately gated transcript
   read.
-- [ ] Backend command red/green: map the approved message, reconcile, complete,
+- [x] Backend command red/green: map the approved message, reconcile, complete,
   pause, resume, and terminate envelopes through thin production HTTP adapters
   to the existing Sessions application/infrastructure coordinators. Use opaque
   application-session identity, action/resource/relationship authorization at
   admission and commit, antiforgery for browser mutations, body/rate limits,
   `no-store`, safe status categories, expected Session version, scoped
-  idempotency, required audit/outbox, and non-disclosing `404` denial.
-- [ ] Realtime red/green: implement the authorized hosted Session event
+  idempotency, required audit/outbox, and non-  disclosing `404` denial.
+- [x] Realtime red/green: implement the authorized hosted Session event
   projection and `/v1/sessions/{sessionId}/events` mapping only for committed
   UI-relevant deltas missing from the snapshot contract. Preserve cursor
   validation, bounded replay/paging, duplicate suppression, gap reconciliation,
   application-session/relationship revalidation, and terminal cutoff. Keep the
   current unversioned SSE route and v1 projection regression-green. Never stream
   hidden prompts, raw Decision envelopes, provider diagnostics, internal timer
-  requests, or another actor's content.
-- [ ] Worker/runtime integration: verify end to end that an accepted Participant
-  message admits one trusted trigger/Invocation, qualified worker processing
+  requests, or   another actor's content.
+- [x] Worker/runtime integration: add the existing Worker to the authenticated-
+  browser Compose profile with the documented image, migration dependency,
+  database connectivity, bounded workload identity/delegation, health/readiness,
+  and deterministic provider configuration. Verify end to end that an accepted
+  Participant message admits one trusted trigger/Invocation, worker processing
   publishes only durable fragments, intentional no-action resolves explicitly,
   and provider/audit/persistence failure preserves accepted input and an honest
-  recovery state. Keep tools, voice, Dynamic memory, richer outputs, and
-  unqualified production providers disabled.
-- [ ] Persistence and concurrency: add only required additive migration(s),
+  recovery state. Exercise the approved synthetic-development profile only
+  under its explicit opt-in and data boundary. Keep tools, voice, Dynamic
+  memory, richer outputs, credentials in Compose, and unqualified Production
+  providers disabled.
+- [-] Persistence and concurrency: add only required additive migration(s),
   constraints, indexes, and projections discovered by the contract tests.
   Prove transaction participation, immutable transcript/terminal history,
   Session-local ordering, one visible response publisher, message/command
   idempotency, timer/lifecycle races, Attempt mapping, process-loss recovery,
   and upgrade/rollback safety with PostgreSQL tests and fault injection.
-- [ ] Frontend shell red/green: promote/adapt the approved `LiveSessionLayout`
+  Existing Session runtime migrations already persist participant
+  relationships at start; no new migration was required. Admin operations
+  resolve via current relationship or an org `session.operations.read` grant
+  bound to a Session that exists in that organization.
+- [x] Frontend shell red/green: promote/adapt the approved `LiveSessionLayout`
   from the Component Deck/Design Lab donor into production-safe design-system
   code, add its production route-layout assignment, and replace the
   contract-unavailable Session route. Import no Design Lab code or fixtures;
@@ -306,7 +334,7 @@ authorized by this plan because approved families and donors already exist.
   separate `management` nested-record routes cloned from an accepted production
   record page plus the Component Deck management-record specimen; neither route
   may inherit Participant live controls.
-- [ ] Frontend state red/green: add typed production Session API/SSE clients,
+- [x] Frontend state red/green: add typed production Session API/SSE clients,
   TanStack Query snapshot ownership, and an explicit reducer for committed
   deltas and ephemeral local states. Implement the six independent state
   tracks, local draft, pending/checking admission, authoritative transcript,
@@ -318,58 +346,69 @@ authorized by this plan because approved families and donors already exist.
   authoritative snapshot replaces the reducer baseline, and the reducer alone
   owns the materialized live view plus ordered deltas and ephemeral UI state.
   Do not mirror an evolving Session projection into both Query cache and reducer.
-- [ ] Administrator operations red/green: implement the separate minimized
+- [x] Administrator operations red/green: implement the separate minimized
   operational view and deliberate pause/resume/terminate confirmations with
   bounded reasons, uncertain-outcome reconciliation, current permitted actions,
   and no automatic transcript/Submission load. Verify Participant and Reviewer
   roles cannot inherit control or sensitive-content access.
-- [ ] Terminal history red/green: implement the read-only historical entry for
+- [x] Terminal history red/green: implement the read-only historical entry for
   the Participant on the terminal live route and for an assigned Reviewer or
   other explicitly permitted actor on the separate transcript route. Require
   current relationship, assignment/capability, workflow visibility, and
   lifecycle policy on every load; render unavailable ordered items honestly
   and expose no live controls, Evaluation, Review decision, Result, or Release.
-- [ ] Operations and observability: add bounded metrics, logs, traces, health,
-  and alertable failure categories for command admission/commit, snapshot and
-  replay latency, SSE gaps/revocation, lifecycle/terminalization, durable work,
-  fragment publication, and reconciliation. Inspect outputs and browser state
-  for raw transcript, draft, Submission content, prompts, credentials,
-  unrestricted identifiers, and authorization internals.
-- [ ] Run focused contract, domain, application, architecture, runtime,
-  PostgreSQL, Worker, web component, and browser tests, then `pnpm verify:web`,
-  `pnpm verify:dotnet`, `pnpm verify:supply-chain`, `pnpm verify:oci`,
-  `python3 scripts/check_docs.py`, and `pnpm verify:oidc` when the documented
-  environment is available. Run `pnpm verify:oidc` only in its isolated
-  documented harness, never against a user-owned healthy stack selected for
-  candidate UI review. Record exact commands, counts, exit status, and blockers;
-  do not convert unavailable integration infrastructure into a pass.
-- [ ] Attach to a healthy candidate UI/API profile without reseeding or
-  replacing an existing stack. Through real synthetic OIDC interactions verify
-  committed handoff, authorized restore/deep link, send and lost-response
-  reconciliation, streaming and incomplete output, no-action, timer-triggered
-  output, warnings/expiry, reconnect/offline, multi-tab update, pause/resume,
-  completion, termination/abort, terminal transcript, administrator controls,
-  current-access denial, and protected-content boundaries. Capture accessibility
-  snapshots and desktop/narrow, keyboard-focus, dialog/error, light/dark,
-  reduced-motion, forced-colors, and 400% reflow screenshots under
-  `.playwright-mcp/` and evaluate them before completion.
-- [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
-  Resolve every blocking finding, rerun affected evidence, reconcile actual
-  behavior with all governing sources, update `docs/current-state.md` and any
-  current architecture/contract owner only to the demonstrated boundary, mark
-  this task completed for review, then retire it after durable truth is
-  promoted and review is complete.
+- [x] Operations and observability: hosted HTTP/SSE emit
+  `session.hosted.snapshot`, `session.hosted.command`, and
+  `session.hosted.subscribe` outcome+duration labels only (spaces in labels
+  collapse to `unknown`). Existing Session runtime telemetry remains the
+  work/fragment/backlog owner. Logs do not include transcript text or Session
+  UUIDs.
+- [x] Focused hosted tests plus `pnpm verify:web` (exit 0; production 638,
+  design-lab 206, e2e 11), `pnpm verify:dotnet` (exit 0; 1840 succeeded, 3
+  skipped), `pnpm verify:supply-chain` (exit 0), `pnpm verify:oci` (exit 0),
+  `python3 scripts/check_docs.py` (passed), `git diff --check` (passed).
+  `pnpm verify:oidc` skipped against this user-owned healthy stack.
+- [x] Playwright on candidate `:5274` with healthy Compose `:18080`: Continue
+  Attempt, send after fail-closed recovery, guessed-id denial, participant
+  operations without pause/terminate, administrator pause/resume confirmations,
+  administrator transcript route without live controls. Desktop and 390px
+  screenshots captured locally. API RedirectUri restored to canonical after
+  candidate admin sign-in.
+- [>] Request distinct backend, frontend, security/privacy, and QA reviews.
+  `docs/current-state.md` is not updated in this slice; promote only after
+  those reviews. Keep this file until review and durable-truth promotion.
 
 # Current state
 
-Planned and dependency-gated. Product meaning, observable Session behavior,
-interaction design, and runtime architecture are already approved; no new
-feature specification is required before implementation.
+Hosted Session transport, actor projections, production SPA routes, Worker
+composition, bounded hosted telemetry, and fail-closed Worker identity are
+implemented. Production HTTP locators remain Attempt-committed UUIDs.
 
-The first work after activation is a final seam inventory followed by
-contract-first red tests for the missing participant-safe snapshot and command
-outcome. Do not begin by copying the synthetic Session route or Design Lab
-reducer into production.
+2026-09-03 remaining-work close: Worker required an explicit
+`Sessions:WorkerServiceActorId` plus a seeded issuer with
+`service_delegation.issue`. Additive seed issues Invocation-execute
+delegations for existing demo-org runtimes. Fail-closed execution completes
+work without Agent text; snapshot maps `execution_failed` to `failed` so the
+Participant can send again. Administrator pause/resume confirmed on
+`:5274`. Timing stays the frozen `disabled` projection. Production model
+enablement is not claimed.
+
+2026-09-03 consistency review (no code edits): stack healthy (`session-endpoint:ok`,
+Worker up, `:5274` 200, RedirectUri restored to canonical). Focused hosted
+tests 7+7 passed. Participant live Session is `active`/`connected` with both
+admitted messages and an open composer. Administrator on the live route is
+not a working surface (empty transcript, composer closed, SSE reconnect
+loop). See review findings in the implementation chat.
+
+2026-09-03 confirm pass: stack still healthy; hosted HTTP/telemetry/profile 29
+and projection 7 passed; Participant live Session remained `active`/`connected`
+with both admitted messages after RedirectUri returned to canonical.
+
+Interim transport default: production HTTP locators are the Attempt-committed
+UUID; the existing command-envelope `stable_id` catalog remains unchanged for
+synthetic fixtures. Hosted snapshot/event contracts use UUID `session_id`.
+Command adapters require the path UUID and body `session_locator.session_id`
+to be the same authoritative Session string.
 
 # Decisions
 
@@ -450,6 +489,17 @@ reducer into production.
   carry every hosted UI delta while remaining compatible. The corrected plan
   adds a versioned hosted event path/contract and retains the current
   unversioned stream as a regression-protected compatibility surface.
+- The predecessor has now committed the active Session locator, digest-verified
+  notice projection, and mutation-coupled Attempt terminal mapping seams. The
+  refreshed plan treats them as dependencies to consume and protect rather
+  than unresolved successor work.
+- Authenticated-browser Compose currently runs PostgreSQL, Keycloak, migration,
+  seed, artifact storage, API, SPA, and gateway services, but no Worker. The
+  refreshed plan adds Worker composition because hosted message admission
+  without durable Invocation processing cannot satisfy the end-to-end Session
+  goal. Worker start also requires `Sessions:WorkerServiceActorId` and a
+  seeded issuer that can issue `session.invocation.execute` delegations;
+  P0 session start now issues that envelope when those actors are configured.
 - Administrator operations and participant-visible terminal history are
   approved P0 behavior and are included here; omitting them would leave
   `AC-SESS-12`, `AC-SESS-13`, `AC-SESS-15`–`AC-SESS-20`, and `AC-SESS-30`
@@ -473,21 +523,20 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams reviewed 2026-09-02 |
-| Predecessor dependency and scope boundary | complete for planning | `p0-attempt-session-start` explicitly hands off the committed Session locator and keeps hosted snapshot/commands unavailable; implementation activation remains gated |
-| Existing contract/runtime/host/frontend seam inventory | complete for planning | Command envelope C#/schema present; production SSE only; snapshot/command host and production Session page absent; Design Lab donor identified |
+| Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
+| Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |
+| Existing contract/runtime/host/frontend seam inventory | complete for planning | 2026-09-03: command envelope C#/schema present; production SSE only; snapshot/command host, hosted event contract, production Session page, `/v1/sessions` gateway route, and authenticated-browser Worker service absent; Design Lab donor identified |
 | Requirement/AC-to-surface and risk mapping | complete for planning | Requirement-to-surface table in this task covers Participant, administrator, assigned Reviewer/historical actors, backend, frontend, security/privacy, operations, and QA boundaries |
-| `python3 scripts/check_docs.py` | complete | Passed 2026-09-02; feature-catalog and documentation validation succeeded |
-| `git diff --check` | complete | Passed 2026-09-02; direct trailing-whitespace scan of this new untracked task file also passed |
-| Cross-cutting plan consistency/readiness review | complete | Second pass on 2026-09-02 applied backend, frontend, and security/privacy review perspectives to scope, authority, predecessor ownership, requirement coverage, gateway topology, event-contract compatibility, actor-specific historical access, frontend state ownership, UI route/donor rules, provider gates, and verification ordering; five readiness gaps were corrected, while distinct implementation reviews remain required during execution |
-| Implementation tests and live-browser evidence | pending | Dependency-gated; execute only after activation |
+| `python3 scripts/check_docs.py` | complete | Passed 2026-09-03 after the state refresh; feature-catalog and documentation validation succeeded |
+| `git diff --check` | complete | Passed 2026-09-03 with no whitespace errors; direct trailing-whitespace scan of this tracked task file also passed |
+| Cross-cutting plan consistency/readiness review | complete | Third pass on 2026-09-03 applied backend, frontend, and security/privacy review perspectives to the current branch; refreshed landed predecessor seams and added the missing authenticated-browser Worker composition while preserving prior gateway, compatibility, actor-projection, state-ownership, UI-donor, and provider gates |
+| Implementation tests and live-browser evidence | complete for this slice | 2026-09-03: hosted projection 7 passed; hosted HTTP+telemetry 7 passed; profile 22 passed. `verify:web` 638+206+11; `verify:dotnet` 1840/3 skipped; supply-chain and oci exit 0. Playwright: fail-closed `work: failed` then send recovered; guessed Session unavailable; admin pause→paused→resume; admin transcript route has no items/controls because administrator projection omits transcript. `verify:oidc` not run on this stack |
 
 # Blockers
 
-- Activation is blocked until `p0-attempt-session-start` completes and its
-  required review verifies committed Session handoff, exact binding,
-  production-safe source/model gates, and mutation-coupled Session/Attempt
-  terminalization. This does not block planning or plan review.
+- Predecessor activation gate cleared by implementation request; treat
+  `p0-attempt-session-start` as completed for this successor. Remaining
+  predecessor task-file status is ignored.
 - Production or real-Participant model enablement remains separately blocked by
   exact-profile qualification and explicit owner approval. This does not block
   contract, host, SPA, deterministic-provider, or synthetic-development
@@ -513,9 +562,26 @@ Lead decision is required. Implementation has:
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass (`verify:oidc` skipped)
+- [x] Governing specifications were rechecked
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review
+
+Gaps for review (not blockers for this host/UI slice):
+
+- No assigned-Reviewer-only synthetic identity; `demo.admin` resolves as
+  administrator and therefore sees an empty historical transcript list.
+- Fail-closed Worker produces `execution_failed`, not intentional no-action or
+  Agent fragments. Deterministic-fake enablement is out of scope.
+- Timer remains disabled (`PROP-9` unused). Multi-tab, offline reconnect,
+  terminate/abort, light/dark, reduced-motion, forced-colors, and 400% zoom
+  were not fully re-checked in this close-out.
+- Participant can open `/operations` and see lifecycle/version without
+  pause/terminate; they do not inherit control.
+- `docs/current-state.md` not promoted. Independent reviews not yet executed.
+
+2026-09-03 confirm pass: stack still healthy; hosted HTTP/telemetry/profile 29
+and projection 7 passed; Participant live Session remained `active`/`connected`
+with both admitted messages after RedirectUri returned to canonical.

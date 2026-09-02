@@ -107,6 +107,18 @@ const representativeMappings = [
     schemaComponent: "StartAttemptOutcomeV2",
     schemaPath: "schemas/v2/submission/start-attempt-outcome.v2.schema.json",
   },
+  {
+    schemaComponent: "SessionSnapshotV1",
+    schemaPath: "schemas/v1/session/snapshot.v1.schema.json",
+  },
+  {
+    schemaComponent: "SessionCommandOutcomeV1",
+    schemaPath: "schemas/v1/session/command-outcome.v1.schema.json",
+  },
+  {
+    schemaComponent: "SessionHostedEventEnvelopeV1",
+    schemaPath: "schemas/v1/session/hosted-event-envelope.v1.schema.json",
+  },
 ];
 
 const commandVariantMappings = [

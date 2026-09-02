@@ -21,6 +21,7 @@ REQUIRED_SERVICES = {
     "api",
     "spa",
     "nginx",
+    "worker",
 }
 DEMO_WORK_SERVICES = {"seed-demo-work"}
 IMAGE_SERVICES = {

@@ -1,3 +1,4 @@
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Submissions.Application;
@@ -19,7 +20,9 @@ public static partial class SubmissionEndpointExtensions
         services.AddSingleton<ISessionStartCommitPort>(provider =>
             new GatedP0SessionStartPort(
                 provider.GetRequiredService<IHostEnvironment>(),
-                provider.GetService<PostgresSessionRuntimeRepository>()));
+                provider.GetService<PostgresSessionRuntimeRepository>(),
+                provider.GetService<IConfiguration>(),
+                provider.GetService<ICommitAuthorizationKernel>()));
 
         if (postgres)
         {

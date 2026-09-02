@@ -50,7 +50,14 @@ FROM (
         ('assessment.enrollment.accommodation.read'),
         ('assessment.enrollment.accommodation.grant'),
         ('assessment.enrollment.accommodation.decide'),
-        ('assessment.enrollment.accommodation.revoke')
+        ('assessment.enrollment.accommodation.revoke'),
+        ('session.events.subscribe'),
+        ('session.snapshot.read'),
+        ('session.operations.read'),
+        ('session.transcript.read'),
+        ('session.pause'),
+        ('session.resume'),
+        ('session.terminate')
 ) AS grants(granted_action)
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
 
@@ -81,7 +88,13 @@ SELECT
 FROM (
     VALUES
         ('assessment.assignment.discover'),
-        ('assessment.enrollment.receive')
+        ('assessment.enrollment.receive'),
+        ('session.events.subscribe'),
+        ('session.snapshot.read'),
+        ('session.message.send'),
+        ('session.complete'),
+        ('session.reconcile'),
+        ('session.transcript.read')
 ) AS grants(granted_action)
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
 
@@ -283,3 +296,69 @@ VALUES
     ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad', 1, 'assessment.activity.read', CLOCK_TIMESTAMP()),
     ('cccccccc-cccc-4ccc-8ccc-cccccccccccd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad', 1, 'assessment.activity.read', CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+-- Synthetic Worker service principal for fail-closed Invocation processing.
+INSERT INTO actors (id, created_at)
+VALUES
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae', CLOCK_TIMESTAMP()),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf', CLOCK_TIMESTAMP())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+VALUES (
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf',
+    1,
+    'service_delegation.issue',
+    CLOCK_TIMESTAMP())
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+INSERT INTO service_delegations (
+    delegation_id, organization_id, activity_id, participant_id, attempt_id, session_id,
+    service_actor_id, allowed_action, system_purpose, initiating_authority,
+    effective_at, expires_at, revoked_at, delegation_version, created_at)
+SELECT
+    gen_random_uuid(),
+    runtimes.organization_id,
+    runtimes.activity_id,
+    runtimes.participant_id,
+    runtimes.attempt_id,
+    runtimes.session_id,
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae',
+    'session.invocation.execute',
+    'session.invocation.worker',
+    'system.session_runtime',
+    CLOCK_TIMESTAMP() - INTERVAL '1 minute',
+    CLOCK_TIMESTAMP() + INTERVAL '12 hours',
+    NULL,
+    1,
+    CLOCK_TIMESTAMP()
+FROM session_runtimes AS runtimes
+WHERE runtimes.organization_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+  AND runtimes.invocation_execute_delegation_id IS NULL
+  AND NOT EXISTS (
+        SELECT 1
+        FROM service_delegations AS existing
+        WHERE existing.organization_id = runtimes.organization_id
+          AND existing.session_id = runtimes.session_id
+          AND existing.allowed_action = 'session.invocation.execute'
+          AND existing.revoked_at IS NULL);
+
+UPDATE session_runtimes AS runtimes
+SET invocation_execute_delegation_id = issued.delegation_id
+FROM service_delegations AS issued
+WHERE runtimes.organization_id = issued.organization_id
+  AND runtimes.session_id = issued.session_id
+  AND issued.allowed_action = 'session.invocation.execute'
+  AND issued.revoked_at IS NULL
+  AND issued.service_actor_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae'
+  AND runtimes.invocation_execute_delegation_id IS NULL;
+
+UPDATE session_durable_work AS work
+SET invocation_execute_delegation_id = runtimes.invocation_execute_delegation_id
+FROM session_runtimes AS runtimes
+WHERE work.organization_id = runtimes.organization_id
+  AND work.session_id = runtimes.session_id
+  AND work.invocation_execute_delegation_id IS NULL
+  AND runtimes.invocation_execute_delegation_id IS NOT NULL;

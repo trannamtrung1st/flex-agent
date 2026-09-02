@@ -1,0 +1,20 @@
+{
+  "schema_version": "v1",
+  "projection_kind": "administrator",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "lifecycle_state": "paused",
+  "session_version": 8,
+  "last_confirmed_sequence": "44",
+  "authoritative_observed_at": "2026-09-03T00:10:00Z",
+  "timing": {
+    "policy": "active_duration",
+    "remaining_seconds": 1800,
+    "warning_code": "none",
+    "pause_started_at": "2026-09-03T00:09:00Z"
+  },
+  "activity": {
+    "work_state": "idle"
+  },
+  "permitted_actions": ["resume_session", "terminate_session"],
+  "recovery_category": "none"
+}

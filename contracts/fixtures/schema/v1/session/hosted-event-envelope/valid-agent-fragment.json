@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.hosted.agent.fragment.v1",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "session_sequence": "14",
+  "session_version": 4,
+  "occurred_at": "2026-09-03T00:00:03Z",
+  "payload": {
+    "summary": "Durable Agent fragment.",
+    "agent_message_id": "amsg.synthetic.0001",
+    "fragment_sequence": 1,
+    "text_delta": "Hello",
+    "turn_id": "turn.synthetic.0001",
+    "work_state": "working",
+    "resolution_category": "message_stream"
+  }
+}

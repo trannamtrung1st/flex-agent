@@ -1,5 +1,6 @@
 using Dapper;
 using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
@@ -11,7 +12,9 @@ namespace FlexAgent.Api;
 
 public sealed class GatedP0SessionStartPort(
     IHostEnvironment environment,
-    PostgresSessionRuntimeRepository? sessions) : ISessionStartCommitPort
+    PostgresSessionRuntimeRepository? sessions,
+    IConfiguration? configuration = null,
+    ICommitAuthorizationKernel? authorizationKernel = null) : ISessionStartCommitPort
 {
     public bool CanCommit =>
         !environment.IsProduction() && !environment.IsEnvironment("Staging");
@@ -112,12 +115,19 @@ public sealed class GatedP0SessionStartPort(
                 [],
                 model);
             var runtime = SessionRuntime.CreateActive(binding, request.StartedAtUtc);
+            var invocationExecuteDelegation = await TryCreateInvocationExecuteDelegationAsync(
+                ownership,
+                npgsql,
+                cancellationToken);
             await sessions.InsertActiveAsync(
                 ownership,
                 runtime,
                 new TrustedRuntimeActor(request.Scope.ParticipantActorId, HumanInteractiveActorTypes.Interactive),
                 npgsql,
-                cancellationToken);
+                cancellationToken,
+                timerLaneDelegation: null,
+                authorizationKernel: invocationExecuteDelegation is null ? null : authorizationKernel,
+                invocationExecuteDelegation: invocationExecuteDelegation);
             var connection = npgsql.Connection ?? throw new InvalidOperationException("commit.transaction.required");
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -161,6 +171,39 @@ public sealed class GatedP0SessionStartPort(
             "session.started",
             resolved.Value.ConfigurationDigest,
             resolved.Value.ManifestDigest);
+    }
+
+    private async Task<AuthorizedServiceDelegationIssue?> TryCreateInvocationExecuteDelegationAsync(
+        SessionOwnership ownership,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (sessions is null
+            || authorizationKernel is null
+            || configuration is null
+            || !Guid.TryParse(configuration["Sessions:WorkerServiceActorId"], out var workerActorId)
+            || workerActorId == Guid.Empty
+            || !Guid.TryParse(configuration["Sessions:DelegationIssuerActorId"], out var issuerActorId)
+            || issuerActorId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var clock = await sessions.ReadAuthoritativeUtcAsync(transaction, cancellationToken);
+        return new AuthorizedServiceDelegationIssue(
+            new ServiceDelegationIssue(
+                Guid.CreateVersion7(),
+                workerActorId,
+                AuthorizationActions.ExecuteSessionInvocation,
+                "session.invocation.worker",
+                "system.session_runtime",
+                clock.AddMinutes(-1),
+                clock.AddHours(12)),
+            new ServiceDelegationMutationContext(
+                new TrustedActor(issuerActorId, "system.session_runtime"),
+                Guid.CreateVersion7(),
+                "session.start",
+                "session.start.invocation_execute"));
     }
 
     private static FrozenTextSessionRuntimePolicy? ResolveDevelopmentPolicy()

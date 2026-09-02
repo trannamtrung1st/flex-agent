@@ -4,6 +4,15 @@ public static class AuthorizationActions
 {
     public const string RegisterConfigurationSourceVersion = "configuration_source_version.register";
     public const string SubscribeSessionEvents = "session.events.subscribe";
+    public const string ReadSessionSnapshot = "session.snapshot.read";
+    public const string ReadSessionOperations = "session.operations.read";
+    public const string ReadSessionTranscript = "session.transcript.read";
+    public const string SendSessionMessage = "session.message.send";
+    public const string PauseSession = "session.pause";
+    public const string ResumeSession = "session.resume";
+    public const string CompleteSession = "session.complete";
+    public const string TerminateSession = "session.terminate";
+    public const string ReconcileSession = "session.reconcile";
     public const string FireSessionTimerLane = "session.timer_lane.fire";
     public const string ExecuteSessionInvocation = "session.invocation.execute";
     public const string IssueServiceDelegation = "service_delegation.issue";

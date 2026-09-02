@@ -14,6 +14,9 @@ import { ProductionEnrollmentPage } from "../pages/ProductionEnrollmentPage";
 import { ProductionHomePage } from "../pages/ProductionHomePage";
 import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage";
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
+import { ProductionTextSessionPage } from "../pages/ProductionTextSessionPage";
+import { ProductionSessionOperationsPage } from "../pages/ProductionSessionOperationsPage";
+import { ProductionSessionTranscriptPage } from "../pages/ProductionSessionTranscriptPage";
 import { AssignmentStationLayout } from "../components/work/AssignmentStationLayout";
 import { AssignmentHead } from "../components/work/AssignmentHead";
 import { CeremonyUnavailable, GuidedTaskFoot, Key, WorkWell, WorkWellSection } from "../design-system";
@@ -179,10 +182,23 @@ export function createProductionRouter() {
         path: "sessions/:sessionId",
         element: (
           <ProductionDestinationGuard destinationId="sessions">
-            <ProductionContractUnavailable
-              title="Text Session"
-              note="Session command and snapshot HTTP are not exposed to this SPA. The host maps SSE events only. The Session remains on the server."
-            />
+            <ProductionTextSessionPage />
+          </ProductionDestinationGuard>
+        ),
+      },
+      {
+        path: "sessions/:sessionId/operations",
+        element: (
+          <ProductionDestinationGuard destinationId="sessions">
+            <ProductionSessionOperationsPage />
+          </ProductionDestinationGuard>
+        ),
+      },
+      {
+        path: "sessions/:sessionId/transcript",
+        element: (
+          <ProductionDestinationGuard destinationId="sessions">
+            <ProductionSessionTranscriptPage />
           </ProductionDestinationGuard>
         ),
       },

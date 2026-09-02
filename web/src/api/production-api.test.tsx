@@ -173,6 +173,68 @@ describe("production application session", () => {
     expect(screen.getByText("csrf:none")).toBeInTheDocument();
   });
 
+  it("rejects a document body that is not a JSON contract", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf-1" }),
+        });
+      }
+
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "actor-1",
+            organization_id: "org-1",
+            relationship: "participant",
+            navigation: [{ destination_id: "my-work", is_available: true }],
+            permitted_actions: [],
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        json: () => Promise.resolve({}),
+      });
+    }));
+
+    function ResourceProbe() {
+      const { apiState, fetchJson } = useProductionApi();
+      const [resource, setResource] = useState("pending");
+      useEffect(() => {
+        if (apiState !== "ready") {
+          return;
+        }
+
+        void fetchJson("/v1/sessions/55555555-5555-4555-8555-555555555555").then(
+          () => setResource("accepted"),
+          () => setResource("rejected"),
+        );
+      }, [apiState, fetchJson]);
+
+      return <p>resource:{resource}</p>;
+    }
+
+    render(
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <ResourceProbe />
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    expect(await screen.findByText("resource:rejected")).toBeInTheDocument();
+  });
+
   it("uses the production session gate instead of a synthetic browser adapter", async () => {
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;

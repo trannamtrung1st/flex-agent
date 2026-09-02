@@ -1,0 +1,43 @@
+{
+  "schema_version": "v1",
+  "projection_kind": "participant",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "lifecycle_state": "active",
+  "session_version": 3,
+  "last_confirmed_sequence": "12",
+  "authoritative_observed_at": "2026-09-03T00:00:00Z",
+  "agent": {
+    "display_name": "Assessment Agent"
+  },
+  "timing": {
+    "policy": "active_duration",
+    "remaining_seconds": 2400,
+    "warning_code": "none"
+  },
+  "bound_submission": {
+    "summary": "Accepted Submission version 1",
+    "accepted_version_count": 1
+  },
+  "transcript": {
+    "items": [
+      {
+        "item_id": "msg.synthetic.0001",
+        "author": "participant",
+        "status": "accepted",
+        "content": "I am ready to begin.",
+        "occurred_at": "2026-09-03T00:00:01Z",
+        "sequence_start": "11",
+        "sequence_end": "11",
+        "turn_id": "turn.synthetic.0001"
+      }
+    ],
+    "older_available": false,
+    "oldest_sequence": "11",
+    "newest_sequence": "12"
+  },
+  "activity": {
+    "work_state": "idle"
+  },
+  "permitted_actions": ["send_message", "complete_session", "reconcile", "return_to_my_work"],
+  "recovery_category": "none"
+}

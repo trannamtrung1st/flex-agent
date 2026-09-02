@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.hosted.lifecycle.changed.v1",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "session_sequence": "0",
+  "session_version": 1,
+  "occurred_at": "2026-09-03T00:00:00Z",
+  "payload": {
+    "summary": "Lifecycle changed.",
+    "lifecycle_state": "active"
+  }
+}

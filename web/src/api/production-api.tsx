@@ -76,6 +76,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     }
 
     const response = await fetch(path, {
+      cache: "no-store",
       ...init,
       headers,
       credentials: "same-origin",
@@ -102,6 +103,11 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
 
     if (response.status === 204) {
       return undefined as T;
+    }
+
+    const contentType = response.headers?.get("content-type") ?? "";
+    if (contentType.length > 0 && !contentType.toLowerCase().includes("application/json")) {
+      throw new ProductionApiError(response.status, "Request failed");
     }
 
     return (await response.json()) as T;

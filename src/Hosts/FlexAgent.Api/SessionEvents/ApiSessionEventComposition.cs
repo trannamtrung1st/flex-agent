@@ -141,6 +141,38 @@ public sealed class Adr002SessionEventSubscriptionAccess(IAuthorizationKernel au
     }
 }
 
+public sealed class Adr002HostedSessionAccess(IAuthorizationKernel authorizationKernel) : IHostedSessionAccess
+{
+    public async Task<bool> HasCurrentPermissionAsync(
+        TrustedRuntimeActor actor,
+        Guid organizationId,
+        Guid sessionId,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        if (actor.ActorId == Guid.Empty
+            || organizationId == Guid.Empty
+            || sessionId == Guid.Empty
+            || string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        var organization = new OrganizationScope(organizationId);
+        var decision = await authorizationKernel.AuthorizeAsync(
+            new AuthorizationRequest(
+                new TrustedActor(actor.ActorId, actor.ActorType),
+                organization,
+                action,
+                new ResourceScope(organization, AuthorizationResourceTypes.Session, sessionId),
+                "http.session_hosted",
+                Guid.NewGuid()),
+            cancellationToken).ConfigureAwait(false);
+        return decision.IsPermitted;
+    }
+}
+
 public sealed class SessionsStoreReadinessCheck(NpgsqlDataSource dataSource) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -189,12 +221,15 @@ internal static class ApiSessionEventComposition
         ArgumentNullException.ThrowIfNull(environment);
 
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<SessionEventSubscriptionOptions>>().Value);
+        services.AddSingleton<IHostedSessionTelemetry, LoggingHostedSessionTelemetry>();
 
         var connectionString = configuration.GetConnectionString("Sessions");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton<ISubscribeAuthorizedSessionEventsHandler>(
                 UnhostedSubscribeAuthorizedSessionEventsHandler.Instance);
+            services.AddSingleton<IHostedSessionSnapshotQuery>(UnhostedHostedSessionSnapshotQuery.Instance);
+            services.AddSingleton<IHostedSessionCommandCoordinator>(UnhostedHostedSessionCommandCoordinator.Instance);
             return;
         }
 
@@ -209,10 +244,23 @@ internal static class ApiSessionEventComposition
             sp.GetRequiredService<PostgresSessionActorRelationshipStore>());
         services.AddSingleton<ISessionEventSubjectSource>(sp =>
             sp.GetRequiredService<PostgresSessionActorRelationshipStore>());
+        services.AddSingleton<IHostedSessionSubjectSource, PostgresHostedSessionSubjectSource>();
         services.AddSingleton<ITrustedSessionBindingSource, PostgresTrustedSessionBindingSource>();
         services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
+        if (services.All(descriptor => descriptor.ServiceType != typeof(ICommitAuthorizationKernel)))
+        {
+            services.AddSingleton<ICommitAuthorizationKernel>(sp =>
+                (ICommitAuthorizationKernel)sp.GetRequiredService<IAuthorizationKernel>());
+        }
         services.AddSingleton<ISessionEventSubscriptionAccess, Adr002SessionEventSubscriptionAccess>();
         services.AddSingleton<ISubscribeAuthorizedSessionEventsHandler, SubscribeAuthorizedSessionEventsHandler>();
+        services.AddSingleton<IAcceptParticipantMessageHandler, AcceptParticipantMessageHandler>();
+        services.AddSingleton<IChangeSessionLifecycleHandler, ChangeSessionLifecycleHandler>();
+        services.AddSingleton<PostgresAcceptParticipantMessageCoordinator>();
+        services.AddSingleton<PostgresSessionLifecycleCoordinator>();
+        services.AddSingleton<IHostedSessionAccess, Adr002HostedSessionAccess>();
+        services.AddSingleton<IHostedSessionSnapshotQuery, PostgresHostedSessionSnapshotQuery>();
+        services.AddSingleton<IHostedSessionCommandCoordinator, PostgresHostedSessionCommandCoordinator>();
         services.AddHealthChecks()
             .AddCheck<SessionsStoreReadinessCheck>("sessions-store", tags: ["ready"]);
     }

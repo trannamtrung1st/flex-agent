@@ -61,7 +61,12 @@ export function isProductionDestinationOpen(
   const items = navigation ?? [];
   if (destinationId === "sessions") {
     return items.some(
-      (item) => item.is_available && (item.destination_id === "sessions" || item.destination_id === "my-work"),
+      (item) => item.is_available && (
+        item.destination_id === "sessions"
+        || item.destination_id === "my-work"
+        || item.destination_id === "activities"
+        || item.destination_id === "review"
+      ),
     );
   }
 

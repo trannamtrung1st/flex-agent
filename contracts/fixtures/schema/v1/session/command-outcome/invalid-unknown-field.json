@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "succeeded": true,
+  "outcome_category": "accepted",
+  "outcome_code": "session.message.accepted",
+  "command_id": "cmd.synthetic.0001",
+  "command_type": "session.message.send.v1",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "permitted_recovery_action": "none",
+  "permitted_actions": ["send_message"],
+  "organization_scope_proof": "hidden"
+}

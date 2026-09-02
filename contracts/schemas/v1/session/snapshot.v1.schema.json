@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/snapshot.v1.schema.json",
+  "title": "Session snapshot v1",
+  "description": "Actor-specific authoritative Session snapshot for hosted restore. Participant, administrator, and historical projections share this closed shape; omitted transcript and Submission fields are absent, not client-hidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_kind",
+    "session_id",
+    "lifecycle_state",
+    "session_version",
+    "last_confirmed_sequence",
+    "authoritative_observed_at",
+    "permitted_actions",
+    "recovery_category"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "projection_kind": {
+      "type": "string",
+      "enum": ["participant", "administrator", "historical"]
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": ["ready", "active", "paused", "completing", "completed", "terminated", "aborted"]
+    },
+    "session_version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "last_confirmed_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/nonnegative_int64_wire_string"
+    },
+    "cutoff_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+    },
+    "authoritative_observed_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name"],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy"],
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": ["disabled", "active_duration", "absolute_deadline"]
+        },
+        "remaining_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "warning_code": {
+          "type": ["string", "null"],
+          "enum": ["none", "approaching", "imminent", null]
+        },
+        "pause_started_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
+    "bound_submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "accepted_version_count"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "accepted_version_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        }
+      }
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "older_available"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/transcript_item" }
+        },
+        "older_available": { "type": "boolean" },
+        "oldest_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "newest_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_state"],
+      "properties": {
+        "work_state": {
+          "type": "string",
+          "enum": ["idle", "queued", "working", "no_action", "failed"]
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "resolution_category": {
+          "type": "string",
+          "enum": ["message_stream", "no_action", "suppressed_failure", "execution_failure"]
+        }
+      }
+    },
+    "command_reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["last_outcome_code"],
+      "properties": {
+        "last_command_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/correlation_id"
+        },
+        "last_outcome_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._]{0,127}$"
+        }
+      }
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "send_message",
+          "complete_session",
+          "reconcile",
+          "pause_session",
+          "resume_session",
+          "terminate_session",
+          "view_transcript",
+          "return_to_my_work"
+        ]
+      }
+    },
+    "recovery_category": {
+      "type": "string",
+      "enum": ["none", "reconcile_snapshot", "retry_later", "sign_in", "unavailable"]
+    }
+  },
+  "$defs": {
+    "transcript_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "author",
+        "status",
+        "sequence_start",
+        "sequence_end"
+      ],
+      "properties": {
+        "item_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "author": {
+          "type": "string",
+          "enum": ["participant", "agent"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["accepted", "streaming", "complete", "incomplete", "cancelled", "unavailable"]
+        },
+        "content": {
+          "type": ["string", "null"],
+          "maxLength": 16384
+        },
+        "occurred_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "sequence_start": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "sequence_end": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    }
+  }
+}

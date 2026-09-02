@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.hosted.message.accepted.v1",
+  "session_id": "55555555-5555-4555-8555-555555555555",
+  "session_sequence": "13",
+  "session_version": 4,
+  "occurred_at": "2026-09-03T00:00:02Z",
+  "payload": {
+    "summary": "Participant message accepted.",
+    "message_id": "msg.synthetic.0001",
+    "turn_id": "turn.synthetic.0001"
+  }
+}

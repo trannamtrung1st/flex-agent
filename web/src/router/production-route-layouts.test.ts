@@ -5,6 +5,9 @@ describe("isKnownProductionLocator", () => {
   it("assigns guided-task to the assignment locator", () => {
     expect(layoutIdForPath("/my-work/enr-1", PRODUCTION_ROUTE_LAYOUTS)).toBe("guided-task");
     expect(layoutIdForPath("/my-work", PRODUCTION_ROUTE_LAYOUTS)).toBe("management");
+    expect(layoutIdForPath("/sessions/55555555-5555-4555-8555-555555555555", PRODUCTION_ROUTE_LAYOUTS)).toBe("live-session");
+    expect(layoutIdForPath("/sessions/55555555-5555-4555-8555-555555555555/operations", PRODUCTION_ROUTE_LAYOUTS)).toBe("management");
+    expect(layoutIdForPath("/sessions/55555555-5555-4555-8555-555555555555/transcript", PRODUCTION_ROUTE_LAYOUTS)).toBe("management");
   });
 
   it("treats catalogued leaves as known and omits the wildcard", () => {

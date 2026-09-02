@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/command-outcome.v1.schema.json",
+  "title": "Session command outcome v1",
+  "description": "Stable hosted Session command outcome with server-derived recovery and permitted actions. Denial remains a non-disclosing 404 and is not this body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "succeeded",
+    "outcome_category",
+    "outcome_code",
+    "command_id",
+    "command_type",
+    "session_id",
+    "permitted_recovery_action",
+    "permitted_actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "succeeded": { "type": "boolean" },
+    "outcome_category": {
+      "type": "string",
+      "enum": ["accepted", "duplicate", "rejected", "conflict", "uncertain"]
+    },
+    "outcome_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "command_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/correlation_id"
+    },
+    "command_type": {
+      "type": "string",
+      "enum": [
+        "session.message.send.v1",
+        "session.pause.v1",
+        "session.resume.v1",
+        "session.complete.v1",
+        "session.terminate.v1",
+        "session.reconcile.v1"
+      ]
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "session_version": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "session_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/nonnegative_int64_wire_string"
+    },
+    "accepted_message_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "permitted_recovery_action": {
+      "type": "string",
+      "enum": ["none", "reconcile_snapshot", "retry_same_command", "wait", "return"]
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "send_message",
+          "complete_session",
+          "reconcile",
+          "pause_session",
+          "resume_session",
+          "terminate_session",
+          "view_transcript",
+          "return_to_my_work"
+        ]
+      }
+    }
+  }
+}

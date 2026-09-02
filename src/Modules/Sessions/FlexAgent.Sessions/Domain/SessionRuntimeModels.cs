@@ -502,7 +502,15 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? AgentMessageId = null,
     string? TextDelta = null,
     string? AssembledContentDigest = null,
-    int? FragmentCount = null);
+    int? FragmentCount = null,
+    string? CutoffSequence = null,
+    string? WorkState = null,
+    string? ResolutionCategory = null,
+    string? TurnId = null,
+    string? MessageId = null,
+    string? LifecycleState = null,
+    string? RecoveryCategory = null,
+    string? AccessState = null);
 
 public sealed record AuthorizedSessionEventReplayResult(
     bool Succeeded,

@@ -10,7 +10,7 @@ describe("requireProductionShellLayout", () => {
     expect(requireProductionShellLayout("guided-task", "/my-work/enr-1")).toBe("guided-task");
   });
 
-  it("rejects a future live-session production assignment until the shell implements it", () => {
-    expect(() => requireProductionShellLayout("live-session", "/sessions/sess-1")).toThrow(/live-session/);
+  it("allows live-session on the Participant Session locator", () => {
+    expect(requireProductionShellLayout("live-session", "/sessions/sess-1")).toBe("live-session");
   });
 });

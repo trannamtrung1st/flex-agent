@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/hosted-event-envelope.v1.schema.json",
+  "title": "Session hosted event envelope v1",
+  "description": "Actor-safe committed Session UI delta for /v1/sessions/{sessionId}/events. Distinct from the closed fragment-only SseSessionEventV1 and representative SessionStateEventEnvelopeV1 wires.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "session_id",
+    "session_sequence",
+    "session_version",
+    "occurred_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "session.hosted.lifecycle.changed.v1",
+        "session.hosted.timing.updated.v1",
+        "session.hosted.warning.issued.v1",
+        "session.hosted.message.accepted.v1",
+        "session.hosted.agent.work.v1",
+        "session.hosted.agent.no_action.v1",
+        "session.hosted.agent.fragment.v1",
+        "session.hosted.agent.complete.v1",
+        "session.hosted.terminal.v1",
+        "session.hosted.access.changed.v1",
+        "session.hosted.reconcile.required.v1"
+      ]
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "session_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+    },
+    "session_version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "occurred_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "lifecycle_state": {
+          "type": "string",
+          "enum": ["ready", "active", "paused", "completing", "completed", "terminated", "aborted"]
+        },
+        "remaining_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "warning_code": {
+          "type": "string",
+          "enum": ["none", "approaching", "imminent"]
+        },
+        "message_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "work_state": {
+          "type": "string",
+          "enum": ["idle", "queued", "working", "no_action", "failed"]
+        },
+        "resolution_category": {
+          "type": "string",
+          "enum": [
+            "message_stream",
+            "no_action",
+            "suppressed_failure",
+            "execution_failure"
+          ]
+        },
+        "agent_message_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "fragment_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "text_delta": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "assembled_content_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "fragment_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "cutoff_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "access_state": {
+          "type": "string",
+          "enum": ["authorized", "revalidate", "revoked"]
+        },
+        "recovery_category": {
+          "type": "string",
+          "enum": ["none", "reconcile_snapshot", "retry_later", "sign_in", "unavailable"]
+        }
+      }
+    }
+  }
+}

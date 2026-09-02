@@ -95,6 +95,9 @@ public sealed class ContractMappingParityTests
         Assert.Contains("StartAttemptCommandV2", exported);
         Assert.Contains("AcknowledgmentMutationOutcomeV2", exported);
         Assert.Contains("StartAttemptOutcomeV2", exported);
+        Assert.Contains("SessionSnapshotV1", exported);
+        Assert.Contains("SessionCommandOutcomeV1", exported);
+        Assert.Contains("SessionHostedEventEnvelopeV1", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -585,6 +588,72 @@ public sealed class ContractMappingParityTests
                 [],
                 [],
                 ["start_attempt", "return_to_my_work"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/snapshot.v1.schema.json",
+            new SessionSnapshotV1(
+                "v1",
+                "participant",
+                Guid.Parse("55555555-5555-4555-8555-555555555555"),
+                "active",
+                3,
+                "12",
+                "2026-09-03T00:00:00Z",
+                ["send_message", "complete_session", "reconcile", "return_to_my_work"],
+                "none",
+                null,
+                new SessionAgentIdentityV1("Assessment Agent"),
+                new SessionTimingProjectionV1("active_duration", 2400, "none", null),
+                new SessionBoundSubmissionSummaryV1("Accepted Submission version 1", 1),
+                new SessionTranscriptPageV1(
+                    [
+                        new SessionSnapshotTranscriptItemV1(
+                            "msg.synthetic.0001",
+                            "participant",
+                            "accepted",
+                            "11",
+                            "11",
+                            "I am ready to begin.",
+                            "2026-09-03T00:00:01Z",
+                            "turn.synthetic.0001"),
+                    ],
+                    false,
+                    "11",
+                    "12"),
+                new SessionActivityProjectionV1("idle", null, null)));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/command-outcome.v1.schema.json",
+            new SessionCommandOutcomeV1(
+                "v1",
+                true,
+                "accepted",
+                "session.message.accepted",
+                "cmd.synthetic.0001",
+                "session.message.send.v1",
+                Guid.Parse("55555555-5555-4555-8555-555555555555"),
+                "none",
+                ["send_message", "complete_session", "reconcile"],
+                4,
+                "13",
+                "msg.synthetic.0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/hosted-event-envelope.v1.schema.json",
+            new SessionHostedEventEnvelopeV1(
+                "v1",
+                "session.hosted.message.accepted.v1",
+                Guid.Parse("55555555-5555-4555-8555-555555555555"),
+                "13",
+                4,
+                "2026-09-03T00:00:02Z",
+                new SessionHostedEventPayloadV1(
+                    "Participant message accepted.",
+                    MessageId: "msg.synthetic.0001",
+                    TurnId: "turn.synthetic.0001")));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)
