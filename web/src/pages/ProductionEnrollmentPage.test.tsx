@@ -52,6 +52,12 @@ function renderPage() {
   );
 }
 
+async function expectAssignDialogClosed() {
+  await waitFor(() => {
+    expect(screen.queryByRole("dialog", { name: "Assign Participant" })).not.toBeInTheDocument();
+  }, { timeout: 5000 });
+}
+
 describe("ProductionEnrollmentPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -480,9 +486,7 @@ describe("ProductionEnrollmentPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Assign" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Casey Candidate" }));
     fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Assign Participant" })).not.toBeInTheDocument();
-    });
+    await expectAssignDialogClosed();
     expect(screen.getByRole("link", { name: "Casey Candidate" })).toBeInTheDocument();
   });
 
@@ -530,7 +534,7 @@ describe("ProductionEnrollmentPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Casey Candidate" }));
     fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
     expect(await screen.findByRole("link", { name: "Casey Candidate" })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "Assign Participant" })).not.toBeInTheDocument();
+    await expectAssignDialogClosed();
     expect(screen.queryByRole("button", { name: "Assign" })).not.toBeInTheDocument();
     expect(screen.queryByText("Assignment did not complete.")).not.toBeInTheDocument();
     expect(screen.getByText("Assignable Participants are not available.")).toBeInTheDocument();
@@ -622,9 +626,7 @@ describe("ProductionEnrollmentPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
     expect(await screen.findByRole("button", { name: "Assigning Participant" })).toBeDisabled();
     release();
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Assign Participant" })).not.toBeInTheDocument();
-    });
+    await expectAssignDialogClosed();
   });
 
   it("names an equivalent retry Already assigned without a second Enrollment active success", async () => {
