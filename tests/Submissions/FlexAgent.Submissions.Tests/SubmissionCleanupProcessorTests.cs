@@ -12,8 +12,7 @@ public sealed class SubmissionCleanupProcessorTests
         var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
         var clock = new FixedEnrollmentClock(now);
         var artifacts = new InMemoryArtifactStore();
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -119,8 +118,7 @@ public sealed class SubmissionCleanupProcessorTests
         var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
         var clock = new FixedEnrollmentClock(now);
         var artifacts = new InMemoryArtifactStore();
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -256,8 +254,7 @@ public sealed class SubmissionCleanupProcessorTests
         var clock = new FixedEnrollmentClock(now);
         var inner = new InMemoryArtifactStore();
         var artifacts = new RecordingArtifactStore(inner) { DeleteSucceeds = false };
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -297,8 +294,7 @@ public sealed class SubmissionCleanupProcessorTests
         var clock = new FixedEnrollmentClock(now);
         var inner = new InMemoryArtifactStore();
         var artifacts = new RecordingArtifactStore(inner);
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -346,8 +342,7 @@ public sealed class SubmissionCleanupProcessorTests
         var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
         var clock = new FixedEnrollmentClock(now);
         var artifacts = new InMemoryArtifactStore();
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -420,8 +415,7 @@ public sealed class SubmissionCleanupProcessorTests
         var clock = new FixedEnrollmentClock(now);
         var inner = new InMemoryArtifactStore();
         var artifacts = new RecordingArtifactStore(inner);
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -470,8 +464,7 @@ public sealed class SubmissionCleanupProcessorTests
         var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
         var clock = new FixedEnrollmentClock(now);
         var artifacts = new InMemoryArtifactStore();
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();
@@ -575,8 +568,7 @@ public sealed class SubmissionCleanupProcessorTests
         var clock = new FixedEnrollmentClock(now);
         var inner = new InMemoryArtifactStore();
         var artifacts = new RecordingArtifactStore(inner);
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var holds = new InMemoryLifecycleHoldStore();
         var dispositions = new InMemoryArtifactDispositionStore();
         var work = new InMemorySubmissionWorkStore();

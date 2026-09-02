@@ -317,11 +317,12 @@ public sealed class SubmissionApplicationTests
             DateTimeOffset.UtcNow).Value!;
         enrollments.Restore([enrollment], []);
         var cohorts = new FixedActivatedCohortPort { Binding = binding };
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var queries = new SubmissionQueryService(
             authorization,
             enrollments,
-            new InMemoryIntakeStore(),
-            new InMemorySubmissionVersionStore(),
+            intakes,
+            versions,
             new FixedFrozenSubmissionRequirementPort(),
             new FixedMaterialPolicyPort(),
             cohorts);
@@ -356,11 +357,12 @@ public sealed class SubmissionApplicationTests
             ParticipantId,
             DateTimeOffset.UtcNow).Value!;
         enrollments.Restore([enrollment], []);
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var queries = new SubmissionQueryService(
             new AllowEnrollmentAuthorizationPort(),
             enrollments,
-            new InMemoryIntakeStore(),
-            new InMemorySubmissionVersionStore(),
+            intakes,
+            versions,
             new FixedFrozenSubmissionRequirementPort(),
             new FixedMaterialPolicyPort(),
             new FixedActivatedCohortPort { Binding = null });

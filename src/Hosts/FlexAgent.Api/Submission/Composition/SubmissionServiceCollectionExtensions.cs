@@ -43,6 +43,7 @@ public static partial class SubmissionEndpointExtensions
             services.AddSingleton<IFrozenSubmissionRequirementPort, FixedFrozenSubmissionRequirementPort>();
             services.AddSingleton<IMaterialPolicyPort, FixedMaterialPolicyPort>();
             services.AddSingleton<IArtifactSafetyScanner, DisabledArtifactSafetyScanner>();
+            services.AddSingleton<InMemorySubmissionIdentityStore>();
             services.AddSingleton<IIntakeStore, InMemoryIntakeStore>();
             services.AddSingleton<ISubmissionVersionStore, InMemorySubmissionVersionStore>();
             services.AddSingleton<ISubmissionWorkStore, InMemorySubmissionWorkStore>();

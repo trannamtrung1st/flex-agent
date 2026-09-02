@@ -278,8 +278,7 @@ public sealed class IntakeCoordinatorTests
         var audit = new RecordingEnrollmentAuditPort();
         var sessions = new AllowEnrollmentSessionPort();
         var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions, enrollments, operations, audit);
-        var intakes = new InMemoryIntakeStore();
-        var versions = new InMemorySubmissionVersionStore();
+        var (intakes, versions) = InMemorySubmissionStores.CreatePaired();
         var timing = new FixedMyWorkTimingPort
         {
             Timing = CreateEffectiveTiming(Now.AddDays(1)),

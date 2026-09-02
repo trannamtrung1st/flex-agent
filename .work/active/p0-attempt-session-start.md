@@ -340,13 +340,11 @@ station, coordinator, migration `0063`, Postgres stores, and Development-gated
 Session commit adapter remain in the tree. Exact accepted-version reads require
 the commit transaction.
 
-Review of `b90ddf0` (2026-09-02): configuration versus policy digest, version-level
-provenance, bind-before-Session, failed-history after abort, and definitive
-browser start-key clearing remain. Follow-up on the same day: migration `0065`
-temporarily drops the Attempt-binding no-update trigger for the provenance
-backfill and restores it; `PersistFailedStartAsync` reacquires the start
-advisory lock and never downgrades `committed`/`failed`; the My Work start-key
-unit test parses a string body without `String(BodyInit)`.
+Review of `ea36cfc` (2026-09-02): Attempt-start `0065` populated upgrade, delayed
+failed-start lock, and web lint are accepted. Follow-up: in-memory Submission
+enrollment→submission identity is instance-scoped and shared only within a
+harness/`CreatePaired()` pair (or the in-memory DI singleton), so parallel
+xUnit tests no longer overwrite each other's version lineage.
 
 Still required before completion: notice-projection registration coupled to
 source versions (Postgres notice list is still org-scoped after a baseline
@@ -461,7 +459,7 @@ the plan.
 | --- | --- | --- |
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-09-02 |
 | `git diff --no-index --check /dev/null .work/active/p0-attempt-session-start.md` | passed | Expected exit 1 for an untracked addition; no whitespace diagnostics on 2026-09-02 |
-| Focused Submissions domain/application tests | passed (partial) | 2026-09-02: AttemptStartCoordinatorTests 10 passed including delayed failed-persist vs committed retry |
+| Focused Submissions domain/application tests | passed (partial) | 2026-09-02: in-memory enrollment-submission identity isolation plus IntakeCoordinatorTests |
 | Focused Sessions resolver/application tests | passed (partial) | 2026-09-02 confirmation: AcknowledgmentPolicyTests + P0ResolvedSessionConfigurationResolverTests 7 passed |
 | Contract and architecture tests | passed (partial) | 2026-09-02 confirmation: ContractCatalogTests + ContractMappingParityTests 142 passed; openapi-parity 4 passed |
 | PostgreSQL migration/integration/fault tests | passed (partial) | 2026-09-02: populated 0064 Attempt-binding → 0065/0066 backfill + restored append-only 1 passed; earlier 0065–0066 upgrade-list coverage remains |

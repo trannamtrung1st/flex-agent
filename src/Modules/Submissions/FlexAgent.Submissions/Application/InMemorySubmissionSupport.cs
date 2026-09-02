@@ -3,14 +3,42 @@ using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
 
-internal static class InMemorySubmissionIdentity
+public sealed class InMemorySubmissionIdentityStore
 {
-    internal static readonly Dictionary<(Guid OrganizationId, Guid EnrollmentId), Guid> ByEnrollment = new();
+    private readonly Dictionary<(Guid OrganizationId, Guid EnrollmentId), Guid> _byEnrollment = new();
+
+    public void Bind(Guid organizationId, Guid enrollmentId, Guid submissionId) =>
+        _byEnrollment[(organizationId, enrollmentId)] = submissionId;
+
+    public Guid? Find(Guid organizationId, Guid enrollmentId) =>
+        _byEnrollment.TryGetValue((organizationId, enrollmentId), out var submissionId)
+            ? submissionId
+            : null;
+}
+
+public static class InMemorySubmissionStores
+{
+    public static (InMemoryIntakeStore Intakes, InMemorySubmissionVersionStore Versions) CreatePaired()
+    {
+        var identities = new InMemorySubmissionIdentityStore();
+        return (new InMemoryIntakeStore(identities), new InMemorySubmissionVersionStore(identities));
+    }
 }
 
 public sealed class InMemoryIntakeStore : IIntakeStore
 {
+    private readonly InMemorySubmissionIdentityStore _identities;
     private readonly Dictionary<(Guid OrganizationId, Guid IntakeId), SubmissionIntakeRecord> _intakes = new();
+
+    public InMemoryIntakeStore()
+        : this(new InMemorySubmissionIdentityStore())
+    {
+    }
+
+    public InMemoryIntakeStore(InMemorySubmissionIdentityStore identities)
+    {
+        _identities = identities;
+    }
 
     public Task<SubmissionIntakeRecord?> FindIntakeAsync(
         Guid organizationId,
@@ -45,7 +73,7 @@ public sealed class InMemoryIntakeStore : IIntakeStore
         CancellationToken cancellationToken = default)
     {
         _intakes[(intake.Scope.OrganizationId, intake.IntakeId)] = intake;
-        InMemorySubmissionIdentity.ByEnrollment[(intake.Scope.OrganizationId, intake.Scope.EnrollmentId)] = intake.SubmissionId;
+        _identities.Bind(intake.Scope.OrganizationId, intake.Scope.EnrollmentId, intake.SubmissionId);
         return Task.CompletedTask;
     }
 
@@ -89,16 +117,25 @@ public sealed class InMemoryIntakeStore : IIntakeStore
 
 public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
 {
+    private readonly InMemorySubmissionIdentityStore _identities;
     private readonly Dictionary<(Guid OrganizationId, Guid VersionId), AcceptedSubmissionVersion> _versions = new();
+
+    public InMemorySubmissionVersionStore()
+        : this(new InMemorySubmissionIdentityStore())
+    {
+    }
+
+    public InMemorySubmissionVersionStore(InMemorySubmissionIdentityStore identities)
+    {
+        _identities = identities;
+    }
 
     public Task<Guid?> FindSubmissionIdByEnrollmentAsync(
         Guid organizationId,
         Guid enrollmentId,
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(InMemorySubmissionIdentity.ByEnrollment.TryGetValue((organizationId, enrollmentId), out var submissionId)
-            ? submissionId
-            : (Guid?)null);
+        Task.FromResult(_identities.Find(organizationId, enrollmentId));
 
     public Task<IReadOnlyList<AcceptedVersionSummary>> ListVersionsAsync(
         Guid organizationId,
@@ -148,7 +185,7 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
         CancellationToken cancellationToken = default)
     {
         _versions[(version.Scope.OrganizationId, version.VersionId)] = version;
-        InMemorySubmissionIdentity.ByEnrollment[(version.Scope.OrganizationId, version.Scope.EnrollmentId)] = version.SubmissionId;
+        _identities.Bind(version.Scope.OrganizationId, version.Scope.EnrollmentId, version.SubmissionId);
         return Task.CompletedTask;
     }
 
