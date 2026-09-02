@@ -70,8 +70,8 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        await postgres.Scope.Connection.ExecuteAsync(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        await connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 INSERT INTO submissions_attempts (
@@ -110,11 +110,11 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                     ConfigurationDigest = attempt.Binding.ConfigurationDigest,
                     ManifestDigest = attempt.Binding.ManifestDigest,
                 },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
         foreach (var binding in attempt.SubmissionBindings)
         {
-            await postgres.Scope.Connection.ExecuteAsync(
+            await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
                     INSERT INTO submissions_attempt_submission_bindings (
@@ -130,7 +130,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                         binding.BindingOrder,
                         binding.ContentDigest,
                     },
-                    postgres.Scope.Transaction,
+                    dbTransaction,
                     cancellationToken: cancellationToken));
         }
     }
@@ -141,8 +141,8 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        var head = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<AttemptHeadRow>(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        var head = await connection.QuerySingleOrDefaultAsync<AttemptHeadRow>(
             new CommandDefinition(
                 """
                 SELECT organization_id AS OrganizationId, attempt_id AS AttemptId, activity_id AS ActivityId,
@@ -158,14 +158,14 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 WHERE organization_id = @OrganizationId AND attempt_id = @AttemptId
                 """,
                 new { OrganizationId = organizationId, AttemptId = attemptId },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
         if (head is null)
         {
             return null;
         }
 
-        var bindings = (await postgres.Scope.Connection.QueryAsync<BindingRow>(
+        var bindings = (await connection.QueryAsync<BindingRow>(
             new CommandDefinition(
                 """
                 SELECT attempt_id AS AttemptId, version_id AS VersionId, version_number AS VersionNumber,
@@ -175,7 +175,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 ORDER BY binding_order
                 """,
                 new { OrganizationId = organizationId, AttemptId = attemptId },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken))).ToArray();
         return ToAttempt(head, bindings);
     }
@@ -185,8 +185,8 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        await postgres.Scope.Connection.ExecuteAsync(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        await connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 UPDATE submissions_attempts
@@ -201,7 +201,7 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                     attempt.TerminalAtUtc,
                     attempt.TerminalReasonCategory,
                 },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
     }
 
@@ -236,21 +236,18 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 item.BindingOrder,
                 item.ContentDigest)).ToArray());
 
-    private static PostgresEnrollmentTransaction Require(IEnrollmentTransaction transaction) =>
-        transaction as PostgresEnrollmentTransaction
-        ?? throw new InvalidOperationException("commit.transaction.required");
-
     private async Task<(NpgsqlConnection Connection, NpgsqlTransaction? Transaction, bool Dispose)> OpenAsync(
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken)
     {
-        if (transaction is PostgresEnrollmentTransaction postgres)
+        if (transaction is not null)
         {
-            return (postgres.Scope.Connection, postgres.Scope.Transaction, false);
+            var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+            return (connection, dbTransaction, false);
         }
 
-        var connection = await connections.OpenConnectionAsync(cancellationToken);
-        return (connection, null, true);
+        var opened = await connections.OpenConnectionAsync(cancellationToken);
+        return (opened, null, true);
     }
 
     private sealed record AttemptHeadRow(
@@ -294,12 +291,12 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        return postgres.Scope.Connection.ExecuteAsync(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        return connection.ExecuteAsync(
             new CommandDefinition(
                 "SELECT pg_advisory_xact_lock(hashtextextended(@Key, 0))",
                 new { Key = $"attempt.start:{organizationId:D}:{enrollmentId:D}:{idempotencyKey}" },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
     }
 
@@ -310,8 +307,8 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        return postgres.Scope.Connection.QuerySingleOrDefaultAsync<StartOperation>(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        return connection.QuerySingleOrDefaultAsync<StartOperation>(
             new CommandDefinition(
                 """
                 SELECT organization_id AS OrganizationId, participant_actor_id AS ParticipantActorId,
@@ -332,7 +329,7 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
                     Action = AttemptOperationKinds.Start,
                     IdempotencyKey = idempotencyKey,
                 },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
     }
 
@@ -342,8 +339,8 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        var rows = await postgres.Scope.Connection.QueryAsync<StartOperation>(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        var rows = await connection.QueryAsync<StartOperation>(
             new CommandDefinition(
                 """
                 SELECT organization_id AS OrganizationId, participant_actor_id AS ParticipantActorId,
@@ -355,7 +352,7 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
                 WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
                 """,
                 new { OrganizationId = organizationId, EnrollmentId = enrollmentId },
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
         return rows.ToArray();
     }
@@ -365,8 +362,8 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var postgres = Require(transaction);
-        return postgres.Scope.Connection.ExecuteAsync(
+        var (connection, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+        return connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 INSERT INTO submissions_attempt_start_operations (
@@ -391,13 +388,9 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
                 WHERE submissions_attempt_start_operations.status = 'claimed'
                 """,
                 operation,
-                postgres.Scope.Transaction,
+                dbTransaction,
                 cancellationToken: cancellationToken));
     }
-
-    private static PostgresEnrollmentTransaction Require(IEnrollmentTransaction transaction) =>
-        transaction as PostgresEnrollmentTransaction
-        ?? throw new InvalidOperationException("commit.transaction.required");
 }
 
 public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor connections) : IParticipantNoticePort
@@ -410,43 +403,115 @@ public sealed class PostgresParticipantNoticePort(PostgresConnectionAccessor con
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default)
     {
-        _ = (activityId, cohortId);
-        const string sql = """
+        const string frozenSql = """
+            SELECT
+                COALESCE(ref->>'sourceId', ref->>'source_id')::uuid AS SourceId,
+                COALESCE(ref->>'sourceVersion', ref->>'source_version')::uuid AS SourceVersionId,
+                COALESCE(ref->>'contentDigest', ref->>'content_digest') AS ContentDigest
+            FROM assessment_activation_baselines b
+            INNER JOIN assessment_cohort_baseline_bindings bind
+                ON bind.organization_id = b.organization_id
+               AND bind.activity_id = b.activity_id
+               AND bind.baseline_id = b.baseline_id
+               AND bind.cohort_id = @CohortId
+            CROSS JOIN LATERAL jsonb_array_elements(
+                COALESCE(b.document->'sourceReferences', b.document->'source_references', '[]'::jsonb)) ref
+            WHERE b.organization_id = @OrganizationId
+              AND b.activity_id = @ActivityId
+              AND b.baseline_id = @BaselineId
+              AND COALESCE(ref->>'sourceKey', ref->>'source_key') IN ('workflow', 'organization_policy')
+            """;
+        const string setSql = """
+            SELECT source_id AS SourceId, source_version_id AS SourceVersionId, source_content_digest AS ContentDigest
+            FROM configuration_participant_notice_projection_sets
+            WHERE organization_id = @OrganizationId
+              AND source_version_id = ANY(@SourceVersionIds)
+            """;
+        const string noticeSql = """
             SELECT notice_id AS NoticeId, notice_type AS NoticeType, required_outcome AS RequiredOutcome,
                    protected_content_ref AS ProtectedContentRef, source_version_id AS SourceVersionId,
                    content_digest AS ContentDigest, source_id AS SourceId
             FROM configuration_participant_notice_projections
             WHERE organization_id = @OrganizationId
-              AND EXISTS (
-                  SELECT 1
-                  FROM assessment_activation_baselines b
-                  WHERE b.organization_id = @OrganizationId
-                    AND b.baseline_id = @BaselineId)
+              AND source_version_id = ANY(@SourceVersionIds)
+            ORDER BY notice_id
             """;
         try
         {
-            if (transaction is PostgresEnrollmentTransaction postgres)
+            var (connection, dbTransaction, dispose) = await OpenAsync(transaction, cancellationToken);
+            try
             {
-                var rows = await postgres.Scope.Connection.QueryAsync<RequiredNoticeProjection>(
+                var frozen = (await connection.QueryAsync<FrozenNoticeSource>(
                     new CommandDefinition(
-                        sql,
-                        new { OrganizationId = organizationId, BaselineId = baselineId },
-                        postgres.Scope.Transaction,
+                        frozenSql,
+                        new
+                        {
+                            OrganizationId = organizationId,
+                            ActivityId = activityId,
+                            CohortId = cohortId,
+                            BaselineId = baselineId,
+                        },
+                        dbTransaction,
+                        cancellationToken: cancellationToken))).ToArray();
+                if (frozen.Length == 0)
+                {
+                    return null;
+                }
+
+                var versionIds = frozen.Select(item => item.SourceVersionId).ToArray();
+                var registered = (await connection.QueryAsync<FrozenNoticeSource>(
+                    new CommandDefinition(
+                        setSql,
+                        new
+                        {
+                            OrganizationId = organizationId,
+                            SourceVersionIds = versionIds,
+                        },
+                        dbTransaction,
+                        cancellationToken: cancellationToken))).ToArray();
+                if (frozen.Any(item => !registered.Any(set =>
+                        set.SourceId == item.SourceId
+                        && set.SourceVersionId == item.SourceVersionId
+                        && string.Equals(set.ContentDigest, item.ContentDigest, StringComparison.Ordinal))))
+                {
+                    return null;
+                }
+
+                var rows = await connection.QueryAsync<RequiredNoticeProjection>(
+                    new CommandDefinition(
+                        noticeSql,
+                        new { OrganizationId = organizationId, SourceVersionIds = versionIds },
+                        dbTransaction,
                         cancellationToken: cancellationToken));
                 return rows.ToArray();
             }
-
-            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-            var listed = await connection.QueryAsync<RequiredNoticeProjection>(
-                new CommandDefinition(
-                    sql,
-                    new { OrganizationId = organizationId, BaselineId = baselineId },
-                    cancellationToken: cancellationToken));
-            return listed.ToArray();
+            finally
+            {
+                if (dispose)
+                {
+                    await connection.DisposeAsync();
+                }
+            }
         }
         catch (PostgresException)
         {
             return null;
         }
     }
+
+    private async Task<(NpgsqlConnection Connection, NpgsqlTransaction? Transaction, bool Dispose)> OpenAsync(
+        IEnrollmentTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction is not null)
+        {
+            var (opened, dbTransaction) = EnrollmentTransactionConnection.Required(transaction);
+            return (opened, dbTransaction, false);
+        }
+
+        var connection = await connections.OpenConnectionAsync(cancellationToken);
+        return (connection, null, true);
+    }
+
+    private sealed record FrozenNoticeSource(Guid SourceId, Guid SourceVersionId, string ContentDigest);
 }

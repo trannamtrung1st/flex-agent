@@ -27,6 +27,25 @@ public sealed class AttachedPostgresEnrollmentTransaction(NpgsqlTransaction tran
     public void AbortCommit() => AbortRequested = true;
 }
 
+public static class EnrollmentTransactionConnection
+{
+    public static (NpgsqlConnection Connection, NpgsqlTransaction Transaction) Required(IEnrollmentTransaction transaction)
+    {
+        if (transaction is PostgresEnrollmentTransaction postgres)
+        {
+            return (postgres.Scope.Connection, postgres.Scope.Transaction);
+        }
+
+        if (transaction is AttachedPostgresEnrollmentTransaction attached)
+        {
+            var db = attached.Transaction;
+            return (db.Connection ?? throw new InvalidOperationException("commit.transaction.required"), db);
+        }
+
+        throw new InvalidOperationException("commit.transaction.required");
+    }
+}
+
 public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope) : IEnrollmentTransaction
 {
     public bool AuditAccepted { get; set; } = true;

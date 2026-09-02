@@ -210,4 +210,73 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
                 new { OrganizationId = organizationId, ConfigurationSourceId = configurationSourceId },
                 cancellationToken: cancellationToken));
     }
+
+    public async Task<bool> TryInsertNoticeProjectionSetAsync(
+        Guid organizationId,
+        Guid sourceId,
+        Guid sourceVersionId,
+        string sourceContentDigest,
+        int noticeCount,
+        DateTime createdAt,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var inserted = await transaction.Connection!.ExecuteScalarAsync<Guid?>(
+            new CommandDefinition(
+                """
+                INSERT INTO configuration_participant_notice_projection_sets (
+                    organization_id, source_id, source_version_id, source_content_digest, notice_count, created_at)
+                VALUES (
+                    @OrganizationId, @SourceId, @SourceVersionId, @SourceContentDigest, @NoticeCount, @CreatedAt)
+                ON CONFLICT DO NOTHING
+                RETURNING source_version_id;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    SourceId = sourceId,
+                    SourceVersionId = sourceVersionId,
+                    SourceContentDigest = sourceContentDigest,
+                    NoticeCount = noticeCount,
+                    CreatedAt = createdAt,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        return inserted is not null;
+    }
+
+    public Task InsertNoticeProjectionAsync(
+        Guid organizationId,
+        Guid sourceId,
+        Guid sourceVersionId,
+        string sourceContentDigest,
+        ParticipantNoticeProjection notice,
+        DateTime createdAt,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        transaction.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO configuration_participant_notice_projections (
+                    organization_id, source_id, source_version_id, notice_id, notice_type, required_outcome,
+                    protected_content_ref, content_digest, source_content_digest, created_at)
+                VALUES (
+                    @OrganizationId, @SourceId, @SourceVersionId, @NoticeId, @NoticeType, @RequiredOutcome,
+                    @ProtectedContentRef, @ContentDigest, @SourceContentDigest, @CreatedAt);
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    SourceId = sourceId,
+                    SourceVersionId = sourceVersionId,
+                    notice.NoticeId,
+                    notice.NoticeType,
+                    notice.RequiredOutcome,
+                    notice.ProtectedContentRef,
+                    notice.ContentDigest,
+                    SourceContentDigest = sourceContentDigest,
+                    CreatedAt = createdAt,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
 }

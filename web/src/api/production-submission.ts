@@ -9,6 +9,8 @@ import type {
   AcknowledgmentMutationOutcomeV2,
   StartAttemptOutcomeV2,
 } from "../contracts/v2";
+import { ProductionApiError } from "./production-api";
+import { isEnrollmentAccessLoss } from "./production-enrollment";
 
 export type {
   AcceptedVersionDetailV2,
@@ -92,23 +94,20 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
       outcome: "affirmed" | "declined" | "withdrawn",
       idempotencyKey: string,
     ) {
-      return fetchJson<AcknowledgmentMutationOutcomeV2>(
-        `/v2/assessment/my-work/${enrollmentId}/attempt/acknowledgments`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            schema_version: "v2",
-            notice_id: noticeId,
-            source_version_id: sourceVersionId,
-            outcome,
-            idempotency_key: idempotencyKey,
-          }),
-        },
-      );
+      return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/acknowledgments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schema_version: "v2",
+          notice_id: noticeId,
+          source_version_id: sourceVersionId,
+          outcome,
+          idempotency_key: idempotencyKey,
+        }),
+      });
     },
     startAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
-      return fetchJson<StartAttemptOutcomeV2>(`/v2/assessment/my-work/${enrollmentId}/attempt/start`, {
+      return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -119,7 +118,7 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
       });
     },
     reconcileAttempt(enrollmentId: string, idempotencyKey: string, trustedCommandDigest: string) {
-      return fetchJson<StartAttemptOutcomeV2>(`/v2/assessment/my-work/${enrollmentId}/attempt/reconcile`, {
+      return readAttemptMutation(fetchJson, `/v2/assessment/my-work/${enrollmentId}/attempt/reconcile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,5 +166,31 @@ export function submissionFailureCopy(outcomeCode: string | undefined): string {
       return "Attempt start is currently unavailable. Entitlement was not consumed.";
     default:
       return "The submission could not be accepted. No earlier version was changed.";
+  }
+}
+
+async function readAttemptMutation<T extends { succeeded: boolean; outcome_code: string }>(
+  fetchJson: <TResponse>(path: string, init?: RequestInit) => Promise<TResponse>,
+  path: string,
+  init: RequestInit,
+): Promise<T> {
+  try {
+    return await fetchJson<T>(path, init);
+  } catch (error) {
+    if (isEnrollmentAccessLoss(error)) {
+      throw error;
+    }
+
+    if (error instanceof ProductionApiError && error.outcomeCode && error.status < 500) {
+      return {
+        schema_version: "v2",
+        succeeded: false,
+        outcome_code: error.outcomeCode,
+        remaining_entitlement: 0,
+        permitted_actions: [],
+      } as T;
+    }
+
+    throw error;
   }
 }

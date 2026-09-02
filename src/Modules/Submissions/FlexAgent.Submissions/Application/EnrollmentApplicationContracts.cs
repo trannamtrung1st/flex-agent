@@ -473,6 +473,10 @@ public static class EnrollmentTelemetryLabels
         AccommodationOperationKinds.Grant,
         AccommodationOperationKinds.Decide,
         AccommodationOperationKinds.Revoke,
+        AttemptOperationKinds.Start,
+        AttemptOperationKinds.Acknowledge,
+        AttemptOperationKinds.Reconcile,
+        AttemptOperationKinds.Readiness,
         EnrollmentRequestSurfaces.Read,
         EnrollmentRequestSurfaces.Mutation,
         Succeeded,
@@ -494,14 +498,20 @@ public static class EnrollmentTelemetryLabels
 
         return outcomeCode switch
         {
-            EnrollmentFailureCodes.Denied or EnrollmentFailureCodes.Ineligible => Denied,
+            EnrollmentFailureCodes.Denied or EnrollmentFailureCodes.Ineligible
+                or AttemptFailureCodes.Denied or AttemptFailureCodes.Ineligible => Denied,
             EnrollmentFailureCodes.Conflict
                 or EnrollmentFailureCodes.IdempotencyConflict
                 or EnrollmentFailureCodes.StaleRevision
-                or EnrollmentFailureCodes.Terminal => Conflict,
+                or EnrollmentFailureCodes.Terminal
+                or AttemptFailureCodes.IdempotencyConflict
+                or AttemptFailureCodes.ActiveConflict
+                or AttemptFailureCodes.AcknowledgmentInvalid => Conflict,
             EnrollmentFailureCodes.AuditUnavailable
                 or EnrollmentFailureCodes.Unavailable
-                or EnrollmentFailureCodes.MissingLifecyclePolicy => Unavailable,
+                or EnrollmentFailureCodes.MissingLifecyclePolicy
+                or AttemptFailureCodes.AuditUnavailable
+                or AttemptFailureCodes.Unavailable => Unavailable,
             _ => Invalid,
         };
     }

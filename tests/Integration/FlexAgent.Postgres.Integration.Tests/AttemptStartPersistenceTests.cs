@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Submissions.Application;
@@ -98,6 +99,152 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
     [Fact]
     public async Task Successful_gated_start_shares_one_configuration_digest()
     {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        await using var lookup = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var enrollment = await lookup.QuerySingleAsync<(Guid BaselineId, Guid TaskSourceId, string TaskDigest)>(
+            """
+            SELECT baseline_id, task_source_id, task_content_digest
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, harness.EnrollmentId });
+        var connections = Fixture.Services.ConnectionAccessor;
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(
+            connections,
+            new AllowEnrollmentSessionPort());
+        var actor = harness.ParticipantActor;
+        var port = new FlexAgent.Api.GatedP0SessionStartPort(
+            new DevelopmentHostEnvironment(),
+            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+        var scope = new SubmissionParentScope(
+            harness.OrganizationId,
+            harness.ActivityId,
+            harness.CohortId,
+            enrollment.BaselineId,
+            harness.EnrollmentId,
+            harness.ParticipantId,
+            enrollment.TaskSourceId,
+            Guid.CreateVersion7(),
+            enrollment.TaskDigest);
+        var request = new SessionStartCommitRequest(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            scope,
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, new string('b', 64))],
+            DateTimeOffset.UtcNow);
+
+        var committed = await unitOfWork.ExecuteAsync(
+            actor,
+            transaction => port.CommitActiveAsync(request, transaction.CommitHandle, CancellationToken),
+            CancellationToken);
+
+        Assert.True(committed.Succeeded, committed.OutcomeCode);
+        await using var connection = await connections.OpenConnectionAsync(CancellationToken);
+        var runtimeDigest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT configuration_digest
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId AND session_id = @SessionId
+            """,
+            new { OrganizationId = harness.OrganizationId, SessionId = request.SessionId });
+        var resolvedDigest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT configuration_digest
+            FROM session_resolved_configurations
+            WHERE organization_id = @OrganizationId AND configuration_id = @ConfigurationId
+            """,
+            new { OrganizationId = harness.OrganizationId, ConfigurationId = request.ConfigurationId });
+        var manifestConfigurationId = await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT configuration_id
+            FROM session_initial_manifests
+            WHERE organization_id = @OrganizationId AND manifest_id = @ManifestId
+            """,
+            new { OrganizationId = harness.OrganizationId, ManifestId = request.ManifestId });
+        var policyDigest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT policy_digest
+            FROM session_frozen_policy_snapshots
+            WHERE organization_id = @OrganizationId AND session_id = @SessionId
+            """,
+            new { OrganizationId = harness.OrganizationId, SessionId = request.SessionId });
+        Assert.Equal(committed.ConfigurationDigest, runtimeDigest);
+        Assert.Equal(committed.ConfigurationDigest, resolvedDigest);
+        Assert.Equal(request.ConfigurationId, manifestConfigurationId);
+        Assert.NotEqual(committed.ConfigurationDigest, policyDigest);
+        var loaded = await new FlexAgent.Sessions.Infrastructure.PostgresTrustedSessionBindingSource(connections)
+            .GetAsync(
+                new FlexAgent.Sessions.Domain.SessionOwnership(
+                    harness.OrganizationId,
+                    scope.ActivityId,
+                    harness.ParticipantId,
+                    request.AttemptId,
+                    request.SessionId),
+                CancellationToken);
+        Assert.NotNull(loaded);
+        Assert.Equal(committed.ConfigurationDigest, loaded!.ConfigurationDigest);
+        Assert.Equal(policyDigest, loaded.Policy.PolicyDigest);
+    }
+
+    [Fact]
+    public async Task Production_environment_refuses_session_start_commit()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var connections = Fixture.Services.ConnectionAccessor;
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(
+            connections,
+            new AllowEnrollmentSessionPort());
+        var actor = new EnrollmentActorContext(
+            seeded.Actor,
+            seeded.Scope,
+            string.Empty,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.CreateVersion7(),
+            "https",
+            [EnrollmentAuthorizationActions.Discover],
+            Guid.CreateVersion7());
+        var port = new FlexAgent.Api.GatedP0SessionStartPort(
+            new DevelopmentHostEnvironment { EnvironmentName = Microsoft.Extensions.Hosting.Environments.Production },
+            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+        var scope = new SubmissionParentScope(
+            seeded.OrganizationId,
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            seeded.ActorId,
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            new string('a', 64));
+        var request = new SessionStartCommitRequest(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            scope,
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, new string('b', 64))],
+            DateTimeOffset.UtcNow);
+
+        var committed = await unitOfWork.ExecuteAsync(
+            actor,
+            transaction => port.CommitActiveAsync(request, transaction.CommitHandle, CancellationToken),
+            CancellationToken);
+
+        Assert.False(committed.Succeeded);
+        Assert.Equal(AttemptFailureCodes.Unavailable, committed.OutcomeCode);
+        Assert.False(port.CanCommit);
+        await using var connection = await connections.OpenConnectionAsync(CancellationToken);
+        var runtimes = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM session_runtimes WHERE organization_id = @OrganizationId",
+            new { OrganizationId = seeded.OrganizationId });
+        Assert.Equal(0, runtimes);
+    }
+
+    [Fact]
+    public async Task Development_commit_without_frozen_baseline_sources_fails_closed()
+    {
         var seeded = await Fixture.SeedOrganizationAsync();
         var connections = Fixture.Services.ConnectionAccessor;
         var unitOfWork = new PostgresEnrollmentUnitOfWork(
@@ -139,52 +286,113 @@ public sealed class AttemptStartPersistenceTests(PostgresIntegrationFixture fixt
             transaction => port.CommitActiveAsync(request, transaction.CommitHandle, CancellationToken),
             CancellationToken);
 
-        Assert.True(committed.Succeeded, committed.OutcomeCode);
+        Assert.False(committed.Succeeded);
+        Assert.Equal(AttemptFailureCodes.Unavailable, committed.OutcomeCode);
         await using var connection = await connections.OpenConnectionAsync(CancellationToken);
-        var runtimeDigest = await connection.ExecuteScalarAsync<string>(
+        var runtimes = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM session_runtimes WHERE organization_id = @OrganizationId",
+            new { OrganizationId = seeded.OrganizationId });
+        Assert.Equal(0, runtimes);
+    }
+
+    [Fact]
+    public async Task Development_commit_writes_frozen_baseline_source_identities()
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var enrollment = await connection.QuerySingleAsync<(Guid BaselineId, Guid TaskSourceId, string TaskDigest)>(
             """
-            SELECT configuration_digest
-            FROM session_runtimes
-            WHERE organization_id = @OrganizationId AND session_id = @SessionId
+            SELECT baseline_id, task_source_id, task_content_digest
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
             """,
-            new { OrganizationId = seeded.OrganizationId, SessionId = request.SessionId });
-        var resolvedDigest = await connection.ExecuteScalarAsync<string>(
+            new { harness.OrganizationId, harness.EnrollmentId });
+        var connections = Fixture.Services.ConnectionAccessor;
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(
+            connections,
+            new AllowEnrollmentSessionPort());
+        var port = new FlexAgent.Api.GatedP0SessionStartPort(
+            new DevelopmentHostEnvironment(),
+            new FlexAgent.Sessions.Infrastructure.PostgresSessionRuntimeRepository());
+        var scope = new SubmissionParentScope(
+            harness.OrganizationId,
+            harness.ActivityId,
+            harness.CohortId,
+            enrollment.BaselineId,
+            harness.EnrollmentId,
+            harness.ParticipantId,
+            enrollment.TaskSourceId,
+            Guid.CreateVersion7(),
+            enrollment.TaskDigest);
+        var request = new SessionStartCommitRequest(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            scope,
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, new string('b', 64))],
+            DateTimeOffset.UtcNow);
+
+        var committed = await unitOfWork.ExecuteAsync(
+            harness.ParticipantActor,
+            transaction => port.CommitActiveAsync(request, transaction.CommitHandle, CancellationToken),
+            CancellationToken);
+
+        Assert.True(committed.Succeeded, committed.OutcomeCode);
+        var canonical = await connection.ExecuteScalarAsync<string>(
             """
-            SELECT configuration_digest
+            SELECT canonical_json
             FROM session_resolved_configurations
             WHERE organization_id = @OrganizationId AND configuration_id = @ConfigurationId
             """,
-            new { OrganizationId = seeded.OrganizationId, ConfigurationId = request.ConfigurationId });
-        var manifestConfigurationId = await connection.ExecuteScalarAsync<Guid>(
-            """
-            SELECT configuration_id
-            FROM session_initial_manifests
-            WHERE organization_id = @OrganizationId AND manifest_id = @ManifestId
-            """,
-            new { OrganizationId = seeded.OrganizationId, ManifestId = request.ManifestId });
-        var policyDigest = await connection.ExecuteScalarAsync<string>(
-            """
-            SELECT policy_digest
-            FROM session_frozen_policy_snapshots
-            WHERE organization_id = @OrganizationId AND session_id = @SessionId
-            """,
-            new { OrganizationId = seeded.OrganizationId, SessionId = request.SessionId });
-        Assert.Equal(committed.ConfigurationDigest, runtimeDigest);
-        Assert.Equal(committed.ConfigurationDigest, resolvedDigest);
-        Assert.Equal(request.ConfigurationId, manifestConfigurationId);
-        Assert.NotEqual(committed.ConfigurationDigest, policyDigest);
-        var loaded = await new FlexAgent.Sessions.Infrastructure.PostgresTrustedSessionBindingSource(connections)
-            .GetAsync(
-                new FlexAgent.Sessions.Domain.SessionOwnership(
-                    seeded.OrganizationId,
-                    scope.ActivityId,
-                    seeded.ActorId,
-                    request.AttemptId,
-                    request.SessionId),
+            new { harness.OrganizationId, request.ConfigurationId });
+        Assert.Contains(AssessmentDevelopmentSources.OrganizationPolicy.SourceId.ToString("D"), canonical, StringComparison.Ordinal);
+        Assert.Contains(AssessmentDevelopmentSources.Workflow.SourceId.ToString("D"), canonical, StringComparison.Ordinal);
+        Assert.Contains(AssessmentDevelopmentSources.Agent.ContentDigest, canonical, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Same_start_key_advisory_lock_blocks_until_the_holder_commits()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var enrollmentId = Guid.CreateVersion7();
+        const string key = "attempt-start-synthetic-0001";
+        var store = new PostgresStartOperationStore();
+        await using var holdingConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await using var waitingConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await holdingConnection.OpenAsync(CancellationToken);
+        await waitingConnection.OpenAsync(CancellationToken);
+        await using var holdingTransaction = await holdingConnection.BeginTransactionAsync(CancellationToken);
+        await store.AcquireLockAsync(
+            seeded.OrganizationId,
+            enrollmentId,
+            key,
+            new AttachedPostgresEnrollmentTransaction(holdingTransaction),
+            CancellationToken);
+
+        var waitingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitingAcquired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waiting = Task.Run(async () =>
+        {
+            await using var waitingTransaction = await waitingConnection.BeginTransactionAsync(CancellationToken);
+            waitingStarted.TrySetResult();
+            await store.AcquireLockAsync(
+                seeded.OrganizationId,
+                enrollmentId,
+                key,
+                new AttachedPostgresEnrollmentTransaction(waitingTransaction),
                 CancellationToken);
-        Assert.NotNull(loaded);
-        Assert.Equal(committed.ConfigurationDigest, loaded!.ConfigurationDigest);
-        Assert.Equal(policyDigest, loaded.Policy.PolicyDigest);
+            waitingAcquired.TrySetResult();
+            await waitingTransaction.RollbackAsync(CancellationToken);
+        }, CancellationToken);
+
+        await waitingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(waitingAcquired.Task.IsCompleted);
+
+        await holdingTransaction.CommitAsync(CancellationToken);
+        await waiting.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.True(waitingAcquired.Task.IsCompletedSuccessfully);
     }
 
     private sealed class DevelopmentHostEnvironment : Microsoft.Extensions.Hosting.IHostEnvironment

@@ -34,6 +34,11 @@ public static partial class SubmissionEndpointExtensions
         }
 
         var result = await queries.GetAsync(actor, enrollmentId, context.RequestAborted);
+        var telemetry = context.RequestServices.GetRequiredService<IEnrollmentTelemetry>();
+        telemetry.RecordMutation(
+            AttemptOperationKinds.Readiness,
+            EnrollmentTelemetryLabels.ClassifyMutation(result.Found && result.Value is not null, result.OutcomeCode ?? AttemptFailureCodes.Denied),
+            TimeSpan.Zero);
         if (!result.Found || result.Value is null)
         {
             await EnrollmentEndpointExtensions.WriteError(
@@ -145,6 +150,10 @@ public static partial class SubmissionEndpointExtensions
         context.Response.StatusCode = outcome.Succeeded
             ? StatusCodes.Status200OK
             : MapAttemptStatus(outcome.OutcomeCode);
+        context.RequestServices.GetRequiredService<IEnrollmentTelemetry>().RecordMutation(
+            AttemptOperationKinds.Acknowledge,
+            EnrollmentTelemetryLabels.ClassifyMutation(outcome.Succeeded, outcome.OutcomeCode),
+            TimeSpan.Zero);
         await Results.Json(AttemptResponseMapper.MapAcknowledgment(outcome)).ExecuteAsync(context);
     }
 
@@ -175,6 +184,12 @@ public static partial class SubmissionEndpointExtensions
         context.Response.StatusCode = outcome.Succeeded
             ? StatusCodes.Status200OK
             : MapAttemptStatus(outcome.OutcomeCode);
+        context.RequestServices.GetRequiredService<IEnrollmentTelemetry>().RecordMutation(
+            context.Request.Path.Value?.Contains("/reconcile", StringComparison.Ordinal) == true
+                ? AttemptOperationKinds.Reconcile
+                : AttemptOperationKinds.Start,
+            EnrollmentTelemetryLabels.ClassifyMutation(outcome.Succeeded, outcome.OutcomeCode),
+            TimeSpan.Zero);
         await Results.Json(AttemptResponseMapper.MapStart(outcome)).ExecuteAsync(context);
     }
 

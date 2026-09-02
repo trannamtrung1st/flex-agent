@@ -220,6 +220,72 @@ public sealed class AttemptStartCoordinatorTests
         }
     }
 
+    [Fact]
+    public async Task Mismatched_digest_reuse_fails_closed_without_a_second_attempt()
+    {
+        var harness = await CreateHarnessAsync();
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        var first = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest),
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        var conflict = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", new string('b', 64)),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(conflict.Succeeded);
+        Assert.Equal(AttemptFailureCodes.IdempotencyConflict, conflict.OutcomeCode);
+        Assert.Single(harness.Attempts.Items);
+        Assert.Equal(1, harness.Sessions.CommitCount);
+    }
+
+    [Fact]
+    public async Task Stale_claim_is_recovered_into_one_committed_attempt()
+    {
+        var harness = await CreateHarnessAsync();
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        harness.StartOperations.Restore(
+        [
+            new StartOperation(
+                OrganizationId,
+                ParticipantId,
+                EnrollmentId,
+                AttemptOperationKinds.Start,
+                "start-key-0001",
+                digest,
+                StartOperationStates.Claimed,
+                Guid.CreateVersion7(),
+                Now.AddMinutes(-5),
+                Now.AddMinutes(-3),
+                null,
+                null,
+                AttemptOutcomes.Claimed,
+                null),
+        ]);
+        var started = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(started.Succeeded, started.OutcomeCode);
+        Assert.Single(harness.Attempts.Items);
+        Assert.Equal(StartOperationStates.Committed, Assert.Single(harness.StartOperations.Items).Status);
+        Assert.Equal(AttemptOutcomes.Activated, harness.StartOperations.Items[0].OutcomeCode);
+    }
+
     private static int RemainingEntitlement(Harness harness) =>
         AttemptEntitlementCalculator.Remaining(1, harness.Attempts.Items, [], Now);
 

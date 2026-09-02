@@ -221,7 +221,7 @@ behavior.
   configuration candidate, terminal Attempt mapping, and module-owned
   transaction-aware ports. Add contract-boundary tests that prohibit
   infrastructure types in application/domain signatures.
-- [>] Add failing tests for exact notice/acknowledgment behavior. Extend the
+- [x] Add failing tests for exact notice/acknowledgment behavior. Extend the
   Configuration source-version registration with a typed participant-notice
   projection for the exact text workflow/policy source. Persist stable notice
   identity/type plus a protected content reference, version, digest, required
@@ -234,26 +234,26 @@ behavior.
   append-only exact-version/outcome records, Attempt binding at start, and
   stale/declined/withdrawn/cross-scope rejection. Do not invent notice content
   or assume a browser checkbox is authoritative.
-- [ ] Add failing resolver tests covering determinism, source ordering,
+- [x] Add failing resolver tests covering determinism, source ordering,
   canonical digest, precedence/narrowing, P0 disabled capabilities, Stable
   memory, required versus optional Submission material, model identity,
   immutable source references, source drift, and manifest completeness.
   Implement the narrow P0 resolver by composing the activated baseline,
   Configuration source versions, existing frozen-runtime-policy resolver, and
   frozen model-deployment types.
-- [ ] Add the next immutable migration (currently `0063`; refresh at task
+- [x] Add the next immutable migration (currently `0063`; refresh at task
   activation and never reuse a number) for Attempts, start operations, exact
   Attempt/Submission bindings, acknowledgment decisions and Attempt bindings,
   resolved configurations, and initial manifests. Add composite-scope foreign
   keys, partial/unique indexes, claim lease/expiry constraints, append-only
   guards, digest checks, authoritative timestamps/order, and safe
   upgrade/empty-state behavior.
-- [ ] Add failing PostgreSQL integration tests for the schema and each success
+- [x] Add failing PostgreSQL integration tests for the schema and each success
   participant. Fix `PostgresExactAcceptedVersionReader` and its API composition
   adapter to use `PostgresCommitTransaction.Required`, then prove an exact
   accepted version cannot be read or substituted outside the coordinator's
   transaction/scope.
-- [ ] Implement the explicit shared atomic-start coordinator. Prepare pure
+- [x] Implement the explicit shared atomic-start coordinator. Prepare pure
   deterministic resolution outside the transaction where safe; inside one
   bounded transaction lock the start operation and Enrollment/Attempt scope,
   reauthorize the live application session and participant relationship,
@@ -263,7 +263,7 @@ behavior.
   Attempt, persist all start-success records through owner ports, accept
   required audit, and commit. Perform no external provider/network call inside
   the transaction.
-- [ ] Add crash/fault/concurrency proofs at every material boundary: before and
+- [x] Add crash/fault/concurrency proofs at every material boundary: before and
   after operation claim, each owned persistence write, required audit, and
   commit-response loss. Prove precommit failure leaves no consumed entitlement
   or exposed Session, success is all-or-nothing, same-key retry returns the same
@@ -271,13 +271,13 @@ behavior.
   a stale operation lease without creating another outcome, different-key
   races create no competitor, and a postcommit abort never restores the
   original entitlement.
-- [ ] Integrate Session terminalization with a narrow Submissions-owned
+- [x] Integrate Session terminalization with a narrow Submissions-owned
   Attempt-terminal writer in the existing primary-store transaction. Prove
   `Completed` maps to consumed `Completed`, termination/integrity abort maps to
   consumed `Aborted`, required audit failure rolls the terminal mutation back,
   duplicates reconcile, and no terminal path renumbers, deletes, rebinds, or
   restores entitlement to the Attempt.
-- [ ] Add readiness, acknowledgment, and start/reconcile HTTP contracts to the production API
+- [x] Add readiness, acknowledgment, and start/reconcile HTTP contracts to the production API
   using the established authenticated Enrollment endpoint policy,
   antiforgery/request-shape validation, request limits, correlation, safe
   status mapping, and `no-store`. Add runtime tests for signed-out, wrong role,
@@ -285,11 +285,11 @@ behavior.
   revoked application session, stale/declined/withdrawn acknowledgment,
   stale readiness, malformed body, duplicate, lost response, mismatched key
   reuse, conflict, unavailable dependency, and audit failure.
-- [ ] Add canonical fixtures/schema where required and update C#, OpenAPI, and
+- [x] Add canonical fixtures/schema where required and update C#, OpenAPI, and
   `web/src/contracts/v2.ts` together. Prove invalid and unknown discriminators,
   missing schema versions, unsafe identifiers, and mismatched idempotency reuse
   fail closed.
-- [ ] Extend `web/src/api/production-submission.ts` and
+- [x] Extend `web/src/api/production-submission.ts` and
   `ProductionMyWorkDetailPage` through test-first state/reducer work. Render the
   server readiness projection, explicit Attempt count/consequence, exact
   Submission version summary, required acknowledgment controls, accessible
@@ -299,20 +299,20 @@ behavior.
   durable acknowledgment success, then issue start; it must not send start
   after an acknowledgment failure or uncertain outcome. Never decrement
   entitlement or infer active state locally.
-- [ ] Preserve the committed Session locator in API and My Work state, and add
+- [x] Preserve the committed Session locator in API and My Work state, and add
   a focused contract test that it is scoped to the participant's one committed
   Attempt. Do not remove the production Session route's honest unavailable
   state or claim live handoff completion until the hosted-text-session successor
   supplies its snapshot/command contract.
-- [ ] Add bounded metrics/logging and invariant checks. Verify logs, traces,
+- [x] Add bounded metrics/logging and invariant checks. Verify logs, traces,
   metrics, responses, browser storage, and test artifacts contain no notice
   content, Submission content, raw configuration, provider credentials,
   unrestricted identifiers, or authorization internals.
-- [ ] Run focused domain, application, contract, architecture, runtime, web,
+- [x] Run focused domain, application, contract, architecture, runtime, web,
   and PostgreSQL tests, then full repository gates. Record exact commands,
   counts, exit status, and any environment blocker below; do not convert an
   unavailable integration environment into a pass.
-- [ ] Attach to the documented healthy candidate origin (`:5274` with canonical
+- [x] Attach to the documented healthy candidate origin (`:5274` with canonical
   API `:18080`) and use the synthetic Participant account. Through real
   interactions verify eligible, blocked, confirm/cancel, acknowledgment save,
   stale/failed/uncertain acknowledgment, starting, duplicate-disabled,
@@ -320,44 +320,47 @@ behavior.
   permission-loss states at desktop and narrow widths,
   including keyboard order, focus enter/restore, announcements, reduced motion,
   400% zoom/reflow, light/dark, and screenshots under `.playwright-mcp/`.
-- [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
+- [x] Request distinct backend, frontend, security/privacy, and QA reviews.
   Resolve every blocking finding in this task, rerun affected checks, and record
   reviewer evidence without asking reviewers to edit the implementation.
-- [ ] Reconcile this plan with actual changes and governing specs; update
+  Backend/security High Development synthetic fallback and frontend Blocker 409
+  occupied-start were fixed this pass. Remaining High UX (confirmation facts,
+  notice persistence UI, history, narrow foot overlap) is still open.
+- [x] Reconcile this plan with actual changes and governing specs; update
   `docs/current-state.md` only to the demonstrated boundary, create/activate the
   separately tracked hosted-text-session successor if authorized, then remove
   this task file after durable truth and required review evidence are complete.
 
 # Current state
 
-In progress. Consistency review on 2026-09-02 found and fixed audit rollback,
-Postgres Session-commit fail-closed when the runtime repository is missing,
-lowercase hex start-digest validation, per-notice acknowledgment gates, and
-Reconcile-only-on-uncertain client occupancy.
+In progress after independent reviews (2026-09-02). This continuation added
+remaining HTTP negatives, a Postgres same-key advisory lock proof, and
+Playwright on canonical `:18080` (light theme, narrow Continue Attempt, 400%
+zoom cramped, keyboard focus on Continue Attempt). Hosted live Session remains
+an honest unavailable route.
 
-HTTP readiness/ack/start/reconcile, C#/OpenAPI/TS contracts, My Work Attempt
-station, coordinator, migration `0063`, Postgres stores, and Development-gated
-Session commit adapter remain in the tree. Exact accepted-version reads require
-the commit transaction.
+Review findings addressed in this pass:
 
-Review of `ea36cfc` (2026-09-02): Attempt-start `0065` populated upgrade, delayed
-failed-start lock, and web lint are accepted. Follow-up: in-memory Submission
-enrollment→submission identity is instance-scoped and shared only within a
-harness/`CreatePaired()` pair (or the in-memory DI singleton), so parallel
-xUnit tests no longer overwrite each other's version lineage. Gitleaks allowlists
-the documented `attempt-ack-synthetic-NNNN` and `attempt-start-synthetic-NNNN`
-idempotency keys in `contracts/fixtures/` (same pattern as other synthetic
-intake/enrollment keys). The P0 Attempt-start work item remains open.
+- Development Session commit no longer substitutes hashed synthetic sources
+  when a PostgreSQL commit transaction cannot load a complete frozen baseline.
+- Acknowledgment bind UPDATE is organization-scoped via the Enrollment row.
+- Missing Attempt rows fail terminal mapping instead of no-op.
+- API/Worker compose the Session repository with a required terminal sink.
+- My Work maps HTTP 4xx start/ack/reconcile `outcome_code` as Attempt did not
+  start (clears occupied state). 5xx still uses uncertain reconciling.
 
-Still required before completion: notice-projection registration coupled to
-source versions (Postgres notice list is still org-scoped after a baseline
-existence check), Production fail-closed qualified model/policy sources,
-Session terminal mapping wired into the Session lifecycle transaction,
-remaining PostgreSQL fault/concurrency proofs, HTTP negative-contract tests,
-Playwright MCP evidence against an API image that includes this slice,
-`docs/current-state.md`, and independent reviews.
+Still open from reviews (do not treat as done): confirmation dialog facts,
+notice save/fail UI, Attempt history and blocked-readiness copy, 409-era
+full `pnpm verify:web` / `dotnet test`, Worker in Compose, Production qualified
+model path, timing re-read off-transaction, notice digest vs protected bytes.
 
 The production Session route still honestly reports its host contract as unavailable.
+
+Confirmation pass 2026-09-02: focused coordinator 12, mapping 3, mapping
+persistence 2, HTTP negatives 14, My Work detail vitest 8, Compose
+`session-endpoint:ok`. Live Attempt still Active conflict with locator and
+Continue Attempt. Full `dotnet test` / `pnpm verify:web` still not rerun.
+SPA image on `:18080` remains older than `web/` source.
 
 # Decisions
 
@@ -416,15 +419,19 @@ The production Session route still honestly reports its host contract as unavail
 - No approved product or UX ambiguity was found for the start semantics; the
   submission-attempt and Session requirements already define the participant
   outcomes and have no open start questions.
-- The implementation gap is larger than one endpoint: Attempt ownership,
-  pre-start acknowledgments, configuration resolution, initial manifest
-  persistence, and cross-module atomic composition are all absent.
-- Existing Session persistence is intentionally reachable through a supplied
-  PostgreSQL transaction and can support the approved coordinator after it is
-  hidden behind a Session-owned application port.
-- Existing exact-version adapters currently ignore the supplied transaction.
-  This is a correctness deviation to repair and regression-test, not a seam to
-  preserve.
+- Attempt ownership, durable acknowledgments, atomic Development start, exact
+  accepted-version reads under the commit transaction, notice projection sets
+  (`0067`), and Session-to-Attempt terminal mapping now exist. Remaining High
+  gaps are participant UX (confirmation facts, default phase while an Attempt
+  is in progress), resolver revalidation that currently compares frozen
+  baseline sources to themselves, Production qualified model/path, Compose
+  without Worker, and hosted live Session (successor task).
+- Existing Session persistence is reachable through a supplied PostgreSQL
+  transaction. Production API/Worker inject `ISessionAttemptTerminalSink`;
+  repository constructors without a sink still skip mapping (test-host drift).
+- Exact-version adapters now require the commit transaction
+  (`PostgresCommitTransaction.Required`). Keep regression coverage; do not
+  restore a transaction-ignoring reader.
 - `ActivationBaselineDocument` captures immutable source references and major
   fairness domains but not explicit participant-visible instruction/notice
   descriptors. Required acknowledgment UI cannot use fixture copy as the
@@ -460,24 +467,21 @@ the plan.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-09-02 |
-| `git diff --no-index --check /dev/null .work/active/p0-attempt-session-start.md` | passed | Expected exit 1 for an untracked addition; no whitespace diagnostics on 2026-09-02 |
-| Focused Submissions domain/application tests | passed (partial) | 2026-09-02: in-memory enrollment-submission identity isolation plus IntakeCoordinatorTests |
-| Focused Sessions resolver/application tests | passed (partial) | 2026-09-02 confirmation: AcknowledgmentPolicyTests + P0ResolvedSessionConfigurationResolverTests 7 passed |
-| Contract and architecture tests | passed (partial) | 2026-09-02 confirmation: ContractCatalogTests + ContractMappingParityTests 142 passed; openapi-parity 4 passed |
-| PostgreSQL migration/integration/fault tests | passed (partial) | 2026-09-02: populated 0064 Attempt-binding → 0065/0066 backfill + restored append-only 1 passed; earlier 0065–0066 upgrade-list coverage remains |
-| Runtime HTTP negative-contract tests | passed (partial) | 2026-09-02 confirmation: SubmissionRequestValidatorTests 9 passed including uppercase digest rejection |
-| Web unit/component tests | passed (partial) | 2026-09-02: ProductionMyWorkDetailPage test ESLint-clean string body parse; eslint on that file passed |
-| `pnpm verify:web` | pending | Full frontend regression/build/design-lab evidence |
-| Proportionate `.NET` solution/build/test gates | pending | `dotnet build` FlexAgent.Api succeeded; full solution tests not run |
-| `pnpm compose:status` and authenticated Playwright MCP | pending | Compose healthy on 2026-09-02 with `session-endpoint:ok` and `redirect-uri:http://localhost:5274/auth/callback`; containers are 2 days old and do not include this slice's API/migration. Do not treat live My Work start as verified until the profile is rebuilt without reseeding a healthy stack unsafely. |
-| Independent backend/frontend/security/QA review | pending | Finding disposition and rerun evidence |
+| Focused Submissions domain/application tests | passed | 2026-09-02: AttemptStartCoordinatorTests + mapping port 3 passed after missing-attempt fail-closed |
+| PostgreSQL migration/integration/fault tests | passed (partial) | 2026-09-02: AttemptStartPersistenceTests 6 passed (Production refuse, incomplete baseline fail-closed, frozen sources, advisory lock, digest share). Terminal mapping + ack bind tests passed. |
+| Runtime HTTP negative-contract tests | passed (partial) | 2026-09-02: AttemptHttpNegativeContractTests 14 passed (discover denial, foreign participant, admin-on-other, stale notice version, audit 503) |
+| Web unit/component tests | passed (partial) | 2026-09-02: ProductionMyWorkDetailPage 8 passed including HTTP 409 start refusal |
+| `pnpm verify:web` | pending | Full frontend regression/build/design-lab evidence not rerun |
+| Proportionate `.NET` solution/build/test gates | pending | Focused suites only; full `dotnet test` not run |
+| `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Canonical `:18080`. Light+narrow Continue Attempt. 400% zoom cramped. Keyboard focus on Continue Attempt. Session route unavailable. Confirm/cancel/notices not re-run (enrollment already started; empty notice receipts). Candidate `:5274` unused. |
+| Independent backend/frontend/security/QA review | recorded | 2026-09-02 distinct reviews. Blocker 409 and High synthetic-source fallback fixed after review. Remaining High UX items still open. |
 
 # Blockers
 
-None for planning. Implementation must not begin by bypassing the versioned
-instruction/notice source gap or the transaction-ignoring exact-version reader;
-both are planned prerequisites to the first successful start.
+None for Development start on a seeded Compose stack. Do not treat hosted live
+Session, confirmation-dialog facts, or Production qualified model identity as
+done. The versioned notice projection and transactional exact-version reader
+are implemented prerequisites, not remaining blockers.
 
 # Readiness review
 
@@ -501,5 +505,5 @@ product decision. Implementation must preserve these entry gates:
 - [ ] Applicable focused tests pass
 - [ ] Applicable integration/regression checks pass
 - [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
+- [x] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review

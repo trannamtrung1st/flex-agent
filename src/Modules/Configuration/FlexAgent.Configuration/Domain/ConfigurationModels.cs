@@ -23,6 +23,7 @@ public static class RegisterConfigurationSourceVersionFailureCodes
     public const string ParentNotFound = "configuration_source_version.parent_not_found";
     public const string IdempotencyConflict = "configuration_source_version.idempotency_conflict";
     public const string Unavailable = "configuration_source_version.unavailable";
+    public const string NoticeProjectionInvalid = "configuration_source_version.notice_projection_invalid";
 }
 
 public sealed record ConfigurationSourceVersionIdentity(

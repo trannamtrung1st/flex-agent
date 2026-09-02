@@ -63,6 +63,8 @@ public static class AttemptOperationKinds
 {
     public const string Start = "attempt_start";
     public const string Acknowledge = "acknowledgment_record";
+    public const string Reconcile = "attempt_reconcile";
+    public const string Readiness = "attempt_readiness";
 }
 
 public static class AttemptClientActions

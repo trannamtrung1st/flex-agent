@@ -1277,6 +1277,79 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             new { CurrentId = currentId }));
     }
 
+    [Fact]
+    public async Task Required_notices_are_the_frozen_workflow_and_policy_projections_only()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-notice-scope"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var enrollmentId = assigned.EnrollmentId!.Value;
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var enrollment = await connection.QuerySingleAsync<(Guid BaselineId, Guid ActivityId, Guid CohortId)>(
+            """
+            SELECT baseline_id, activity_id, cohort_id
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { OrganizationId = harness.OrganizationId, EnrollmentId = enrollmentId });
+        var port = new PostgresParticipantNoticePort(Fixture.Services.ConnectionAccessor);
+        Assert.Null(await port.ListRequiredAsync(
+            harness.OrganizationId,
+            enrollment.ActivityId,
+            enrollment.CohortId,
+            enrollment.BaselineId,
+            null,
+            CancellationToken));
+
+        var noticeId = Guid.CreateVersion7();
+        var strayNoticeId = Guid.CreateVersion7();
+        var digest = new string('d', 64);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO configuration_participant_notice_projection_sets (
+                organization_id, source_id, source_version_id, source_content_digest, notice_count, created_at)
+            VALUES
+                (@OrganizationId, @PolicySourceId, @PolicyVersionId, @PolicyDigest, 0, CLOCK_TIMESTAMP()),
+                (@OrganizationId, @WorkflowSourceId, @WorkflowVersionId, @WorkflowDigest, 1, CLOCK_TIMESTAMP());
+            INSERT INTO configuration_participant_notice_projections (
+                organization_id, source_id, source_version_id, notice_id, notice_type, required_outcome,
+                protected_content_ref, content_digest, source_content_digest, created_at)
+            VALUES
+                (@OrganizationId, @WorkflowSourceId, @WorkflowVersionId, @NoticeId, 'instructions', 'affirmed',
+                 'notice:workflow', @Digest, @WorkflowDigest, CLOCK_TIMESTAMP()),
+                (@OrganizationId, @AgentSourceId, @AgentVersionId, @StrayNoticeId, 'consent', 'affirmed',
+                 'notice:stray', @Digest, @AgentDigest, CLOCK_TIMESTAMP());
+            """,
+            new
+            {
+                OrganizationId = harness.OrganizationId,
+                PolicySourceId = AssessmentDevelopmentSources.OrganizationPolicy.SourceId,
+                PolicyVersionId = AssessmentDevelopmentSources.OrganizationPolicy.VersionId,
+                PolicyDigest = AssessmentDevelopmentSources.OrganizationPolicy.ContentDigest,
+                WorkflowSourceId = AssessmentDevelopmentSources.Workflow.SourceId,
+                WorkflowVersionId = AssessmentDevelopmentSources.Workflow.VersionId,
+                WorkflowDigest = AssessmentDevelopmentSources.Workflow.ContentDigest,
+                AgentSourceId = AssessmentDevelopmentSources.Agent.SourceId,
+                AgentVersionId = AssessmentDevelopmentSources.Agent.VersionId,
+                AgentDigest = AssessmentDevelopmentSources.Agent.ContentDigest,
+                NoticeId = noticeId,
+                StrayNoticeId = strayNoticeId,
+                Digest = digest,
+            });
+
+        var listed = await port.ListRequiredAsync(
+            harness.OrganizationId,
+            enrollment.ActivityId,
+            enrollment.CohortId,
+            enrollment.BaselineId,
+            null,
+            CancellationToken);
+        var notice = Assert.Single(listed ?? []);
+        Assert.Equal(noticeId, notice.NoticeId);
+        Assert.Equal(AssessmentDevelopmentSources.Workflow.VersionId, notice.SourceVersionId);
+        Assert.DoesNotContain(listed!, item => item.NoticeId == strayNoticeId);
+    }
+
     private async Task<EnrollmentHarness> SeedActivatedAsync()
     {
         var seeded = await Fixture.SeedOrganizationAsync();

@@ -18,7 +18,7 @@ public sealed class AttemptTerminalMappingPort(IAttemptStore attempts) : IAttemp
         var current = await attempts.FindByIdAsync(organizationId, attemptId, transaction, cancellationToken);
         if (current is null)
         {
-            return;
+            throw new InvalidOperationException("attempt.missing");
         }
 
         if (current.Status is AttemptStates.Completed or AttemptStates.Aborted)

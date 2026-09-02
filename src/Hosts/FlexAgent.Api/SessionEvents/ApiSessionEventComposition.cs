@@ -200,7 +200,8 @@ internal static class ApiSessionEventComposition
 
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
         services.AddSingleton<PostgresConnectionAccessor>();
-        services.AddSingleton<PostgresSessionRuntimeRepository>();
+        services.AddSingleton(provider =>
+            new PostgresSessionRuntimeRepository(provider.GetRequiredService<ISessionAttemptTerminalSink>()));
         services.AddSingleton<IReplayAuthorizedSessionEventsHandler, ReplayAuthorizedSessionEventsHandler>();
         services.AddSingleton<IReplayAuthorizedSessionEventsCoordinator, PostgresReplayAuthorizedSessionEventsCoordinator>();
         services.AddSingleton<PostgresSessionActorRelationshipStore>();

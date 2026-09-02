@@ -6,10 +6,14 @@ import { ToastHost } from "../design-system";
 import { ProductionMyWorkDetailPage } from "./ProductionMyWorkDetailPage";
 
 function jsonResponse(body: unknown, status = 200) {
+  const payload = structuredClone(body);
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status,
-    json: () => Promise.resolve(body),
+    clone() {
+      return { json: () => Promise.resolve(structuredClone(payload)) };
+    },
+    json: () => Promise.resolve(structuredClone(payload)),
   });
 }
 
@@ -454,6 +458,38 @@ describe("ProductionMyWorkDetailPage", () => {
       expect(startKeys).toHaveLength(2);
     });
     expect(startKeys[0]).not.toEqual(startKeys[1]);
+  });
+
+  it("treats HTTP 409 start refusal as Attempt did not start", async () => {
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt/start") && init?.method === "POST") {
+        return jsonResponse({ schema_version: "v2", outcome_code: "attempt.ineligible" }, 409);
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload());
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    await waitFor(() => {
+      expect(screen.getByText(/not ready to start an Attempt/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
   });
 
   it("clears occupied starting after a definitive reconcile outcome", async () => {

@@ -47,7 +47,7 @@ when they disagree (for example citations of `web-legacy`).
 | [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) | `REQ-AUTH-32`, `AC-AUTH-23` | Gap |
 | [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) | `REQ-AUTH-30`, `AC-AUTH-21` | Partial |
 | [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) | UX and accessibility requirements, `AC-AUTH-20` | Gap |
-| [`resolved-session-configuration.md`](requirements/features/resolved-session-configuration.md) | `REQ-RSC-1`–`REQ-RSC-8`, `AC-RSC-1`–`AC-RSC-5` | Gap |
+| [`resolved-session-configuration.md`](requirements/features/resolved-session-configuration.md) | `REQ-RSC-1`–`REQ-RSC-8`, `AC-RSC-1`–`AC-RSC-5` | Partial |
 | [`resolved-session-configuration.md`](requirements/features/resolved-session-configuration.md) | `REQ-RSC-9`–`REQ-RSC-14`, `AC-RSC-6`, `AC-RSC-8`, `AC-RSC-24` | Gap |
 | [`resolved-session-configuration.md`](requirements/features/resolved-session-configuration.md) | `REQ-RSC-15`–`REQ-RSC-22`, `AC-RSC-3`, `AC-RSC-7`, `AC-RSC-11`, `AC-RSC-12` | Gap |
 | [`resolved-session-configuration.md`](requirements/features/resolved-session-configuration.md) | `REQ-RSC-23`–`REQ-RSC-28`, `AC-RSC-10`, `AC-RSC-11`, `AC-RSC-13`, `AC-RSC-16` | Gap |
@@ -67,13 +67,13 @@ when they disagree (for example citations of `web-legacy`).
 | [`assessment-setup.md`](requirements/features/assessment-setup.md) | Security/privacy requirements, `AC-ACT-3`, `AC-ACT-5`, `AC-ACT-21`, `AC-ACT-23`–`AC-ACT-25` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-1`–`REQ-SUBM-8`, `REQ-SUBM-43`, `AC-SUBM-1`–`AC-SUBM-4`, `AC-SUBM-29`, `PROP-6` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-9`–`REQ-SUBM-14`, `REQ-SUBM-50`–`REQ-SUBM-56`, `AC-SUBM-11`, `AC-SUBM-12`, `AC-SUBM-22`, `AC-SUBM-33`–`AC-SUBM-39`, `PROP-3`, `PROP-9`–`PROP-15` | Partial |
-| [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-15`–`REQ-SUBM-23`, `AC-SUBM-5`–`AC-SUBM-10`, `PROP-1` | Gap |
+| [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-15`–`REQ-SUBM-23`, `AC-SUBM-5`–`AC-SUBM-10`, `PROP-1` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-24`–`REQ-SUBM-35`, `REQ-SUBM-44`–`REQ-SUBM-48`, `AC-SUBM-13`–`AC-SUBM-18`, `AC-SUBM-30`–`AC-SUBM-32`, `PROP-2`, `PROP-4` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | `REQ-SUBM-36`–`REQ-SUBM-42`, `REQ-SUBM-49`, `AC-SUBM-19`–`AC-SUBM-21`, `AC-SUBM-24`–`AC-SUBM-26`, `PROP-7` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | UX/accessibility requirements, `AC-SUBM-23` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | Performance/reliability requirements, `REQ-SUBM-57`–`REQ-SUBM-58`, `AC-SUBM-9`, `AC-SUBM-17`, `AC-SUBM-27`, `AC-SUBM-40`–`AC-SUBM-41`, `PROP-5`, `PROP-8` | Partial |
 | [`submission-attempts.md`](requirements/features/submission-attempts.md) | Security/privacy requirements, `AC-SUBM-14`, `AC-SUBM-18`–`AC-SUBM-21`, `AC-SUBM-26`, `AC-SUBM-28` | Partial |
-| [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | `REQ-SESS-1`–`REQ-SESS-7`, `AC-SESS-1`, `AC-SESS-2` | Gap |
+| [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | `REQ-SESS-1`–`REQ-SESS-7`, `AC-SESS-1`, `AC-SESS-2` | Partial |
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`, `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32`, `PROP-7` | Partial |
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | `REQ-SESS-61`–`REQ-SESS-85`, `AC-SESS-33`–`AC-SESS-48` | Partial |
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | `REQ-SESS-20`–`REQ-SESS-30`, `AC-SESS-9`–`AC-SESS-14`, `PROP-2`, `PROP-3`, `PROP-6` | Partial |
@@ -172,8 +172,8 @@ synthetic pin is not production qualification.
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
 | Activities server-numbered paging and capability-aware table selection | Partial implemented | `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; numbered Activities list and page/matching table selection are in code and tests |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
-| Submission intake / Attempt start | Partial / gap | Submissions module and tests; atomic Attempt start remains a named gap |
-| Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Sessions runtime tests exist; hosted production Session incomplete |
+| Submission intake / Attempt start | Partial implemented | Submissions module, atomic Development Attempt start, My Work readiness/locator; Production/Staging remain fail-closed; hosted live Session is a separate gap |
+| Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Atomic start creates an Active Session locator; production SPA still reports the host contract unavailable; successor `.work/active/hosted-text-session.md` |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
@@ -187,7 +187,10 @@ synthetic pin is not production qualification.
 
 ## Active work
 
-`.work/active/text-interaction-controller-contract.md` is `planned` and not
-implemented/activated. Completed Participants cursor-pager, server-numbered
-pagination, reset, and harness-correction records are retired from
-`.work/active`; recover them from Git.
+`.work/active/p0-attempt-session-start.md` is `in-progress` (Development atomic
+start is Partial implemented; hosted live Session is unclaimed).
+`.work/active/hosted-text-session.md` and
+`.work/active/text-interaction-controller-contract.md` are `planned` and not
+activated. Completed Participants cursor-pager, server-numbered pagination,
+reset, and harness-correction records are retired from `.work/active`; recover
+them from Git.

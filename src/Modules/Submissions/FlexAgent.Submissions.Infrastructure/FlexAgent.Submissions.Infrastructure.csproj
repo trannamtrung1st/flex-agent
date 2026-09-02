@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
+    <ProjectReference Include="..\..\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
     <ProjectReference Include="..\..\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />

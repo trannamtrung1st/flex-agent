@@ -41,7 +41,19 @@ public sealed class GatedP0SessionStartPort(
             request.Scope.ParticipantActorId,
             request.AttemptId,
             request.SessionId);
-        var sources = RequiredDevelopmentSources(request.Scope.BaselineId);
+        var sources = await TryLoadFrozenBaselineSourcesAsync(
+                request.Scope,
+                npgsql,
+                cancellationToken);
+        if (sources is null)
+        {
+            if (npgsql is not null)
+            {
+                return new SessionStartCommitResult(false, AttemptFailureCodes.Unavailable, null, null);
+            }
+
+            sources = RequiredDevelopmentSources(request.Scope.BaselineId);
+        }
         var submissionRefs = request.SubmissionBindings
             .Where(binding => binding.ContentDigest.Length == 64)
             .Select(binding => new ProtectedContentRef(
@@ -220,7 +232,74 @@ public sealed class GatedP0SessionStartPort(
             "bind.v1");
     }
 
-    // Isolated Development scaffold: stable per-baseline ids, not activated cohort source versions.
+    private static readonly HashSet<string> RequiredSourceKeys =
+    [
+        "organization_policy",
+        "agent",
+        "harness",
+        "workflow",
+        "model_deployment",
+        "task_submission",
+        "capability",
+    ];
+
+    private static async Task<IReadOnlyList<ResolvedSourceReference>?> TryLoadFrozenBaselineSourcesAsync(
+        SubmissionParentScope scope,
+        NpgsqlTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction is null)
+        {
+            return null;
+        }
+
+        var connection = transaction.Connection ?? throw new InvalidOperationException("commit.transaction.required");
+        var rows = (await connection.QueryAsync<FrozenSourceRow>(
+            new CommandDefinition(
+                """
+                SELECT
+                    COALESCE(ref->>'sourceKey', ref->>'source_key') AS SourceKey,
+                    COALESCE(ref->>'sourceId', ref->>'source_id')::uuid AS SourceId,
+                    COALESCE(ref->>'sourceVersion', ref->>'source_version')::uuid AS SourceVersionId,
+                    COALESCE(ref->>'contentDigest', ref->>'content_digest') AS ContentDigest
+                FROM assessment_activation_baselines b
+                CROSS JOIN LATERAL jsonb_array_elements(
+                    COALESCE(b.document->'sourceReferences', b.document->'source_references', '[]'::jsonb)) ref
+                WHERE b.organization_id = @OrganizationId
+                  AND b.activity_id = @ActivityId
+                  AND b.baseline_id = @BaselineId
+                """,
+                new
+                {
+                    scope.OrganizationId,
+                    scope.ActivityId,
+                    scope.BaselineId,
+                },
+                transaction,
+                cancellationToken: cancellationToken))).ToArray();
+        if (RequiredSourceKeys.Any(required =>
+                rows.All(row => !string.Equals(row.SourceKey, required, StringComparison.Ordinal))))
+        {
+            return null;
+        }
+
+        return rows
+            .Where(row => row.SourceKey.Length > 0 && row.ContentDigest.Length == 64)
+            .Select(row => new ResolvedSourceReference(
+                row.SourceKey,
+                row.SourceId,
+                row.SourceVersionId,
+                row.ContentDigest))
+            .ToArray();
+    }
+
+    private sealed record FrozenSourceRow(
+        string SourceKey,
+        Guid SourceId,
+        Guid SourceVersionId,
+        string ContentDigest);
+
+    // Isolated Development scaffold when the commit transaction has no frozen baseline.
     private static IReadOnlyList<ResolvedSourceReference> RequiredDevelopmentSources(Guid baselineId)
     {
         var digest = new string('c', 64);
@@ -381,12 +460,15 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
             var updated = await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    UPDATE session_acknowledgment_records
+                    UPDATE session_acknowledgment_records AS records
                     SET bound_attempt_id = @AttemptId
-                    WHERE record_id = @RecordId
-                      AND enrollment_id = @EnrollmentId
-                      AND participant_actor_id = @ParticipantActorId
-                      AND (bound_attempt_id IS NULL OR bound_attempt_id = @AttemptId)
+                    FROM submissions_enrollments AS enrollments
+                    WHERE records.organization_id = enrollments.organization_id
+                      AND records.record_id = @RecordId
+                      AND records.enrollment_id = @EnrollmentId
+                      AND enrollments.enrollment_id = @EnrollmentId
+                      AND records.participant_actor_id = @ParticipantActorId
+                      AND (records.bound_attempt_id IS NULL OR records.bound_attempt_id = @AttemptId)
                     """,
                     new
                     {

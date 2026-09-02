@@ -6,6 +6,8 @@ using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.OpenRouter;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Infrastructure;
 using Npgsql;
 
 namespace FlexAgent.Worker;
@@ -113,7 +115,11 @@ internal static class WorkerDurableWorkSampling
         {
             services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
             services.AddSingleton<PostgresConnectionAccessor>();
-            services.AddSingleton<PostgresSessionRuntimeRepository>();
+            services.AddSingleton<IAttemptStore, PostgresAttemptStore>();
+            services.AddSingleton<IAttemptTerminalMappingPort, AttemptTerminalMappingPort>();
+            services.AddSingleton<ISessionAttemptTerminalSink, SubmissionsSessionAttemptTerminalSink>();
+            services.AddSingleton(provider =>
+                new PostgresSessionRuntimeRepository(provider.GetRequiredService<ISessionAttemptTerminalSink>()));
             services.AddSingleton<ITrustedSessionBindingSource, PostgresTrustedSessionBindingSource>();
             services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
             services.AddSingleton<ICommitAuthorizationKernel>(sp =>

@@ -55,6 +55,18 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 null);
         }
 
+        if (!ParticipantNoticeProjectionParser.TryParse(
+                command.CanonicalUtf8Content,
+                command.DeclaredContentDigest,
+                out var notices,
+                out _))
+        {
+            return new RegisterConfigurationSourceVersionResult(
+                false,
+                RegisterConfigurationSourceVersionFailureCodes.NoticeProjectionInvalid,
+                null);
+        }
+
         var payloadFingerprint = ConfigurationPayloadFingerprint.Compute(command);
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
@@ -99,6 +111,23 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                     existingIdempotency,
                     scope.Transaction,
                     cancellationToken);
+                if (result.Succeeded && result.Identity is not null)
+                {
+                    var existing = await versionRepository.GetByIdForSourceAsync(
+                        command.Organization.OrganizationId,
+                        command.ConfigurationSourceId,
+                        result.Identity.VersionId,
+                        scope.Transaction,
+                        cancellationToken);
+                    if (existing is not null)
+                    {
+                        await PersistNoticeProjectionsAsync(
+                            existing,
+                            notices,
+                            scope.Transaction,
+                            cancellationToken);
+                    }
+                }
 
                 await scope.CommitAsync(cancellationToken);
                 return result;
@@ -119,6 +148,14 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                     payloadFingerprint,
                     scope.Transaction,
                     cancellationToken);
+                if (result.Succeeded)
+                {
+                    await PersistNoticeProjectionsAsync(
+                        existingByDigest,
+                        notices,
+                        scope.Transaction,
+                        cancellationToken);
+                }
 
                 await scope.CommitAsync(cancellationToken);
                 return result;
@@ -162,6 +199,12 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 await scope.RollbackAsync(cancellationToken);
                 return idempotencyResult;
             }
+
+            await PersistNoticeProjectionsAsync(
+                authoritativeRow,
+                notices,
+                scope.Transaction,
+                cancellationToken);
 
             if (inserted is not null)
             {
@@ -285,6 +328,40 @@ public sealed class RegisterConfigurationSourceVersionHandler(
         }
 
         return await ResolveIdempotencyRecordAsync(command, existingIdempotency, transaction, cancellationToken);
+    }
+
+    private async Task PersistNoticeProjectionsAsync(
+        ConfigurationSourceVersionRow version,
+        IReadOnlyList<ParticipantNoticeProjection> notices,
+        Npgsql.NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var insertedSet = await versionRepository.TryInsertNoticeProjectionSetAsync(
+            version.OrganizationId,
+            version.ConfigurationSourceId,
+            version.Id,
+            version.ContentDigest,
+            notices.Count,
+            version.CreatedAt,
+            transaction,
+            cancellationToken);
+        if (!insertedSet)
+        {
+            return;
+        }
+
+        foreach (var notice in notices)
+        {
+            await versionRepository.InsertNoticeProjectionAsync(
+                version.OrganizationId,
+                version.ConfigurationSourceId,
+                version.Id,
+                version.ContentDigest,
+                notice,
+                version.CreatedAt,
+                transaction,
+                cancellationToken);
+        }
     }
 
     private static bool MatchesPayload(ConfigurationSourceVersionRow existing, RegisterConfigurationSourceVersionCommand command) =>

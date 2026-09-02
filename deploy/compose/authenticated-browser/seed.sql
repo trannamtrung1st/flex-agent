@@ -205,6 +205,27 @@ VALUES
     ('33333333-3333-3333-3333-333333333311', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-2222-2222-222222222211', 'v1', 'activation-baseline-jcs-sha256-v1', repeat('l', 64), '33333333-3333-3333-3333-333333333311', CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, id) DO NOTHING;
 
+-- Verifiable empty notice receipts for the frozen workflow/policy source versions.
+-- Start fails closed without these; they are not participant-visible notice content.
+INSERT INTO configuration_participant_notice_projection_sets (
+    organization_id, source_id, source_version_id, source_content_digest, notice_count, created_at)
+VALUES
+    (
+        'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        '22222222-2222-2222-2222-222222222201',
+        '33333333-3333-3333-3333-333333333301',
+        repeat('b', 64),
+        0,
+        CLOCK_TIMESTAMP()),
+    (
+        'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        '22222222-2222-2222-2222-222222222204',
+        '33333333-3333-3333-3333-333333333304',
+        repeat('e', 64),
+        0,
+        CLOCK_TIMESTAMP())
+ON CONFLICT (organization_id, source_version_id) DO NOTHING;
+
 INSERT INTO configuration_source_readiness_descriptors (
     organization_id, configuration_source_id, version_id, source_kind, category,
     lifecycle_state, compatibility_key, capability_text_enabled, capability_voice_enabled,

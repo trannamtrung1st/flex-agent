@@ -1,3 +1,4 @@
+using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Infrastructure;
@@ -10,6 +11,7 @@ public static partial class SubmissionEndpointExtensions
     {
         services.AddSingleton<IRetryEntitlementReader>(_ => EmptyRetryEntitlementReader.Instance);
         services.AddSingleton<IAttemptTerminalMappingPort, AttemptTerminalMappingPort>();
+        services.AddSingleton<ISessionAttemptTerminalSink, SubmissionsSessionAttemptTerminalSink>();
         services.AddSingleton<AttemptStartCoordinator>();
         services.AddSingleton<IAttemptStartCoordinator>(static provider => provider.GetRequiredService<AttemptStartCoordinator>());
         services.AddSingleton<IAttemptReadinessQuery>(static provider => provider.GetRequiredService<AttemptStartCoordinator>());

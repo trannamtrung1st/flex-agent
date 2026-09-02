@@ -207,6 +207,9 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("e2000000-0000-4000-8000-", seed);
         Assert.Contains("generate_series(1, 5)", seed);
         Assert.Contains("generate_series(1, 30)", seed);
+        Assert.Contains("configuration_participant_notice_projection_sets", seed);
+        Assert.Contains("repeat('b', 64)", seed);
+        Assert.Contains("repeat('e', 64)", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
     }
