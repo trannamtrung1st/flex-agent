@@ -344,7 +344,10 @@ Review of `ea36cfc` (2026-09-02): Attempt-start `0065` populated upgrade, delaye
 failed-start lock, and web lint are accepted. Follow-up: in-memory Submission
 enrollment→submission identity is instance-scoped and shared only within a
 harness/`CreatePaired()` pair (or the in-memory DI singleton), so parallel
-xUnit tests no longer overwrite each other's version lineage.
+xUnit tests no longer overwrite each other's version lineage. Gitleaks allowlists
+the documented `attempt-ack-synthetic-NNNN` and `attempt-start-synthetic-NNNN`
+idempotency keys in `contracts/fixtures/` (same pattern as other synthetic
+intake/enrollment keys). The P0 Attempt-start work item remains open.
 
 Still required before completion: notice-projection registration coupled to
 source versions (Postgres notice list is still org-scoped after a baseline
