@@ -338,14 +338,15 @@ Backend review of `1e8b25a` is approved for Attempt-start correctness. Follow-up
 path-scoped Gitleaks allowlists; that review approved the commit with a P2 to
 narrow the 64-hex digest exemption.
 
-This working tree tightens that exemption to `^[aA]{64}$` on
-`AttemptHttpNegativeContractTests.cs` only (persistence tests have no 64-hex
-literals). It also pins `fast-uri` `>=3.1.6` so Implementation
-[33656000631](https://github.com/trannamtrung1st/flex-agent/actions/runs/33656000631)
-`supply-chain` step 9 (`pnpm audit --audit-level=high`) can pass: four high
-advisories on `fast-uri@3.1.5` via `@cyclonedx/cyclonedx-npm` (dev SBOM tool),
-not shipped SPA. Local `gitleaks detect` is clean; `pnpm audit --audit-level=high`
-exits 0.
+`753728b` tightened Gitleaks to `^[aA]{64}$` and unblocked Implementation
+[33657055497](https://github.com/trannamtrung1st/flex-agent/actions/runs/33657055497) (all jobs green). Review of that commit requested
+changes: the first `fast-uri` override (`>=3.1.6`) resolved to `4.1.4`, outside
+AJV `^3.0.1`, and CycloneDX logged `npm error invalid: fast-uri@4.1.4` (masked by
+`--ignore-npm-errors`).
+
+This working tree scopes the override to `ajv>fast-uri: 3.1.6` so the lockfile
+keeps AJV on patched v3. Local `pnpm audit --audit-level=high` exits 0; SPA SBOM
+generation no longer reports `invalid: fast-uri`.
 
 Still open: confirmation dialog facts, default Begin intake while an Attempt is
 in progress, hosted live Session, Production qualified model, Worker in Compose.
@@ -467,7 +468,7 @@ the plan.
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Unchanged UI except unused-import/typecast; no new Playwright this pass |
 | Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; `c966ddb` approved with P2 hex allowlist (addressed locally). Remaining items are product-completion gaps |
-| Implementation `supply-chain` | failing on `c966ddb`; local fix ready | Run [33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870) failed Gitleaks. Run [33656000631](https://github.com/trannamtrung1st/flex-agent/actions/runs/33656000631) failed at `pnpm audit` (step 9) on `fast-uri@3.1.5` / GHSA-5jgf-p345-68v8 and related. Local gitleaks clean with `^[aA]{64}$`; local `pnpm audit --audit-level=high` exit 0 after override. |
+| Implementation `supply-chain` | green on `753728b`; follow-up ready | [33657055497](https://github.com/trannamtrung1st/flex-agent/actions/runs/33657055497) all jobs passed. Review requested narrowing `fast-uri` override to AJV-compatible `3.1.6` (was `4.1.4`). Local audit exit 0; SPA SBOM has no `invalid: fast-uri`. |
 
 # Blockers
 
