@@ -78,22 +78,72 @@ function isReleasedRecord(status: string): boolean {
   return /releas|seal/i.test(status);
 }
 
+function attemptIsInProgress(attempt: MyWorkAttemptReadinessV2 | null): boolean {
+  if (!attempt) return false;
+  return (
+    attempt.readiness_state === "active_conflict"
+    || Boolean(attempt.active_session_id)
+    || Boolean(attempt.active_attempt_id)
+    || attempt.permitted_actions.includes("continue_attempt")
+  );
+}
+
 function assignmentPhaseCopy(
   view: AssignmentStationView,
   pending: boolean,
   permitted: SubmissionPermittedActionV2[],
   intakeOpen: boolean,
   intakeItemCount = 0,
+  inProgress = false,
 ): string {
   if (pending) return "Working…";
-  if (view === "attempt") {
-    if (pending) return "Working…";
-    return "Attempt";
-  }
+  if (inProgress) return "Attempt in progress";
+  if (view === "attempt") return "Attempt";
   if (permitted.includes("begin_intake")) return "Begin intake";
   if (intakeOpen && permitted.includes("finalize_intake") && intakeItemCount > 0) return "Submit version";
   if (intakeOpen) return "Intake receiving";
   return "Submission";
+}
+
+function formatAttemptDuration(seconds?: number | null): string {
+  if (seconds == null) return "No per-Attempt duration limit";
+  if (seconds % 3600 === 0) {
+    const hours = seconds / 3600;
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  }
+  return seconds === 1 ? "1 second" : `${seconds} seconds`;
+}
+
+function formatItemCount(count: number): string {
+  return count === 1 ? "1 item" : `${count.toLocaleString("en-US")} items`;
+}
+
+function formatAttemptWindow(timing: MyWorkTimingV2 | null): string {
+  const effective = timing?.effective;
+  if (!effective) return "Start-window facts are not available from the server.";
+  const zone = effective.time_zone_id;
+  const opens = campaignDeadlineCopy(formatCampaignInstant(effective.attempt_start_utc, zone));
+  const closes = campaignDeadlineCopy(formatCampaignInstant(effective.attempt_start_exclusive_end_utc, zone));
+  return `Opens ${opens}. Exclusive end ${closes}.`;
+}
+
+function boundVersionSummary(attempt: MyWorkAttemptReadinessV2): string {
+  const latest = [...attempt.bound_version_candidates].sort((a, b) => b.version_number - a.version_number)[0];
+  if (!latest) return "No accepted Submission version is available to bind.";
+  return `Submission Version ${latest.version_number}, ${formatItemCount(latest.item_count)}.`;
+}
+
+function acknowledgmentStateCopy(
+  attempt: MyWorkAttemptReadinessV2,
+  ackedByNotice: Record<string, boolean>,
+): string {
+  if (attempt.required_notices.length === 0) return "No required acknowledgments.";
+  const recorded = attempt.required_notices.every((notice) => ackedByNotice[notice.notice_id]);
+  return recorded ? "Required acknowledgments recorded" : "Required acknowledgments not yet recorded";
 }
 
 function formatByteLimit(bytes: number): string {
@@ -105,10 +155,6 @@ function formatByteLimit(bytes: number): string {
     return `${bytes / 1024} KB`;
   }
   return `${bytes.toLocaleString("en-US")} bytes`;
-}
-
-function formatItemCount(count: number): string {
-  return count === 1 ? "1 item" : `${count.toLocaleString("en-US")} items`;
 }
 
 function intakeItemLabel(category: string, filename?: string | null): string {
@@ -202,6 +248,12 @@ export function ProductionMyWorkDetailPage() {
       signal.cancelled = true;
     };
   }, [reload]);
+
+  useEffect(() => {
+    if (attemptIsInProgress(attempt)) {
+      setView("attempt");
+    }
+  }, [attempt]);
 
   const permitted = actionsOf(submission);
   const intake = submission?.active_intake ?? null;
@@ -364,11 +416,12 @@ export function ProductionMyWorkDetailPage() {
   );
 
   const versions = [...(submission?.version_history ?? [])].sort((a, b) => b.version_number - a.version_number);
+  const inProgress = attemptIsInProgress(attempt);
 
   const submissionActions = view === "submission" && (
-    permitted.includes("begin_intake") || Boolean(intake)
+    (!inProgress && permitted.includes("begin_intake")) || Boolean(intake)
   ) ? (() => {
-    const beginKey = permitted.includes("begin_intake") ? (
+    const beginKey = !inProgress && permitted.includes("begin_intake") ? (
       <Key
         variant="begin"
         disabled={pending}
@@ -495,7 +548,7 @@ export function ProductionMyWorkDetailPage() {
         <AssignmentHeading
           title={title}
           meta={meta || undefined}
-          phase={assignmentPhaseCopy(view, pending, permitted, Boolean(intake), intake?.items.length ?? 0)}
+          phase={assignmentPhaseCopy(view, pending, permitted, Boolean(intake), intake?.items.length ?? 0, inProgress)}
           record={recordLabel}
           released={released}
         />
@@ -541,16 +594,57 @@ export function ProductionMyWorkDetailPage() {
           <DialogPlate>
             <DialogPlateHead title="Start this Attempt?" titleId={startConfirmId} />
             <DialogPlateBody>
-              <p>
-                Starting consumes one Attempt from the remaining server entitlement. A hosted live Session is not available from this application after start; My Work keeps the committed Session locator.
-              </p>
+              {attempt ? (
+                <Stack gap="4">
+                  <ReadoutList
+                    rows={[
+                      {
+                        term: "Attempt",
+                        value: `Attempt ${attempt.next_ordinal} of ${attempt.baseline_attempt_limit}`,
+                      },
+                      {
+                        term: "Entitlement",
+                        value: attempt.entitlement_source === "retry"
+                          ? "Separately authorized retry entitlement"
+                          : "Baseline entitlement",
+                      },
+                      {
+                        term: "Duration",
+                        value: formatAttemptDuration(timing?.effective?.per_attempt_duration_seconds),
+                      },
+                      {
+                        term: "Start window",
+                        value: formatAttemptWindow(timing),
+                      },
+                      {
+                        term: "Submission",
+                        value: boundVersionSummary(attempt),
+                      },
+                      {
+                        term: "Acknowledgments",
+                        value: acknowledgmentStateCopy(attempt, ackedByNotice),
+                      },
+                    ]}
+                  />
+                  <p>
+                    If start succeeds, this Attempt is consumed and the selected Submission version is fixed for this Session.
+                  </p>
+                </Stack>
+              ) : (
+                <p>Authoritative Attempt readiness is required before start.</p>
+              )}
             </DialogPlateBody>
             <DialogPlateFooter
               arrangement="split"
               secondary={<Key variant="quiet" onClick={() => setStartConfirmOpen(false)}>Cancel</Key>}
               primary={(
-                <Key variant="begin" disabled={pending} onClick={() => void confirmStartAttempt()}>
-                  Start Attempt
+                <Key
+                  variant="begin"
+                  disabled={pending}
+                  ariaLabel={attempt ? `Start Attempt ${attempt.next_ordinal}` : "Start Attempt"}
+                  onClick={() => void confirmStartAttempt()}
+                >
+                  {attempt ? `Start Attempt ${attempt.next_ordinal}` : "Start Attempt"}
                 </Key>
               )}
             />

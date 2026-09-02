@@ -447,13 +447,13 @@ describe("ProductionMyWorkDetailPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
     const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
     await waitFor(() => {
       expect(screen.getByText(/not ready to start an Attempt/)).toBeInTheDocument();
     });
     expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
     expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
     await waitFor(() => {
       expect(startKeys).toHaveLength(2);
     });
@@ -484,7 +484,7 @@ describe("ProductionMyWorkDetailPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
     const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
     await waitFor(() => {
       expect(screen.getByText(/not ready to start an Attempt/)).toBeInTheDocument();
     });
@@ -528,7 +528,7 @@ describe("ProductionMyWorkDetailPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
     const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt 1" }));
     expect(await screen.findByRole("button", { name: "Reconcile start" })).toBeInTheDocument();
     expect(screen.getByText("Starting Attempt…")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reconcile start" }));
@@ -536,5 +536,108 @@ describe("ProductionMyWorkDetailPage", () => {
       expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
       expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
     });
+  });
+
+  it("shows Start Attempt confirmation facts from authoritative readiness", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({
+          schema_version: "v2",
+          assignment: assignmentPayload().assignment,
+          participant_consequence_code: "none",
+          effective: {
+            submission_starts_at_utc: "2026-08-01T00:00:00Z",
+            submission_exclusive_end_utc: "2026-09-01T12:00:00Z",
+            attempt_start_utc: "2026-08-01T00:00:00Z",
+            attempt_start_exclusive_end_utc: "2026-09-01T12:00:00Z",
+            per_attempt_duration_seconds: 900,
+            evaluated_at_utc: "2026-08-28T00:00:00Z",
+            eligibility_state: "open",
+            is_authoritative: true,
+            time_zone_id: "UTC",
+            participant_consequence_code: "none",
+          },
+        });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          next_ordinal: 1,
+          remaining_entitlement: 1,
+          baseline_attempt_limit: 2,
+          entitlement_source: "retry",
+          required_notices: [
+            {
+              notice_id: "notice-1",
+              notice_type: "instructions",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:1",
+              source_version_id: "src-v-1",
+              content_digest: "a".repeat(64),
+              source_id: "src-1",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /required Instructions/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    expect(dialog).toHaveTextContent("Attempt 1 of 2");
+    expect(dialog).toHaveTextContent("Separately authorized retry entitlement");
+    expect(dialog).toHaveTextContent("15 minutes");
+    expect(dialog).toHaveTextContent("Submission Version 1");
+    expect(dialog).toHaveTextContent("1 item");
+    expect(dialog).toHaveTextContent("Required acknowledgments recorded");
+    expect(dialog).toHaveTextContent(
+      "If start succeeds, this Attempt is consumed and the selected Submission version is fixed for this Session",
+    );
+    expect(within(dialog).getByRole("button", { name: "Start Attempt 1" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("lands on Continue Attempt when an Attempt is already in progress", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({
+          schema_version: "v2",
+          assignment: assignmentPayload().assignment,
+          participant_consequence_code: "none",
+        });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          readiness_state: "active_conflict",
+          remaining_entitlement: 0,
+          next_ordinal: 2,
+          active_attempt_id: "att-1",
+          active_session_id: "sess-1",
+          permitted_actions: ["continue_attempt", "return_to_my_work"],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: ["begin_intake"] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    expect(await screen.findByRole("heading", { name: "Attempt" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Assignment status")).toHaveTextContent(/Attempt in progress/);
+    expect(screen.getByRole("link", { name: "Continue Attempt" })).toHaveAttribute("href", "/sessions/sess-1");
+    expect(screen.queryByRole("button", { name: "Begin intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Attempt" })).not.toBeInTheDocument();
   });
 });
