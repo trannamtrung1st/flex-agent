@@ -301,6 +301,32 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
+    public void Smoke_profile_waits_for_keycloak_and_dumps_oidc_diagnostics_without_env()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "authenticated-browser-profile.sh"));
+
+        Assert.Contains("dump_oidc_diagnostics", script);
+        Assert.Contains("wait_keycloak_healthy", script);
+        Assert.Contains("OOMKilled", script);
+        Assert.Contains(".State.ExitCode", script);
+        Assert.Contains(".State.Health.Status", script);
+        Assert.DoesNotContain(".Config.Env", script);
+        Assert.DoesNotContain("{{json .}}", script);
+
+        var waitKeycloak = script.IndexOf("wait_keycloak_healthy", StringComparison.Ordinal);
+        var migrate = script.IndexOf("run --rm --no-deps migrate", StringComparison.Ordinal);
+        Assert.InRange(waitKeycloak, 0, migrate - 1);
+
+        Assert.DoesNotContain("logs --tail=80 api spa nginx", script);
+        Assert.Contains("logs --tail=200", script);
+        Assert.Contains("keycloak-db", script);
+    }
+
+    [Fact]
     public void Oidc_ci_script_installs_playwright_with_os_deps_in_ci()
     {
         var script = File.ReadAllText(Path.Combine(
@@ -327,6 +353,7 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("docker run --rm --entrypoint /bin/true", workflow);
         Assert.Contains("COMPOSE_HTTP_TIMEOUT", workflow);
         Assert.Contains("DOCKER_CLIENT_TIMEOUT", workflow);
+        Assert.Contains("name: oci-oidc-smoke", workflow);
         Assert.DoesNotContain("platforms: linux/amd64", workflow);
     }
 

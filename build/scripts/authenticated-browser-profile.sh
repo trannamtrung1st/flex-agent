@@ -183,8 +183,7 @@ wait_ready() {
     attempts=$((attempts + 1))
     if [[ "${attempts}" -ge 90 ]]; then
       echo "timed out waiting for ${ORIGIN}" >&2
-      run_compose ps >&2 || true
-      run_compose logs --tail=80 nginx api keycloak >&2 || true
+      dump_oidc_diagnostics
       exit 1
     fi
     sleep 2
@@ -232,17 +231,60 @@ compose_up() {
   fi
 }
 
+dump_oidc_diagnostics() {
+  echo "==> OIDC compose diagnostics" >&2
+  run_compose ps -a >&2 || true
+  run_compose logs --tail=200 \
+    postgres keycloak-db keycloak seaweedfs api spa nginx >&2 || true
+
+  local keycloak_id
+  keycloak_id="$(run_compose ps -aq keycloak 2>/dev/null || true)"
+  if [[ -n "${keycloak_id}" ]]; then
+    docker inspect \
+      --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}} health={{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+      "${keycloak_id}" >&2 || true
+  fi
+}
+
 wait_postgres_healthy() {
   local attempts=0
   until run_compose exec -T postgres pg_isready -U flexagent -d flexagent >/dev/null 2>&1; do
     attempts=$((attempts + 1))
     if [[ "${attempts}" -ge 90 ]]; then
       echo "timed out waiting for postgres" >&2
-      run_compose ps >&2 || true
-      run_compose logs --tail=80 postgres >&2 || true
+      dump_oidc_diagnostics
       exit 1
     fi
     sleep 1
+  done
+}
+
+wait_keycloak_healthy() {
+  local attempts=0
+  local keycloak_id=""
+  local status=""
+  local health=""
+  while true; do
+    keycloak_id="$(run_compose ps -aq keycloak 2>/dev/null || true)"
+    if [[ -n "${keycloak_id}" ]]; then
+      status="$(docker inspect --format='{{.State.Status}}' "${keycloak_id}" 2>/dev/null || true)"
+      health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${keycloak_id}" 2>/dev/null || true)"
+      if [[ "${health}" == "healthy" ]]; then
+        return 0
+      fi
+      if [[ "${status}" != "running" ]]; then
+        echo "keycloak is not running (status=${status:-missing})" >&2
+        dump_oidc_diagnostics
+        exit 1
+      fi
+    fi
+    attempts=$((attempts + 1))
+    if [[ "${attempts}" -ge 90 ]]; then
+      echo "timed out waiting for keycloak health" >&2
+      dump_oidc_diagnostics
+      exit 1
+    fi
+    sleep 2
   done
 }
 
@@ -252,11 +294,11 @@ up_smoke() {
   ensure_pinned_images
   if ! compose_up postgres keycloak-db seaweedfs keycloak; then
     echo "infra tier failed" >&2
-    run_compose ps >&2 || true
-    run_compose logs --tail=80 postgres keycloak-db keycloak seaweedfs >&2 || true
+    dump_oidc_diagnostics
     exit 1
   fi
   wait_postgres_healthy
+  wait_keycloak_healthy
   run_compose run --rm --no-deps migrate
   run_compose run --rm --no-deps seed
   if demo_work_enabled; then
@@ -264,8 +306,7 @@ up_smoke() {
   fi
   if ! compose_up api spa nginx; then
     echo "app tier failed" >&2
-    run_compose ps >&2 || true
-    run_compose logs --tail=80 api spa nginx >&2 || true
+    dump_oidc_diagnostics
     exit 1
   fi
   wait_ready

@@ -23,12 +23,14 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 - OCI workflow image build/load so loaded images are runnable on the daemon
 - CI Playwright browser install with OS libraries
 - Compose daemon HTTP timeouts and digest-pinned infra pre-pull so cold GHA runners can start Keycloak/Postgres
+- Keycloak readiness wait and secret-safe failure diagnostics before migrate/app start
 - Focused tests for the smoke contract
 
 ## Out
 
 - Full local `pnpm verify:oidc` duration/coverage
 - Node 20 deprecation warnings on third-party actions
+- Keycloak image, hostname, or realm-import changes until diagnostics show the exit cause
 
 # Plan
 
@@ -39,31 +41,35 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 - [x] Red: tests for Compose HTTP timeout, digest pre-pull, infra failure logs
 - [x] Green: timeouts, Hub-mirror fallback pull, diagnostics
 - [x] Focused tests + static OIDC gate
+- [x] Red: tests for Keycloak wait and secret-safe diagnostics
+- [x] Green: wait_keycloak_healthy + dump_oidc_diagnostics
+- [x] Focused tests + static OIDC gate
 
 # Current state
 
-Confirmation pass complete locally. Unsigned CI tags are skipped; digest-pinned infra images pre-pull; Compose/Docker timeouts are 300s with 120s per pull attempt. Ready to push for live GHA `oci` smoke.
+Diagnostic-only change is local-green: `up_smoke` waits for Keycloak health after infra and dumps secret-safe inspect + logs (including Keycloak) before cleanup. No Keycloak runtime/config change. Job display name is `oci-oidc-smoke`.
 
 # Decisions
 
 - Keep digest-pinned pulls for Postgres/Keycloak/SDK; never-pull only API/SPA CI tags.
 - Load OCI images with the Docker driver (no `platforms:` on load); assert `linux/amd64` after load.
 - Raise Compose/Docker client timeouts to 300s and pre-pull digest-pinned images (Docker Hub via `mirror.gcr.io` fallback) before `up`.
+- Do not change Keycloak image, hostname, or realm import until CI logs show the exit cause.
 
 # Findings / deviations
 
-- GitHub job logs require sign-in; diagnosis is from workflow/scripts plus the public annotation (step 12, OIDC live smoke, exit 1).
-- Runs #455 (60s) and #457 (58s) match `COMPOSE_HTTP_TIMEOUT` default 60s; #456 (34s) failed earlier from `--pull never` on nginx.
+- Live GHA `170e898` pulled infra images and ran migrations through `0062`; Keycloak then exited 1. Prior timeout/pre-pull work did not address that.
+- App-tier failure logs omitted Keycloak, and cleanup deleted the container before evidence survived.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Live GHA `oci` OIDC smoke (#457) | fail | 58s, no preflight `::error::`; Compose HTTP timeout / Hub pull |
-| AuthenticatedBrowserProfileTests | pass | 18/18, including timeout/pre-pull assertions |
+| Live GHA `oci` on `170e898` | fail | Keycloak exit 1 after successful pulls/migrate/seed |
+| AuthenticatedBrowserProfileTests | pass | 19/19, including Keycloak wait/diagnostics |
 | `python3.12 scripts/test_authenticated_browser_compose.py` | pass | validator negatives ok |
 | `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pass | static complete |
-| Live GHA `oci` after this change | pending | commit/push next |
+| Live GHA Keycloak logs after this change | pending | needs push |
 
 # Blockers
 
