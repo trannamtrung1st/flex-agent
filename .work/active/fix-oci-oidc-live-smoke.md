@@ -12,7 +12,7 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 # Governing sources
 
 - `docs/contributing/workspace.md` (CI linux/amd64 OCI builds, `pnpm verify:oidc` / CI smoke)
-- `docs/architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md` (`linux/amd64` blocking CI)
+- `docs/contributing/development-harness.md` (authenticated-browser Compose profile)
 - Authenticated-browser Compose contract (`build/scripts/validate-authenticated-browser-compose.py`)
 
 # Scope
@@ -24,13 +24,14 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 - CI Playwright browser install with OS libraries
 - Compose daemon HTTP timeouts and digest-pinned infra pre-pull so cold GHA runners can start Keycloak/Postgres
 - Keycloak readiness wait and secret-safe failure diagnostics before migrate/app start
+- Generated bind-mount permission model so non-root Keycloak and API can read realm/secret files
 - Focused tests for the smoke contract
 
 ## Out
 
 - Full local `pnpm verify:oidc` duration/coverage
 - Node 20 deprecation warnings on third-party actions
-- Keycloak image, hostname, or realm-import changes until diagnostics show the exit cause
+- Keycloak image, hostname, realm-import semantics, Buildx, pull policy, or application behavior unless new evidence requires it
 
 # Plan
 
@@ -44,32 +45,39 @@ Make the Implementation `oci` job OIDC live smoke succeed on GitHub Actions afte
 - [x] Red: tests for Keycloak wait and secret-safe diagnostics
 - [x] Green: wait_keycloak_healthy + dump_oidc_diagnostics
 - [x] Focused tests + static OIDC gate
+- [x] Red: tests for generated bind-mount permission contract
+- [x] Green: realm 0644, secrets dir 0755, secret 0644, .generated 0700, keycloak.env 0600
+- [x] Focused tests + static OIDC gate
 
 # Current state
 
-Diagnostic-only change is local-green: `up_smoke` waits for Keycloak health after infra and dumps secret-safe inspect + logs (including Keycloak) before cleanup. Fail-fast only on `exited`/`dead`; Compose ps uses `--all --quiet` so stopped Keycloak is still inspectable. No Keycloak runtime/config change. Job display name is `oci-oidc-smoke`.
+Permission boundary implemented. Host `.generated/` is `0700`, `keycloak.env` is `0600`, bind-mounted realm/secret are `0644` and secrets dir `0755`. Local non-root Keycloak UID 1000 and API UID 10001 can read the mounts. Live GHA is the remaining proof.
 
 # Decisions
 
 - Keep digest-pinned pulls for Postgres/Keycloak/SDK; never-pull only API/SPA CI tags.
 - Load OCI images with the Docker driver (no `platforms:` on load); assert `linux/amd64` after load.
 - Raise Compose/Docker client timeouts to 300s and pre-pull digest-pinned images (Docker Hub via `mirror.gcr.io` fallback) before `up`.
-- Do not change Keycloak image, hostname, or realm import until CI logs show the exit cause.
+- Keep Keycloak readiness diagnostics from `cb45f6c` / `fbd2e86`.
+- Host confidentiality stays on `.generated/` (`0700`) and `keycloak.env` (`0600`); bind-mounted children are container-readable.
 
 # Findings / deviations
 
 - Live GHA `170e898` pulled infra images and ran migrations through `0062`; Keycloak then exited 1. Prior timeout/pre-pull work did not address that.
 - App-tier failure logs omitted Keycloak, and cleanup deleted the container before evidence survived.
+- Run `33589718112` confirmed Keycloak reached realm import and failed on `Permission denied` for the `0600` bind-mounted realm. API `appuser` (UID 10001) would hit the same class of failure on `.generated/secrets`.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Live GHA `oci` on `170e898` | fail | Keycloak exit 1 after successful pulls/migrate/seed |
-| AuthenticatedBrowserProfileTests | pass | 19/19, including Keycloak wait/diagnostics |
-| `python3.12 scripts/test_authenticated_browser_compose.py` | pass | validator negatives ok |
+| Live GHA `oci-oidc-smoke` `33589718112` | fail | Keycloak realm import Permission denied |
+| AuthenticatedBrowserProfileTests | pass | 21/21 including renderer Unix mode and script contract |
+| `python3.12 scripts/test_authenticated_browser_compose.py` | pass | includes generated bind-mount permission checks |
 | `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pass | static complete |
-| Live GHA Keycloak logs after this change | pending | needs push |
+| Host modes after `validate` | pass | 0700 / 0600 / 0644 / 0755 / 0644 |
+| Non-root container `test -r` | pass | Keycloak UID 1000 realm; API UID 10001 secret; no contents printed |
+| Live GHA after permission fix | pending | |
 
 # Blockers
 
@@ -82,4 +90,41 @@ None.
 - [ ] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
+- [ ] Task state is safe and complete for external review
+
+# Decisions
+
+- Keep digest-pinned pulls for Postgres/Keycloak/SDK; never-pull only API/SPA CI tags.
+- Load OCI images with the Docker driver (no `platforms:` on load); assert `linux/amd64` after load.
+- Raise Compose/Docker client timeouts to 300s and pre-pull digest-pinned images (Docker Hub via `mirror.gcr.io` fallback) before `up`.
+- Keep Keycloak readiness diagnostics from `cb45f6c` / `fbd2e86`.
+- Host confidentiality stays on `.generated/` (`0700`) and `keycloak.env` (`0600`); bind-mounted children are container-readable.
+
+# Findings / deviations
+
+- Live GHA `170e898` pulled infra images and ran migrations through `0062`; Keycloak then exited 1. Prior timeout/pre-pull work did not address that.
+- App-tier failure logs omitted Keycloak, and cleanup deleted the container before evidence survived.
+- Run `33589718112` confirmed Keycloak reached realm import and failed on `Permission denied` for the `0600` bind-mounted realm. API `appuser` (UID 10001) would hit the same class of failure on `.generated/secrets`.
+
+# Verification
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Live GHA `oci-oidc-smoke` `33589718112` | fail | Keycloak realm import Permission denied |
+| AuthenticatedBrowserProfileTests | pending | |
+| `python3.12 scripts/test_authenticated_browser_compose.py` | pending | |
+| `FLEXAGENT_OIDC_SKIP_LIVE=1 bash build/scripts/verify-oidc-ci.sh` | pending | |
+| Live GHA after permission fix | pending | |
+
+# Blockers
+
+None.
+
+# Completion
+
+- [ ] Planned work is reconciled with actual changes
+- [ ] Applicable focused tests pass
+- [ ] Applicable integration/regression checks pass
+- [ ] Governing specifications were rechecked
+- [ ] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review

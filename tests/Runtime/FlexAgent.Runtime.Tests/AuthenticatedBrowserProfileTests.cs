@@ -446,6 +446,90 @@ public sealed class AuthenticatedBrowserProfileTests
         }
     }
 
+    [Fact]
+    public void Rendered_realm_is_container_readable_and_owner_writable()
+    {
+        var root = FindRepositoryRoot();
+        var work = Directory.CreateTempSubdirectory("flex-agent-realm-mode-");
+        try
+        {
+            var secretPath = Path.Combine(work.FullName, "oidc-client-secret");
+            File.WriteAllText(secretPath, "synthetic-renderer-secret-");
+            var output = Path.Combine(work.FullName, "flex-agent-realm.json");
+            RenderOidcRealm(root, secretPath, output);
+            RenderOidcRealm(root, secretPath, output);
+
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD())
+            {
+                var mode = File.GetUnixFileMode(output);
+                Assert.Equal(
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead,
+                    mode);
+                Assert.True(mode.HasFlag(UnixFileMode.OtherRead));
+                Assert.True(mode.HasFlag(UnixFileMode.UserWrite));
+            }
+        }
+        finally
+        {
+            Directory.Delete(work.FullName, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Generated_bind_mounts_are_container_readable_and_host_root_stays_private()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "authenticated-browser-profile.sh"));
+        var renderer = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "build",
+            "scripts",
+            "render-oidc-realm.py"));
+        var gitignore = File.ReadAllText(Path.Combine(FindRepositoryRoot(), ".gitignore"));
+
+        Assert.Contains("chmod 700 \"${GENERATED_DIR}\"", script);
+        Assert.Contains("chmod 755 \"${GENERATED_DIR}/secrets\"", script);
+        Assert.Contains("chmod 644 \"${GENERATED_DIR}/secrets/oidc-client-secret\"", script);
+        Assert.Contains("chmod 644 \"${GENERATED_DIR}/flex-agent-realm.json\"", script);
+        Assert.Contains("chmod 600 \"${GENERATED_DIR}/keycloak.env\"", script);
+        Assert.DoesNotContain("chmod 700 \"${GENERATED_DIR}\" \"${GENERATED_DIR}/secrets\"", script);
+        Assert.DoesNotContain("chmod 777", script);
+        Assert.Contains("os.chmod(output, 0o644)", renderer);
+        Assert.DoesNotContain("os.chmod(output, 0o600)", renderer);
+        Assert.Contains("deploy/compose/authenticated-browser/.generated/", gitignore);
+
+        Assert.DoesNotContain(".Config.Env", script);
+        Assert.DoesNotContain("{{json .}}", script);
+        Assert.DoesNotContain("docker inspect \\\n      \"${keycloak_id}\"", script);
+    }
+
+    private static void RenderOidcRealm(string root, string secretPath, string output)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "python3",
+            ArgumentList =
+            {
+                Path.Combine(root, "build", "scripts", "render-oidc-realm.py"),
+                "--template",
+                Path.Combine(root, "deploy", "compose", "keycloak", "flex-agent-realm.json"),
+                "--secret-file",
+                secretPath,
+                "--output",
+                output,
+            },
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+        };
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("python3 was not started.");
+        process.WaitForExit();
+        Assert.Equal(0, process.ExitCode);
+    }
+
     private static string ComposePath() =>
         Path.Combine(FindRepositoryRoot(), "deploy", "compose", "authenticated-browser.compose.yaml");
 

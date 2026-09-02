@@ -41,7 +41,8 @@ def main() -> None:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(realm, indent=2) + "\n", encoding="utf-8")
-    os.chmod(output, 0o600)
+    # Bind-mounted into non-root Keycloak. Parent .generated/ stays 0700 on the host.
+    os.chmod(output, 0o644)
 
 
 if __name__ == "__main__":

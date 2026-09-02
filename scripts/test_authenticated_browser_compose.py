@@ -213,7 +213,92 @@ def main() -> None:
     if "client_secret=" in combined.lower() or "access_token=" in combined.lower():
         raise SystemExit("missing-Docker failure leaked a token-shaped value")
 
+    check_generated_bind_mount_permissions()
+
     print("authenticated-browser compose validator negatives ok")
+
+
+def _mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
+
+
+def check_generated_bind_mount_permissions() -> None:
+    renderer = ROOT / "build" / "scripts" / "render-oidc-realm.py"
+    profile = (ROOT / "build" / "scripts" / "authenticated-browser-profile.sh").read_text(encoding="utf-8")
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    if 'chmod 700 "${GENERATED_DIR}"' not in profile:
+        raise SystemExit(".generated host root must stay mode 0700")
+    if 'chmod 755 "${GENERATED_DIR}/secrets"' not in profile:
+        raise SystemExit("secrets directory must be traversable by the API container user")
+    if 'chmod 644 "${GENERATED_DIR}/secrets/oidc-client-secret"' not in profile:
+        raise SystemExit("oidc-client-secret must be container-readable")
+    if 'chmod 644 "${GENERATED_DIR}/flex-agent-realm.json"' not in profile:
+        raise SystemExit("rendered realm must be container-readable")
+    if 'chmod 600 "${GENERATED_DIR}/keycloak.env"' not in profile:
+        raise SystemExit("keycloak.env must stay host-private")
+    if 'chmod 700 "${GENERATED_DIR}" "${GENERATED_DIR}/secrets"' in profile:
+        raise SystemExit("secrets directory must not inherit host-only 0700")
+    if "chmod 777" in profile:
+        raise SystemExit("world-writable generated fixtures are not permitted")
+    if "os.chmod(output, 0o644)" not in renderer.read_text(encoding="utf-8"):
+        raise SystemExit("realm renderer must chmod the output 0644")
+    if "deploy/compose/authenticated-browser/.generated/" not in gitignore:
+        raise SystemExit("generated OIDC fixtures must remain gitignored")
+    if ".Config.Env" in profile or "{{json .}}" in profile:
+        raise SystemExit("OIDC diagnostics must not dump complete inspect or container env")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        generated = Path(tmp) / ".generated"
+        secrets = generated / "secrets"
+        secrets.mkdir(parents=True)
+        secret = secrets / "oidc-client-secret"
+        secret.write_text("synthetic-oidc-client-secret", encoding="utf-8")
+        realm_out = generated / "flex-agent-realm.json"
+        env_file = generated / "keycloak.env"
+        env_file.write_text("KC_BOOTSTRAP_ADMIN_USERNAME=admin\nKC_BOOTSTRAP_ADMIN_PASSWORD=placeholder\n", encoding="utf-8")
+        subprocess.run(
+            [
+                sys.executable,
+                str(renderer),
+                "--template",
+                str(REALM),
+                "--secret-file",
+                str(secret),
+                "--output",
+                str(realm_out),
+            ],
+            check=True,
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                str(renderer),
+                "--template",
+                str(REALM),
+                "--secret-file",
+                str(secret),
+                "--output",
+                str(realm_out),
+            ],
+            check=True,
+        )
+        if _mode(realm_out) != 0o644:
+            raise SystemExit(f"rendered realm mode is {_mode(realm_out):o}, expected 644")
+        generated.chmod(0o700)
+        secrets.chmod(0o755)
+        secret.chmod(0o644)
+        env_file.chmod(0o600)
+        if _mode(generated) != 0o700:
+            raise SystemExit("generated root must be host-private 0700")
+        if _mode(secrets) != 0o755:
+            raise SystemExit("secrets directory must be other-executable 0755")
+        if _mode(secret) != 0o644:
+            raise SystemExit("client secret file must be other-readable 0644")
+        if _mode(env_file) != 0o600:
+            raise SystemExit("keycloak.env must be host-private 0600")
+        if not (realm_out.stat().st_mode & 0o200):
+            raise SystemExit("rendered realm must remain owner-writable for re-validate")
+
 
 
 if __name__ == "__main__":

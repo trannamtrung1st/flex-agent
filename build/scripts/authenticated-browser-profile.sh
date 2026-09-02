@@ -124,22 +124,27 @@ ensure_pinned_images() {
 
 ensure_generated_fixtures() {
   mkdir -p "${GENERATED_DIR}/secrets"
-  chmod 700 "${GENERATED_DIR}" "${GENERATED_DIR}/secrets"
+  # Host confidentiality: only the owner can traverse .generated/. Bind-mounted
+  # children must still be readable/traversable by non-root Keycloak and API
+  # container users; Compose mounts remain read-only.
+  chmod 700 "${GENERATED_DIR}"
+  chmod 755 "${GENERATED_DIR}/secrets"
   if [[ ! -f "${GENERATED_DIR}/secrets/oidc-client-secret" ]]; then
     openssl rand -base64 32 | tr -d '\n' > "${GENERATED_DIR}/secrets/oidc-client-secret"
-    chmod 600 "${GENERATED_DIR}/secrets/oidc-client-secret"
   fi
+  chmod 644 "${GENERATED_DIR}/secrets/oidc-client-secret"
   if [[ ! -f "${GENERATED_DIR}/keycloak.env" ]]; then
     local admin_password
     admin_password="$(openssl rand -base64 24 | tr -d '\n')"
     umask 077
     printf 'KC_BOOTSTRAP_ADMIN_USERNAME=admin\nKC_BOOTSTRAP_ADMIN_PASSWORD=%s\n' "${admin_password}" > "${GENERATED_DIR}/keycloak.env"
-    chmod 600 "${GENERATED_DIR}/keycloak.env"
   fi
+  chmod 600 "${GENERATED_DIR}/keycloak.env"
   python3 "${ROOT}/build/scripts/render-oidc-realm.py" \
     --template "${REALM_TEMPLATE}" \
     --secret-file "${GENERATED_DIR}/secrets/oidc-client-secret" \
     --output "${GENERATED_DIR}/flex-agent-realm.json"
+  chmod 644 "${GENERATED_DIR}/flex-agent-realm.json"
 }
 
 cleanup_generated() {
