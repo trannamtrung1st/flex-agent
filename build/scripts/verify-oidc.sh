@@ -33,7 +33,9 @@ run_pnpm() {
 
 require_prereqs() {
   local missing=()
-  if ! command -v docker >/dev/null 2>&1; then
+  if [[ "${FLEXAGENT_OIDC_SIMULATE_MISSING_DOCKER:-0}" == "1" ]]; then
+    missing+=("docker")
+  elif ! command -v docker >/dev/null 2>&1; then
     missing+=("docker")
   elif ! docker compose version >/dev/null 2>&1; then
     missing+=("docker-compose-v2")

@@ -197,7 +197,7 @@ def main() -> None:
     expect_realm_fail("bearer-capable client secret", realm)
 
     env = os.environ.copy()
-    env["PATH"] = "/usr/bin:/bin"
+    env["FLEXAGENT_OIDC_SIMULATE_MISSING_DOCKER"] = "1"
     missing_docker = subprocess.run(
         ["bash", str(ROOT / "build/scripts/verify-oidc.sh")],
         check=False,
