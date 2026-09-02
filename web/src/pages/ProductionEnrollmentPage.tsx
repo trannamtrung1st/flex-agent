@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import { createProductionAssessmentClient } from "../api/production-assessment";
@@ -82,6 +82,16 @@ export function ProductionEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const candidateLoadGeneration = useRef(0);
+  const candidateQueryKey = `${assignSearch}|${candidatePageSize}`;
+  const [armedCandidateQuery, setArmedCandidateQuery] = useState(candidateQueryKey);
+  if (armedCandidateQuery !== candidateQueryKey) {
+    setArmedCandidateQuery(candidateQueryKey);
+    setCandidateWaiting(true);
+    setCandidateHasMore(false);
+    setCandidateNextCursor(null);
+    setCandidateStack([]);
+  }
   const pushToast = usePushToast();
 
   const applyEnrollmentPage = useCallback((
@@ -119,19 +129,31 @@ export function ProductionEnrollmentPage() {
   }, [activityId, applyEnrollmentPage, client, cohortId]);
 
   const loadCandidates = useCallback((cursor: string | null, limit: number, stack: string[], q: string) => {
+    const generation = ++candidateLoadGeneration.current;
     setCandidateWaiting(true);
+    if (cursor === null) {
+      setCandidateHasMore(false);
+      setCandidateNextCursor(null);
+      setCandidateStack([]);
+    }
     return client.listCandidates(activityId, cohortId, cursor, limit, q)
       .then((page) => {
+        if (generation !== candidateLoadGeneration.current) return;
         applyCandidatePage(page, stack);
       })
       .catch((caught: unknown) => {
+        if (generation !== candidateLoadGeneration.current) return;
         setCandidateError(enrollmentFailureCopy(caught, "Assignable Participants are not available."));
         setCandidates([]);
         setCandidateHasMore(false);
         setCandidateNextCursor(null);
         setCandidateStack([]);
       })
-      .finally(() => setCandidateWaiting(false));
+      .finally(() => {
+        if (generation === candidateLoadGeneration.current) {
+          setCandidateWaiting(false);
+        }
+      });
   }, [activityId, applyCandidatePage, client, cohortId]);
 
   useEffect(() => {
@@ -151,18 +173,24 @@ export function ProductionEnrollmentPage() {
   }, [activityId, applyEnrollmentPage, client, cohortId, enrollmentPageSize]);
 
   useEffect(() => {
-    const signal = { cancelled: false };
+    const generation = ++candidateLoadGeneration.current;
     void client.listCandidates(activityId, cohortId, null, candidatePageSize, assignSearch)
       .then((page) => {
-        if (!signal.cancelled) applyCandidatePage(page, []);
+        if (generation !== candidateLoadGeneration.current) return;
+        applyCandidatePage(page, []);
+        setCandidateWaiting(false);
       })
       .catch((caught: unknown) => {
-        if (!signal.cancelled) {
-          setCandidateError(enrollmentFailureCopy(caught, "Assignable Participants are not available."));
-        }
+        if (generation !== candidateLoadGeneration.current) return;
+        setCandidateError(enrollmentFailureCopy(caught, "Assignable Participants are not available."));
+        setCandidates([]);
+        setCandidateHasMore(false);
+        setCandidateNextCursor(null);
+        setCandidateStack([]);
+        setCandidateWaiting(false);
       });
     return () => {
-      signal.cancelled = true;
+      candidateLoadGeneration.current += 1;
     };
   }, [activityId, applyCandidatePage, assignSearch, candidatePageSize, client, cohortId]);
 
@@ -340,6 +368,7 @@ function EnrollmentRegistry({
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [selection, setSelection] = useState<TableSelection>(EMPTY_SELECTION);
+  const [selectionQuery, setSelectionQuery] = useState(`${assignSearch}|${candidatePageSize}`);
   const assignTitleId = useId();
   const assignSelectId = useId();
   const assignQuery = assignSearch.trim();
@@ -348,6 +377,11 @@ function EnrollmentRegistry({
   const selectedCandidate = selectedIds.length === 1
     ? candidates.find((candidate) => candidate.actor_id === selectedIds[0])
     : undefined;
+  const nextSelectionQuery = `${assignSearch}|${candidatePageSize}`;
+  if (selectionQuery !== nextSelectionQuery) {
+    setSelectionQuery(nextSelectionQuery);
+    setSelection(EMPTY_SELECTION);
+  }
 
   function closeAssignDialog() {
     setAssignOpen(false);
@@ -586,7 +620,7 @@ function EnrollmentRegistry({
               variant="transmit"
               size="large"
               waiting={pending}
-              disabled={pending || !selectedCandidate}
+              disabled={pending || candidateWaiting || Boolean(candidateError) || !selectedCandidate}
               onClick={() => {
                 if (!selectedCandidate) return;
                 void onAssign(selectedCandidate).then((ok) => {

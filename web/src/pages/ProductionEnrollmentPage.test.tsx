@@ -253,6 +253,84 @@ describe("ProductionEnrollmentPage", () => {
     expect(await within(dialog).findByRole("button", { name: "Person 01" })).toBeInTheDocument();
   });
 
+  it("disables Next and does not reuse the previous cursor while a new Assign search is pending", async () => {
+    let releaseSearch: (() => void) | undefined;
+    const searchWait = new Promise<void>((resolve) => {
+      releaseSearch = resolve;
+    });
+    const requested: string[] = [];
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        requested.push(url);
+        if (url.includes("q=")) {
+          return searchWait.then(() => jsonResponse({
+            schema_version: "v1",
+            items: [{ actor_id: "p-2", display_label: "Casey Candidate" }],
+            has_more: false,
+          }));
+        }
+        return jsonResponse({
+          schema_version: "v1",
+          items: Array.from({ length: 16 }, (_, index) => ({
+            actor_id: `p-${index + 1}`,
+            display_label: `Person ${String(index + 1).padStart(2, "0")}`,
+          })),
+          has_more: true,
+          next_cursor: "cur-opt-1",
+        });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Assign" }));
+    const dialog = screen.getByRole("dialog", { name: "Assign Participant" });
+    expect(await within(dialog).findByRole("button", { name: "Person 01" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Next" })).toBeEnabled();
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Search participant or actor" }), {
+      target: { value: "Casey" },
+    });
+    expect(within(dialog).getByRole("button", { name: "Next" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    expect(requested.some((url) => url.includes("cursor=cur-opt-1") && url.includes("q="))).toBe(false);
+    releaseSearch?.();
+    expect(await within(dialog).findByRole("button", { name: "Casey Candidate" })).toBeInTheDocument();
+  });
+
+  it("clears stale Assign picker rows and disables commit when search fails", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/participant-options")) {
+        if (url.includes("q=")) {
+          return jsonResponse({ error: "unavailable" }, 503);
+        }
+        return jsonResponse({
+          schema_version: "v1",
+          items: [{ actor_id: "p-1", display_label: "Pat Participant" }],
+          has_more: false,
+        });
+      }
+      if (url.includes("/enrollments")) {
+        return jsonResponse({ schema_version: "v1", items: [], has_more: false });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Assign" }));
+    const dialog = screen.getByRole("dialog", { name: "Assign Participant" });
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Pat Participant" }));
+    expect(within(dialog).getByRole("button", { name: "Assign Participant" })).toBeEnabled();
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Search participant or actor" }), {
+      target: { value: "Casey" },
+    });
+    expect(await screen.findByText("Assignable Participants unavailable")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Pat Participant" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Assign Participant" })).toBeDisabled();
+  });
+
   it("filters assignable Participants with the authorized prefix query", async () => {
     const requested: string[] = [];
     stubAuthenticatedFetch((url) => {

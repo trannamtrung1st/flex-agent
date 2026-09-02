@@ -63,6 +63,25 @@ public sealed class AssessmentNumberedListPersistenceTests(PostgresIntegrationFi
         Assert.Equal(9, drifted.Page);
     }
 
+    [Fact]
+    public async Task Extreme_valid_page_returns_empty_metadata_without_offset_overflow()
+    {
+        var store = new PostgresAssessmentDraftStore(Fixture.Services.ConnectionAccessor, new PostgresAuditEventWriter());
+        var seeded = await Fixture.SeedOrganizationAsync();
+        await SeedDraftAsync(store, seeded.OrganizationId, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "Alpha");
+        var request = NumberedActivityListSpecification.TryCreate(
+            new NumberedActivityListRequest(int.MaxValue, 50, null, null));
+        Assert.True(request.Succeeded);
+
+        var page = await store.ListNumberedPageAsync(seeded.OrganizationId, request.Value!, CancellationToken);
+
+        Assert.Empty(page.Items);
+        Assert.Equal(int.MaxValue, page.Page);
+        Assert.Equal(50, page.PageSize);
+        Assert.Equal(1, page.TotalItems);
+        Assert.Equal(1, page.TotalPages);
+    }
+
     private async Task SeedDraftAsync(PostgresAssessmentDraftStore store, Guid organizationId, Guid activityId, string title)
     {
         var created = ActivityDraft.Create(

@@ -166,12 +166,15 @@ public static class NumberedActivityListQuerying
         var totalPages = totalItems == 0
             ? 0
             : (int)Math.Ceiling(totalItems / (double)query.PageSize);
-        var offset = (query.Page - 1) * query.PageSize;
+        var offset = Offset(query);
         var items = offset >= matching.Length
             ? Array.Empty<ActivityDraft>()
-            : matching.Skip(offset).Take(query.PageSize).ToArray();
+            : matching.Skip((int)offset).Take(query.PageSize).ToArray();
         return new NumberedActivityListPage(items, query.Page, query.PageSize, totalItems, totalPages);
     }
+
+    public static long Offset(NumberedActivityListQuery query) =>
+        ((long)query.Page - 1L) * query.PageSize;
 
     public static bool Matches(ActivityDraft draft, string search)
     {

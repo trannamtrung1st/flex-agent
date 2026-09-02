@@ -244,6 +244,34 @@ public sealed class AssessmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Numbered_list_returns_empty_page_for_maximum_int_page()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.ReadActivity,
+                AssessmentAuthorizationActions.CreateActivity,
+                AssessmentAuthorizationActions.SelectSources,
+            ],
+            permitAuthorization: true);
+        using var created = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha"}""");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var response = await SendGetAsync(
+            context,
+            "/v1/assessment/activities?paging=numbered&page=2147483647&page_size=50");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(0, document.RootElement.GetProperty("activities").GetArrayLength());
+        Assert.Equal(2147483647, document.RootElement.GetProperty("pagination").GetProperty("page").GetInt32());
+        Assert.Equal(50, document.RootElement.GetProperty("pagination").GetProperty("page_size").GetInt32());
+        Assert.Equal(1, document.RootElement.GetProperty("pagination").GetProperty("total_items").GetInt32());
+        Assert.Equal(1, document.RootElement.GetProperty("pagination").GetProperty("total_pages").GetInt32());
+    }
+
+    [Fact]
     public async Task Create_without_antiforgery_is_rejected_before_session_authentication()
     {
         await using var factory = CreateFactory();

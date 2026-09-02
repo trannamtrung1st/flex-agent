@@ -325,12 +325,13 @@ public sealed class PostgresAssessmentDraftStore(
         CancellationToken cancellationToken)
     {
         var search = query.Search.Length == 0 ? null : query.Search;
+        var offset = NumberedActivityListQuerying.Offset(query);
         var parameters = new
         {
             OrganizationId = organizationId,
             Search = search,
             SearchPattern = search is null ? null : NumberedActivityListQuerying.LiteralContainsPattern(search),
-            Offset = (query.Page - 1) * query.PageSize,
+            Offset = offset,
             Limit = query.PageSize,
         };
         var filter = """
@@ -355,6 +356,13 @@ public sealed class PostgresAssessmentDraftStore(
                 parameters,
                 transaction,
                 cancellationToken: cancellationToken));
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)query.PageSize);
+        if (offset >= totalItems)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return new NumberedActivityListPage([], query.Page, query.PageSize, totalItems, totalPages);
+        }
+
         var rows = await connection.QueryAsync<JoinedActivityRow>(
             new CommandDefinition(
                 $"""
@@ -369,7 +377,6 @@ public sealed class PostgresAssessmentDraftStore(
                 transaction,
                 cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
-        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)query.PageSize);
         return new NumberedActivityListPage(
             rows.Select(ToDraft).ToArray(),
             query.Page,

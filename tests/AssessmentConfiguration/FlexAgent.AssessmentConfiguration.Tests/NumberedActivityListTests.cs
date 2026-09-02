@@ -165,6 +165,28 @@ public sealed class NumberedActivityListTests
     }
 
     [Fact]
+    public async Task Extreme_valid_page_returns_empty_metadata_without_offset_overflow()
+    {
+        var store = new InMemoryAssessmentDraftStore();
+        await SeedAsync(store, Draft("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", "Alpha", false, 1, 1));
+        var handler = Handler(store);
+
+        var page = await handler.ListActivitiesPageAsync(
+            Actor(),
+            new NumberedActivityListRequest(int.MaxValue, 50, null, null),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(page.Succeeded);
+        Assert.Empty(page.Value!.Items);
+        Assert.Equal(int.MaxValue, page.Value.Page);
+        Assert.Equal(50, page.Value.PageSize);
+        Assert.Equal(1, page.Value.TotalItems);
+        Assert.Equal(1, page.Value.TotalPages);
+        Assert.Equal(((long)int.MaxValue - 1L) * 50, NumberedActivityListQuerying.Offset(
+            NumberedActivityListSpecification.TryCreate(new NumberedActivityListRequest(int.MaxValue, 50, null, null)).Value!));
+    }
+
+    [Fact]
     public async Task Activation_ascending_places_draft_before_activated()
     {
         var store = new InMemoryAssessmentDraftStore();
