@@ -47,6 +47,26 @@ public sealed class AttemptStartCoordinator(
         }
 
         var snapshot = await LoadSnapshotAsync(actor, enrollment, null, cancellationToken);
+        var current = snapshot.Notices.Count == 0
+            ? []
+            : await acknowledgments.ListCurrentAsync(
+                actor.Organization.OrganizationId,
+                enrollment.EnrollmentId,
+                actor.Actor.ActorId,
+                snapshot.Notices,
+                null,
+                cancellationToken);
+        var notices = snapshot.Notices
+            .Select(notice => notice with
+            {
+                CurrentOutcome = current
+                    .FirstOrDefault(item =>
+                        item.NoticeId == notice.NoticeId
+                        && item.SourceVersionId == notice.SourceVersionId)
+                    ?.Outcome,
+            })
+            .ToArray();
+        snapshot = snapshot with { Notices = notices };
         var readiness = AttemptEligibility.Evaluate(snapshot.Facts);
         return new QueryResult<AttemptReadinessProjection>(
             true,

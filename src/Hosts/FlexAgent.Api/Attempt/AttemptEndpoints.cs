@@ -256,7 +256,8 @@ internal static class AttemptResponseMapper
                 notice.ProtectedContentRef,
                 notice.SourceVersionId,
                 notice.ContentDigest,
-                notice.SourceId)).ToArray(),
+                notice.SourceId,
+                notice.CurrentOutcome)).ToArray(),
             projection.PermittedActions);
 
     public static AcknowledgmentMutationOutcomeV2 MapAcknowledgment(AcknowledgmentMutationOutcome outcome) =>

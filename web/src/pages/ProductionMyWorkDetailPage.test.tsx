@@ -642,6 +642,48 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.getByRole("link", { name: "Continue Attempt" })).toHaveAttribute("href", "/sessions/sess-1");
     expect(screen.queryByRole("button", { name: "Begin intake" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start Attempt" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Continue preserves this Attempt's Session locator/)).toBeInTheDocument();
+    expect(screen.getByText(/Live Session interaction is not available yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/hosted text Session/i)).not.toBeInTheDocument();
+  });
+
+  it("hydrates recorded acknowledgments from readiness current_outcome", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          required_notices: [
+            {
+              notice_id: "notice-1",
+              notice_type: "instructions",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:1",
+              source_version_id: "src-v-1",
+              content_digest: "a".repeat(64),
+              source_id: "src-1",
+              current_outcome: "affirmed",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    expect(screen.getByRole("checkbox", { name: /required Instructions/ })).toBeChecked();
+    expect(screen.getByText(/Recorded on the server/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    expect(dialog).toHaveTextContent("Required acknowledgments recorded");
   });
 
   it("recovers from uncertain acknowledgment without occupying start", async () => {

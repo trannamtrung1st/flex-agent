@@ -382,6 +382,44 @@ public sealed class AttemptStartCoordinatorTests
     }
 
     [Fact]
+    public async Task Readiness_projects_current_affirmative_acknowledgment_outcome()
+    {
+        var notice = new RequiredNoticeProjection(
+            Guid.CreateVersion7(),
+            "instructions",
+            "affirmed",
+            "notice:1",
+            Guid.CreateVersion7(),
+            Digest,
+            Guid.CreateVersion7());
+        var acknowledgments = new InMemoryAcknowledgmentLifecyclePort();
+        var harness = await CreateHarnessAsync(
+            notices: new FixedNoticePort(notice),
+            acknowledgments: acknowledgments);
+        await acknowledgments.RecordAsync(
+            new AcknowledgeAttemptNoticeCommand(
+                ParticipantContext(),
+                EnrollmentId,
+                notice.NoticeId,
+                notice.SourceVersionId,
+                "affirmed",
+                "ack-key-0001",
+                "digest"),
+            notice,
+            new object(),
+            TestContext.Current.CancellationToken);
+
+        var readiness = await harness.Coordinator.GetAsync(
+            ParticipantContext(),
+            EnrollmentId,
+            TestContext.Current.CancellationToken);
+
+        var projected = Assert.Single(readiness.Value!.RequiredNotices);
+        Assert.Equal(notice.NoticeId, projected.NoticeId);
+        Assert.Equal("affirmed", projected.CurrentOutcome);
+    }
+
+    [Fact]
     public async Task Unavailable_session_commit_gate_is_visible_in_readiness()
     {
         var harness = await CreateHarnessAsync();
@@ -602,7 +640,7 @@ public sealed class AttemptStartCoordinatorTests
             Guid enrollmentId,
             Guid participantActorId,
             IReadOnlyList<RequiredNoticeProjection> notices,
-            object commitTransaction,
+            object? commitTransaction,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CurrentAcknowledgmentFact>>([]);
 
@@ -698,7 +736,7 @@ public sealed class AttemptStartCoordinatorTests
             Guid enrollmentId,
             Guid participantActorId,
             IReadOnlyList<RequiredNoticeProjection> notices,
-            object commitTransaction,
+            object? commitTransaction,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CurrentAcknowledgmentFact>>([]);
 

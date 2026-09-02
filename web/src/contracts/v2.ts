@@ -197,6 +197,7 @@ export interface MyWorkAttemptReadinessV2 {
     source_version_id: string;
     content_digest: string;
     source_id: string;
+    current_outcome?: 'affirmed' | 'declined' | 'withdrawn' | null;
   }>;
   permitted_actions: AttemptPermittedActionV2[];
 }

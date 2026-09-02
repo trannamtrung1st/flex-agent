@@ -377,7 +377,7 @@ public sealed class GatedP0SessionStartPort(
     }
 }
 
-public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyclePort
+public sealed class PostgresAcknowledgmentLifecyclePort(PostgresConnectionAccessor? connections = null) : IAcknowledgmentLifecyclePort
 {
     public async Task<AcknowledgmentMutationOutcome> RecordAsync(
         AcknowledgeAttemptNoticeCommand command,
@@ -452,7 +452,7 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
         Guid enrollmentId,
         Guid participantActorId,
         IReadOnlyList<RequiredNoticeProjection> notices,
-        object commitTransaction,
+        object? commitTransaction,
         CancellationToken cancellationToken = default)
     {
         if (notices.Count == 0)
@@ -460,34 +460,47 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
             return [];
         }
 
-        var transaction = PostgresCommitTransaction.Required(commitTransaction);
-        var connection = transaction.Connection ?? throw new InvalidOperationException("commit.transaction.required");
-        var listed = await connection.QueryAsync<CurrentAcknowledgmentFact>(
-            new CommandDefinition(
-                """
-                SELECT record_id AS RecordId, enrollment_id AS EnrollmentId, participant_actor_id AS ParticipantActorId,
-                       notice_id AS NoticeId, source_version_id AS SourceVersionId,
-                       notice_content_digest AS ContentDigest, outcome AS Outcome, recorded_at AS RecordedAtUtc,
-                       bound_attempt_id AS BoundAttemptId
-                FROM session_acknowledgment_records
-                WHERE organization_id = @OrganizationId
-                  AND enrollment_id = @EnrollmentId
-                  AND participant_actor_id = @ParticipantActorId
-                  AND bound_attempt_id IS NULL
-                  AND notice_id = ANY(@NoticeIds)
-                  AND source_version_id = ANY(@SourceVersionIds)
-                """,
-                new
-                {
-                    OrganizationId = organizationId,
-                    EnrollmentId = enrollmentId,
-                    ParticipantActorId = participantActorId,
-                    NoticeIds = notices.Select(item => item.NoticeId).ToArray(),
-                    SourceVersionIds = notices.Select(item => item.SourceVersionId).ToArray(),
-                },
-                transaction,
-                cancellationToken: cancellationToken));
-        return AcknowledgmentSelection.CurrentBindable(listed.ToArray(), notices);
+        var transaction = PostgresCommitTransaction.Optional(commitTransaction);
+        var owned = transaction is null;
+        var connection = transaction?.Connection
+            ?? await (connections ?? throw new InvalidOperationException("commit.transaction.required"))
+                .OpenConnectionAsync(cancellationToken);
+        try
+        {
+            var listed = await connection.QueryAsync<CurrentAcknowledgmentFact>(
+                new CommandDefinition(
+                    """
+                    SELECT record_id AS RecordId, enrollment_id AS EnrollmentId, participant_actor_id AS ParticipantActorId,
+                           notice_id AS NoticeId, source_version_id AS SourceVersionId,
+                           notice_content_digest AS ContentDigest, outcome AS Outcome, recorded_at AS RecordedAtUtc,
+                           bound_attempt_id AS BoundAttemptId
+                    FROM session_acknowledgment_records
+                    WHERE organization_id = @OrganizationId
+                      AND enrollment_id = @EnrollmentId
+                      AND participant_actor_id = @ParticipantActorId
+                      AND bound_attempt_id IS NULL
+                      AND notice_id = ANY(@NoticeIds)
+                      AND source_version_id = ANY(@SourceVersionIds)
+                    """,
+                    new
+                    {
+                        OrganizationId = organizationId,
+                        EnrollmentId = enrollmentId,
+                        ParticipantActorId = participantActorId,
+                        NoticeIds = notices.Select(item => item.NoticeId).ToArray(),
+                        SourceVersionIds = notices.Select(item => item.SourceVersionId).ToArray(),
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+            return AcknowledgmentSelection.CurrentBindable(listed.ToArray(), notices);
+        }
+        finally
+        {
+            if (owned)
+            {
+                await connection.DisposeAsync();
+            }
+        }
     }
 
     public async Task<string?> BindToAttemptAsync(

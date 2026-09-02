@@ -84,7 +84,7 @@ public sealed class InMemoryAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
         Guid enrollmentId,
         Guid participantActorId,
         IReadOnlyList<RequiredNoticeProjection> notices,
-        object commitTransaction,
+        object? commitTransaction,
         CancellationToken cancellationToken = default)
     {
         _ = (commitTransaction, cancellationToken);

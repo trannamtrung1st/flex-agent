@@ -267,6 +267,14 @@ export function ProductionMyWorkDetailPage() {
     setTiming(timingResult);
     setSubmission(submissionResult);
     setAttempt(attemptResult);
+    const recorded: Record<string, boolean> = {};
+    for (const notice of attemptResult?.required_notices ?? []) {
+      if (notice.current_outcome === notice.required_outcome) {
+        recorded[notice.notice_id] = true;
+      }
+    }
+    setRecordedByNotice(recorded);
+    setAckedByNotice(recorded);
     setError(null);
   }, [enrollmentClient, enrollmentId, submissionClient]);
 
@@ -341,8 +349,9 @@ export function ProductionMyWorkDetailPage() {
   async function persistRequiredAcknowledgments(): Promise<boolean> {
     if (!attempt) return false;
     for (const notice of attempt.required_notices) {
-      const key = ackKeysRef.current[notice.notice_id] ?? createSubmissionIdempotencyKey();
-      ackKeysRef.current[notice.notice_id] = key;
+      const keyId = `${notice.notice_id}:${notice.source_version_id}`;
+      const key = ackKeysRef.current[keyId] ?? createSubmissionIdempotencyKey();
+      ackKeysRef.current[keyId] = key;
       const ack = await submissionClient.acknowledgeNotice(
         enrollmentId,
         notice.notice_id,
@@ -724,7 +733,7 @@ export function ProductionMyWorkDetailPage() {
                   {attempt.active_session_id ? (
                     <p>
                       Committed Session locator: <CompactId tabbable value={attempt.active_session_id} />.
-                      Continue opens the hosted text Session for this Attempt.
+                      Continue preserves this Attempt's Session locator. Live Session interaction is not available yet.
                     </p>
                   ) : null}
                   {attempt.bound_version_candidates.length > 0 ? (

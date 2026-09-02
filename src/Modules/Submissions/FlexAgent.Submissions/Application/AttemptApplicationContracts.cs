@@ -34,7 +34,8 @@ public sealed record RequiredNoticeProjection(
     string ProtectedContentRef,
     Guid SourceVersionId,
     string ContentDigest,
-    Guid SourceId);
+    Guid SourceId,
+    string? CurrentOutcome = null);
 
 public sealed record AcknowledgeAttemptNoticeCommand(
     EnrollmentActorContext Actor,
@@ -180,7 +181,7 @@ public interface IAcknowledgmentLifecyclePort
         Guid enrollmentId,
         Guid participantActorId,
         IReadOnlyList<RequiredNoticeProjection> notices,
-        object commitTransaction,
+        object? commitTransaction,
         CancellationToken cancellationToken = default);
 
     Task<string?> BindToAttemptAsync(

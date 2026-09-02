@@ -367,7 +367,11 @@ Confirmation pass: Start dialog includes an honest Agent-inspection line
 is `7.5rem` so history can sit above the fixed foot. Live candidate `:5274`
 still lands seeded Q3 on **Attempt in progress** with history **Attempt 1
 active. Consumed.** Confirmation/retry/uncertain-ack remain unit-covered.
-Do not retire this file until review of this commit.
+Review of `602dadb` requested one more pass: restore honest Session-locator
+copy (Continue does not claim a hosted Session) and project
+`current_outcome` on readiness notices so recorded acknowledgments survive
+reload. Acknowledgment idempotency keys are now `notice_id:source_version_id`.
+Do not retire this file until that follow-up is reviewed.
 
 Successor/operational only: hosted live Session, Production qualified model
 selection, Worker in Compose.
@@ -436,9 +440,11 @@ selection, Worker in Compose.
   uncertain-ack recovery without start occupation, retry ordinal wording, and
   Attempt history rendering are implemented in source and focused web tests.
   Remaining High items are successor/operational (hosted live Session,
-  Production qualified model, Worker in Compose).   Residual in-scope UX: live (non-unit) ack/uncertain/retry dialog evidence
-  on a seed that is not already active-conflict. Per-item Agent-inspection
-  remains absent from the readiness contract; the dialog states that honestly.
+  Production qualified model, Worker in Compose). Residual in-scope UX: live
+  (non-unit) ack/uncertain/retry dialog evidence on a seed that is not already
+  active-conflict. Per-item Agent-inspection remains absent from the readiness
+  contract; the dialog states that honestly. Continue Attempt names the
+  committed locator and says live Session interaction is not available yet.
 - Existing Session persistence is reachable through a supplied PostgreSQL
   transaction. `PostgresSessionRuntimeRepository` requires
   `ISessionAttemptTerminalSink`; Session integration tests pass
@@ -488,7 +494,7 @@ the plan.
 | Focused Submissions domain/application tests | passed | AttemptStartCoordinatorTests + mapping port previously green; included in full .NET 1812 |
 | PostgreSQL migration/integration/fault tests | passed | 2026-09-02: AttemptStartPersistenceTests 7 (includes registered digest drift). Notice list count mismatch fail-closed. Parser digest-before-empty. Mapping persistence 2. Full Postgres.Integration in verify-dotnet. |
 | Runtime HTTP negative-contract tests | passed | Included in `CI=true bash build/scripts/verify-dotnet.sh` |
-| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 12/12 including local-vs-recorded ack copy, retry ordinal 3 of baseline 2, uncertain-ack recovery, history, and Agent-inspection honesty |
+| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 13/13 including honest Session-locator copy and hydration from `current_outcome` |
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Candidate `:5274` + `demo.participant` on seeded Q3: **Attempt in progress**, history **Attempt 1 active. Consumed.** above **Continue Attempt** at desktop 1280 and scrolled narrow 390. Start dialog / retry / uncertain-ack not live (active conflict). |

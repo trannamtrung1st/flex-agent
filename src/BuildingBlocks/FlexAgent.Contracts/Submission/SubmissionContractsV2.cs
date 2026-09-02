@@ -129,7 +129,8 @@ public sealed record AttemptNoticeV2(
     string ProtectedContentRef,
     Guid SourceVersionId,
     string ContentDigest,
-    Guid SourceId);
+    Guid SourceId,
+    string? CurrentOutcome = null);
 
 public sealed record AttemptHistoryItemV2(
     Guid AttemptId,
