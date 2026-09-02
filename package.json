@@ -31,5 +31,10 @@
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "6.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri": ">=3.1.6"
+    }
   }
 }

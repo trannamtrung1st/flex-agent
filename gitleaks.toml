@@ -32,13 +32,12 @@ paths = [
 regexes = ['''(?i)^(idempotency_key":")?(attempt-ack-synthetic|attempt-start-synthetic)-\d{4}"?$''']
 
 [[rules.allowlists]]
-description = "Synthetic SHA-256 command digests in Attempt start tests."
+description = "Repeated-letter synthetic trusted_command_digest fixtures in Attempt HTTP negatives."
 condition = "AND"
 paths = [
   '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/AttemptHttpNegativeContractTests\.cs$''',
-  '''(?i)tests/Integration/FlexAgent\.Postgres\.Integration\.Tests/AttemptStartPersistenceTests\.cs$''',
 ]
-regexes = ['''^[a-fA-F0-9]{64}$''']
+regexes = ['''^[aA]{64}$''']
 
 [[rules.allowlists]]
 description = "Synthetic Submission HTTP negative-test idempotency keys."

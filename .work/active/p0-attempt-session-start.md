@@ -334,10 +334,18 @@ behavior.
 # Current state
 
 Backend review of `1e8b25a` is approved for Attempt-start correctness. Follow-up
-in this working tree: explicit `AttemptMutationDisposition` client contract, and
-Gitleaks allowlists so [Implementation run 33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870)
-`supply-chain` secret scan can pass (`attempt-ack-synthetic` / start keys in
-Attempt HTTP tests). Local `gitleaks detect` is now clean.
+`c966ddb` landed the explicit `AttemptMutationDisposition` client contract and
+path-scoped Gitleaks allowlists; that review approved the commit with a P2 to
+narrow the 64-hex digest exemption.
+
+This working tree tightens that exemption to `^[aA]{64}$` on
+`AttemptHttpNegativeContractTests.cs` only (persistence tests have no 64-hex
+literals). It also pins `fast-uri` `>=3.1.6` so Implementation
+[33656000631](https://github.com/trannamtrung1st/flex-agent/actions/runs/33656000631)
+`supply-chain` step 9 (`pnpm audit --audit-level=high`) can pass: four high
+advisories on `fast-uri@3.1.5` via `@cyclonedx/cyclonedx-npm` (dev SBOM tool),
+not shipped SPA. Local `gitleaks detect` is clean; `pnpm audit --audit-level=high`
+exits 0.
 
 Still open: confirmation dialog facts, default Begin intake while an Attempt is
 in progress, hosted live Session, Production qualified model, Worker in Compose.
@@ -458,8 +466,8 @@ the plan.
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Unchanged UI except unused-import/typecast; no new Playwright this pass |
-| Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; remaining items are product-completion gaps |
-| Implementation `supply-chain` | failing on `1e8b25a`; local fix ready | Run [33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870) failed secret scan. Local gitleaks clean after test-path allowlists. |
+| Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; `c966ddb` approved with P2 hex allowlist (addressed locally). Remaining items are product-completion gaps |
+| Implementation `supply-chain` | failing on `c966ddb`; local fix ready | Run [33653861870](https://github.com/trannamtrung1st/flex-agent/actions/runs/33653861870) failed Gitleaks. Run [33656000631](https://github.com/trannamtrung1st/flex-agent/actions/runs/33656000631) failed at `pnpm audit` (step 9) on `fast-uri@3.1.5` / GHSA-5jgf-p345-68v8 and related. Local gitleaks clean with `^[aA]{64}$`; local `pnpm audit --audit-level=high` exit 0 after override. |
 
 # Blockers
 
