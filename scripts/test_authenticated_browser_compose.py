@@ -226,6 +226,7 @@ def check_generated_bind_mount_permissions() -> None:
     renderer = ROOT / "build" / "scripts" / "render-oidc-realm.py"
     profile = (ROOT / "build" / "scripts" / "authenticated-browser-profile.sh").read_text(encoding="utf-8")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    compose = (ROOT / "deploy" / "compose" / "authenticated-browser.compose.yaml").read_text(encoding="utf-8")
     if 'chmod 700 "${GENERATED_DIR}"' not in profile:
         raise SystemExit(".generated host root must stay mode 0700")
     if 'chmod 755 "${GENERATED_DIR}/secrets"' not in profile:
@@ -236,6 +237,8 @@ def check_generated_bind_mount_permissions() -> None:
         raise SystemExit("rendered realm must be container-readable")
     if 'chmod 600 "${GENERATED_DIR}/keycloak.env"' not in profile:
         raise SystemExit("keycloak.env must stay host-private")
+    if "(\n      umask 077" not in profile:
+        raise SystemExit("keycloak.env umask 077 must be scoped to a subshell")
     if 'chmod 700 "${GENERATED_DIR}" "${GENERATED_DIR}/secrets"' in profile:
         raise SystemExit("secrets directory must not inherit host-only 0700")
     if "chmod 777" in profile:
@@ -244,6 +247,10 @@ def check_generated_bind_mount_permissions() -> None:
         raise SystemExit("realm renderer must chmod the output 0644")
     if "deploy/compose/authenticated-browser/.generated/" not in gitignore:
         raise SystemExit("generated OIDC fixtures must remain gitignored")
+    if ".generated/flex-agent-realm.json:/opt/keycloak/data/import/flex-agent-realm.json:ro" not in compose:
+        raise SystemExit("realm bind-mount must stay read-only")
+    if ".generated/secrets:/run/secrets:ro" not in compose:
+        raise SystemExit("secrets bind-mount must stay read-only")
     if ".Config.Env" in profile or "{{json .}}" in profile:
         raise SystemExit("OIDC diagnostics must not dump complete inspect or container env")
 

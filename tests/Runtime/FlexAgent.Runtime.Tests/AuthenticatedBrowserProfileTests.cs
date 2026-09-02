@@ -489,17 +489,21 @@ public sealed class AuthenticatedBrowserProfileTests
             "scripts",
             "render-oidc-realm.py"));
         var gitignore = File.ReadAllText(Path.Combine(FindRepositoryRoot(), ".gitignore"));
+        var compose = File.ReadAllText(ComposePath());
 
         Assert.Contains("chmod 700 \"${GENERATED_DIR}\"", script);
         Assert.Contains("chmod 755 \"${GENERATED_DIR}/secrets\"", script);
         Assert.Contains("chmod 644 \"${GENERATED_DIR}/secrets/oidc-client-secret\"", script);
         Assert.Contains("chmod 644 \"${GENERATED_DIR}/flex-agent-realm.json\"", script);
         Assert.Contains("chmod 600 \"${GENERATED_DIR}/keycloak.env\"", script);
+        Assert.Contains("(\n      umask 077", script);
         Assert.DoesNotContain("chmod 700 \"${GENERATED_DIR}\" \"${GENERATED_DIR}/secrets\"", script);
         Assert.DoesNotContain("chmod 777", script);
         Assert.Contains("os.chmod(output, 0o644)", renderer);
         Assert.DoesNotContain("os.chmod(output, 0o600)", renderer);
         Assert.Contains("deploy/compose/authenticated-browser/.generated/", gitignore);
+        Assert.Contains(".generated/flex-agent-realm.json:/opt/keycloak/data/import/flex-agent-realm.json:ro", compose);
+        Assert.Contains(".generated/secrets:/run/secrets:ro", compose);
 
         Assert.DoesNotContain(".Config.Env", script);
         Assert.DoesNotContain("{{json .}}", script);

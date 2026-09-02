@@ -136,8 +136,10 @@ ensure_generated_fixtures() {
   if [[ ! -f "${GENERATED_DIR}/keycloak.env" ]]; then
     local admin_password
     admin_password="$(openssl rand -base64 24 | tr -d '\n')"
-    umask 077
-    printf 'KC_BOOTSTRAP_ADMIN_USERNAME=admin\nKC_BOOTSTRAP_ADMIN_PASSWORD=%s\n' "${admin_password}" > "${GENERATED_DIR}/keycloak.env"
+    (
+      umask 077
+      printf 'KC_BOOTSTRAP_ADMIN_USERNAME=admin\nKC_BOOTSTRAP_ADMIN_PASSWORD=%s\n' "${admin_password}" > "${GENERATED_DIR}/keycloak.env"
+    )
   fi
   chmod 600 "${GENERATED_DIR}/keycloak.env"
   python3 "${ROOT}/build/scripts/render-oidc-realm.py" \
