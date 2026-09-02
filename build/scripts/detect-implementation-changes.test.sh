@@ -48,3 +48,34 @@ if [[ "$failures" -gt 0 ]]; then
 fi
 
 echo "detect-implementation-changes path classifier passed."
+
+head_sha="$(git rev-parse HEAD)"
+assert_event_output() {
+  local event="$1"
+  local expected="$2"
+  local got
+  got="$(
+    SKIP_IMPLEMENTATION_CHANGE_SELFTEST=1 \
+      EVENT_NAME="$event" \
+      BASE_SHA="$head_sha" \
+      HEAD_SHA="$head_sha" \
+      bash "$SCRIPT_DIR/detect-implementation-changes.sh"
+  )"
+  if [[ "$got" == "$expected" ]]; then
+    return 0
+  fi
+
+  echo "expected implementation=$expected for EVENT_NAME=$event with an empty diff, got: $got" >&2
+  failures=$((failures + 1))
+}
+
+assert_event_output push true
+assert_event_output local true
+assert_event_output pull_request false
+
+if [[ "$failures" -gt 0 ]]; then
+  echo "detect-implementation-changes event policy failed ($failures)" >&2
+  exit 1
+fi
+
+echo "detect-implementation-changes event policy passed."

@@ -7,52 +7,51 @@ updated: 2026-09-02
 
 # Goal
 
-Stop a docs-only `main` push from cancelling an in-flight Implementation run and then reporting green with every gate skipped. Reconcile screenshot-evidence citations with Git.
+Every `main` push runs the full Implementation job set. Pull requests may still skip when the PR diff has no implementation paths. Retire the approved Enrollment pagination task.
 
 # Governing sources
 
-- Review of `ba9fad7` / `21c3bb5` CI cancellation/skip interaction
+- Review after `1eb4bc5` Implementation went green
 - `.github/workflows/implementation.yml`
 - `build/scripts/detect-implementation-changes.sh`
-- Playwright MCP evidence rules in `AGENTS.md` and `docs/contributing/development-harness.md`
 
 # Scope
 
 ## In
 
-- `cancel-in-progress` only for pull requests
-- Document the policy
-- Stop `.work/` from citing deleted PNG paths; clarify optional Git retention of screenshots
+- Push (non-PR) events always `implementation=true`
+- PR events keep path-based skipping
+- Delete `.work/active/enrollment-registry-page-size-cursor.md`
 
 ## Out
 
-- Change-detector walk-back to last verified implementation SHA
-- Architecture-certification concurrency (scheduled, not this hole)
+- Architecture-certification concurrency
+- Walking back to last verified implementation SHA (unnecessary if main always runs full gates)
 
 # Plan
 
-- [x] Fix Implementation concurrency and document it
-- [x] Align screenshot-evidence wording and enrollment task citations
-- [x] Run path-classifier and docs checks; push so full Implementation runs on HEAD
+- [x] Red: empty-diff `push` must not skip gates
+- [x] Green: skip path filter unless `pull_request`
+- [x] Document in `workspace.md`; focused script + docs checks
 
 # Current state
 
-`cancel-in-progress` is PR-only. Enrollment task cites the durable race test instead of deleted PNGs. This commit changes `implementation.yml`, so GitHub should run full Implementation gates on HEAD (pagination code plus this fix).
+Enrollment pagination task retired. Detector emits `true` for every non-PR event, including docs-only `main` pushes. Path skipping remains PR-only. Main still does not cancel in-progress Implementation runs.
 
 # Decisions
 
-- Main pushes never cancel an earlier Implementation run on the same ref. PRs still cancel obsolete runs.
-- Screenshots remain required during UI work; committing them stays optional. Tracked task files cite only Git-present evidence.
+- Full gates on every `main` push. Path skipping stays PR-only.
 
 # Findings / deviations
 
-- Did not re-queue cancelled run `33635602551` on `ba9fad7`: that SHA still has `cancel-in-progress: true`. Full gates on this HEAD cover the same pagination code.
+- None.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Path classifier includes `implementation.yml` | pass | `bash build/scripts/detect-implementation-changes.test.sh` |
+| Empty-diff `EVENT_NAME=push` → true | pass | `detect-implementation-changes.test.sh` event policy |
+| Empty-diff `EVENT_NAME=pull_request` → false | pass | same |
 | `check_docs.py` | pass | Documentation validation passed |
 
 # Blockers
