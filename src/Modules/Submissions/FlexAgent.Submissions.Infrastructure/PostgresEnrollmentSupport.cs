@@ -18,9 +18,13 @@ public sealed class AttachedPostgresEnrollmentTransaction(NpgsqlTransaction tran
 
     public bool OutboxAccepted { get; set; } = true;
 
+    public bool AbortRequested { get; private set; }
+
     public object CommitHandle => transaction;
 
     public NpgsqlTransaction Transaction => transaction;
+
+    public void AbortCommit() => AbortRequested = true;
 }
 
 public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope) : IEnrollmentTransaction
@@ -29,9 +33,13 @@ public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope
 
     public bool OutboxAccepted { get; set; } = true;
 
+    public bool AbortRequested { get; private set; }
+
     public object CommitHandle => scope.Transaction;
 
     public PostgresTransactionScope Scope => scope;
+
+    public void AbortCommit() => AbortRequested = true;
 }
 
 public sealed class PostgresEnrollmentUnitOfWork(
@@ -46,6 +54,11 @@ public sealed class PostgresEnrollmentUnitOfWork(
         await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
         var transaction = new PostgresEnrollmentTransaction(scope);
         var result = await action(transaction);
+        if (transaction.AbortRequested)
+        {
+            return result;
+        }
+
         if (!await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
         {
             throw new EnrollmentSessionExpiredException();

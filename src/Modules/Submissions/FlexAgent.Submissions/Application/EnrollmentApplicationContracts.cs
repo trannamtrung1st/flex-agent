@@ -365,7 +365,11 @@ public interface IEnrollmentTransaction
 
     bool OutboxAccepted { get; set; }
 
+    bool AbortRequested { get; }
+
     object CommitHandle { get; }
+
+    void AbortCommit();
 }
 
 public interface IEnrollmentUnitOfWork

@@ -220,6 +220,8 @@ public sealed record SessionStartCommitResult(
 
 public interface ISessionStartCommitPort
 {
+    bool CanCommit { get; }
+
     Task<SessionStartCommitResult> CommitActiveAsync(
         SessionStartCommitRequest request,
         object commitTransaction,

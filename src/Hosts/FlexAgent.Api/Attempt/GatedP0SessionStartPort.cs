@@ -13,6 +13,9 @@ public sealed class GatedP0SessionStartPort(
     IHostEnvironment environment,
     PostgresSessionRuntimeRepository? sessions) : ISessionStartCommitPort
 {
+    public bool CanCommit =>
+        !environment.IsProduction() && !environment.IsEnvironment("Staging");
+
     public async Task<SessionStartCommitResult> CommitActiveAsync(
         SessionStartCommitRequest request,
         object commitTransaction,
@@ -38,11 +41,13 @@ public sealed class GatedP0SessionStartPort(
             request.Scope.ParticipantActorId,
             request.AttemptId,
             request.SessionId);
-        var sources = RequiredDevelopmentSources();
+        var sources = RequiredDevelopmentSources(request.Scope.BaselineId);
         var submissionRefs = request.SubmissionBindings
             .Select(binding => new ProtectedContentRef(
                 $"submission:{binding.VersionId:D}",
-                ProtectedContentRef.DigestUtf8(binding.VersionId.ToString("D"))))
+                string.IsNullOrWhiteSpace(binding.ContentDigest) || binding.ContentDigest.Length != 64
+                    ? ProtectedContentRef.DigestUtf8(binding.VersionId.ToString("D"))
+                    : binding.ContentDigest))
             .ToArray();
         if (submissionRefs.Length == 0)
         {
@@ -80,7 +85,7 @@ public sealed class GatedP0SessionStartPort(
             var binding = new TrustedSessionBinding(
                 ownership,
                 request.ConfigurationId.ToString("D"),
-                resolved.Value.ConfigurationDigest,
+                policy.PolicyDigest,
                 request.ManifestId.ToString("D"),
                 policy,
                 submissionRefs,
@@ -216,19 +221,29 @@ public sealed class GatedP0SessionStartPort(
             "bind.v1");
     }
 
-    private static IReadOnlyList<ResolvedSourceReference> RequiredDevelopmentSources()
+    // Isolated Development scaffold: stable per-baseline ids, not activated cohort source versions.
+    private static IReadOnlyList<ResolvedSourceReference> RequiredDevelopmentSources(Guid baselineId)
     {
         var digest = new string('c', 64);
         return
         [
-            new ResolvedSourceReference("organization_policy", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("agent", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("harness", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("workflow", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("model_deployment", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("task_submission", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
-            new ResolvedSourceReference("capability", Guid.CreateVersion7(), Guid.CreateVersion7(), digest),
+            new ResolvedSourceReference("organization_policy", StableId("organization_policy", baselineId), StableId("organization_policy.version", baselineId), digest),
+            new ResolvedSourceReference("agent", StableId("agent", baselineId), StableId("agent.version", baselineId), digest),
+            new ResolvedSourceReference("harness", StableId("harness", baselineId), StableId("harness.version", baselineId), digest),
+            new ResolvedSourceReference("workflow", StableId("workflow", baselineId), StableId("workflow.version", baselineId), digest),
+            new ResolvedSourceReference("model_deployment", StableId("model_deployment", baselineId), StableId("model_deployment.version", baselineId), digest),
+            new ResolvedSourceReference("task_submission", StableId("task_submission", baselineId), StableId("task_submission.version", baselineId), digest),
+            new ResolvedSourceReference("capability", StableId("capability", baselineId), StableId("capability.version", baselineId), digest),
         ];
+    }
+
+    private static Guid StableId(string family, Guid seed)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{family}:{seed:D}"));
+        hash[6] = (byte)((hash[6] & 0x0f) | 0x50);
+        hash[8] = (byte)((hash[8] & 0x3f) | 0x80);
+        return new Guid(hash.AsSpan(0, 16));
     }
 }
 
@@ -310,10 +325,14 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
         object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        _ = notices;
+        if (notices.Count == 0)
+        {
+            return [];
+        }
+
         var transaction = PostgresCommitTransaction.Required(commitTransaction);
         var connection = transaction.Connection ?? throw new InvalidOperationException("commit.transaction.required");
-        var rows = await connection.QueryAsync<CurrentAcknowledgmentFact>(
+        var listed = await connection.QueryAsync<CurrentAcknowledgmentFact>(
             new CommandDefinition(
                 """
                 SELECT record_id AS RecordId, enrollment_id AS EnrollmentId, participant_actor_id AS ParticipantActorId,
@@ -324,11 +343,21 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
                 WHERE organization_id = @OrganizationId
                   AND enrollment_id = @EnrollmentId
                   AND participant_actor_id = @ParticipantActorId
+                  AND bound_attempt_id IS NULL
+                  AND notice_id = ANY(@NoticeIds)
+                  AND source_version_id = ANY(@SourceVersionIds)
                 """,
-                new { OrganizationId = organizationId, EnrollmentId = enrollmentId, ParticipantActorId = participantActorId },
+                new
+                {
+                    OrganizationId = organizationId,
+                    EnrollmentId = enrollmentId,
+                    ParticipantActorId = participantActorId,
+                    NoticeIds = notices.Select(item => item.NoticeId).ToArray(),
+                    SourceVersionIds = notices.Select(item => item.SourceVersionId).ToArray(),
+                },
                 transaction,
                 cancellationToken: cancellationToken));
-        return rows.ToArray();
+        return AcknowledgmentSelection.CurrentBindable(listed.ToArray(), notices);
     }
 
     public async Task<string?> BindToAttemptAsync(
@@ -342,7 +371,9 @@ public sealed class PostgresAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
         var transaction = PostgresCommitTransaction.Required(commitTransaction);
         foreach (var record in records)
         {
-            if (record.EnrollmentId != enrollmentId || record.ParticipantActorId != participantActorId)
+            if (record.EnrollmentId != enrollmentId
+                || record.ParticipantActorId != participantActorId
+                || record.BoundAttemptId is Guid alreadyBound && alreadyBound != attemptId)
             {
                 return AttemptFailureCodes.AcknowledgmentInvalid;
             }

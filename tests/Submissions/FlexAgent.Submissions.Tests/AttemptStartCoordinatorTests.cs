@@ -122,6 +122,138 @@ public sealed class AttemptStartCoordinatorTests
     }
 
     [Fact]
+    public async Task Binding_failure_after_session_commit_aborts_without_an_attempt()
+    {
+        var harness = await CreateHarnessAsync(acknowledgments: new FailBindAcknowledgmentPort());
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        var started = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(started.Succeeded);
+        Assert.Equal(AttemptFailureCodes.AcknowledgmentInvalid, started.OutcomeCode);
+        Assert.Empty(harness.Attempts.Items);
+        Assert.Empty(harness.StartOperations.Items);
+        var readiness = await harness.Coordinator.GetAsync(
+            ParticipantContext(),
+            EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(AttemptReadinessStates.Eligible, readiness.Value!.ReadinessState);
+        Assert.Equal(1, readiness.Value.RemainingEntitlement);
+    }
+
+    [Fact]
+    public async Task Second_start_binds_a_new_unbound_acknowledgment_not_the_historical_row()
+    {
+        var notice = new RequiredNoticeProjection(
+            Guid.CreateVersion7(),
+            "instructions",
+            "affirmed",
+            "notice:1",
+            Guid.CreateVersion7(),
+            Digest,
+            Guid.CreateVersion7());
+        var acknowledgments = new InMemoryAcknowledgmentLifecyclePort();
+        var harness = await CreateHarnessAsync(
+            attemptLimit: 2,
+            notices: new FixedNoticePort(notice),
+            acknowledgments: acknowledgments);
+        var firstDigest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            [notice.SourceVersionId]);
+        await acknowledgments.RecordAsync(
+            new AcknowledgeAttemptNoticeCommand(
+                ParticipantContext(),
+                EnrollmentId,
+                notice.NoticeId,
+                notice.SourceVersionId,
+                "affirmed",
+                "ack-key-0001",
+                AcknowledgmentCommandDigest.Compute(
+                    OrganizationId,
+                    EnrollmentId,
+                    ParticipantId,
+                    notice.NoticeId,
+                    notice.SourceVersionId,
+                    "affirmed")),
+            notice,
+            new InMemoryEnrollmentTransaction(),
+            TestContext.Current.CancellationToken);
+        var first = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", firstDigest),
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var completed = harness.Attempts.Items[0].Complete(Now.AddMinutes(1), "completed");
+        Assert.True(completed.Succeeded);
+        await harness.Attempts.UpdateTerminalAsync(
+            completed.Value!,
+            new InMemoryEnrollmentTransaction(),
+            TestContext.Current.CancellationToken);
+
+        await acknowledgments.RecordAsync(
+            new AcknowledgeAttemptNoticeCommand(
+                ParticipantContext(),
+                EnrollmentId,
+                notice.NoticeId,
+                notice.SourceVersionId,
+                "affirmed",
+                "ack-key-0002",
+                AcknowledgmentCommandDigest.Compute(
+                    OrganizationId,
+                    EnrollmentId,
+                    ParticipantId,
+                    notice.NoticeId,
+                    notice.SourceVersionId,
+                    "affirmed")),
+            notice,
+            new InMemoryEnrollmentTransaction(),
+            TestContext.Current.CancellationToken);
+        var secondDigest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            2,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            [notice.SourceVersionId]);
+        var second = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0002", secondDigest),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(second.Succeeded, second.OutcomeCode);
+        Assert.Equal(2, second.Ordinal);
+        Assert.Equal(2, harness.Attempts.Items.Count);
+        Assert.Equal(2, acknowledgments.Items.Count(item => item.Record.BoundAttemptId is not null));
+        Assert.NotEqual(acknowledgments.Items[0].Record.BoundAttemptId, acknowledgments.Items[1].Record.BoundAttemptId);
+    }
+
+    [Fact]
+    public async Task Unavailable_session_commit_gate_is_visible_in_readiness()
+    {
+        var harness = await CreateHarnessAsync();
+        harness.Sessions.CanCommit = false;
+        var readiness = await harness.Coordinator.GetAsync(
+            ParticipantContext(),
+            EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(AttemptReadinessStates.ConfigurationUnavailable, readiness.Value!.ReadinessState);
+        Assert.DoesNotContain(AttemptClientActions.StartAttempt, readiness.Value.PermittedActions);
+    }
+
+    [Fact]
     public async Task Exact_version_reader_requires_the_commit_transaction()
     {
         var harness = await CreateHarnessAsync();
@@ -133,9 +265,12 @@ public sealed class AttemptStartCoordinatorTests
                 TestContext.Current.CancellationToken));
     }
 
-    private static async Task<Harness> CreateHarnessAsync()
+    private static async Task<Harness> CreateHarnessAsync(
+        int attemptLimit = 1,
+        IParticipantNoticePort? notices = null,
+        IAcknowledgmentLifecyclePort? acknowledgments = null)
     {
-        var binding = Binding();
+        var binding = Binding(attemptLimit);
         var enrollments = new InMemoryEnrollmentStore();
         enrollments.Restore(
         [
@@ -198,8 +333,8 @@ public sealed class AttemptStartCoordinatorTests
             attempts,
             startOperations,
             EmptyRetryEntitlementReader.Instance,
-            new EmptyNoticePort(),
-            new EmptyAcknowledgmentPort(),
+            notices ?? new EmptyNoticePort(),
+            acknowledgments ?? new EmptyAcknowledgmentPort(),
             sessionStarts,
             audit,
             unitOfWork,
@@ -208,6 +343,7 @@ public sealed class AttemptStartCoordinatorTests
         return new Harness(
             coordinator,
             attempts,
+            startOperations,
             sessionStarts,
             exact,
             unitOfWork,
@@ -226,7 +362,7 @@ public sealed class AttemptStartCoordinatorTests
             [EnrollmentAuthorizationActions.Discover],
             Guid.CreateVersion7());
 
-    private static ActivatedCohortBinding Binding() =>
+    private static ActivatedCohortBinding Binding(int attemptLimit = 1) =>
         new(
             OrganizationId,
             ActivityId,
@@ -246,11 +382,12 @@ public sealed class AttemptStartCoordinatorTests
             EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId,
             EnrollmentLifecyclePolicy.RestrictedPreservationVersion,
             false,
-            AttemptLimit: 1);
+            AttemptLimit: attemptLimit);
 
     private sealed record Harness(
         AttemptStartCoordinator Coordinator,
         InMemoryAttemptStore Attempts,
+        InMemoryStartOperationStore StartOperations,
         RecordingSessionStartPort Sessions,
         TransactionBoundExactReader ExactVersions,
         InMemoryEnrollmentUnitOfWork UnitOfWork,
@@ -279,6 +416,8 @@ public sealed class AttemptStartCoordinatorTests
         public int CommitCount { get; private set; }
 
         public bool Fail { get; set; }
+
+        public bool CanCommit { get; set; } = true;
 
         public Task<SessionStartCommitResult> CommitActiveAsync(
             SessionStartCommitRequest request,
@@ -387,5 +526,48 @@ public sealed class AttemptStartCoordinatorTests
                         "UTC"),
                     AccommodationConsequenceCodes.None),
                 "enrollment.ok"));
+    }
+
+    private sealed class FixedNoticePort(RequiredNoticeProjection notice) : IParticipantNoticePort
+    {
+        public Task<IReadOnlyList<RequiredNoticeProjection>?> ListRequiredAsync(
+            Guid organizationId,
+            Guid activityId,
+            Guid cohortId,
+            Guid baselineId,
+            IEnrollmentTransaction? transaction,
+            CancellationToken cancellationToken = default)
+        {
+            _ = (organizationId, activityId, cohortId, baselineId, transaction, cancellationToken);
+            return Task.FromResult<IReadOnlyList<RequiredNoticeProjection>?>([notice]);
+        }
+    }
+
+    private sealed class FailBindAcknowledgmentPort : IAcknowledgmentLifecyclePort
+    {
+        public Task<AcknowledgmentMutationOutcome> RecordAsync(
+            AcknowledgeAttemptNoticeCommand command,
+            RequiredNoticeProjection notice,
+            object commitTransaction,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AcknowledgmentMutationOutcome(true, "acknowledgment.recorded", Guid.CreateVersion7(), "affirmed"));
+
+        public Task<IReadOnlyList<CurrentAcknowledgmentFact>> ListCurrentAsync(
+            Guid organizationId,
+            Guid enrollmentId,
+            Guid participantActorId,
+            IReadOnlyList<RequiredNoticeProjection> notices,
+            object commitTransaction,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CurrentAcknowledgmentFact>>([]);
+
+        public Task<string?> BindToAttemptAsync(
+            IReadOnlyList<CurrentAcknowledgmentFact> records,
+            Guid attemptId,
+            Guid enrollmentId,
+            Guid participantActorId,
+            object commitTransaction,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>(AttemptFailureCodes.AcknowledgmentInvalid);
     }
 }

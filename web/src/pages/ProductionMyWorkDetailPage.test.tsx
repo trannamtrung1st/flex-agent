@@ -442,4 +442,50 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
     expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
   });
+
+  it("clears occupied starting after a definitive reconcile outcome", async () => {
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt/start") && init?.method === "POST") {
+        return jsonResponse({}, 500);
+      }
+      if (url.includes("/attempt/reconcile") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "attempt.reconciled",
+          attempt_id: "att-1",
+          ordinal: 1,
+          session_id: "sess-1",
+          remaining_entitlement: 0,
+          permitted_actions: ["continue_attempt", "return_to_my_work"],
+        });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload());
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start Attempt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start this Attempt?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start Attempt" }));
+    expect(await screen.findByRole("button", { name: "Reconcile start" })).toBeInTheDocument();
+    expect(screen.getByText("Starting Attempt…")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reconcile start" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Reconcile start" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Starting Attempt…")).not.toBeInTheDocument();
+    });
+  });
 });

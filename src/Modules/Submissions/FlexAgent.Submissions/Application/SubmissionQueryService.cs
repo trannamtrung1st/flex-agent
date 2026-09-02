@@ -372,7 +372,11 @@ public sealed class SubmissionQueryService(
 
         public bool OutboxAccepted { get; set; } = true;
 
+        public bool AbortRequested { get; private set; }
+
         public object CommitHandle { get; } = new();
+
+        public void AbortCommit() => AbortRequested = true;
     }
 
     private async Task<NormalizedMaterialPolicy?> ResolvePolicyAsync(

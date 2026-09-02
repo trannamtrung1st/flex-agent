@@ -23,7 +23,8 @@ public sealed record AttemptBinding(
 public sealed record AttemptSubmissionBinding(
     Guid VersionId,
     int VersionNumber,
-    int BindingOrder);
+    int BindingOrder,
+    string ContentDigest);
 
 public sealed record Attempt(
     Guid AttemptId,
@@ -100,7 +101,9 @@ public sealed record Attempt(
             || submissionBindings.Any(bindingItem =>
                 bindingItem.VersionId == Guid.Empty
                 || bindingItem.VersionNumber < 1
-                || bindingItem.BindingOrder < 1))
+                || bindingItem.BindingOrder < 1
+                || string.IsNullOrWhiteSpace(bindingItem.ContentDigest)
+                || bindingItem.ContentDigest.Length != 64))
         {
             return AttemptDecision<Attempt>.Fail(AttemptFailureCodes.InvalidField, "submission_bindings");
         }

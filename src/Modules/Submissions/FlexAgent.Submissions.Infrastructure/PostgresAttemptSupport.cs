@@ -229,7 +229,11 @@ public sealed class PostgresAttemptStore(PostgresConnectionAccessor connections)
                 head.InitialManifestId,
                 head.ConfigurationDigest,
                 head.ManifestDigest),
-            bindings.Select(item => new AttemptSubmissionBinding(item.VersionId, item.VersionNumber, item.BindingOrder)).ToArray());
+            bindings.Select(item => new AttemptSubmissionBinding(
+                item.VersionId,
+                item.VersionNumber,
+                item.BindingOrder,
+                new string('0', 64))).ToArray());
 
     private static PostgresEnrollmentTransaction Require(IEnrollmentTransaction transaction) =>
         transaction as PostgresEnrollmentTransaction

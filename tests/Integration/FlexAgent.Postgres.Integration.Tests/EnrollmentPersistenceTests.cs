@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.Api;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Canonicalization;
 using FlexAgent.AssessmentConfiguration.Domain;
@@ -1080,6 +1081,200 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                 OtherBaselineId = otherBaselineId,
             });
         return otherCohortId;
+    }
+
+    [Fact]
+    public async Task Current_acknowledgment_query_ignores_rows_already_bound_to_a_prior_attempt()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-ack-current"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var enrollmentId = assigned.EnrollmentId!.Value;
+        var noticeId = Guid.CreateVersion7();
+        var digest = new string('d', 64);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var source = await connection.QuerySingleAsync<(Guid VersionId, Guid SourceId, string ContentDigest)>(
+            """
+            SELECT id, configuration_source_id, content_digest
+            FROM configuration_source_versions
+            WHERE organization_id = @OrganizationId
+            LIMIT 1
+            """,
+            new { OrganizationId = harness.OrganizationId });
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO configuration_participant_notice_projections (
+                organization_id, source_id, source_version_id, notice_id, notice_type, required_outcome,
+                protected_content_ref, content_digest, source_content_digest, created_at)
+            VALUES (
+                @OrganizationId, @SourceId, @SourceVersionId, @NoticeId, 'instructions', 'affirmed',
+                'notice:current', @Digest, @SourceDigest, CLOCK_TIMESTAMP())
+            """,
+            new
+            {
+                OrganizationId = harness.OrganizationId,
+                source.SourceId,
+                SourceVersionId = source.VersionId,
+                NoticeId = noticeId,
+                Digest = digest,
+                SourceDigest = source.ContentDigest,
+            });
+        var historicalId = Guid.CreateVersion7();
+        var currentId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO session_acknowledgment_records (
+                organization_id, record_id, enrollment_id, participant_actor_id, notice_id, source_id,
+                source_version_id, source_content_digest, notice_content_digest, outcome, recorded_at,
+                bound_attempt_id, idempotency_key, command_digest)
+            VALUES
+                (@OrganizationId, @HistoricalId, @EnrollmentId, @ParticipantId, @NoticeId, @SourceId,
+                 @SourceVersionId, @SourceDigest, @Digest, 'affirmed', CLOCK_TIMESTAMP() - INTERVAL '1 hour',
+                 @PriorAttemptId, 'ack-hist-0001', @Digest),
+                (@OrganizationId, @CurrentId, @EnrollmentId, @ParticipantId, @NoticeId, @SourceId,
+                 @SourceVersionId, @SourceDigest, @Digest, 'affirmed', CLOCK_TIMESTAMP(),
+                 NULL, 'ack-current-0002', @Digest)
+            """,
+            new
+            {
+                OrganizationId = harness.OrganizationId,
+                HistoricalId = historicalId,
+                CurrentId = currentId,
+                EnrollmentId = enrollmentId,
+                ParticipantId = harness.ParticipantId,
+                NoticeId = noticeId,
+                source.SourceId,
+                SourceVersionId = source.VersionId,
+                SourceDigest = source.ContentDigest,
+                Digest = digest,
+                PriorAttemptId = Guid.CreateVersion7(),
+            });
+
+        await using var scope = await FlexAgent.Postgres.PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var listed = await new PostgresAcknowledgmentLifecyclePort().ListCurrentAsync(
+            harness.OrganizationId,
+            enrollmentId,
+            harness.ParticipantId,
+            [
+                new RequiredNoticeProjection(
+                    noticeId,
+                    "instructions",
+                    "affirmed",
+                    "notice:current",
+                    source.VersionId,
+                    digest,
+                    source.SourceId),
+            ],
+            scope.Transaction,
+            CancellationToken);
+        Assert.Equal(currentId, Assert.Single(listed).RecordId);
+
+        var bound = await new PostgresAcknowledgmentLifecyclePort().BindToAttemptAsync(
+            listed,
+            Guid.CreateVersion7(),
+            enrollmentId,
+            harness.ParticipantId,
+            scope.Transaction,
+            CancellationToken);
+        Assert.Null(bound);
+        await scope.CommitAsync(CancellationToken);
+        var rebound = await connection.ExecuteScalarAsync<Guid?>(
+            "SELECT bound_attempt_id FROM session_acknowledgment_records WHERE record_id = @CurrentId",
+            new { CurrentId = currentId });
+        Assert.NotNull(rebound);
+        var historicalStillBound = await connection.ExecuteScalarAsync<Guid>(
+            "SELECT bound_attempt_id FROM session_acknowledgment_records WHERE record_id = @HistoricalId",
+            new { HistoricalId = historicalId });
+        Assert.NotEqual(rebound, historicalStillBound);
+
+        await using (var emptyScope = await FlexAgent.Postgres.PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var afterBind = await new PostgresAcknowledgmentLifecyclePort().ListCurrentAsync(
+                harness.OrganizationId,
+                enrollmentId,
+                harness.ParticipantId,
+                [
+                    new RequiredNoticeProjection(
+                        noticeId,
+                        "instructions",
+                        "affirmed",
+                        "notice:current",
+                        source.VersionId,
+                        digest,
+                        source.SourceId),
+                ],
+                emptyScope.Transaction,
+                CancellationToken);
+            Assert.Empty(afterBind);
+        }
+
+        var retryId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO session_acknowledgment_records (
+                organization_id, record_id, enrollment_id, participant_actor_id, notice_id, source_id,
+                source_version_id, source_content_digest, notice_content_digest, outcome, recorded_at,
+                bound_attempt_id, idempotency_key, command_digest)
+            VALUES (
+                @OrganizationId, @RetryId, @EnrollmentId, @ParticipantId, @NoticeId, @SourceId,
+                @SourceVersionId, @SourceDigest, @Digest, 'affirmed', CLOCK_TIMESTAMP(),
+                NULL, 'ack-retry-0003', @Digest)
+            """,
+            new
+            {
+                OrganizationId = harness.OrganizationId,
+                RetryId = retryId,
+                EnrollmentId = enrollmentId,
+                ParticipantId = harness.ParticipantId,
+                NoticeId = noticeId,
+                source.SourceId,
+                SourceVersionId = source.VersionId,
+                SourceDigest = source.ContentDigest,
+                Digest = digest,
+            });
+        await using (var retryScope = await FlexAgent.Postgres.PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var retryListed = await new PostgresAcknowledgmentLifecyclePort().ListCurrentAsync(
+                harness.OrganizationId,
+                enrollmentId,
+                harness.ParticipantId,
+                [
+                    new RequiredNoticeProjection(
+                        noticeId,
+                        "instructions",
+                        "affirmed",
+                        "notice:current",
+                        source.VersionId,
+                        digest,
+                        source.SourceId),
+                ],
+                retryScope.Transaction,
+                CancellationToken);
+            Assert.Equal(retryId, Assert.Single(retryListed).RecordId);
+            var retryBound = await new PostgresAcknowledgmentLifecyclePort().BindToAttemptAsync(
+                retryListed,
+                Guid.CreateVersion7(),
+                enrollmentId,
+                harness.ParticipantId,
+                retryScope.Transaction,
+                CancellationToken);
+            Assert.Null(retryBound);
+            await retryScope.CommitAsync(CancellationToken);
+        }
+
+        await Assert.ThrowsAnyAsync<Exception>(() => connection.ExecuteAsync(
+            """
+            UPDATE session_acknowledgment_records
+            SET outcome = 'declined'
+            WHERE record_id = @CurrentId
+            """,
+            new { CurrentId = currentId }));
     }
 
     private async Task<EnrollmentHarness> SeedActivatedAsync()

@@ -228,6 +228,31 @@ export function ProductionMyWorkDetailPage() {
     }
   }
 
+  async function reconcileStart() {
+    if (!attempt || !startKey) return;
+    setPending(true);
+    try {
+      const outcome = await submissionClient.reconcileAttempt(
+        enrollmentId,
+        startKey,
+        attempt.start_command_digest,
+      );
+      setStartOccupied(false);
+      setStartKey(null);
+      if (!outcome.succeeded) {
+        setError(submissionFailureCopy(outcome.outcome_code));
+        await reload();
+        return;
+      }
+      await reload();
+      pushToast({ label: "Attempt", copy: "Attempt start was reconciled from the server." });
+    } catch (caught: unknown) {
+      setError(enrollmentFailureCopy(caught, "The Attempt start outcome is uncertain. Entitlement was not changed locally."));
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function confirmStartAttempt() {
     if (!attempt) return;
     setPending(true);
@@ -422,9 +447,7 @@ export function ProductionMyWorkDetailPage() {
           disabled={pending}
           onClick={() => {
             if (!attempt || !startKey) return;
-            void runMutation(() =>
-              submissionClient.reconcileAttempt(enrollmentId, startKey, attempt.start_command_digest),
-            );
+            void reconcileStart();
           }}
         >
           Reconcile start
@@ -571,7 +594,7 @@ export function ProductionMyWorkDetailPage() {
                     <AcknowledgmentGate
                       key={notice.notice_id}
                       id={`${ackId}-${notice.notice_id}`}
-                      checked={Boolean(ackedByNotice[notice.notice_id])}
+                      checked={ackedByNotice[notice.notice_id] ?? false}
                       onChange={(checked) => {
                         setAckedByNotice((current) => ({ ...current, [notice.notice_id]: checked }));
                       }}

@@ -70,7 +70,7 @@ public sealed class AttemptDomainTests
             Now,
             Now,
             Binding(),
-            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1)]);
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, Digest)]);
         Assert.False(invalid.Succeeded);
         Assert.Equal(AttemptFailureCodes.InvalidField, invalid.OutcomeCode);
     }
@@ -286,7 +286,7 @@ public sealed class AttemptDomainTests
             Now,
             Now,
             Binding(),
-            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1)]);
+            [new AttemptSubmissionBinding(Guid.CreateVersion7(), 1, 1, Digest)]);
 
     private static SubmissionParentScope Scope() =>
         new(

@@ -224,17 +224,17 @@ public sealed class AttemptStartCoordinator(
                     return Fail(AttemptFailureCodes.Ineligible, readiness.State);
                 }
 
-                var ackError = await ValidateAndRequireAcknowledgmentsAsync(
+                var ackSelection = await SelectBindableAcknowledgmentsAsync(
                     command.Actor,
                     enrollment,
                     snapshot.Notices,
                     transaction,
                     cancellationToken);
-                if (ackError is not null)
+                if (ackSelection.Error is not null)
                 {
-                    var blocked = StartOperationPolicy.Fail(claimed.Value, ackError, _clock.UtcNow).Value!;
+                    var blocked = StartOperationPolicy.Fail(claimed.Value, ackSelection.Error, _clock.UtcNow).Value!;
                     await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
-                    return Fail(ackError, readiness.State);
+                    return Fail(ackSelection.Error, readiness.State);
                 }
 
                 var bindings = new List<AttemptSubmissionBinding>();
@@ -256,7 +256,11 @@ public sealed class AttemptStartCoordinator(
                         return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.MissingAcceptedMaterial);
                     }
 
-                    bindings.Add(new AttemptSubmissionBinding(exact.VersionId, exact.VersionNumber, index + 1));
+                    bindings.Add(new AttemptSubmissionBinding(
+                        exact.VersionId,
+                        exact.VersionNumber,
+                        index + 1,
+                        exact.Items.Count > 0 ? exact.Items[0].ContentDigest : exact.PolicyDigest));
                 }
 
                 var attemptId = Guid.CreateVersion7();
@@ -287,13 +291,7 @@ public sealed class AttemptStartCoordinator(
                     return Fail(AttemptFailureCodes.Unavailable, AttemptReadinessStates.ConfigurationUnavailable);
                 }
 
-                var currentAcks = await acknowledgments.ListCurrentAsync(
-                    enrollment.OrganizationId,
-                    enrollment.EnrollmentId,
-                    enrollment.ParticipantActorId,
-                    snapshot.Notices,
-                    transaction.CommitHandle,
-                    cancellationToken);
+                var currentAcks = ackSelection.Bindable;
                 var bindError = await acknowledgments.BindToAttemptAsync(
                     currentAcks,
                     attemptId,
@@ -303,8 +301,7 @@ public sealed class AttemptStartCoordinator(
                     cancellationToken);
                 if (bindError is not null)
                 {
-                    var blocked = StartOperationPolicy.Fail(claimed.Value, bindError, now).Value!;
-                    await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
+                    transaction.AbortCommit();
                     return Fail(bindError, readiness.State);
                 }
 
@@ -325,6 +322,7 @@ public sealed class AttemptStartCoordinator(
                     bindings);
                 if (!activated.Succeeded)
                 {
+                    transaction.AbortCommit();
                     return Fail(activated.OutcomeCode, readiness.State);
                 }
 
@@ -369,7 +367,7 @@ public sealed class AttemptStartCoordinator(
         }
     }
 
-    private async Task<string?> ValidateAndRequireAcknowledgmentsAsync(
+    private async Task<(string? Error, IReadOnlyList<CurrentAcknowledgmentFact> Bindable)> SelectBindableAcknowledgmentsAsync(
         EnrollmentActorContext actor,
         Enrollment enrollment,
         IReadOnlyList<RequiredNoticeProjection> required,
@@ -378,16 +376,18 @@ public sealed class AttemptStartCoordinator(
     {
         if (required.Count == 0)
         {
-            return null;
+            return (null, []);
         }
 
-        var current = await acknowledgments.ListCurrentAsync(
-            enrollment.OrganizationId,
-            enrollment.EnrollmentId,
-            enrollment.ParticipantActorId,
-            required,
-            transaction.CommitHandle,
-            cancellationToken);
+        var current = AcknowledgmentSelection.CurrentBindable(
+            await acknowledgments.ListCurrentAsync(
+                enrollment.OrganizationId,
+                enrollment.EnrollmentId,
+                enrollment.ParticipantActorId,
+                required,
+                transaction.CommitHandle,
+                cancellationToken),
+            required);
         foreach (var notice in required)
         {
             if (notice.RequiredOutcome != "affirmed")
@@ -395,21 +395,17 @@ public sealed class AttemptStartCoordinator(
                 continue;
             }
 
-            var match = current
-                .Where(item => item.NoticeId == notice.NoticeId && item.SourceVersionId == notice.SourceVersionId)
-                .OrderByDescending(item => item.RecordedAtUtc)
-                .FirstOrDefault();
+            var match = current.FirstOrDefault(item =>
+                item.NoticeId == notice.NoticeId && item.SourceVersionId == notice.SourceVersionId);
             if (match is null
-                || match.Outcome != "affirmed"
-                || !string.Equals(match.ContentDigest, notice.ContentDigest, StringComparison.Ordinal)
                 || match.EnrollmentId != enrollment.EnrollmentId
                 || match.ParticipantActorId != actor.Actor.ActorId)
             {
-                return AttemptFailureCodes.AcknowledgmentInvalid;
+                return (AttemptFailureCodes.AcknowledgmentInvalid, []);
             }
         }
 
-        return null;
+        return (null, current);
     }
 
     private async Task<string?> DenyIfUnauthorizedAsync(
@@ -480,7 +476,10 @@ public sealed class AttemptStartCoordinator(
         var timingState = timingResult.Succeeded && timingResult.Value?.Timing is { } effective
             ? effective.EligibilityState
             : TimingEligibilityStates.Unavailable;
-        var configurationReady = binding is not null && !binding.VerificationDegraded && requiredNotices is not null;
+        var configurationReady = binding is not null
+            && !binding.VerificationDegraded
+            && requiredNotices is not null
+            && sessionStarts.CanCommit;
         var facts = new AttemptReadinessFacts(
             enrollment.Status,
             timingState,

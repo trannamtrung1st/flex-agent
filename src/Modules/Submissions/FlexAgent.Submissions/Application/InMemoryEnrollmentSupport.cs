@@ -30,6 +30,12 @@ public sealed class InMemoryEnrollmentUnitOfWork(
         try
         {
             var result = await action(transaction);
+            if (transaction.AbortRequested)
+            {
+                snapshot.Restore();
+                return result;
+            }
+
             if (!await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
             {
                 throw new EnrollmentSessionExpiredException();
@@ -112,7 +118,11 @@ public sealed class InMemoryEnrollmentTransaction : IEnrollmentTransaction
 
     public bool OutboxAccepted { get; set; } = true;
 
+    public bool AbortRequested { get; private set; }
+
     public object CommitHandle => this;
+
+    public void AbortCommit() => AbortRequested = true;
 }
 
 public sealed class InMemoryEnrollmentStore : IEnrollmentStore

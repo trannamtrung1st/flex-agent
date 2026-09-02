@@ -340,11 +340,21 @@ station, coordinator, migration `0063`, Postgres stores, and Development-gated
 Session commit adapter remain in the tree. Exact accepted-version reads require
 the commit transaction.
 
+Review of `a62a926` (2026-09-02): AbortCommit now rolls back Session side
+effects when bind/Activate fails; acknowledgment ListCurrent only returns
+unbound rows for the current notice/version set; readiness includes
+`sessionStarts.CanCommit`; Development source ids are stable hashes;
+migration `0064` one-way acknowledgment binding; Reconcile clears occupied
+state. GatedP0 remains a Development scaffold (not the qualified Production
+resolver). Runtime InsertActive uses frozen policy digest to satisfy the
+Sessions snapshot invariant; resolved-configuration document digest is stored
+separately.
+
 Still required before completion: notice-projection registration coupled to
 source versions (Postgres notice list is still org-scoped after a baseline
 existence check), Production fail-closed qualified model/policy sources,
 Session terminal mapping wired into the Session lifecycle transaction,
-PostgreSQL integration/fault/concurrency proofs, HTTP negative-contract tests,
+remaining PostgreSQL fault/concurrency proofs, HTTP negative-contract tests,
 Playwright MCP evidence against an API image that includes this slice,
 `docs/current-state.md`, and independent reviews.
 
@@ -453,12 +463,12 @@ the plan.
 | --- | --- | --- |
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-09-02 |
 | `git diff --no-index --check /dev/null .work/active/p0-attempt-session-start.md` | passed | Expected exit 1 for an untracked addition; no whitespace diagnostics on 2026-09-02 |
-| Focused Submissions domain/application tests | passed (partial) | 2026-09-02 confirmation: AttemptStartCoordinatorTests 5 passed; AttemptDomainTests 19 passed |
+| Focused Submissions domain/application tests | passed (partial) | 2026-09-02: AttemptStartCoordinatorTests 8 passed (bind abort + second Attempt); AttemptDomainTests 19 passed |
 | Focused Sessions resolver/application tests | passed (partial) | 2026-09-02 confirmation: AcknowledgmentPolicyTests + P0ResolvedSessionConfigurationResolverTests 7 passed |
 | Contract and architecture tests | passed (partial) | 2026-09-02 confirmation: ContractCatalogTests + ContractMappingParityTests 142 passed; openapi-parity 4 passed |
-| PostgreSQL migration/integration/fault tests | pending | 0063 added to MigrationUpgradeTests lists; integration not run this slice |
+| PostgreSQL migration/integration/fault tests | passed (partial) | 2026-09-02: AttemptStartPersistenceTests abort 1 passed; EnrollmentPersistenceTests current-ack + retry bind 1 passed; 0064 on MigrationUpgradeTests lists |
 | Runtime HTTP negative-contract tests | passed (partial) | 2026-09-02 confirmation: SubmissionRequestValidatorTests 9 passed including uppercase digest rejection |
-| Web unit/component tests | passed (partial) | 2026-09-02 confirmation: ProductionMyWorkDetailPage + AssignmentSpine 8 passed |
+| Web unit/component tests | passed (partial) | 2026-09-02: ProductionMyWorkDetailPage + AssignmentSpine 9 passed; ESLint on detail page clean after `?? false` checked prop |
 | `pnpm verify:web` | pending | Full frontend regression/build/design-lab evidence |
 | Proportionate `.NET` solution/build/test gates | pending | `dotnet build` FlexAgent.Api succeeded; full solution tests not run |
 | `pnpm compose:status` and authenticated Playwright MCP | pending | Compose healthy on 2026-09-02 with `session-endpoint:ok` and `redirect-uri:http://localhost:5274/auth/callback`; containers are 2 days old and do not include this slice's API/migration. Do not treat live My Work start as verified until the profile is rebuilt without reseeding a healthy stack unsafely. |

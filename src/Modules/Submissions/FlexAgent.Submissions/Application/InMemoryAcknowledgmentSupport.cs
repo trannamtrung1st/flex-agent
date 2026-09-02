@@ -87,14 +87,15 @@ public sealed class InMemoryAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
         object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        _ = (notices, commitTransaction, cancellationToken);
-        return Task.FromResult<IReadOnlyList<CurrentAcknowledgmentFact>>(
-            _items.Where(item =>
-                    item.OrganizationId == organizationId
-                    && item.Record.EnrollmentId == enrollmentId
-                    && item.Record.ParticipantActorId == participantActorId)
-                .Select(item => item.Record)
-                .ToArray());
+        _ = (commitTransaction, cancellationToken);
+        var scoped = _items
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.Record.EnrollmentId == enrollmentId
+                && item.Record.ParticipantActorId == participantActorId)
+            .Select(item => item.Record)
+            .ToArray();
+        return Task.FromResult(AcknowledgmentSelection.CurrentBindable(scoped, notices));
     }
 
     public Task<string?> BindToAttemptAsync(
