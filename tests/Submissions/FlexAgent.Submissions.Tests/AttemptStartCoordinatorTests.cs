@@ -174,6 +174,52 @@ public sealed class AttemptStartCoordinatorTests
         Assert.Equal(1, RemainingEntitlement(harness));
     }
 
+    [Fact]
+    public async Task Delayed_failed_persist_does_not_downgrade_a_committed_retry()
+    {
+        var harness = await CreateHarnessAsync();
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        var command = new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        AttemptStartCoordinator.AfterStartTransactionBeforeFailedPersist.Value = async () =>
+        {
+            entered.TrySetResult();
+            await release.Task;
+        };
+
+        try
+        {
+            harness.Sessions.Fail = true;
+            var delayed = harness.Coordinator.StartAsync(command, TestContext.Current.CancellationToken);
+            await entered.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            harness.Sessions.Fail = false;
+            var retry = await harness.Coordinator.StartAsync(command, TestContext.Current.CancellationToken);
+            Assert.True(retry.Succeeded, retry.OutcomeCode);
+            Assert.Equal(StartOperationStates.Committed, Assert.Single(harness.StartOperations.Items).Status);
+
+            release.TrySetResult();
+            var delayedOutcome = await delayed;
+            Assert.False(delayedOutcome.Succeeded);
+            Assert.Equal(AttemptFailureCodes.Unavailable, delayedOutcome.OutcomeCode);
+            Assert.Equal(StartOperationStates.Committed, Assert.Single(harness.StartOperations.Items).Status);
+            Assert.Equal(retry.AttemptId, Assert.Single(harness.Attempts.Items).AttemptId);
+        }
+        finally
+        {
+            AttemptStartCoordinator.AfterStartTransactionBeforeFailedPersist.Value = null;
+            release.TrySetResult();
+        }
+    }
+
     private static int RemainingEntitlement(Harness harness) =>
         AttemptEntitlementCalculator.Remaining(1, harness.Attempts.Items, [], Now);
 

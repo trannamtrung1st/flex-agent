@@ -10,6 +10,7 @@ using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Postgres.Migrations;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Domain;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -4833,6 +4834,147 @@ public sealed class MigrationUpgradeTests
             });
 
         Assert.Equal(1, idempotencyCount);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_populated_0064_backfills_attempt_binding_digest_and_restores_append_only()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0064ScriptName);
+
+        var organizationId = Guid.CreateVersion7();
+        var activityId = Guid.CreateVersion7();
+        var cohortId = Guid.CreateVersion7();
+        var baselineId = Guid.CreateVersion7();
+        var enrollmentId = Guid.CreateVersion7();
+        var participantId = Guid.CreateVersion7();
+        var taskSourceId = Guid.CreateVersion7();
+        var taskVersionId = Guid.CreateVersion7();
+        var submissionId = Guid.CreateVersion7();
+        var versionId = Guid.CreateVersion7();
+        var itemId = Guid.CreateVersion7();
+        var attemptId = Guid.CreateVersion7();
+        var digest = new string('a', 64);
+        var now = DateTimeOffset.Parse("2026-09-02T12:00:00Z");
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            await connection.ExecuteAsync(
+                """
+                SET session_replication_role = replica;
+                INSERT INTO submissions_accepted_versions (
+                    organization_id, submission_id, version_id, version_number, activity_id, cohort_id,
+                    baseline_id, enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                    task_content_digest, policy_digest, predecessor_version_id, accepted_at, accepted_by_actor_id)
+                VALUES (
+                    @OrganizationId, @SubmissionId, @VersionId, 1, @ActivityId, @CohortId,
+                    @BaselineId, @EnrollmentId, @ParticipantId, @TaskSourceId, @TaskVersionId,
+                    @Digest, @Digest, NULL, @AcceptedAt, @ParticipantId);
+                INSERT INTO submissions_accepted_version_items (
+                    organization_id, version_id, item_id, category, filename, byte_count, content_digest,
+                    artifact_object_key, artifact_version_id)
+                VALUES (
+                    @OrganizationId, @VersionId, @ItemId, 'direct_text', NULL, 12, @Digest,
+                    @ArtifactObjectKey, 'v1');
+                INSERT INTO submissions_attempts (
+                    organization_id, attempt_id, activity_id, cohort_id, baseline_id, enrollment_id,
+                    participant_actor_id, task_source_id, ordinal, entitlement_source, retry_entitlement_id,
+                    status, consumed, requested_at, started_at, terminal_at, terminal_reason_category,
+                    session_id, resolved_configuration_id, initial_manifest_id, configuration_digest, manifest_digest)
+                VALUES (
+                    @OrganizationId, @AttemptId, @ActivityId, @CohortId, @BaselineId, @EnrollmentId,
+                    @ParticipantId, @TaskSourceId, 1, 'baseline', NULL,
+                    'active', TRUE, @AcceptedAt, @AcceptedAt, NULL, NULL,
+                    @SessionId, @ConfigurationId, @ManifestId, @Digest, @Digest);
+                INSERT INTO submissions_attempt_submission_bindings (
+                    organization_id, attempt_id, version_id, version_number, binding_order)
+                VALUES (
+                    @OrganizationId, @AttemptId, @VersionId, 1, 1);
+                SET session_replication_role = DEFAULT;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    SubmissionId = submissionId,
+                    VersionId = versionId,
+                    ActivityId = activityId,
+                    CohortId = cohortId,
+                    BaselineId = baselineId,
+                    EnrollmentId = enrollmentId,
+                    ParticipantId = participantId,
+                    TaskSourceId = taskSourceId,
+                    TaskVersionId = taskVersionId,
+                    Digest = digest,
+                    ItemId = itemId,
+                    ArtifactObjectKey = $"org/{organizationId:D}/{itemId:D}",
+                    AttemptId = attemptId,
+                    AcceptedAt = now,
+                    SessionId = Guid.CreateVersion7(),
+                    ConfigurationId = Guid.CreateVersion7(),
+                    ManifestId = Guid.CreateVersion7(),
+                });
+        }
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken);
+
+        var expectedDigest = AttemptSubmissionProvenance.ForAcceptedVersion(
+            new AcceptedSubmissionVersion(
+                submissionId,
+                versionId,
+                1,
+                new SubmissionParentScope(
+                    organizationId,
+                    activityId,
+                    cohortId,
+                    baselineId,
+                    enrollmentId,
+                    participantId,
+                    taskSourceId,
+                    taskVersionId,
+                    digest),
+                digest,
+                null,
+                now,
+                [new AcceptedVersionItem(itemId, MaterialCategories.DirectText, null, 12, digest, $"org/{organizationId:D}/{itemId:D}", "v1")]));
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            var persisted = await connection.ExecuteScalarAsync<string>(
+                """
+                SELECT content_digest
+                FROM submissions_attempt_submission_bindings
+                WHERE organization_id = @OrganizationId
+                  AND attempt_id = @AttemptId
+                  AND version_id = @VersionId;
+                """,
+                new { OrganizationId = organizationId, AttemptId = attemptId, VersionId = versionId });
+            Assert.Equal(expectedDigest, persisted);
+
+            var appendOnly = await Assert.ThrowsAsync<PostgresException>(() =>
+                connection.ExecuteAsync(
+                    """
+                    UPDATE submissions_attempt_submission_bindings
+                    SET binding_order = binding_order
+                    WHERE organization_id = @OrganizationId
+                      AND attempt_id = @AttemptId
+                      AND version_id = @VersionId;
+                    """,
+                    new { OrganizationId = organizationId, AttemptId = attemptId, VersionId = versionId }));
+            Assert.Contains("append-only", appendOnly.Message, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private static async Task<PostgreSqlContainer> StartContainerAsync()

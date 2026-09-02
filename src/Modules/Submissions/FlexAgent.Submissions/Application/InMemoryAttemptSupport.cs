@@ -145,6 +145,13 @@ public sealed class InMemoryStartOperationStore : IStartOperationStore
             && item.IdempotencyKey == operation.IdempotencyKey);
         if (index >= 0)
         {
+            var existing = _items[index];
+            if (existing.Status == StartOperationStates.Committed
+                && operation.Status == StartOperationStates.Failed)
+            {
+                return Task.CompletedTask;
+            }
+
             _items[index] = operation;
         }
         else

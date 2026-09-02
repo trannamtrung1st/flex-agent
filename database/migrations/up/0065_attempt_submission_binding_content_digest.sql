@@ -1,8 +1,12 @@
 -- Persist the version-level Submission provenance digest on Attempt bindings.
--- Do not edit 0001-0064.
+-- Temporarily drop the append-only UPDATE trigger for this controlled backfill
+-- only; restore it before leaving the migration. Do not edit 0001-0064.
 
 ALTER TABLE submissions_attempt_submission_bindings
     ADD COLUMN content_digest CHAR(64);
+
+DROP TRIGGER trg_submissions_attempt_submission_bindings_no_update
+    ON submissions_attempt_submission_bindings;
 
 UPDATE submissions_attempt_submission_bindings AS binding
 SET content_digest = encode(
@@ -28,6 +32,11 @@ SET content_digest = encode(
             'UTF8')),
     'hex')
 WHERE binding.content_digest IS NULL;
+
+CREATE TRIGGER trg_submissions_attempt_submission_bindings_no_update
+    BEFORE UPDATE ON submissions_attempt_submission_bindings
+    FOR EACH ROW
+    EXECUTE FUNCTION reject_session_append_only_mutation();
 
 ALTER TABLE submissions_attempt_submission_bindings
     ALTER COLUMN content_digest SET NOT NULL;

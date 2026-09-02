@@ -23,6 +23,8 @@ public sealed class AttemptStartCoordinator(
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
 
+    internal static readonly AsyncLocal<Func<Task>?> AfterStartTransactionBeforeFailedPersist = new();
+
     public async Task<QueryResult<AttemptReadinessProjection>> GetAsync(
         EnrollmentActorContext actor,
         Guid enrollmentId,
@@ -383,15 +385,41 @@ public sealed class AttemptStartCoordinator(
     private async Task PersistFailedStartAsync(
         EnrollmentActorContext actor,
         StartOperation failed,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken)
+    {
+        if (AfterStartTransactionBeforeFailedPersist.Value is { } delay)
+        {
+            await delay();
+        }
+
         await unitOfWork.ExecuteAsync(
             actor,
             async transaction =>
             {
+                await startOperations.AcquireLockAsync(
+                    failed.OrganizationId,
+                    failed.EnrollmentId,
+                    failed.IdempotencyKey,
+                    transaction,
+                    cancellationToken);
+                var current = await startOperations.FindAsync(
+                    failed.OrganizationId,
+                    failed.EnrollmentId,
+                    failed.IdempotencyKey,
+                    transaction,
+                    cancellationToken);
+                if (current is not null
+                    && (current.Status == StartOperationStates.Committed
+                        || current.Status == StartOperationStates.Failed))
+                {
+                    return true;
+                }
+
                 await startOperations.UpsertAsync(failed, transaction, cancellationToken);
                 return true;
             },
             cancellationToken);
+    }
 
     private async Task<(string? Error, IReadOnlyList<CurrentAcknowledgmentFact> Bindable)> SelectBindableAcknowledgmentsAsync(
         EnrollmentActorContext actor,

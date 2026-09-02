@@ -388,6 +388,7 @@ public sealed class PostgresStartOperationStore : IStartOperationStore
                     session_id = EXCLUDED.session_id,
                     outcome_code = EXCLUDED.outcome_code,
                     finished_at = EXCLUDED.finished_at
+                WHERE submissions_attempt_start_operations.status = 'claimed'
                 """,
                 operation,
                 postgres.Scope.Transaction,

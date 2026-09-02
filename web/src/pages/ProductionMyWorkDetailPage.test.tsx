@@ -415,7 +415,10 @@ describe("ProductionMyWorkDetailPage", () => {
         return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
       }
       if (url.includes("/attempt/start") && init?.method === "POST") {
-        const body = JSON.parse(String(init.body ?? "{}")) as { idempotency_key?: string };
+        if (typeof init?.body !== "string") {
+          throw new Error("expected JSON string body");
+        }
+        const body = JSON.parse(init.body) as { idempotency_key?: string };
         if (body.idempotency_key) {
           startKeys.push(body.idempotency_key);
         }
