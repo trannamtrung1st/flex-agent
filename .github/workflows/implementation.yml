@@ -164,6 +164,7 @@ jobs:
           file: deploy/docker/api.Dockerfile
           platforms: linux/amd64
           push: false
+          load: true
           tags: flex-agent-api:linux-amd64
 
       - name: Build worker image (linux/amd64)
@@ -173,6 +174,7 @@ jobs:
           file: deploy/docker/worker.Dockerfile
           platforms: linux/amd64
           push: false
+          load: true
           tags: flex-agent-worker:linux-amd64
 
       - name: Build SPA image (linux/amd64)
@@ -182,6 +184,7 @@ jobs:
           file: deploy/docker/spa.Dockerfile
           platforms: linux/amd64
           push: false
+          load: true
           tags: flex-agent-spa:linux-amd64
 
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
@@ -202,6 +205,12 @@ jobs:
           FLEXAGENT_OIDC_SKIP_STATIC: "1"
           FLEXAGENT_SEED_DEMO_WORK: "0"
         run: |
+          for image in flex-agent-api:linux-amd64 flex-agent-spa:linux-amd64; do
+            if ! docker image inspect "${image}" >/dev/null 2>&1; then
+              echo "::error::OIDC smoke requires ${image} in the local Docker daemon (set load: true on build-push-action)"
+              exit 1
+            fi
+          done
           docker tag flex-agent-api:linux-amd64 flex-agent-oidc-api:ci
           docker tag flex-agent-spa:linux-amd64 flex-agent-oidc-spa:ci
           bash build/scripts/verify-oidc-ci.sh
