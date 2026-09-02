@@ -2,7 +2,7 @@
 id: p0-attempt-session-start
 status: in-progress
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # Goal
@@ -344,9 +344,16 @@ changes: the first `fast-uri` override (`>=3.1.6`) resolved to `4.1.4`, outside
 AJV `^3.0.1`, and CycloneDX logged `npm error invalid: fast-uri@4.1.4` (masked by
 `--ignore-npm-errors`).
 
-This working tree scopes the override to `ajv>fast-uri: 3.1.6` so the lockfile
-keeps AJV on patched v3. Local `pnpm audit --audit-level=high` exits 0; SPA SBOM
-generation no longer reports `invalid: fast-uri`.
+`61ff0f9` scopes the override to `ajv>fast-uri: 3.1.6`. Review approved that
+commit: patched v3, inside AJV `^3.0.1`, no leftover `4.1.4`/`3.1.5`, no
+completion overclaim. Optional further scope (`ajv@8.17.1>fast-uri`) is
+deferred; not requested as another commit.
+
+Implementation [33658231713](https://github.com/trannamtrung1st/flex-agent/actions/runs/33658231713)
+completed successfully (`changes`, `dotnet`, `web`, `oidc`, `supply-chain`,
+`oci-oidc-smoke`). Supply-chain `Generate SBOM` succeeded. Job logs are not
+readable without GitHub auth, so the remote CycloneDX line cannot be grepped
+here; local SPA SBOM generation on this tree has no `invalid: fast-uri`.
 
 Still open: confirmation dialog facts, default Begin intake while an Attempt is
 in progress, hosted live Session, Production qualified model, Worker in Compose.
@@ -467,8 +474,8 @@ the plan.
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Unchanged UI except unused-import/typecast; no new Playwright this pass |
-| Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; `c966ddb` approved with P2 hex allowlist (addressed locally). Remaining items are product-completion gaps |
-| Implementation `supply-chain` | green on `753728b`; follow-up ready | [33657055497](https://github.com/trannamtrung1st/flex-agent/actions/runs/33657055497) all jobs passed. Review requested narrowing `fast-uri` override to AJV-compatible `3.1.6` (was `4.1.4`). Local audit exit 0; SPA SBOM has no `invalid: fast-uri`. |
+| Independent backend/frontend/security/QA review | recorded | `1e8b25a` approved for backend correctness; `c966ddb` P2 hex allowlist addressed; `61ff0f9` approved (AJV-compatible `fast-uri` 3.1.6). Remaining items are product-completion gaps |
+| Implementation `supply-chain` | green on `61ff0f9` | [33658231713](https://github.com/trannamtrung1st/flex-agent/actions/runs/33658231713) conclusion success; `pnpm audit` and `Generate SBOM` succeeded. Local CycloneDX has no `invalid: fast-uri`. Remote log text not downloadable without GitHub auth. |
 
 # Blockers
 
