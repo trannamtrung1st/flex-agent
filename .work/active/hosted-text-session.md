@@ -510,6 +510,17 @@ and previously missing hosted-session states (warning emission, multi-tab,
 offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
 retire this file.
 
+2026-09-03 review of `cd90e5d` (keep `in-progress`): approved core timing
+boundary — mandatory `hard_end_at_utc`, coordinator re-validation, private
+capture result construction, exception-safe structural JSON validation, and
+malicious-capture regression. P2 only: duplicate warning last-one-wins and
+offset-less hard-end parsing hardening deferred. Core timing correctness
+closed pending full Implementation CI green; task remains open for warning
+emission/history, multi-tab/offline, terminate/abort-live, accessibility
+matrix, and specialist reviews. Web CI lint fix (`AssessmentCampaignCreatePage`
+test unused param) required to unblock Implementation web job on run
+`33734154401`.
+
 2026-09-03 review of `4004584` (keep `in-progress`): require non-null
 `hard_end_at_utc` for authoritative `timed` and `unbounded` capture documents;
 re-validate capture document at `AttemptStartCoordinator` trust boundary;

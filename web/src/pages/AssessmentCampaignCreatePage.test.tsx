@@ -48,7 +48,7 @@ function renderCreate(options?: {
             permitted_actions: options?.permittedActions ?? ["create_assessment"],
           } satisfies ProductionActivityList))}
           loadSourceOptions={loadSourceOptions}
-          createActivity={(title, sources, _hostEnvironment) => {
+          createActivity={(title, sources) => {
             if (options?.createError) {
               return Promise.reject(options.createError);
             }
