@@ -22,6 +22,7 @@ public static class ManifestRuntimeActors
 public static class TerminalReasonCategories
 {
     public const string ParticipantCompleted = "participant_completed";
+    public const string TimeExpiry = "time_expiry";
     public const string AuthorizedTermination = "authorized_termination";
     public const string UnrecoverableFailure = "unrecoverable_failure";
 }

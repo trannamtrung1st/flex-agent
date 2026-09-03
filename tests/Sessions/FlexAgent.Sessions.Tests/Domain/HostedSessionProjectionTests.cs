@@ -18,6 +18,19 @@ public sealed class HostedSessionProjectionTests
     }
 
     [Fact]
+    public void Participant_active_at_zero_remaining_closes_send_and_complete()
+    {
+        var actions = SessionPermittedActionsProjector.Project(
+            HostedSessionProjectionKinds.Participant,
+            SessionLifecycleState.Active,
+            remainingSeconds: 0);
+
+        Assert.DoesNotContain(HostedSessionPermittedActions.SendMessage, actions);
+        Assert.DoesNotContain(HostedSessionPermittedActions.CompleteSession, actions);
+        Assert.Contains(HostedSessionPermittedActions.Reconcile, actions);
+    }
+
+    [Fact]
     public void Participant_completing_still_permits_idempotent_complete()
     {
         var actions = SessionPermittedActionsProjector.Project(
@@ -78,7 +91,13 @@ public sealed class HostedSessionProjectionTests
             HostedSessionProjectionKinds.Participant,
             observed,
             started,
-            HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds);
+            new HostedFrozenTimingPolicy(
+                HostedTimingReconstruction.Timed,
+                HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds,
+                [
+                    new HostedTimingWarningThreshold("approaching", 15 * 60),
+                    new HostedTimingWarningThreshold("imminent", 10 * 60),
+                ]));
 
         Assert.Equal("active_duration", snapshot.TimingPolicy);
         Assert.Equal(30 * 60, snapshot.RemainingSeconds);

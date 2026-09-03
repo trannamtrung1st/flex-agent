@@ -18,8 +18,16 @@ describe("liveSessionStage", () => {
     expect(liveSessionStage(snapshot)).toEqual({ stage: 1, total: 2 });
   });
 
-  it("fills both bars when the Session is sealing or terminal", () => {
+  it("fills both bars when the Session is sealing, expired, or terminal", () => {
     expect(liveSessionStage({ ...snapshot, lifecycle_state: "completing" })).toEqual({ stage: 2, total: 2 });
     expect(liveSessionStage({ ...snapshot, lifecycle_state: "completed" })).toEqual({ stage: 2, total: 2 });
+    expect(liveSessionStage({
+      ...snapshot,
+      timing: { policy: "active_duration", remaining_seconds: 0, warning_code: "none", budget_seconds: 2700 },
+    })).toEqual({ stage: 2, total: 2 });
+    expect(liveSessionStage({
+      ...snapshot,
+      timing: { policy: "unavailable", remaining_seconds: null, warning_code: "none" },
+    })).toEqual({ stage: 1, total: 2 });
   });
 });

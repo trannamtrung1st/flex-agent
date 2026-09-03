@@ -63,19 +63,32 @@ public sealed record HostedSessionSnapshot(
 
 public static class SessionPermittedActionsProjector
 {
-    public static IReadOnlyList<string> Project(string projectionKind, SessionLifecycleState lifecycle)
+    public static IReadOnlyList<string> Project(
+        string projectionKind,
+        SessionLifecycleState lifecycle,
+        int? remainingSeconds = null)
     {
         return projectionKind switch
         {
-            HostedSessionProjectionKinds.Participant => Participant(lifecycle),
+            HostedSessionProjectionKinds.Participant => Participant(lifecycle, remainingSeconds),
             HostedSessionProjectionKinds.Administrator => Administrator(lifecycle),
             HostedSessionProjectionKinds.Historical => Historical(lifecycle),
             _ => [],
         };
     }
 
-    private static IReadOnlyList<string> Participant(SessionLifecycleState lifecycle) =>
-        lifecycle switch
+    private static IReadOnlyList<string> Participant(SessionLifecycleState lifecycle, int? remainingSeconds)
+    {
+        if (lifecycle == SessionLifecycleState.Active && remainingSeconds == 0)
+        {
+            return
+            [
+                HostedSessionPermittedActions.Reconcile,
+                HostedSessionPermittedActions.ReturnToMyWork,
+            ];
+        }
+
+        return lifecycle switch
         {
             SessionLifecycleState.Active =>
             [
@@ -101,6 +114,7 @@ public static class SessionPermittedActionsProjector
                 HostedSessionPermittedActions.ReturnToMyWork,
             ],
         };
+    }
 
     private static IReadOnlyList<string> Administrator(SessionLifecycleState lifecycle) =>
         lifecycle switch
@@ -137,8 +151,7 @@ public static class HostedSessionSnapshotProjector
         string projectionKind,
         DateTimeOffset authoritativeUtc,
         DateTimeOffset? startedAt = null,
-        int? timingBudgetSeconds = null,
-        IReadOnlyList<HostedTimingWarningThreshold>? warningSchedule = null)
+        HostedFrozenTimingPolicy? timingPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         var includeTranscript = projectionKind is HostedSessionProjectionKinds.Participant
@@ -179,10 +192,9 @@ public static class HostedSessionSnapshotProjector
             startedAt ?? session.LastCommittedAt,
             session.LastCommittedAt,
             authoritativeUtc,
-            HostedSessionTiming.ResolveBudget(timingBudgetSeconds),
+            timingPolicy ?? HostedFrozenTimingPolicy.UnavailablePolicy,
             session.AccumulatedPausedSeconds,
-            session.OpenPauseStartedAt,
-            warningSchedule);
+            session.OpenPauseStartedAt);
         return new HostedSessionSnapshot(
             projectionKind,
             session.Ownership.SessionId,
@@ -190,7 +202,7 @@ public static class HostedSessionSnapshotProjector
             session.SessionVersion,
             session.SessionSequence,
             authoritativeUtc,
-            SessionPermittedActionsProjector.Project(projectionKind, session.LifecycleState),
+            SessionPermittedActionsProjector.Project(projectionKind, session.LifecycleState, timing.RemainingSeconds),
             recovery,
             session.CutoffSequence,
             includeTranscript ? "Assessment Agent" : null,

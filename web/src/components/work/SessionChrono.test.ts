@@ -32,6 +32,16 @@ describe("projectedRemainingSeconds", () => {
     )).toBe(2400);
   });
 
+  it("does not invent remaining time when authoritative timing is unavailable", () => {
+    expect(projectedRemainingSeconds(
+      {
+        ...snapshot,
+        timing: { policy: "unavailable", remaining_seconds: null, warning_code: "none" },
+      },
+      Date.parse("2026-09-03T00:10:00Z"),
+    )).toBeNull();
+  });
+
   it("reports zero remaining once the Session is sealing or terminal", () => {
     expect(projectedRemainingSeconds(
       { ...snapshot, lifecycle_state: "completing" },

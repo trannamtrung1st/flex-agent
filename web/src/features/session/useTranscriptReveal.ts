@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SessionSnapshotTranscriptItemV1 } from "../../contracts/v1";
 
 export function transcriptItemCopy(item: SessionSnapshotTranscriptItemV1): string {
@@ -20,6 +20,7 @@ function subscribeReducedMotion(onChange: () => void) {
 
 export function useTranscriptReveal(items: SessionSnapshotTranscriptItemV1[], ready = true) {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const seeded = useRef(false);
   const signature = items.map((item) => `${item.item_id}:${item.status}:${item.content ?? ""}`).join("|");
   const reduceMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -28,7 +29,20 @@ export function useTranscriptReveal(items: SessionSnapshotTranscriptItemV1[], re
   );
 
   useEffect(() => {
-    if (!ready || reduceMotion) {
+    if (!ready) {
+      seeded.current = false;
+      return;
+    }
+
+    if (!seeded.current) {
+      seeded.current = true;
+      setRevealed(copies(items));
+      if (reduceMotion) {
+        return;
+      }
+    }
+
+    if (reduceMotion) {
       return;
     }
 

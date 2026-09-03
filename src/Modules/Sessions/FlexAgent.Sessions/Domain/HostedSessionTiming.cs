@@ -4,10 +4,42 @@ public static class HostedSessionTiming
 {
     public const int SyntheticDevelopmentActiveDurationSeconds = 45 * 60;
 
-    public static int ResolveBudget(int? frozenPerAttemptDurationSeconds) =>
-        frozenPerAttemptDurationSeconds is > 0
-            ? frozenPerAttemptDurationSeconds.Value
-            : SyntheticDevelopmentActiveDurationSeconds;
+    public static HostedTimingProjection Project(
+        SessionLifecycleState lifecycle,
+        DateTimeOffset startedAt,
+        DateTimeOffset lastCommittedAt,
+        DateTimeOffset authoritativeUtc,
+        HostedFrozenTimingPolicy policy,
+        int accumulatedPausedSeconds = 0,
+        DateTimeOffset? openPauseStartedAt = null)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        if (policy.Reconstruction == HostedTimingReconstruction.Unavailable)
+        {
+            return new HostedTimingProjection("unavailable", null, "none", null, null);
+        }
+
+        if (policy.Reconstruction == HostedTimingReconstruction.Unbounded
+            || policy.BudgetSeconds is not > 0)
+        {
+            return new HostedTimingProjection("disabled", null, "none", null, null);
+        }
+
+        if (policy.WarningSchedule.Count == 0)
+        {
+            return new HostedTimingProjection("unavailable", null, "none", null, null);
+        }
+
+        return Project(
+            lifecycle,
+            startedAt,
+            lastCommittedAt,
+            authoritativeUtc,
+            policy.BudgetSeconds.Value,
+            accumulatedPausedSeconds,
+            openPauseStartedAt,
+            policy.WarningSchedule);
+    }
 
     public static HostedTimingProjection Project(
         SessionLifecycleState lifecycle,

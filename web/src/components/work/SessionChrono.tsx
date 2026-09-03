@@ -9,7 +9,7 @@ const SWEEP = 300;
 
 export function projectedRemainingSeconds(snapshot: SessionSnapshotV1 | null, nowMs: number): number | null {
   const timing = snapshot?.timing;
-  if (!timing || timing.policy === "disabled" || timing.remaining_seconds == null) {
+  if (!timing || timing.policy === "disabled" || timing.policy === "unavailable" || timing.remaining_seconds == null) {
     return null;
   }
   const sealing = snapshot?.lifecycle_state === "completing";
@@ -86,9 +86,11 @@ export function SessionChrono({
             {remaining == null ? "—" : formatClock(remaining)}
           </p>
           <p className="chrono-note">
-            {paused
-              ? "Paused. Remaining active time is held on the server."
-              : "Display aid from the last confirmed server remaining time."}
+            {snapshot?.timing?.policy === "unavailable"
+              ? "Authoritative timing cannot be reconstructed for this Session."
+              : paused
+                ? "Paused. Remaining active time is held on the server."
+                : "Display aid from the last confirmed server remaining time."}
           </p>
         </div>
         {remaining == null ? null : (
@@ -114,7 +116,7 @@ export function SessionChrono({
       </div>
       <div className="chrono-stage">
         <p className="stage-line">
-          Stage — <span>{terminal ? "Complete" : sealing ? "Sealing" : "Examination"}</span>{" "}
+          Stage — <span>{terminal ? "Complete" : sealing || remaining === 0 ? "Sealing" : "Examination"}</span>{" "}
           <span className="stage-count">{stages.stage} of {stages.total}</span>
         </p>
         <StageBars stage={stages.stage} total={stages.total} complete={terminal} />

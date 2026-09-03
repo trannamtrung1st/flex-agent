@@ -1,5 +1,4 @@
 using System.Data;
-using System.Globalization;
 using Dapper;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
@@ -12,7 +11,8 @@ public sealed class PostgresHostedSessionSnapshotQuery(
     IHostedSessionAccess access,
     ITrustedSessionBindingSource bindings,
     PostgresConnectionAccessor connectionAccessor,
-    PostgresSessionRuntimeRepository runtimeRepository) : IHostedSessionSnapshotQuery
+    PostgresSessionRuntimeRepository runtimeRepository,
+    IHostedSessionFrozenTimingSource? frozenTimingSource = null) : IHostedSessionSnapshotQuery
 {
     public async Task<HostedSessionQueryResult> GetAsync(
         TrustedRuntimeActor actor,
@@ -85,26 +85,14 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
-            var baselineJson = await scope.Transaction.Connection!.QuerySingleOrDefaultAsync<string?>(
-                new CommandDefinition(
-                    """
-                    SELECT baseline.document::text
-                    FROM submissions_attempts AS attempt
-                    INNER JOIN assessment_activation_baselines AS baseline
-                        ON baseline.organization_id = attempt.organization_id
-                       AND baseline.baseline_id = attempt.baseline_id
-                    WHERE attempt.organization_id = @OrganizationId
-                      AND attempt.session_id = @SessionId
-                    """,
-                    new
-                    {
-                        session.Ownership.OrganizationId,
-                        session.Ownership.SessionId,
-                    },
-                    scope.Transaction,
-                    cancellationToken: cancellationToken));
             await scope.CommitAsync(cancellationToken);
-            var frozenTiming = HostedSessionFrozenTiming.FromActivationBaselineDocument(baselineJson);
+            var frozenTiming = frozenTimingSource is null
+                ? HostedFrozenTimingPolicy.UnavailablePolicy
+                : await frozenTimingSource.LoadAsync(
+                    session.Ownership.OrganizationId,
+                    session.Ownership.SessionId,
+                    startedAt,
+                    cancellationToken);
             return new HostedSessionQueryResult(
                 true,
                 "session.snapshot.loaded",
@@ -113,8 +101,7 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     projectionKind,
                     observedAt,
                     startedAt,
-                    frozenTiming.BudgetSeconds,
-                    frozenTiming.WarningSchedule));
+                    frozenTiming));
         }
         catch
         {
@@ -193,14 +180,55 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                 return Denied();
             }
 
+            var current = snapshot.Snapshot;
+            if (current.RemainingSeconds == 0
+                && (current.LifecycleState == "active" || current.LifecycleState == "paused"))
+            {
+                var expiryVersion = current.SessionVersion;
+                foreach (var transition in new[]
+                         {
+                             SessionLifecycleTransitions.BeginCompleting,
+                             SessionLifecycleTransitions.Complete,
+                         })
+                {
+                    var step = await lifecycle.ChangeAsync(
+                        new ChangeSessionLifecycleCommand(
+                            actor,
+                            binding.Ownership,
+                            expiryVersion,
+                            transition,
+                            TryParseCorrelation(commandId),
+                            "http.session_command",
+                            transition == SessionLifecycleTransitions.Complete
+                                ? TerminalReasonCategories.TimeExpiry
+                                : null),
+                        binding,
+                        cancellationToken);
+                    if (!step.Succeeded && step.OutcomeCode != SessionLifecycleOutcomeCodes.Reconciled)
+                    {
+                        break;
+                    }
+
+                    expiryVersion = step.SessionVersion;
+                }
+
+                snapshot = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
+                if (!snapshot.Found || snapshot.Snapshot is null)
+                {
+                    return Denied();
+                }
+
+                current = snapshot.Snapshot;
+            }
+
             return new HostedSessionCommandResult(
                 true,
                 "accepted",
                 "session.reconcile.succeeded",
                 "none",
-                snapshot.Snapshot.PermittedActions,
-                snapshot.Snapshot.SessionVersion,
-                snapshot.Snapshot.SessionSequence);
+                current.PermittedActions,
+                current.SessionVersion,
+                current.SessionSequence);
         }
 
         if (commandType == "session.message.send.v1")

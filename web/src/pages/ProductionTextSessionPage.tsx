@@ -11,6 +11,7 @@ import { SessionChrono } from "../components/work/SessionChrono";
 import { AgentStatusLine, ProtocolPlate } from "../components/work/SessionMarks";
 import { TextSessionStation } from "../components/work/TextSessionStation";
 import { sessionKeys } from "../features/session/queryKeys";
+import { sessionAtTimeBoundary } from "../features/session/session-stage";
 import { emptySessionLiveView, sessionLiveReducer } from "../features/session/session-view";
 import { transcriptItemCopy, useTranscriptReveal } from "../features/session/useTranscriptReveal";
 import type { SessionCommandEnvelopeV1, SessionHostedEventEnvelopeV1, SessionSnapshotV1 } from "../contracts/v1";
@@ -36,6 +37,9 @@ function can(snapshot: SessionSnapshotV1 | null, action: SessionSnapshotV1["perm
 function examinerLine(snapshot: SessionSnapshotV1 | null, working: boolean, terminal: boolean) {
   if (terminal) {
     return "Your record is stored. This confirmation is not a score or Result.";
+  }
+  if (sessionAtTimeBoundary(snapshot)) {
+    return "Checking Session end. Sending is closed.";
   }
   if (snapshot?.lifecycle_state === "completing") {
     return "The Session is sealing. Sending is closed.";
@@ -66,6 +70,8 @@ export function ProductionTextSessionPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const ledgerRef = useRef<HTMLElement>(null);
   const sealedOnce = useRef<string | null>(null);
+  const expiryReconcileOnce = useRef<string | null>(null);
+  const expiredByTime = useRef(false);
 
   const snapshotQuery = useQuery({
     queryKey: sessionKeys.snapshot(sessionId),
@@ -99,7 +105,10 @@ export function ProductionTextSessionPage() {
     return () => source.close();
   }, [apiState, sessionId]);
 
-  const submit = useCallback(async (command: SessionCommandEnvelopeV1) => {
+  const submit = useCallback(async (
+    command: SessionCommandEnvelopeV1,
+    options?: { staleVersionRetry?: boolean },
+  ) => {
     dispatch({ type: "send", sendState: "pending" });
     try {
       const outcome = await client.submitCommand(sessionId, command);
@@ -109,11 +118,35 @@ export function ProductionTextSessionPage() {
         return;
       }
       if (!outcome.succeeded && outcome.outcome_category !== "duplicate") {
+        if (
+          outcome.outcome_category === "conflict"
+          && command.command_type === "session.message.send.v1"
+          && !options?.staleVersionRetry
+        ) {
+          const refreshed = await snapshotQuery.refetch();
+          const nextVersion = refreshed.data?.session_version;
+          if (
+            refreshed.data
+            && nextVersion != null
+            && nextVersion !== command.expected_session_version
+          ) {
+            dispatch({ type: "snapshot", snapshot: refreshed.data });
+            const retryKey = createSessionIdempotencyKey();
+            setPendingIdempotency(retryKey);
+            await submit({
+              ...command,
+              command_id: createSessionCommandId(),
+              idempotency_key: retryKey,
+              expected_session_version: nextVersion,
+            }, { staleVersionRetry: true });
+            return;
+          }
+        }
         dispatch({ type: "send", sendState: "idle" });
         dispatch({
           type: "error",
           message: outcome.outcome_category === "conflict"
-            ? "This Session record was updated. Send again."
+            ? "This conversation is still the same Session. Send again."
             : "The Session could not accept that command.",
         });
         await snapshotQuery.refetch();
@@ -129,6 +162,7 @@ export function ProductionTextSessionPage() {
         setPendingIdempotency(null);
       }
       await snapshotQuery.refetch();
+      dispatch({ type: "send", sendState: "idle" });
     } catch {
       dispatch({ type: "send", sendState: "uncertain" });
       dispatch({ type: "error", message: "The command outcome is uncertain. Reconcile before sending again." });
@@ -142,7 +176,10 @@ export function ProductionTextSessionPage() {
   const completing = snapshot?.lifecycle_state === "completing";
   const paused = snapshot?.lifecycle_state === "paused";
   const working = snapshot?.activity?.work_state === "working" || snapshot?.activity?.work_state === "queued";
-  const composerClosed = terminal || completing || paused || !can(snapshot, "send_message");
+  const sendBusy = view.sendState !== "idle";
+  const sendHeld = sendBusy || working;
+  const timeEnded = sessionAtTimeBoundary(snapshot);
+  const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message");
   const items = snapshot?.transcript?.items ?? [];
   const revealed = useTranscriptReveal(items, snapshot != null);
 
@@ -177,7 +214,12 @@ export function ProductionTextSessionPage() {
      after the authoritative snapshot arrives. */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!snapshot || snapshot.projection_kind !== "participant" || snapshot.lifecycle_state !== "completing") {
+    if (
+      !snapshot
+      || snapshot.projection_kind !== "participant"
+      || snapshot.lifecycle_state !== "completing"
+      || sessionAtTimeBoundary(snapshot)
+    ) {
       return;
     }
     if (working || !can(snapshot, "complete_session") || sealedOnce.current === snapshot.session_id) {
@@ -195,6 +237,30 @@ export function ProductionTextSessionPage() {
       payload: {},
     });
   }, [sessionId, snapshot, submit, working]);
+
+  useEffect(() => {
+    if (!snapshot || snapshot.projection_kind !== "participant" || !sessionAtTimeBoundary(snapshot)) {
+      return;
+    }
+    if (!can(snapshot, "reconcile") || expiryReconcileOnce.current === snapshot.session_id) {
+      return;
+    }
+
+    expiryReconcileOnce.current = snapshot.session_id;
+    expiredByTime.current = true;
+    void submit({
+      schema_version: "v1",
+      command_type: "session.reconcile.v1",
+      command_id: createSessionCommandId(),
+      idempotency_key: createSessionIdempotencyKey(),
+      session_locator: { session_id: sessionId },
+      expected_session_version: snapshot.session_version,
+      client_last_seen_sequence: snapshot.last_confirmed_sequence === "0"
+        ? "1"
+        : snapshot.last_confirmed_sequence,
+      payload: {},
+    });
+  }, [sessionId, snapshot, submit]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (snapshotQuery.isError && !snapshot) {
@@ -247,7 +313,7 @@ export function ProductionTextSessionPage() {
         </div>
       )}
       warned={snapshot?.timing?.warning_code === "imminent"}
-      complete={terminal}
+      complete={terminal || timeEnded}
       mainRef={ledgerRef}
       instruments={(
         <>
@@ -297,7 +363,7 @@ export function ProductionTextSessionPage() {
           <ReadoutList
             className="readout-stack readout-stack--sys"
             rows={[
-              { term: "Record", value: terminal ? "Preserved" : "Open" },
+              { term: "Record", value: terminal ? "Preserved" : timeEnded ? "Closing" : "Open" },
               { term: "Link", value: view.connection === "connected" ? "Nominal" : "Recovering" },
             ]}
           />
@@ -305,14 +371,20 @@ export function ProductionTextSessionPage() {
         </>
       )}
       composer={composerClosed ? (
-        <p>{paused ? "This Session is paused. Sending is closed until an administrator resumes it." : "Composer closed."}</p>
+        <p>{
+          paused && !timeEnded
+            ? "This Session is paused. Sending is closed until an administrator resumes it."
+            : timeEnded || expiredByTime.current
+              ? "Time ended. Sending is closed."
+              : "Composer closed."
+        }</p>
       ) : (
         <>
           <form
             className="composer"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!snapshot || view.sendState !== "idle" || view.draft.trim().length === 0) {
+              if (!snapshot || sendHeld || view.draft.trim().length === 0) {
                 return;
               }
               const idempotency = pendingIdempotency ?? createSessionIdempotencyKey();
@@ -336,7 +408,7 @@ export function ProductionTextSessionPage() {
               placeholder="Write your next message"
               autoComplete="off"
               spellCheck
-              disabled={view.sendState !== "idle"}
+              disabled={sendBusy}
               value={view.draft}
               onChange={(event) => {
                 dispatch({ type: "draft", draft: event.target.value });
@@ -354,8 +426,8 @@ export function ProductionTextSessionPage() {
               id="transmitBtn"
               variant="transmit"
               type="submit"
-              waiting={view.sendState === "pending"}
-              disabled={view.sendState !== "idle" || view.draft.trim().length === 0}
+              waiting={view.sendState === "pending" || view.sendState === "checking"}
+              disabled={sendHeld || view.draft.trim().length === 0}
             >
               <span>Transmit</span>
               {view.sendState === "pending" ? null : <TransmitChevron />}
@@ -418,7 +490,7 @@ export function ProductionTextSessionPage() {
           </section>
           <SessionChrono
             snapshot={snapshot}
-            canSubmit={can(snapshot, "complete_session") && !terminal}
+            canSubmit={can(snapshot, "complete_session") && !terminal && !timeEnded}
             onSubmit={() => setConfirmComplete(true)}
           />
         </>
@@ -497,7 +569,7 @@ export function ProductionTextSessionPage() {
           const copy = revealed[item.item_id] ?? transcriptItemCopy(item);
           const target = transcriptItemCopy(item);
           const arriving = item.author === "agent" && copy.length > 0 && copy.length < target.length;
-          const active = !terminal && !completing && index === items.length - 1;
+          const active = !terminal && !completing && !timeEnded && index === items.length - 1;
           return (
             <li
               key={item.item_id}
@@ -514,7 +586,15 @@ export function ProductionTextSessionPage() {
             </li>
           );
         })}
-        {completing ? (
+        {timeEnded ? (
+          <li className="ledger-complete">
+            <div className="complete-plate pane pane--notched">
+              <h2 className="complete-title">Checking Session end</h2>
+              <p className="complete-copy">Sending is closed. The server is reconciling the time cutoff. This is not a score or Result.</p>
+            </div>
+          </li>
+        ) : null}
+        {completing && !timeEnded ? (
           <li className="ledger-complete">
             <div className="complete-plate pane pane--notched">
               <h2 className="complete-title">Session completing</h2>
@@ -529,9 +609,13 @@ export function ProductionTextSessionPage() {
                 <circle cx="26" cy="26" r="24" />
                 <path d="M15 27l8 8 15-17" />
               </svg>
-              <h2 className="complete-title">Session Complete</h2>
-              <p className="complete-copy">Your examination record has been preserved. Nothing further is required of you.</p>
-              <p className="complete-copy">A human reviewer will inspect the evaluation before any result is released. This confirmation is not a score or Result.</p>
+              <h2 className="complete-title">{expiredByTime.current ? "Time ended. Session completed" : "Session Complete"}</h2>
+              <p className="complete-copy">
+                {expiredByTime.current
+                  ? "Only content accepted before the Session cutoff is included."
+                  : "Your examination record has been preserved. Nothing further is required of you."}
+              </p>
+              <p className="complete-copy">This confirmation is not a score or Result.</p>
               {snapshot?.session_id ? (
                 <p className="complete-sub">
                   Record {snapshot.session_id} · Sealed

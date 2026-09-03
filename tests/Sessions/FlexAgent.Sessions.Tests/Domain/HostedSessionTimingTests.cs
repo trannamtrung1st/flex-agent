@@ -131,4 +131,39 @@ public sealed class HostedSessionTimingTests
         Assert.Equal(60, timing.RemainingSeconds);
         Assert.Equal("none", timing.WarningCode);
     }
+
+    [Fact]
+    public void Timed_policy_without_a_frozen_warning_schedule_is_unavailable()
+    {
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var now = started.AddMinutes(10);
+
+        var timing = HostedSessionTiming.Project(
+            SessionLifecycleState.Active,
+            started,
+            now,
+            now,
+            new HostedFrozenTimingPolicy(HostedTimingReconstruction.Timed, 3600, []));
+
+        Assert.Equal("unavailable", timing.Policy);
+        Assert.Null(timing.RemainingSeconds);
+        Assert.Null(timing.BudgetSeconds);
+    }
+
+    [Fact]
+    public void Unbounded_policy_disables_the_timer()
+    {
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var now = started.AddMinutes(10);
+
+        var timing = HostedSessionTiming.Project(
+            SessionLifecycleState.Active,
+            started,
+            now,
+            now,
+            HostedFrozenTimingPolicy.UnboundedPolicy);
+
+        Assert.Equal("disabled", timing.Policy);
+        Assert.Null(timing.RemainingSeconds);
+    }
 }

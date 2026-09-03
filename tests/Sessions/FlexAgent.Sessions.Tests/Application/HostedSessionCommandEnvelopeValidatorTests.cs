@@ -82,6 +82,28 @@ public sealed class HostedSessionCommandEnvelopeValidatorTests
     }
 
     [Fact]
+    public void Http_pause_with_committed_uuid_locator_is_canonically_valid()
+    {
+        var sessionId = Guid.Parse("55555555-5555-4555-8555-555555555555");
+        var utf8 = System.Text.Encoding.UTF8.GetBytes(
+            $$"""
+            {
+              "schema_version": "v1",
+              "command_type": "session.pause.v1",
+              "command_id": "cmd.synthetic.0099",
+              "idempotency_key": "idem-synthetic-0099",
+              "session_locator": { "session_id": "{{sessionId:D}}" },
+              "expected_session_version": 3,
+              "payload": {}
+            }
+            """);
+
+        Assert.True(HostedSessionCommandEnvelopeValidator.IsCanonicalSchemaValid(utf8));
+        using var document = System.Text.Json.JsonDocument.Parse(utf8);
+        Assert.True(HostedSessionCommandEnvelopeValidator.TryRead(document.RootElement, sessionId, out _));
+    }
+
+    [Fact]
     public void Http_terminate_reads_reason_code()
     {
         var sessionId = Guid.Parse("55555555-5555-4555-8555-555555555555");

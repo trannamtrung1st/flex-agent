@@ -240,6 +240,30 @@ public sealed class ChangeSessionLifecycleCommandTests
     }
 
     [Fact]
+    public void Complete_with_time_expiry_reason_maps_to_completed_attempt()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var handler = new ChangeSessionLifecycleHandler();
+        Assert.True(handler.Handle(
+            CreateCommand(session, SessionLifecycleTransitions.BeginCompleting),
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(1)).Succeeded);
+
+        var result = handler.Handle(
+            CreateCommand(session, SessionLifecycleTransitions.Complete) with
+            {
+                ReasonCode = TerminalReasonCategories.TimeExpiry,
+            },
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(SessionLifecycleState.Completed, session.LifecycleState);
+        Assert.Equal(TerminalReasonCategories.TimeExpiry, session.TerminalRecord!.ReasonCategory);
+        Assert.Equal(AttemptTerminalMappings.Completed, session.TerminalRecord.AttemptMapping);
+    }
+
+    [Fact]
     public void Terminate_reason_is_carried_on_the_command_and_lifecycle_audit_seed()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

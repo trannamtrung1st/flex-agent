@@ -40,6 +40,15 @@ public interface IHostedSessionAccess
         CancellationToken cancellationToken = default);
 }
 
+public interface IHostedSessionFrozenTimingSource
+{
+    Task<HostedFrozenTimingPolicy> LoadAsync(
+        Guid organizationId,
+        Guid sessionId,
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IHostedSessionSnapshotQuery
 {
     Task<HostedSessionQueryResult> GetAsync(

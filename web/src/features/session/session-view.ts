@@ -46,7 +46,7 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
       return {
         ...state,
         snapshot: applyObservedVersion(state.snapshot, action.session_version, action.session_sequence),
-        sendState: "idle",
+        sendState: "checking",
         lastError: null,
       };
     case "connection":

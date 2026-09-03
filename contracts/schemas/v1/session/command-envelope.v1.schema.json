@@ -45,7 +45,7 @@
           "required": ["session_id"],
           "properties": {
             "session_id": {
-              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_command_locator_id"
             }
           }
         },

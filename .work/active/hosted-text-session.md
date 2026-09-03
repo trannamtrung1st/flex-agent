@@ -262,6 +262,15 @@ authorized by this plan because approved families and donors already exist.
 
 # Plan
 
+- [x] Independent review follow-up (keep `in-progress`; do not retire):
+  reconstruct hosted timing as unbounded | timed | unavailable; apply
+  `EffectiveTimingEvaluator` duration at Session start (`REQ-SESS-20`);
+  fail closed when a timed Session has no frozen warning schedule
+  (`REQ-SESS-24`, `PROP-6`); do not map missing/corrupt/`unbounded` onto
+  45 minutes. Then permit UUID Session locators on the canonical command
+  envelope and seed transcript reveal as already complete. Pause-interval
+  persistence stays. Expiry/warning-emission/multi-tab/offline/terminate-live
+  /forced-colors/400% evidence stays open.
 - [x] Review-driven correctness pass (keep `in-progress`; do not retire):
   authoritative timing from frozen Attempt/Activity duration plus accumulated
   pause intervals and configured warnings (`REQ-SESS-20`–`24`, `PROP-2`,
@@ -399,21 +408,57 @@ authorized by this plan because approved families and donors already exist.
   candidate admin sign-in.
 - [x] Fix examiner work-state lingering after Agent complete and same-Session
   send conflicts caused by Worker version bumps the SPA never saw.
+- [x] Same-Session follow-up send: hold Transmit while Agent work is
+  queued/working or snapshot sync is in flight; on `trigger.admission.stale.version`
+  refetch once and retry the same message on this Session (not a new Session).
+- [x] Authoritative remaining `0`: close send/submit, show Checking then
+  **Time ended. Session completed** (not a Result), stage 2 of 2. Reconcile
+  seals Active/Paused Sessions via `begin_completing` + `complete` with
+  `time_expiry` (`REQ-SESS-33`, `AC-SESS-16`, `PROP-5`, `UI-SESS` expiry).
 - [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
   `docs/current-state.md` is not updated in this slice; promote only after
   those reviews. Keep this file until review and durable-truth promotion.
 
 # Current state
 
-Independent review blockers are being implemented in place. Task stays
-`in-progress`. Authoritative timing now subtracts persisted
-`session_pause_intervals` and reads frozen Activity
-`per_attempt_duration_seconds` (45-minute Proposed budget only when that
-value is absent or unbounded). Configured warning keys on the timing domain
-are projected; none are invented. Authoritative `unavailable` wins in the
-SPA. Terminate `reason_code` is on the lifecycle command and audit seed.
-Hosted HTTP commands validate through the canonical command-envelope schema
-(UUID locator rewritten to a stable_id placeholder). Web lint is green.
+Expiry boundary: authoritative remaining `0` closes send/submit, moves
+stage to 2 of 2, shows Checking then **Time ended. Session completed**
+(not a Result). Reconcile on that boundary seals Active/Paused via
+`time_expiry` (`PROP-5` Completed). Live `:5274` Session `01a06512-…ae7d4c`
+became `completed`; composer closed; Return to assignment present.
+RedirectUri restored to canonical `:18080`. Reload of an expiry-completed
+Session still uses the generic complete plate until `terminal_reason` is
+projected. Worker due-scan of remaining `0` without an open console is not
+in this slice.
+
+Same-Session follow-up send no longer surfaces
+"This Session record was updated" on the happy path. Transmit stays held
+while Agent work is queued/working and while the post-accept snapshot
+refetch is in flight. A single `trigger.admission.stale.version` conflict
+refetches then retries the same message on the same Session locator.
+
+Live candidate `:5274` Attempt 2 Session `01a0654c-…ef4851`: first send
+accepted; immediate second send 409 then 200 retry; transcript kept both
+turns; examiner returned to awaiting. RedirectUri restored to canonical
+`:18080`. Prior Session `01a06512-…ae7d4c` is time-budget exhausted and
+rejects further sends (`trigger.admission.budget.exhausted`).
+
+Independent review follow-up is in place; task stays `in-progress`. Hosted
+timing reconstruction now distinguishes `unbounded` (timer disabled), timed
+effective duration (cohort baseline plus `EffectiveTimingEvaluator` at
+Session start), and unavailable (missing/corrupt provenance, or a timed
+Session with no frozen warning schedule). The 45-minute synthetic budget is
+no longer the default for missing, unbounded, or invalid data. Canonical
+command locators accept committed UUIDs without rewriting the body.
+Restored Agent transcript text no longer typewrites from empty on first
+paint. Pause-interval persistence is unchanged.
+
+Interim: accommodations are evaluated at `session_runtimes.created_at`, not
+a dedicated frozen Attempt-timing row. A later revoke can drop a grant from
+current rows even if it applied at start. Warning keys are consumed only
+when present on the frozen timing domain; `ActivationBaselineDocument`
+still does not write them, so real timed Sessions project `unavailable`
+until a workflow/configuration producer exists. Do not invent thresholds.
 
 Still not done: rebuild live API/Worker for 0068 + interval persist, full
 Implementation CI, and the previously missing hosted-session states
@@ -576,7 +621,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Review-driven P1/P2 correctness (timing, unavailable, terminate reason, HTTP schema, web lint) | confirmed for this pass | 2026-09-03 confirm: Sessions 501; Hosted HTTP 7; Web lint green; session-view/chrono/page 21. API+Worker rebuilt with command-envelope COPY; migrate ran `0068`. Live `:5274` snapshot `active_duration` budget 2700, remaining 0, warning `none` on long-running Session `01a06512-…ae7d4c` (elapsed already exceeds the Proposed 45-minute budget; no invented warnings). Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
+| Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for this pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
 | Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |
 | Existing contract/runtime/host/frontend seam inventory | complete for planning | 2026-09-03: command envelope C#/schema present; production SSE only; snapshot/command host, hosted event contract, production Session page, `/v1/sessions` gateway route, and authenticated-browser Worker service absent; Design Lab donor identified |

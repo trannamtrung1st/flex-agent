@@ -78,7 +78,7 @@ export interface SessionAgentIdentityV1 {
 }
 
 export interface SessionTimingProjectionV1 {
-  policy: 'disabled' | 'active_duration' | 'absolute_deadline';
+  policy: 'disabled' | 'active_duration' | 'absolute_deadline' | 'unavailable';
   remaining_seconds?: number | null;
   warning_code?: 'none' | 'approaching' | 'imminent' | null;
   pause_started_at?: string;

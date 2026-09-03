@@ -6,6 +6,7 @@ using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Infrastructure;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -259,6 +260,7 @@ internal static class ApiSessionEventComposition
         services.AddSingleton<PostgresAcceptParticipantMessageCoordinator>();
         services.AddSingleton<PostgresSessionLifecycleCoordinator>();
         services.AddSingleton<IHostedSessionAccess, Adr002HostedSessionAccess>();
+        services.AddSingleton<IHostedSessionFrozenTimingSource, PostgresHostedSessionFrozenTimingSource>();
         services.AddSingleton<IHostedSessionSnapshotQuery, PostgresHostedSessionSnapshotQuery>();
         services.AddSingleton<IHostedSessionCommandCoordinator, PostgresHostedSessionCommandCoordinator>();
         services.AddHealthChecks()

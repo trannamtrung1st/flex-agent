@@ -96,7 +96,7 @@ public sealed class ChangeSessionLifecycleHandler(ISessionRuntimeTelemetry? tele
                         break;
                     }
 
-                    session.Complete(authoritativeUtc);
+                    session.Complete(authoritativeUtc, command.ReasonCode);
                     result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
                     break;
                 case SessionLifecycleTransitions.Terminate:

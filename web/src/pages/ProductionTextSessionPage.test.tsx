@@ -227,23 +227,64 @@ describe("hosted Session pages", () => {
     );
   });
 
-  it("refreshes the snapshot after a stale-version conflict instead of treating it as uncertain", async () => {
+  it("holds Transmit while the Agent turn is still working on this Session", async () => {
     stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          activity: { work_state: "working" },
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    const composer = await screen.findByRole("textbox", { name: "Compose reply" });
+    fireEvent.change(composer, { target: { value: "too soon" } });
+
+    expect(composer).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
+    expect(screen.getByText("Considering your reply…")).toBeVisible();
+  });
+
+  it("retries a stale-version send on the same Session after refreshing the snapshot", async () => {
+    let commandCalls = 0;
+    const fetchMock = stubFetch((url, init) => {
       if (url.includes("/commands")) {
+        commandCalls += 1;
+        const body = JSON.parse(String(init?.body));
+        if (commandCalls === 1) {
+          expect(body.expected_session_version).toBe(2);
+          return jsonResponse({
+            schema_version: "v1",
+            succeeded: false,
+            outcome_category: "conflict",
+            outcome_code: "trigger.admission.stale.version",
+            command_id: body.command_id,
+            command_type: "session.message.send.v1",
+            session_id: sessionId,
+            permitted_recovery_action: "reconcile_snapshot",
+            permitted_actions: ["send_message", "reconcile"],
+          }, 409);
+        }
+
+        expect(body.expected_session_version).toBe(4);
+        expect(body.payload.message_text).toBe("Stale send");
+        expect(body.session_locator.session_id).toBe(sessionId);
         return jsonResponse({
           schema_version: "v1",
-          succeeded: false,
-          outcome_category: "conflict",
-          outcome_code: "trigger.admission.stale.version",
-          command_id: "cmd.conflict",
-          command_type: "session.message.send.v1",
+          succeeded: true,
+          outcome_category: "accepted",
+          outcome_code: "accepted",
+          command_id: body.command_id,
+          command_type: body.command_type,
           session_id: sessionId,
-          permitted_recovery_action: "reconcile_snapshot",
-          permitted_actions: ["send_message", "reconcile"],
-        }, 409);
+          session_version: 5,
+          permitted_recovery_action: "none",
+          permitted_actions: ["send_message"],
+        });
       }
       if (url.includes(`/v1/sessions/${sessionId}`)) {
-        return jsonResponse(participantSnapshot({ session_version: 4 }));
+        return jsonResponse(participantSnapshot({ session_version: commandCalls === 0 ? 2 : 4 }));
       }
       return jsonResponse({ error: "unexpected" }, 500);
     });
@@ -253,9 +294,18 @@ describe("hosted Session pages", () => {
     fireEvent.change(composer, { target: { value: "Stale send" } });
     fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
 
-    expect(await screen.findByText("This Session record was updated. Send again.")).toBeVisible();
+    await waitFor(() => {
+      expect(commandCalls).toBe(2);
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/commands"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(screen.queryByText("This Session record was updated. Send again.")).toBeNull();
     expect(screen.queryByText("The command outcome is uncertain. Reconcile before sending again.")).toBeNull();
-    expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("Stale send");
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("");
+    });
   });
 
   it("keeps administrator operations free of transcript content", async () => {
@@ -300,6 +350,71 @@ describe("hosted Session pages", () => {
     expect(screen.getByLabelText("Historical transcript")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Transmit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  });
+
+  it("closes send at remaining zero and reconciles to the time-ended confirmation", async () => {
+    let expired = false;
+    const fetchMock = stubFetch((url, init) => {
+      if (url.includes("/commands")) {
+        const body = JSON.parse(String(init?.body));
+        expect(body.command_type).toBe("session.reconcile.v1");
+        expired = true;
+        return jsonResponse({
+          schema_version: "v1",
+          succeeded: true,
+          outcome_category: "accepted",
+          outcome_code: "session.reconcile.succeeded",
+          command_id: body.command_id,
+          command_type: body.command_type,
+          session_id: sessionId,
+          permitted_recovery_action: "none",
+          permitted_actions: ["view_transcript", "return_to_my_work"],
+          session_version: 8,
+        });
+      }
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot(expired
+          ? {
+              lifecycle_state: "completed",
+              session_version: 8,
+              permitted_actions: ["view_transcript", "return_to_my_work"],
+              timing: {
+                policy: "active_duration",
+                remaining_seconds: 0,
+                warning_code: "none",
+                budget_seconds: 2700,
+              },
+            }
+          : {
+              permitted_actions: ["reconcile", "return_to_my_work"],
+              timing: {
+                policy: "active_duration",
+                remaining_seconds: 0,
+                warning_code: "none",
+                budget_seconds: 2700,
+              },
+            }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+
+    expect(await screen.findByRole("heading", { name: "Checking Session end" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit Session" })).toBeNull();
+    expect(screen.getByText("2 of 2")).toBeVisible();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/commands"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByRole("heading", { name: "Time ended. Session completed" })).toBeVisible();
+    expect(screen.getByText(/Only content accepted before the Session cutoff/)).toBeVisible();
+    expect(screen.getAllByText(/score or Result/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Return to Assignment" })).toBeVisible();
   });
 
   it("shows completion confirmation and return without a score", async () => {

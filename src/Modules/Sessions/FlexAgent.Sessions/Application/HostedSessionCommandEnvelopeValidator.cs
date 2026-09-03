@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Json.Schema;
 
 namespace FlexAgent.Sessions.Application;
@@ -22,7 +21,6 @@ public static class HostedSessionCommandEnvelopeValidator
 
     private const string EnvelopeResourceName = "FlexAgent.Sessions.Contracts.command-envelope.v1.schema.json";
     private const string PrimitivesResourceName = "FlexAgent.Sessions.Contracts.primitives.v1.schema.json";
-    private const string HttpLocatorPlaceholder = "sess.http.locator";
 
     private static readonly Dialect StrictDraft202012 = Dialect.Draft202012.With([], allowUnknownKeywords: false);
     private static readonly Lazy<JsonSchema> Schema = new(LoadSchema);
@@ -58,28 +56,7 @@ public static class HostedSessionCommandEnvelopeValidator
             return false;
         }
 
-        JsonNode? node;
-        try
-        {
-            node = JsonNode.Parse(root.GetRawText());
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-
-        if (node is not JsonObject)
-        {
-            return false;
-        }
-
-        if (node["session_locator"] is JsonObject locatorObject)
-        {
-            locatorObject["session_id"] = HttpLocatorPlaceholder;
-        }
-
-        using var normalized = JsonDocument.Parse(node.ToJsonString());
-        if (!Evaluate(normalized.RootElement))
+        if (!Evaluate(root))
         {
             return false;
         }

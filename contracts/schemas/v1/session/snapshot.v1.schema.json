@@ -68,7 +68,7 @@
       "properties": {
         "policy": {
           "type": "string",
-          "enum": ["disabled", "active_duration", "absolute_deadline"]
+          "enum": ["disabled", "active_duration", "absolute_deadline", "unavailable"]
         },
         "remaining_seconds": {
           "type": ["integer", "null"],

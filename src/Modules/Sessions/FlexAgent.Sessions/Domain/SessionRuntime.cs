@@ -437,7 +437,7 @@ public sealed partial class SessionRuntime
         Touch(authoritativeUtc);
     }
 
-    public void Complete(DateTimeOffset authoritativeUtc)
+    public void Complete(DateTimeOffset authoritativeUtc, string? reasonCategory = null)
     {
         EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState != SessionLifecycleState.Completing)
@@ -445,9 +445,12 @@ public sealed partial class SessionRuntime
             return;
         }
 
+        var reason = reasonCategory == TerminalReasonCategories.TimeExpiry
+            ? TerminalReasonCategories.TimeExpiry
+            : TerminalReasonCategories.ParticipantCompleted;
         CommitTerminal(
             SessionLifecycleState.Completed,
-            TerminalReasonCategories.ParticipantCompleted,
+            reason,
             AttemptTerminalMappings.Completed,
             authoritativeUtc);
     }

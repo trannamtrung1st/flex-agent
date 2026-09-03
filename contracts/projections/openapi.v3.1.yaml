@@ -594,6 +594,15 @@ components:
       minLength: 8
       maxLength: 128
       pattern: '^[a-z][a-z0-9._-]{7,127}$'
+    Uuid:
+      type: string
+      minLength: 36
+      maxLength: 36
+      pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    SessionCommandLocatorId:
+      oneOf:
+        - $ref: '#/components/schemas/StableId'
+        - $ref: '#/components/schemas/Uuid'
     SessionCommandEnvelopeV1:
       oneOf:
         - $ref: '#/components/schemas/SessionMessageSendCommandV1'
@@ -631,7 +640,7 @@ components:
           required: [session_id]
           properties:
             session_id:
-              $ref: '#/components/schemas/StableId'
+              $ref: '#/components/schemas/SessionCommandLocatorId'
         expected_session_version:
           type: integer
           minimum: 0
