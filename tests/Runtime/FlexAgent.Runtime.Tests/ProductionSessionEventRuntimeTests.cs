@@ -209,6 +209,63 @@ public sealed class ProductionSessionEventRuntimeTests
         Assert.Equal(harness.ActorId, harness.Handler.LastCommand?.Actor.ActorId);
         Assert.Equal(harness.SessionId, harness.Handler.LastCommand?.UntrustedSessionId);
         Assert.Null(harness.Handler.LastCommand?.UntrustedLastEventId);
+        Assert.False(harness.Handler.LastCommand?.UseHostedProjection);
+    }
+
+    [Fact]
+    public async Task Hosted_events_route_replays_with_authoritative_session_version()
+    {
+        const long sessionVersion = 6;
+        var harness = CreateHarness(sessionVersion: sessionVersion);
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/v1/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var body = await ReadUntilReplayCompleteAsync(reader, cancellationToken);
+
+        Assert.Contains("session.hosted.agent.fragment.v1", body, StringComparison.Ordinal);
+        Assert.Contains($"\"session_version\":{sessionVersion}", body, StringComparison.Ordinal);
+        Assert.True(harness.Handler.LastCommand?.UseHostedProjection);
+    }
+
+    [Fact]
+    public async Task Compatibility_events_route_does_not_emit_session_version()
+    {
+        var harness = CreateHarness(sessionVersion: 6);
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var body = await ReadUntilReplayCompleteAsync(reader, cancellationToken);
+
+        Assert.Contains("session.agent.fragment.v1", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("session_version", body, StringComparison.Ordinal);
+        Assert.False(harness.Handler.LastCommand?.UseHostedProjection);
     }
 
     [Fact]
@@ -314,7 +371,8 @@ public sealed class ProductionSessionEventRuntimeTests
         TimeSpan? revalidation = null,
         TimeSpan? poll = null,
         TimeSpan? heartbeat = null,
-        string environmentName = "Development")
+        string environmentName = "Development",
+        long sessionVersion = 0)
     {
         var organizationId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var participantId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
@@ -346,7 +404,8 @@ public sealed class ProductionSessionEventRuntimeTests
                             "Agent response fragment published.",
                             1,
                             "msg.agent.1",
-                            "secret-fragment"),
+                            "secret-fragment",
+                            SessionVersion: sessionVersion),
                     ])
                 : new AuthorizedSessionEventReplayResult(false, replayOutcome, []),
         };

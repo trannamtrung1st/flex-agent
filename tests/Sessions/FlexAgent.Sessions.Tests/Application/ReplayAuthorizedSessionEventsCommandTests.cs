@@ -274,6 +274,38 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
         Assert.Empty(result.Events);
     }
 
+    [Fact]
+    public void Hosted_replay_stamps_authoritative_session_version_and_work_state()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.hosted.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+        Assert.True(session.SessionVersion > 0);
+
+        var result = new ReplayAuthorizedSessionEventsHandler().Handle(
+            new ReplayAuthorizedSessionEventsCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                UntrustedLastEventId: null,
+                UseHostedProjection: true),
+            session);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        var fragment = Assert.Single(result.Events, evt => evt.EventType == HostedSessionEventTypes.AgentFragment);
+        var complete = Assert.Single(result.Events, evt => evt.EventType == HostedSessionEventTypes.AgentComplete);
+        Assert.Equal(session.SessionVersion, fragment.SessionVersion);
+        Assert.Equal(session.SessionVersion, complete.SessionVersion);
+        Assert.Equal("working", fragment.WorkState);
+        Assert.Equal("idle", complete.WorkState);
+        Assert.DoesNotContain(
+            result.Events,
+            evt => evt.EventType is AuthorizedSessionEventTypes.AgentFragment
+                or AuthorizedSessionEventTypes.AgentComplete);
+    }
+
     private static string ClaimParticipantPublication(SessionRuntime session, string key = "1")
     {
         var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,

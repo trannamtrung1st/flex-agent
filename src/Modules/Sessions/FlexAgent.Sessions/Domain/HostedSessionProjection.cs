@@ -396,7 +396,8 @@ public static class HostedSessionEventProjector
                 HostedSessionSnapshotProjector.FormatUtc(session.LastCommittedAt),
                 "Session reached a terminal cutoff.",
                 CutoffSequence: cutoff.ToString(CultureInfo.InvariantCulture),
-                LifecycleState: HostedSessionSnapshotProjector.MapLifecycle(session.LifecycleState)));
+                LifecycleState: HostedSessionSnapshotProjector.MapLifecycle(session.LifecycleState),
+                SessionVersion: session.SessionVersion));
         }
 
         events.Sort(static (left, right) =>

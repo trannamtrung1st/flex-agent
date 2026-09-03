@@ -63,7 +63,8 @@ public static class SessionEventEndpointExtensions
         var command = new SubscribeAuthorizedSessionEventsCommand(
             actor,
             untrustedSessionId,
-            lastEventId);
+            lastEventId,
+            UseHostedProjection: hosted);
 
         var authorization = await handler.AuthorizeAsync(command, cancellationToken);
         if (!authorization.IsPermitted

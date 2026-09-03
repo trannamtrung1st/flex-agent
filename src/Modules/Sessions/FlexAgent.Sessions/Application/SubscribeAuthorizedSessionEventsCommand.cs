@@ -12,7 +12,8 @@ public static class SessionEventSubscriptionRelationships
 public sealed record SubscribeAuthorizedSessionEventsCommand(
     TrustedRuntimeActor Actor,
     Guid UntrustedSessionId,
-    string? UntrustedLastEventId);
+    string? UntrustedLastEventId,
+    bool UseHostedProjection = false);
 
 public sealed record SessionEventSubject(
     Guid ActorId,
@@ -147,7 +148,8 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
             new ReplayAuthorizedSessionEventsCommand(
                 command.Actor,
                 binding.Ownership,
-                command.UntrustedLastEventId),
+                command.UntrustedLastEventId,
+                command.UseHostedProjection),
             binding,
             cancellationToken).ConfigureAwait(false);
     }

@@ -60,12 +60,17 @@ function participantSnapshot(overrides: Record<string, unknown> = {}) {
 }
 
 class MockEventSource {
+  static instances: MockEventSource[] = [];
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
   close() {}
   constructor() {
+    MockEventSource.instances.push(this);
     queueMicrotask(() => this.onopen?.());
+  }
+  emit(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) });
   }
 }
 
@@ -111,6 +116,7 @@ function renderAt(path: string, page: ReactNode) {
 
 describe("hosted Session pages", () => {
   afterEach(() => {
+    MockEventSource.instances = [];
     vi.unstubAllGlobals();
   });
 
@@ -249,6 +255,160 @@ describe("hosted Session pages", () => {
     expect(composer).toBeEnabled();
     expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
     expect(screen.getByText("Considering your reply…")).toBeVisible();
+  });
+
+  it("sends a second message with the Session version advanced by SSE without a stale-version retry", async () => {
+    let commandCalls = 0;
+    const fetchMock = stubFetch((url, init) => {
+      if (url.includes("/commands")) {
+        commandCalls += 1;
+        const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}");
+        expect(body.expected_session_version).toBe(commandCalls === 1 ? 2 : 6);
+        return jsonResponse({
+          schema_version: "v1",
+          succeeded: true,
+          outcome_category: "accepted",
+          outcome_code: "accepted",
+          command_id: body.command_id,
+          command_type: body.command_type,
+          session_id: sessionId,
+          session_version: commandCalls === 1 ? 3 : 7,
+          permitted_recovery_action: "none",
+          permitted_actions: ["send_message"],
+        });
+      }
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          session_version: commandCalls === 0 ? 2 : commandCalls === 1 ? 3 : 7,
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    await screen.findByRole("textbox", { name: "Compose reply" });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Compose reply" }), { target: { value: "First turn" } });
+    fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
+    await waitFor(() => expect(commandCalls).toBe(1));
+
+    const source = MockEventSource.instances[0];
+    source?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.fragment.v1",
+      session_id: sessionId,
+      session_sequence: "5",
+      session_version: 5,
+      occurred_at: new Date().toISOString(),
+      payload: {
+        summary: "Agent fragment.",
+        agent_message_id: "amsg.turn1",
+        text_delta: "Examiner reply",
+        work_state: "working",
+      },
+    });
+    source?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.complete.v1",
+      session_id: sessionId,
+      session_sequence: "6",
+      session_version: 6,
+      occurred_at: new Date().toISOString(),
+      payload: {
+        summary: "Agent complete.",
+        agent_message_id: "amsg.turn1",
+        work_state: "idle",
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Examiner reply")).toBeVisible();
+      expect(screen.queryByText("Considering your reply…")).toBeNull();
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Compose reply" }), { target: { value: "Second turn" } });
+    fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
+
+    await waitFor(() => expect(commandCalls).toBe(2));
+    const commandPosts = fetchMock.mock.calls.filter(([url]) => String(url).includes("/commands"));
+    expect(commandPosts).toHaveLength(2);
+    expect(screen.queryByText("This conversation is still the same Session. Send again.")).toBeNull();
+  });
+
+  it("restores an in-progress Agent turn from snapshot and completes it through SSE", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          session_version: 5,
+          last_confirmed_sequence: "12",
+          activity: { work_state: "working", turn_id: "turn.2" },
+          transcript: {
+            items: [
+              {
+                item_id: "msg.participant1",
+                author: "participant",
+                status: "accepted",
+                content: "Hello examiner",
+                sequence_start: "1",
+                sequence_end: "1",
+              },
+              {
+                item_id: "amsg.turn2",
+                author: "agent",
+                status: "streaming",
+                content: "Partial ",
+                sequence_start: "11",
+                sequence_end: "12",
+              },
+            ],
+            older_available: false,
+          },
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+
+    expect(await screen.findByText("Partial")).toBeVisible();
+    expect(screen.getByText("Considering your reply…")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
+
+    MockEventSource.instances[0]?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.fragment.v1",
+      session_id: sessionId,
+      session_sequence: "13",
+      session_version: 5,
+      occurred_at: new Date().toISOString(),
+      payload: {
+        summary: "Agent fragment.",
+        agent_message_id: "amsg.turn2",
+        text_delta: "reply",
+        work_state: "working",
+      },
+    });
+    MockEventSource.instances[0]?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.complete.v1",
+      session_id: sessionId,
+      session_sequence: "14",
+      session_version: 6,
+      occurred_at: new Date().toISOString(),
+      payload: {
+        summary: "Agent complete.",
+        agent_message_id: "amsg.turn2",
+        work_state: "idle",
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Partial reply")).toBeVisible();
+      expect(screen.queryByText("Considering your reply…")).toBeNull();
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Compose reply" }), { target: { value: "Follow up" } });
+    expect(screen.getByRole("button", { name: "Transmit" })).toBeEnabled();
   });
 
   it("retries a stale-version send on the same Session after refreshing the snapshot", async () => {

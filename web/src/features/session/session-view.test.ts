@@ -206,6 +206,59 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.session_version).toBe(6);
   });
 
+  it("advances Session version from hosted SSE above the snapshot baseline", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: { summary: "Agent response complete.", agent_message_id: "amsg.synthetic.0001" },
+      },
+    });
+    expect(next.snapshot?.session_version).toBe(5);
+  });
+
+  it("preserves SSE transcript items when a refetched snapshot has not caught up", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+          work_state: "working",
+        },
+      },
+    });
+    const next = sessionLiveReducer(streamed, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 4,
+        last_confirmed_sequence: "12",
+        transcript: {
+          items: [],
+          older_available: false,
+        },
+      },
+    });
+
+    expect(next.snapshot?.transcript?.items[0]?.content).toBe("Hello examiner");
+    expect(next.snapshot?.session_version).toBe(5);
+  });
+
   it("does not let a stale snapshot rewind Session version on the same Session", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
       type: "snapshot",

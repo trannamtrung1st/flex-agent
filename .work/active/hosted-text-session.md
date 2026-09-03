@@ -507,11 +507,25 @@ while Agent work is queued/working and while the post-accept snapshot
 refetch is in flight. A single `trigger.admission.stale.version` conflict
 refetches then retries the same message on the same Session locator.
 
-Live candidate `:5274` Attempt 2 Session `01a0654c-…ef4851`: first send
-accepted; immediate second send 409 then 200 retry; transcript kept both
-turns; examiner returned to awaiting. RedirectUri restored to canonical
-`:18080`. Prior Session `01a06512-…ae7d4c` is time-budget exhausted and
-rejects further sends (`trigger.admission.budget.exhausted`).
+2026-09-03 **P1 repeated-turn 409 (confirmed + fixed; keep `in-progress`)**:
+hosted SSE replay used `AuthorizedSessionEventProjector`, which left
+`SessionVersion = 0` on Agent fragment/completion events. The browser
+reducer uses `Math.max(event.session_version, snapshot.session_version)`,
+so SSE could not advance the known Session version after Agent work; the
+next send reused a stale `expected_session_version` and hit
+`409 trigger.admission.stale.version`. **Fix:** pass
+`UseHostedProjection: true` on the `/v1/sessions/{id}/events` subscribe
+path so replay uses `HostedSessionEventProjector`, stamping authoritative
+`session_version` and `work_state`. Legacy `/sessions/{id}/events`
+compatibility route unchanged. Frontend merge now preserves SSE transcript
+items ahead of a refetched snapshot sequence. **Evidence:** Sessions 533;
+Runtime 338; `session-view` vitest 10; `ProductionTextSessionPage` vitest
+14 (repeated-turn + refresh-while-working + stale-version retry).
+
+Live candidate `:5274` Attempt 2 Session `01a0654c-…ef4851` (pre-fix):
+first send accepted; immediate second send 409 then 200 retry; transcript
+kept both turns; examiner returned to awaiting. Re-verify on candidate
+after deploy.
 
 Independent review follow-up is in place; task stays `in-progress`. Hosted
 timing reconstruction now distinguishes `unbounded` (timer disabled), timed
@@ -855,6 +869,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | Running-Worker Compose expiry loop (`92b43fb`) | complete (local env-gated) | 2026-09-03 confirm: `probe-compose-hosted-expiry-sweep.sh` end-to-end green — migrate, API/Worker recreate, nginx restart, fairness 5/5, worker-loop probe 1/1 (~3s). Session `01a067b2-b631-7832-9383-04f252532c58` → `completed`, terminal `time_expiry`, Attempt `completed`. Not exercised in CI. |
 | 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
 | 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
+| Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; `Hosted_replay_stamps_authoritative_session_version_and_work_state`; hosted runtime asserts non-zero `session_version`; frontend repeated-turn + refresh-while-working + merge-ahead tests. Sessions 533; Runtime 338; session vitest 24. Live `:5274` re-verify still open. Task remains `in-progress`. |
 
 # Blockers
 

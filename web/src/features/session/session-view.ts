@@ -103,15 +103,40 @@ function mergeAuthoritativeSnapshot(
   };
   const priorItems = previous.transcript?.items ?? [];
   const nextItems = incoming.transcript?.items ?? [];
-  if (priorItems.length === 0 || nextItems.length === 0 || !incoming.transcript) {
+  if (!incoming.transcript) {
     return merged;
+  }
+
+  const incomingIds = new Set(nextItems.map((item) => item.item_id));
+  const incomingSequence = Number(incoming.last_confirmed_sequence);
+  const preservedAhead = priorItems.filter((item) => {
+    if (incomingIds.has(item.item_id)) {
+      return false;
+    }
+    const itemSequence = Number(item.sequence_end ?? item.sequence_start);
+    return Number.isFinite(itemSequence)
+      && Number.isFinite(incomingSequence)
+      && itemSequence > incomingSequence;
+  });
+
+  if (priorItems.length === 0 || nextItems.length === 0) {
+    if (preservedAhead.length === 0) {
+      return merged;
+    }
+    return {
+      ...merged,
+      transcript: {
+        ...incoming.transcript,
+        items: preservedAhead,
+      },
+    };
   }
 
   return {
     ...merged,
     transcript: {
       ...incoming.transcript,
-      items: nextItems.map((item) => {
+      items: [...nextItems, ...preservedAhead].map((item) => {
         const prior = priorItems.find((candidate) => candidate.item_id === item.item_id);
         if (!prior?.content) {
           return item;

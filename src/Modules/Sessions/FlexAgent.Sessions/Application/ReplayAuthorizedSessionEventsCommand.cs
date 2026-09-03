@@ -7,7 +7,8 @@ namespace FlexAgent.Sessions.Application;
 public sealed record ReplayAuthorizedSessionEventsCommand(
     TrustedRuntimeActor Actor,
     SessionOwnership Ownership,
-    string? UntrustedLastEventId);
+    string? UntrustedLastEventId,
+    bool UseHostedProjection = false);
 
 public interface IReplayAuthorizedSessionEventsCoordinator
 {
@@ -50,7 +51,7 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         {
             result = malformed
                 ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
-                : AuthorizedSessionEventProjector.Project(session, afterSequence: 0);
+                : Project(session, afterSequence: 0, command.UseHostedProjection);
         }
         else if (afterSequence < 1 || afterSequence > session.SessionSequence)
         {
@@ -62,7 +63,7 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         }
         else
         {
-            result = AuthorizedSessionEventProjector.Project(session, afterSequence);
+            result = Project(session, afterSequence, command.UseHostedProjection);
         }
 
         var labels = SessionRuntimeTelemetryRecording.Labels(
@@ -95,4 +96,12 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
 
     private static AuthorizedSessionEventReplayResult Denied(string outcomeCode) =>
         new(false, outcomeCode, []);
+
+    private static AuthorizedSessionEventReplayResult Project(
+        SessionRuntime session,
+        long afterSequence,
+        bool useHostedProjection) =>
+        useHostedProjection
+            ? HostedSessionEventProjector.Project(session, afterSequence)
+            : AuthorizedSessionEventProjector.Project(session, afterSequence);
 }
