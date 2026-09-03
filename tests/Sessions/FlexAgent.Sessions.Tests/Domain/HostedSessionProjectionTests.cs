@@ -138,6 +138,41 @@ public sealed class HostedSessionProjectionTests
     }
 
     [Fact]
+    public void Snapshot_participant_assembles_agent_text_when_visible_row_has_no_inline_copy()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.proj.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(
+            invocationId,
+            SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Participant,
+            DateTimeOffset.Parse("2026-09-03T00:00:00Z"));
+
+        var agent = Assert.Single(snapshot.Transcript, item => item.Author == "agent");
+        Assert.Equal("Hello examiner", agent.Content);
+        Assert.Equal("complete", agent.Status);
+        Assert.DoesNotContain(snapshot.Transcript, item => item.Status == "unavailable" && item.Author == "agent");
+    }
+
+    [Fact]
     public void Hosted_event_projector_remaps_fragments_and_adds_terminal_cutoff()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

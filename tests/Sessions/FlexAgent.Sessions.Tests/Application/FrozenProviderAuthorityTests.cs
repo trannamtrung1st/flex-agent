@@ -128,6 +128,22 @@ public sealed class FrozenModelDeploymentResolverTests
     }
 
     [Fact]
+    public void Empty_catalog_owner_is_the_synthetic_development_wildcard()
+    {
+        var frozen = SyntheticDevelopmentModelDeployment.CreateFrozenBinding();
+        var resolution = FrozenModelDeploymentResolver.Resolve(
+            SessionRuntimeTestFixtures.CreateBinding(frozenModelDeployment: frozen),
+            new InMemoryInstalledModelDeploymentProfileRegistry(
+                SyntheticDevelopmentModelDeployment.CreateProfile()),
+            new InMemoryModelDeploymentCredentialCatalog(
+                SyntheticDevelopmentModelDeployment.CreateCatalogRecord()));
+
+        Assert.True(resolution.Succeeded);
+        Assert.Equal(FrozenModelDeploymentOutcomeCodes.Succeeded, resolution.OutcomeCode);
+        Assert.Equal(SyntheticDevelopmentModelDeployment.SecretName, resolution.SecretName);
+    }
+
+    [Fact]
     public void Deployment_default_does_not_require_organization_owner()
     {
         var profile = SessionRuntimeTestFixtures.CreateInstalledProfile(

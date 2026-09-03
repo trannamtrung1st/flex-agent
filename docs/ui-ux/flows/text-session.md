@@ -837,8 +837,10 @@ journey.
 - All navigation, transcript paging, disclosures, composer entry, send, retry,
   reconnect, completion, pause/resume, termination, and safe-return actions work
   without pointer, drag, hover, sound, or motion.
-- `Enter` creates a composer line break. If enabled, `Ctrl+Enter` and
-  `Command+Enter` invoke the same guarded send action as **Send message**.
+- **Proposed override of `UI-SESS-DEC-4`:** `Enter` sends immediately (same
+  guarded action as **Transmit**); `Shift+Enter` inserts a new line. Until
+  `UI-SESS-DEC-4` is reaffirmed, production matches the Design Lab examination
+  console. The named **Transmit** button remains the primary visible action.
 - Ordinary incoming messages and Agent activity do not steal focus.
 - After accepted send, focus remains in the composer when another message is
   permitted. A confirmed pre-acceptance error moves focus to the associated
@@ -1016,6 +1018,13 @@ identifiers.
 
 ## Open questions
 
+- **Proposed.** Production live-session composer matches the Design Lab
+  examination console: `Enter` sends immediately; `Shift+Enter` inserts a new
+  line; **Transmit** remains the named primary action. This overrides
+  `UI-SESS-DEC-4` (`Enter` = newline, `Ctrl`/`Command`+`Enter` may send) until
+  that decision is reaffirmed. **Interim default:** keep Enter-to-send so the
+  live console and Lab donor stay one keyboard model.
+
 - **Proposed.** When a frozen Activity does not yet publish a per-Attempt
   duration, the hosted snapshot may project `timing.policy = active_duration`
   with a synthetic development budget of 45 minutes from `session_runtimes.created_at`.
@@ -1025,6 +1034,13 @@ identifiers.
   frozen Activity duration as soon as one is present. Do not treat the 45-minute
   figure as an approved Campaign rule, and do not invent warning thresholds or
   expiry terminalization from it.
+
+- **Proposed.** When Agent text arrives as one durable chunk (common on the
+  Development repeating adapter), the live console may reveal that committed
+  string at a bounded character cadence so the Participant still sees growth
+  after **Agent is responding**. **Interim default:** keep the cadence as
+  presentation of `UI-SESS-DEC-6` durable-before-display text only; never
+  invent tokens; `prefers-reduced-motion` shows the full committed string.
 
 Approved `UI-SESS-DEC-13` follows the approved Session requirements:
 internal no-action is not participant copy; working state resolves without an

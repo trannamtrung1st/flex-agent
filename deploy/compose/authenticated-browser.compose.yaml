@@ -164,7 +164,7 @@ services:
       ConnectionStrings__Identity: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
       Sessions__InvocationProcessing__Enabled: "true"
       Sessions__TimerPolling__Enabled: "true"
-      Sessions__ModelExecution__Adapter: fail_closed
+      Sessions__ModelExecution__Adapter: deterministic_fake
       Sessions__WorkerServiceActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae
       WorkloadIdentity__Profile: synthetic.configured_actor
     healthcheck:

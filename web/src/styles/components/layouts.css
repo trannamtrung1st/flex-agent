@@ -193,6 +193,22 @@
   --trace-terminal-size: 5px;
   --trace-terminal-rise: -3px;
   --trace-terminal-outset: -7px;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.layout-session > .skip-link {
+  position: relative;
+  z-index: 1;
+  grid-area: rail;
+}
+
+.layout-guided > .skip-link {
+  position: relative;
+  z-index: 1;
+  grid-area: phase-rail;
 }
 
 .layout-guided .frame-traces .trace,

@@ -98,6 +98,12 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     }
 
     if (!response.ok) {
+      if (response.status === 409) {
+        const conflict = await response.clone().json().catch(() => null) as { outcome_category?: string } | null;
+        if (conflict?.outcome_category) {
+          return (await response.json()) as T;
+        }
+      }
       throw new ProductionApiError(response.status, "Request failed", outcomeCode);
     }
 

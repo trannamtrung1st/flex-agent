@@ -342,7 +342,11 @@ authorized by this plan because approved families and donors already exist.
   from `session_runtimes.created_at` and the Proposed 45-minute synthetic
   development budget when Activity duration is absent. Seat Design Lab chrono
   digits/gauge and Submit Session on the examiner; keep Agent core animation;
-  Enter inserts a newline (`UI-SESS-DEC-4`). Do not enable the Agent timer
+  Enter sends immediately and Shift+Enter inserts a newline (Design Lab
+  examination-console keys; Proposed override of `UI-SESS-DEC-4`). Seat
+  CompactId for the Session locator, the seated operator display name on
+  Participant, and a wider Agent status line with an overflow plaque
+  (production and Design Lab). Do not enable the Agent timer
   lane or invent warning/expiry behavior.
 - [x] Frontend state red/green: add typed production Session API/SSE clients,
   TanStack Query snapshot ownership, and an explicit reducer for committed
@@ -458,6 +462,8 @@ to be the same authoritative Session string.
 - Keep production provider execution fail-closed/default-off until exact-profile
   qualification, credential binding, and workload delegation are satisfied.
   Hosted HTTP/UI availability must not silently enable model execution.
+  Authenticated-browser compose is Development-only and now registers the
+  repeating synthetic fake that matches the frozen Attempt-start profile.
 - Do not depend on unapproved `PROP-9` timer guidance for public behavior. Use
   the already approved one-lane timer semantics and implemented frozen bounds;
   expose no internal Agent-lane scheduling state to the Participant. Participant
@@ -545,6 +551,8 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | `git diff --check` | complete | Passed 2026-09-03 with no whitespace errors; direct trailing-whitespace scan of this tracked task file also passed |
 | Cross-cutting plan consistency/readiness review | complete | Third pass on 2026-09-03 applied backend, frontend, and security/privacy review perspectives to the current branch; refreshed landed predecessor seams and added the missing authenticated-browser Worker composition while preserving prior gateway, compatibility, actor-projection, state-ownership, UI-donor, and provider gates |
 | Implementation tests and live-browser evidence | complete for this slice | 2026-09-03: hosted projection 7 passed; hosted HTTP+telemetry 7 passed; profile 22 passed. `verify:web` 638+206+11; `verify:dotnet` 1840/3 skipped; supply-chain and oci exit 0. Playwright: fail-closed `work: failed` then send recovered; guessed Session unavailable; admin pause→paused→resume; admin transcript route has no items/controls because administrator projection omits transcript. `verify:oidc` not run on this stack |
+| Live-console CompactId, seated name, Agent status plaque | complete for this polish | 2026-09-03: `ProductionTextSessionPage` + keys + SessionMarks 55 passed. Candidate `:5274` (Demo Participant, compact `01a064de…9adad9`) and Design Lab `:5275` (`FXA…2A07`, Jordan Blake). Narrow 1-line status clamp opened a wrapping value plaque for the full examiner sentence. API RedirectUri restored to canonical after overlay |
+| Design-system / Lab donor consistency | complete for this pass | 2026-09-03: Lab `LiveSessionLayout` wraps the production shell; `StageBars` owned by `components/work`; Lab complete plate copy and examiner sealed line match production. `check_docs.py` passed after `DESIGN.md` regenerate. Lab 5-bar theater and disabled composer remain demo-only. Desktop complete plate 560px on `:5275` and `:5274` |
 
 # Blockers
 
@@ -587,15 +595,33 @@ Gaps for review (not blockers for this host/UI slice):
 
 - No assigned-Reviewer-only synthetic identity; `demo.admin` resolves as
   administrator and therefore sees an empty historical transcript list.
-- Fail-closed Worker produces `execution_failed`, not intentional no-action or
-  Agent fragments. Deterministic-fake enablement is out of scope.
+- Authenticated-browser Worker now uses Development `deterministic_fake` so
+  compose Sessions can receive a repeating synthetic reply. Production Worker
+  still fail-closes that adapter. This is not a qualified real-provider
+  enablement. Live check on candidate `:5274`: after Worker-only recreate, a
+  new send published the synthetic examiner follow-up. Turns processed before
+  that recreate can still show `Content unavailable.`
+- Chrono color stays `--amber` until the snapshot emits `warning_code:
+  imminent`. Lab `is-warned` at 40:00 of a 60-minute demo is theater, not a
+  production schedule. Desktop top inset matches Lab (rail/bay/examiner 18px);
+  decorative traces are now absolutely overlaid so they cannot add a row.
+- [x] Live console polish: snapshot now assembles Agent text from fragments;
+  the SPA keeps richer local copy across refetch, typewrites durable Agent
+  deltas, focuses the latest turn, uses two Examination/Complete bars, and
+  seats a Lab-matched complete plate (focus Return). Verified on `:5274`: new
+  send shows the synthetic reply (not unavailable); last turn `is-active`;
+  complete plate 560px centered with `completeToAssignment` focused.
 - Agent next-timer lane remains disabled (`PROP-9` unused). Participant
   remaining-time chrono is now in this slice. Expiry terminalization, warning
   thresholds, multi-tab, offline reconnect, terminate/abort, light/dark,
   forced-colors, and 400% zoom were not fully re-checked in this close-out.
 - Participant can open `/operations` and see lifecycle/version without
   pause/terminate; they do not inherit control.
-- `docs/current-state.md` not promoted. Independent reviews not yet executed.
+- Design-system and Lab donors reconciled 2026-09-03: production
+  `LiveSessionLayout` is the shell; Lab wraps it; `StageBars` live in
+  `components/work`; Lab complete plate copy matches production (no Result
+  availability). Independent specialist review of this consistency pass is
+  in the same conversation.
 
 2026-09-03 confirm pass: stack still healthy; hosted HTTP/telemetry/profile 29
 and projection 7 passed; Participant live Session remained `active`/`connected`

@@ -16,7 +16,7 @@ const copiedSheets: Record<string, string> = {
   "components/lists.css": "61e9684d612ee161964d055cd71b03c3f4c7f642c73c3b1f93ca75e45817d256",
   "components/menus.css": "d902e9462bd8b137b29b96022e92ce10fbf53bedf8c7c948e960576b8d4d7543",
   "components/navigation.css": "c7235cbf460c2a09694660299c4eba45d6f0e68a79c1907c8596df0a4d43d20d",
-  "components/overlays.css": "b509d1b54372b3c51a65466a7fbabcd55a4107860f35daa6771fd958bc4b1aba",
+  "components/overlays.css": "8ab8697ed4192d3d3cc3165395f003ad24aabf5451d947ffebbfc2cb733b70cc",
   "components/plates.css": "feec4bb29ae49a5a70e1c87c185c74801636811e8da595ba9c0486547abd4b0f",
   "components/readouts.css": "c655ac058c9d92ab52df979aba4731869b080d246ded7af15a5024b442247298",
   "components/searchable.css": "4d8511174ace344a89c2b5f1d6c97fc906f495fb243f4c82589596ebc2a45c8f",
@@ -27,7 +27,7 @@ const copiedSheets: Record<string, string> = {
   "surfaces/not-found.css": "c5d5e16b52e6e9511d6030af209b88407024c66e9fb8e73ecdd25360c0b79a0b",
   "surfaces/participant-home.css": "51625ce1f75f9be4a58f448328a212665d8f0323a8b279df1836ebb5328ad03a",
   "surfaces/participant-journey.css": "ef7228efee72784b591f4ec840d67537991eee85140f734bd1ceb3ada8815155",
-  "surfaces/participant-session.css": "bab6007a066b80fee2e3fe7b8cf4513169fbb2f3e81ed603efac3a4d075f592d",
+  "surfaces/participant-session.css": "a52166e5204c64128f46fa7d5174e4f906e5add84c3fd3c4378b707efe1e09ff",
   "surfaces/reviewer-console.css": "19f5d6de01c1f063512d8514431dc225c1f046d5ccb6b5fefe95dae23b365b1d",
   "surfaces/surfaces-index.css": "88940c3016133d384eb2862005bbc4326cf900f405a148934d192fe0dac5af7a",
 };
@@ -59,6 +59,23 @@ describe("shared Shipboard stylesheets", () => {
     expect(sharedCss.indexOf("./components/layout-primitives.css")).toBeGreaterThan(
       sharedCss.indexOf("./components/layouts.css"),
     );
+    expect(sharedCss).toContain('./components/live-session.css');
+    expect(sharedCss.indexOf("./components/live-session.css")).toBeGreaterThan(
+      sharedCss.indexOf("./components/layouts.css"),
+    );
+  });
+
+  it("keeps production live-session chrome aligned with the lab participant-session donor", () => {
+    const stripLeadingComment = (source: string) => source.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, "");
+    const normalize = (source: string) =>
+      stripLeadingComment(source)
+        .replace(/html\[data-surface="participant-session"\]/g, 'html:has([data-layout="live-session"])')
+        .replace(/\s+\}\s+\n\}/, "\n}\n}")
+        .trim();
+
+    const lab = readFileSync(join(stylesRoot, "surfaces/participant-session.css"), "utf8");
+    const production = readFileSync(join(stylesRoot, "components/live-session.css"), "utf8");
+    expect(normalize(production)).toBe(normalize(lab));
   });
 
   it("does not open a horizontal scrollport on gallery layout-spec plates", () => {

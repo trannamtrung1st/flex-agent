@@ -153,6 +153,13 @@ The `compose:*` scripts in root `package.json` delegate to
 `build/scripts/authenticated-browser-profile.sh`. See [workspace
 development](workspace.md#oidc-authenticated-browser) for the full lifecycle.
 
+Authenticated-browser Compose runs a Worker. In Development that Worker uses
+`Sessions__ModelExecution__Adapter=deterministic_fake` so a hosted send can
+receive a repeating synthetic examiner reply. That is not a qualified
+real-provider enablement. Production and Staging still fail-close model
+execution ([provider profiles](../operations/provider-profiles/README.md)).
+Do not treat compose `deterministic_fake` as Production being on.
+
 The required local/CI OIDC gate is `pnpm verify:oidc`. It fails when Docker or
 the Playwright browser is missing and always tears down Compose plus generated
 secret material. Canonical Playwright uses the shipped `web/` SPA image at

@@ -11,10 +11,10 @@ on synthetic fixtures.
 | `chrome/` | Lab chrome adapters (catalog home defaults, synthetic operator identities) |
 | `enrollment/` | Fixture-backed enrollment manifest table and sort/filter helpers |
 | `operate/` | Lab operate hosts. Walls, home board, and reviewer queue/ledger wrap `OperateAreaHost` (`CampaignsOperateArea`, `EnrollmentWallOperateArea`, `SampleWallOperateArea`, `HomeBoardOperateArea`, `ReviewerQueueOperateArea`, `ReviewerLedgerOperateArea`). Deck form recipes use `FormRecipeOperateArea` (`OperateArea` plus owned `form-recipe`). Lab registry hug class: `registryHugClassName.ts`. |
-| `layouts/` | Live-session family shell (`LiveSessionLayout`) until a production session route exists |
+| `layouts/` | Thin lab adapter over production `LiveSessionLayout` (catalog default `homeTo`) |
 | `overlays/` | Lab-only overlay ceremonies (`CampaignCeremonyDialog`, `CampaignCeremonyPlate`, `FormRecipeDialog`, `SignOutCeremony`) |
 | `plates/` | Lab plate adapters (`DemoPlate`, `StatusBays`, `ProtocolPlate`, `FrozenLine`, `InPlateHost`, `WorkWellReleasedSeal`) plus re-exports of assignment chrome from `web/src/components/work/` |
-| `state/` | Lab-only marks (`ActivationMark`, `RecordSeal`, `StageBars`, `recordResultMark`) |
+| `state/` | Lab-only marks (`ActivationMark`, `RecordSeal`, `recordResultMark`); `StageBars` re-exported from `web/src/components/work/SessionMarks.tsx` |
 | `datatable/` | Expand-row shell and enrollment/Deck detail interiors (not on the production barrel) |
 | `index.ts` | Re-exports design-system primitives plus lab adapters for routes |
 
@@ -42,7 +42,7 @@ Import domain modules from their folder barrels (`../components/enrollment`,
 | --- | --- | --- |
 | Catalog identities and sign-out | `chrome/operator.ts`, `usePrototypeSignOut.ts`, `overlays/SignOutCeremony.tsx` | Synthetic catalog home and demo sign-out |
 | Demo plate | `plates/DemoPlate.tsx` | Specimen state switcher |
-| Status Bays / protocol ident / frozen line / in-plate host / form-recipe dialog / campaign ceremony overlay / activation mark / session marks / enrollment result mark / form pair / datatable expand | `plates/StatusBays.tsx`, `plates/ProtocolPlate.tsx`, `plates/FrozenLine.tsx`, `plates/InPlateHost.tsx`, `plates/WorkWellReleasedSeal.tsx`, `overlays/FormRecipeDialog.tsx`, `overlays/CampaignCeremonyDialog.tsx`, `overlays/CampaignCeremonyPlate.tsx` (`CampaignCeremonyConfigGrid`), `state/ActivationMark.tsx`, `state/SessionMarks.tsx` (`RecordSeal`, `StageBars`), `state/recordResultMark.tsx`, `fields/FormPair.tsx` (`FormPair`, `FormPairField`), `datatable/` (`DatatableDetailShell`, `DatatableDetailContent`, gutter hook) | Lab-only class owners. Briefing acknowledgement is `web/src/components/work/AcknowledgmentGate.tsx`. Product field copy is `web/src/content/fieldCopy.ts`, not the design-system barrel. |
+| Status Bays / protocol ident / frozen line / in-plate host / form-recipe dialog / campaign ceremony overlay / activation mark / session marks / enrollment result mark / form pair / datatable expand | `plates/StatusBays.tsx`, `plates/ProtocolPlate.tsx`, `plates/FrozenLine.tsx`, `plates/InPlateHost.tsx`, `plates/WorkWellReleasedSeal.tsx`, `overlays/FormRecipeDialog.tsx`, `overlays/CampaignCeremonyDialog.tsx`, `overlays/CampaignCeremonyPlate.tsx` (`CampaignCeremonyConfigGrid`), `state/ActivationMark.tsx`, `state/SessionMarks.tsx` (`RecordSeal`; `StageBars` from `components/work`), `state/recordResultMark.tsx`, `fields/FormPair.tsx` (`FormPair`, `FormPairField`), `datatable/` (`DatatableDetailShell`, `DatatableDetailContent`, gutter hook) | Lab-only class owners except shared `StageBars`. Briefing acknowledgement is `web/src/components/work/AcknowledgmentGate.tsx`. Product field copy is `web/src/content/fieldCopy.ts`, not the design-system barrel. |
 | Lab chrome wrappers | `chrome/Brand.tsx`, `chrome/CommandStrip.tsx` | Default `homeTo` to the channel catalog |
 | Gallery | `../features/gallery/` | Component Deck specimens |
 | Fixtures | `../data/` | Synthetic only |

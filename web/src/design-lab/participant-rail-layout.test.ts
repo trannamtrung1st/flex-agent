@@ -113,6 +113,15 @@ describe("participant instrument bulkheads", () => {
     expect(css).toMatch(/@media \(max-width: 1080px\)[\s\S]*\.layout-guided \.phase-rail-scroll\s*\{[^}]*display:\s*contents/);
   });
 
+  it("overlays live-session frame traces so decorative chrome cannot add a grid row", () => {
+    const css = readFileSync(layoutCss, "utf8");
+    expect(css).toMatch(
+      /\.layout-(guided|session) \.frame-traces\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0/,
+    );
+    expect(css).toMatch(/\.layout-session > \.skip-link\s*\{[^}]*grid-area:\s*rail/);
+    expect(css).toMatch(/\.layout-guided > \.skip-link\s*\{[^}]*grid-area:\s*phase-rail/);
+  });
+
   it("stacks live-session at 1180px before the 760px page reflow", () => {
     const css = readFileSync(layoutCss, "utf8");
     const block = css.match(/@media \(max-width: 1180px\)[\s\S]*?(?=@media|$)/)?.[0];

@@ -4,7 +4,7 @@ import { cx } from "../../../lib/cx";
 import { overlayPortalRoot } from "../overlays/overlayPortalRoot";
 import { useOverlayDismiss } from "../overlays/useOverlayDismiss";
 import { useFloatingPlacement } from "../overlays/AnchoredOverlay";
-import { useTruncated } from "./useTruncated";
+import { useTruncated, type TruncationAxis } from "./useTruncated";
 
 export type TooltipTone = "label" | "value";
 
@@ -23,6 +23,8 @@ export function TooltipHost({
   className,
   tone = "label",
   openOnPress = false,
+  truncationAxis = "inline",
+  wrap = false,
 }: {
   tip?: string;
   tipOnlyWhenTruncated?: boolean;
@@ -35,6 +37,10 @@ export function TooltipHost({
   tone?: TooltipTone;
   /** Opens on primary press as well as hover (table CompactId; no extra tab stop). */
   openOnPress?: boolean;
+  /** `block` also treats line-clamp overflow as truncated. */
+  truncationAxis?: TruncationAxis;
+  /** Allow the plaque to wrap long sentences instead of a single identifier line. */
+  wrap?: boolean;
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const plaqueRef = useRef<HTMLSpanElement>(null);
@@ -43,7 +49,11 @@ export function TooltipHost({
   const pointerInsideRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const truncated = useTruncated(truncationRef ?? { current: null }, Boolean(tipOnlyWhenTruncated && truncationRef));
+  const truncated = useTruncated(
+    truncationRef ?? { current: null },
+    Boolean(tipOnlyWhenTruncated && truncationRef),
+    truncationAxis,
+  );
   const effectiveTip = tipOnlyWhenTruncated ? (truncated ? tip : undefined) : tip;
   const watchTip = Boolean(tip);
   const owner = useRef({});
@@ -184,6 +194,7 @@ export function TooltipHost({
                 "tip-plaque",
                 side === "top" ? "tip-plaque--above" : "tip-plaque--below",
                 tone === "value" && "tip-plaque--value",
+                wrap && "tip-plaque--wrap",
               )}
               style={plaqueStyle}
               role="tooltip"

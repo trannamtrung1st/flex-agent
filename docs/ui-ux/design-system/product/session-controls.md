@@ -16,7 +16,11 @@ Structured activities may have timers, deadlines, attempts, stages, pause/end co
 
 ## Stage / Progress
 
-- show current stage name and, when known, position such as `2 of 5`
+- show current stage name and, when known, position such as `2 of 2`
+- bar count must match the frozen Session workflow stage count, not a demo
+  theater. P0 hosted text Session is Examination then Complete (`2` bars).
+  Design Lab Session and the Deck wait specimen may show a 5-bar demonstration;
+  that count is not product authority
 - use a compact step/linear progress treatment following `workflow.md`; avoid decorative achievement/gamification patterns
 - completed stages use structural check/state indication; do not assume green if completion is not success
 

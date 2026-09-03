@@ -287,6 +287,11 @@
   font-size: 0.68rem;
   color: #e6eef2;
 }
+.tip-plaque--wrap {
+  white-space: normal;
+  max-width: min(42ch, 80vw);
+  text-align: left;
+}
 
 /* Below hull chrome (command-strip / page-strip 70). Do not lift the
    in-flow trigger; the panel is already portaled. */

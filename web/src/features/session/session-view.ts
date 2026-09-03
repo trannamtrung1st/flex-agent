@@ -30,13 +30,17 @@ export type SessionLiveAction =
 export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAction): SessionLiveView {
   switch (action.type) {
     case "snapshot":
-      return { ...state, snapshot: action.snapshot, lastError: null };
+      return { ...state, snapshot: mergeAuthoritativeSnapshot(state.snapshot, action.snapshot) };
     case "event":
       return applyHostedEvent(state, action.event);
     case "draft":
       return { ...state, draft: action.draft };
     case "send":
-      return { ...state, sendState: action.sendState };
+      return {
+        ...state,
+        sendState: action.sendState,
+        lastError: action.sendState === "pending" ? null : state.lastError,
+      };
     case "connection":
       return { ...state, connection: action.connection };
     case "error":
@@ -44,6 +48,41 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
     default:
       return state;
   }
+}
+
+function mergeAuthoritativeSnapshot(
+  previous: SessionSnapshotV1 | null,
+  incoming: SessionSnapshotV1,
+): SessionSnapshotV1 {
+  const priorItems = previous?.transcript?.items ?? [];
+  const nextItems = incoming.transcript?.items ?? [];
+  if (priorItems.length === 0 || nextItems.length === 0 || previous?.session_id !== incoming.session_id) {
+    return incoming;
+  }
+
+  return {
+    ...incoming,
+    transcript: {
+      ...incoming.transcript!,
+      items: nextItems.map((item) => {
+        const prior = priorItems.find((candidate) => candidate.item_id === item.item_id);
+        if (!prior?.content) {
+          return item;
+        }
+        if (!item.content || item.status === "unavailable") {
+          return {
+            ...item,
+            content: prior.content,
+            status: item.status === "unavailable" ? prior.status : item.status,
+          };
+        }
+        if (prior.content.startsWith(item.content) && prior.content.length > item.content.length) {
+          return { ...item, content: prior.content };
+        }
+        return item;
+      }),
+    },
+  };
 }
 
 function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvelopeV1): SessionLiveView {
@@ -61,7 +100,7 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
   const next: SessionSnapshotV1 = {
     ...snapshot,
     last_confirmed_sequence: event.session_sequence,
-    session_version: event.session_version || snapshot.session_version,
+    session_version: Math.max(event.session_version ?? 0, snapshot.session_version),
     lifecycle_state: event.payload.lifecycle_state ?? snapshot.lifecycle_state,
     activity: event.payload.work_state
       ? {

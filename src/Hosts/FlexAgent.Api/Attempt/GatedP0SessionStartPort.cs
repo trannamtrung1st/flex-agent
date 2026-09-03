@@ -256,32 +256,8 @@ public sealed class GatedP0SessionStartPort(
             new RuntimePolicyResolutionRequest(digest, new RuntimePolicyBaselineSource("baseline.p0.text.dev", digest, values), [])).Policy;
     }
 
-    private static FrozenModelDeploymentBinding CreateDevelopmentFrozenDeployment()
-    {
-        var profile = InstalledModelDeploymentProfile.Create(
-            "synthetic.fake.v1",
-            "1",
-            ModelDeploymentAdapterKinds.DeterministicFake,
-            "sessions.fake.v1",
-            new Uri("https://api.openai.com/"),
-            "synthetic.model.pinned",
-            "synthetic.model.pinned.2026-01-01",
-            "p0.text.structured-control",
-            ModelDeploymentCredentialModes.OrganizationByok,
-            256,
-            TimeSpan.FromSeconds(30),
-            TimeSpan.FromSeconds(60),
-            4,
-            "synthetic.provider");
-        return new FrozenModelDeploymentBinding(
-            profile.ProfileId,
-            profile.ProfileVersion,
-            profile.ProfileDigest,
-            profile.ProviderId,
-            ModelDeploymentCredentialModes.OrganizationByok,
-            "bind.opaque.dev",
-            "bind.v1");
-    }
+    private static FrozenModelDeploymentBinding CreateDevelopmentFrozenDeployment() =>
+        SyntheticDevelopmentModelDeployment.CreateFrozenBinding();
 
     private static readonly HashSet<string> RequiredSourceKeys =
     [

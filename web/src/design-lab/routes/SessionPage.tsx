@@ -3,6 +3,7 @@ import { AcknowledgmentGate } from "../../components/work/AcknowledgmentGate";
 import {
   Announcer,
   BrandMark,
+  CompactId,
   CeremonyDialog,
   DialogPlate,
   DialogPlateBody,
@@ -14,7 +15,9 @@ import {
   StageBars,
   TransmitChevron,
 } from "../components";
+import { PARTICIPANT_DISPLAY_NAME } from "../components/chrome/operator";
 import { ProtocolPlate } from "../components/plates";
+import { AgentStatusLine } from "../../components/work/SessionMarks";
 import { LiveSessionLayout } from "../components";
 import { arcPath, formatClock, polar } from "../../lib/format";
 import { useAnnouncer } from "../../lib/useAnnouncer";
@@ -128,8 +131,8 @@ export function SessionPage() {
         <>
             <ReadoutList
               rows={[
-                { term: "Session ID", value: "FXA-7C19-2A07" },
-                { term: "Participant ID", value: "CND-8842-19" },
+                { term: "Session ID", value: <CompactId tabbable value="FXA-7C19-2A07" /> },
+                { term: "Participant", value: PARTICIPANT_DISPLAY_NAME },
                 { term: "Session", value: "07" },
               ]}
             />
@@ -241,9 +244,9 @@ export function SessionPage() {
               <BrandMark />
               <span className="agent-name-role">Examiner</span>
             </h1>
-            <p className="agent-line">
-              {state.complete ? "Well done. Your record is safely stored." : state.thinking ? "Considering your reply…" : "Take the time you need. Awaiting your text reply."}
-            </p>
+            <AgentStatusLine>
+              {state.complete ? "Your record is stored. This confirmation is not a score or Result." : state.thinking ? "Considering your reply…" : "Take the time you need. Awaiting your text reply."}
+            </AgentStatusLine>
           </section>
           <section className="chrono" aria-label="Session timing">
             <div className="chrono-main">
@@ -422,15 +425,15 @@ export function SessionPage() {
                 );
               })}
               {state.complete ? (
-                <li>
+                <li className="ledger-complete">
                   <div className="complete-plate pane pane--notched">
                     <svg className="complete-mark" viewBox="0 0 52 52" aria-hidden="true">
                       <circle cx="26" cy="26" r="24" />
                       <path d="M15 27l8 8 15-17" />
                     </svg>
                     <h2 className="complete-title">Session Complete</h2>
-                    <p className="complete-copy">Your examination record for Session 07 has been transmitted and preserved. Nothing further is required of you.</p>
-                    <p className="complete-copy">A human reviewer will inspect the evaluation before any result is released. You will be notified when your result is available.</p>
+                    <p className="complete-copy">Your examination record has been preserved. Nothing further is required of you.</p>
+                    <p className="complete-copy">A human reviewer will inspect the evaluation before any result is released. This confirmation is not a score or Result.</p>
                     <p className="complete-sub">Record FXA-7C19-2A07 · Attempt 1 · Sealed</p>
                     <div className="complete-keys">
                       <Key id="completeToAssignment" variant="begin" to={`/participant-journey?demo=${assignmentDemo}`}>

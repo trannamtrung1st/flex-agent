@@ -16,6 +16,9 @@ export const PARTICIPANT_IDENTITY: OperatorIdentity = {
   home: PARTICIPANT_HOME,
 };
 
+/** Seated display name for Lab examination-console readouts (not an operator id). */
+export const PARTICIPANT_DISPLAY_NAME = "Jordan Blake";
+
 export const ADMINISTRATOR_IDENTITY: OperatorIdentity = {
   shortId: "ADM-7X92",
   fullId: "ADM-7X92-19",

@@ -14,6 +14,7 @@ function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status,
+    headers: { get: () => "application/json" },
     clone() {
       return { json: () => Promise.resolve(structuredClone(payload)) };
     },
@@ -81,6 +82,7 @@ function stubFetch(handler: (url: string, init?: RequestInit) => ReturnType<type
         actor_id: "actor-1",
         organization_id: "org-1",
         relationship: "participant",
+        display_name: "Demo Participant",
         navigation: [{ destination_id: "my-work", is_available: true }],
         permitted_actions: [],
       });
@@ -126,8 +128,12 @@ describe("hosted Session pages", () => {
     expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Submit Session" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Time remaining" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Time Remaining" })).toBeVisible();
     expect(screen.getByRole("timer")).toHaveTextContent("00:40:00");
+    expect(screen.getByText("55555555…555555")).toBeVisible();
+    expect(screen.getByText("Demo Participant")).toBeVisible();
+    expect(document.querySelectorAll(".stage-bars span")).toHaveLength(2);
+    expect(document.querySelector(".turn")).toHaveClass("is-active");
   });
 
   it("conceals a denied Session without offering the composer", async () => {
@@ -192,7 +198,7 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
     const composer = await screen.findByRole("textbox", { name: "Compose reply" });
     fireEvent.change(composer, { target: { value: "Next answer" } });
-    fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
+    fireEvent.keyDown(composer, { key: "Enter" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -200,6 +206,56 @@ describe("hosted Session pages", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+  });
+
+  it("does not send when Shift+Enter inserts a composer line break", async () => {
+    const fetchMock = stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot());
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    const composer = await screen.findByRole("textbox", { name: "Compose reply" });
+    fireEvent.change(composer, { target: { value: "Keep drafting" } });
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: true });
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/commands"),
+      expect.anything(),
+    );
+  });
+
+  it("refreshes the snapshot after a stale-version conflict instead of treating it as uncertain", async () => {
+    stubFetch((url) => {
+      if (url.includes("/commands")) {
+        return jsonResponse({
+          schema_version: "v1",
+          succeeded: false,
+          outcome_category: "conflict",
+          outcome_code: "trigger.admission.stale.version",
+          command_id: "cmd.conflict",
+          command_type: "session.message.send.v1",
+          session_id: sessionId,
+          permitted_recovery_action: "reconcile_snapshot",
+          permitted_actions: ["send_message", "reconcile"],
+        }, 409);
+      }
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({ session_version: 4 }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    const composer = await screen.findByRole("textbox", { name: "Compose reply" });
+    fireEvent.change(composer, { target: { value: "Stale send" } });
+    fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
+
+    expect(await screen.findByText("The Session changed. Reconcile before sending again.")).toBeVisible();
+    expect(screen.queryByText("The command outcome is uncertain. Reconcile before sending again.")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("Stale send");
   });
 
   it("keeps administrator operations free of transcript content", async () => {
@@ -259,9 +315,13 @@ describe("hosted Session pages", () => {
 
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
-    expect(await screen.findByRole("heading", { name: "Session completed" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Return to assignment" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Session Complete" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to Assignment" })).toBeVisible();
+    expect(document.getElementById("completeToAssignment")).toBeTruthy();
+    expect(screen.getByText(/Sealed/)).toBeVisible();
+    expect(document.querySelector(".complete-plate")).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(document.querySelector(".turn.is-active")).toBeNull();
   });
 
   it("seals a stuck completing Session with the complete command", async () => {

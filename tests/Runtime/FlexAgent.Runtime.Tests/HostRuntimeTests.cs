@@ -298,6 +298,57 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Fact]
+    public void Worker_registers_synthetic_fake_execution_in_development_when_requested()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "deterministic_fake");
+        });
+
+        Assert.IsType<SyntheticDevelopmentModelExecutionAdapter>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("deterministic_fake", capabilities.ModelExecutionAdapter);
+        Assert.True(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_deterministic_fake_fail_closed_in_production()
+    {
+        var oauthSecrets = Directory.CreateTempSubdirectory("flexagent-fake-oauth-");
+        File.WriteAllText(Path.Combine(oauthSecrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Production");
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                builder.UseSetting("Sessions:ModelExecution:Adapter", "deterministic_fake");
+                ApplyOauthWorkloadIdentity(builder, oauthSecrets.FullName);
+            });
+
+            Assert.IsType<FailClosedModelExecutionPort>(
+                factory.Services.GetRequiredService<IModelExecutionPort>());
+            var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+            Assert.Equal("deterministic_fake", capabilities.ModelExecutionAdapter);
+            Assert.False(capabilities.ModelExecutionQualified);
+        }
+        finally
+        {
+            oauthSecrets.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void Worker_keeps_fail_closed_execution_when_direct_openai_is_requested_without_a_qualified_profile()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>

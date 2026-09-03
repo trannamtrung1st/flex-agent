@@ -370,6 +370,11 @@ internal static class WorkerDurableWorkSampling
     {
         var adapter = configuration["Sessions:ModelExecution:Adapter"] ?? "fail_closed";
         var qualified = configuration.GetValue("Sessions:ModelExecution:Qualified", false);
+        if (string.Equals(adapter, ModelDeploymentAdapterKinds.DeterministicFake, StringComparison.Ordinal))
+        {
+            return ComposeDeterministicFake(environment);
+        }
+
         if (string.Equals(adapter, "openrouter", StringComparison.Ordinal))
         {
             return ComposeOpenRouter(configuration, environment, qualified);
@@ -387,6 +392,23 @@ internal static class WorkerDurableWorkSampling
         }
 
         return ComposeOpenAiCompatible(configuration, environment, qualified);
+    }
+
+    private static WorkerModelExecutionComposition ComposeDeterministicFake(IHostEnvironment environment)
+    {
+        if (!IsSyntheticHostProfile(environment))
+        {
+            return WorkerModelExecutionComposition.FailClosed(ModelDeploymentAdapterKinds.DeterministicFake);
+        }
+
+        var profile = SyntheticDevelopmentModelDeployment.CreateProfile();
+        return new WorkerModelExecutionComposition(
+            new SyntheticDevelopmentModelExecutionAdapter(),
+            new InMemoryInstalledModelDeploymentProfileRegistry(profile),
+            new InMemoryModelDeploymentCredentialCatalog(
+                SyntheticDevelopmentModelDeployment.CreateCatalogRecord()),
+            ModelDeploymentAdapterKinds.DeterministicFake,
+            true);
     }
 
     private static WorkerModelExecutionComposition ComposeOpenAiCompatible(

@@ -101,6 +101,16 @@ describe("truncate tooltip", () => {
     expect(isTruncated(el)).toBe(false);
   });
 
+  it("treats line-clamp overflow as block truncation", () => {
+    const el = document.createElement("span");
+    Object.defineProperty(el, "scrollWidth", { configurable: true, value: 200 });
+    Object.defineProperty(el, "clientWidth", { configurable: true, value: 200 });
+    Object.defineProperty(el, "scrollHeight", { configurable: true, value: 48 });
+    Object.defineProperty(el, "clientHeight", { configurable: true, value: 22 });
+    expect(isTruncated(el)).toBe(false);
+    expect(isTruncated(el, "block")).toBe(true);
+  });
+
   it("omits a tooltip that repeats the visible caption", () => {
     render(<Key tooltip="Save">Save</Key>);
     fireEvent.mouseEnter(screen.getByRole("button", { name: "Save" }).closest(".tip-host")!);
@@ -165,6 +175,23 @@ describe("truncate tooltip", () => {
 
     fireEvent.mouseEnter(host!);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Confirm activation");
+  });
+
+  it("plaques a block-clamped status that still fits horizontally", () => {
+    const line = document.createElement("span");
+    Object.defineProperty(line, "scrollWidth", { configurable: true, value: 220 });
+    Object.defineProperty(line, "clientWidth", { configurable: true, value: 220 });
+    Object.defineProperty(line, "scrollHeight", { configurable: true, value: 64 });
+    Object.defineProperty(line, "clientHeight", { configurable: true, value: 22 });
+    const truncationRef = { current: line };
+
+    render(
+      <TooltipHost tip="Considering your reply…" tipOnlyWhenTruncated truncationAxis="block" truncationRef={truncationRef}>
+        <span>Considering your reply…</span>
+      </TooltipHost>,
+    );
+    fireEvent.mouseEnter(screen.getByText("Considering your reply…").closest(".tip-host")!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Considering your reply…");
   });
 
   it("still plaques a disabled reason when truncate is on and the caption fits", () => {

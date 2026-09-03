@@ -34,10 +34,19 @@ turn actions. Index badges are tabular mono inside the plate.
 ## Agent Turn
 
 - Agent name plus identity mark linked to the Agent Core
-- current/streaming turn may warm the border and speaker mark
+- current/streaming turn may warm the border and speaker mark (`is-active` on
+  the latest live turn; drop the mark when the Session is terminal)
 - reading typography: 15–18px; max width ~68–78ch
 - streaming marker only at the current generation boundary
 - arriving turns may use a 640ms phosphor sweep; reduced motion cuts to static
+- after durable Agent text is present, production may reveal it at a bounded
+  character cadence so a chunked SSE delivery still reads as incremental.
+  That cadence presents committed text only (`UI-SESS-DEC-6`); it must not
+  invent tokens. Reduced motion shows the full committed string immediately
+- a sealed Session replaces live composer chrome with a centered complete
+  plate (`ledger-complete`, max 560px): seal, **Session Complete**, two
+  consequence lines, Record · Sealed, and **Return to Assignment**. Never
+  imply a score or Result
 
 ## Participant Turn
 

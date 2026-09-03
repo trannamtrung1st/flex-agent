@@ -61,6 +61,49 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.transcript?.items).toHaveLength(0);
   });
 
+  it("keeps richer local Agent text when a later snapshot is unavailable", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 3,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+        },
+      },
+    });
+    const next = sessionLiveReducer(streamed, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        last_confirmed_sequence: "14",
+        transcript: {
+          items: [
+            {
+              item_id: "amsg.synthetic.0001",
+              author: "agent",
+              status: "unavailable",
+              content: null,
+              sequence_start: "13",
+              sequence_end: "14",
+            },
+          ],
+          older_available: false,
+        },
+      },
+    });
+
+    expect(next.snapshot?.transcript?.items[0]?.content).toBe("Hello examiner");
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("streaming");
+  });
+
   it("records no-action without inventing Agent text", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
     const next = sessionLiveReducer(withSnapshot, {

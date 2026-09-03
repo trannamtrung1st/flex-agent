@@ -223,12 +223,12 @@ public sealed class AuthenticatedBrowserProfileTests
     }
 
     [Fact]
-    public void Worker_uses_fail_closed_execution_and_an_explicit_service_actor()
+    public void Worker_uses_synthetic_fake_execution_and_an_explicit_service_actor()
     {
         var compose = File.ReadAllText(ComposePath());
         Assert.Contains("Sessions__InvocationProcessing__Enabled: \"true\"", compose);
         Assert.Contains("Sessions__TimerPolling__Enabled: \"true\"", compose);
-        Assert.Contains("Sessions__ModelExecution__Adapter: fail_closed", compose);
+        Assert.Contains("Sessions__ModelExecution__Adapter: deterministic_fake", compose);
         Assert.Contains("Sessions__WorkerServiceActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae", compose);
         Assert.Contains("Sessions__DelegationIssuerActorId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf", compose);
         Assert.Contains("WorkloadIdentity__Profile: synthetic.configured_actor", compose);

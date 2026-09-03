@@ -118,9 +118,11 @@ Overlay bulkhead *drawers* remain opaque plates over a scrim.
 
 On desktop, Assignment Station and Examination Console left rails are hull
 bulkheads: they meet the viewport on the top, bottom, and leading edges.
-The work bay keeps about 18px block inset. Frame traces are clipped to the
-work-bay column, not the viewport. The session examiner plate stays an inset
-work plane, not a second bulkhead.
+The work bay keeps about 18px block inset. Decorative frame traces are
+absolutely overlaid on the shell (`position: absolute; inset: 0`) so they
+never auto-place an extra grid row; skip links stay seated in the rail area
+when focused. The session examiner plate stays an inset work plane, not a
+second bulkhead.
 
 Short desktop viewports scroll instruments inside the rail (`.phase-rail-scroll`
 / `.rail-scroll`); brand and seated rail actions stay outside that scroller. Desktop shells use

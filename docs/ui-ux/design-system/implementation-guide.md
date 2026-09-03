@@ -36,7 +36,9 @@ Do not use v0.1 Deep-Space styling as the target look.
    chrome or copy lab fixtures. Select one closed-set
    layout family from [layouts](components/layouts.md); do not compose outer
    chrome in a page module. `LiveSessionLayout` is the live-session family shell
-   and lives in the design lab until a production session route exists. Inside the chosen family, compose slot content with
+   in `web/src/design-system/patterns/layouts/` and is used by production
+   `/sessions/:sessionId`. Design Lab Session keeps a thin catalog-home adapter
+   over that same shell. Inside the chosen family, compose slot content with
    [layout primitives](components/layout-primitives.md) (`Stack`, `Inline`,
    `Grid`, `Container`, `Inset`, `SplitBay`) instead of one-off flex/grid/spacing CSS.
    Inner page/form rhythm uses control / group / bay tokens (`--field-label-gap`,
@@ -61,8 +63,9 @@ Do not use v0.1 Deep-Space styling as the target look.
    `Grid` `className="ceremony-config-grid"`). Campaign fill overlays use
    `CampaignCeremonyDialog` for `.ceremony` / `.ceremony-cut` (not
    `CeremonyDialog` variants). Briefing acknowledgement uses
-   `AcknowledgmentGate` in `web/src/components/work/`. Lab Home/Session marks
-   (`RecordSeal`, `StageBars`) and `WorkWellReleasedSeal` live in the design
+   `AcknowledgmentGate` in `web/src/components/work/`. Session hull `StageBars`
+   live in `web/src/components/work/SessionMarks.tsx` (production chrono and
+   Deck wait). Lab `RecordSeal` and `WorkWellReleasedSeal` stay in the design
    lab; `WorkWellHead` `seal` is an optional node slot.
    Product field copy lives in `web/src/content/fieldCopy.ts` (including datatable
    search placeholders). Lab enrollment/Deck expand rows use
@@ -157,7 +160,7 @@ are visual evidence; the module is the contract.
 | Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) (`alert` includes in-form frozen-cluster provenance; production and lab Admin mount `ToastHost`; default dock `top-center`) |
 | Feedback | `tooltip` | [tooltips](components/tooltips-popovers.md) |
 | Feedback | `error-summary` | [error summary](components/error-summary.md) |
-| Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md). Deck `wait` also shows lab `StageBars` (session hull mark, not a design-system primitive) |
+| Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md). Deck `wait` also shows `StageBars` from `components/work` (session hull mark, not a design-system primitive; Lab Session theater may use 5 bars) |
 | Shells | `layout-*` | [layouts](components/layouts.md) |
 | Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (Stack, Inline, Grid, SplitBay, Container, Inset; combine on `form-recipes`, not a Recipes section) |
 | Overlays & input | `form-recipes` | [inputs](components/inputs.md), [error summary](components/error-summary.md), [layout primitives](components/layout-primitives.md), [plates](components/cards.md), [modals](components/modals.md) |
@@ -241,9 +244,16 @@ lifecycle, or Release from them.
   empty/loading, protected content
 - Governing specification: [Text Session](../flows/text-session.md)
 - Constraints: `PC-08`; no production simulator. Approved family is
-  `live-session` on `/sessions/:sessionId`. Remaining time is a server
-  projection; the examiner chrono is a display aid. Do not import Design Lab
-  styles or fixtures.
+  `live-session` on `/sessions/:sessionId` using design-system
+  `LiveSessionLayout`. Stage bars come from `components/work/SessionMarks`
+  and must match the frozen workflow count (P0: Examination then Complete).
+  Remaining time is a server projection; the examiner chrono is a display aid.
+  Do not import Design Lab styles or fixtures. Do not copy Lab's 5-stage
+  theater or 40:00 warn. Shell geometry lives in
+  `web/src/styles/components/layouts.css`; production conversation chrome lives
+  in `web/src/styles/components/live-session.css` (a scoped clone of the lab
+  `participant-session` surface sheet). Design Lab keeps the donor under
+  `web/src/styles/surfaces/participant-session.css`.
 
 ### Evidence, Evaluation, and Human Review (production contract-unavailable; lab composition donor)
 

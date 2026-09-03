@@ -137,6 +137,37 @@ public sealed class ModelExecutionPortTests
     }
 
     [Fact]
+    public async Task Synthetic_development_adapter_repeats_a_respond_envelope_and_visible_reply()
+    {
+        var adapter = new SyntheticDevelopmentModelExecutionAdapter();
+        var first = await adapter.ExecuteAsync(CreateRequest("ainv.synth.0001"), CancellationToken.None);
+        var second = await adapter.ExecuteAsync(CreateRequest("ainv.synth.0002"), CancellationToken.None);
+
+        var firstControl = Assert.IsType<ModelExecutionStructuredControl>(first);
+        var secondControl = Assert.IsType<ModelExecutionStructuredControl>(second);
+        Assert.Equal(DecisionDispositions.Respond, firstControl.Envelope.Disposition);
+        Assert.Equal("ainv.synth.0001", firstControl.Envelope.InvocationId);
+        Assert.Equal("ainv.synth.0002", secondControl.Envelope.InvocationId);
+        Assert.NotEqual(firstControl.Envelope.DecisionId, secondControl.Envelope.DecisionId);
+
+        var streamed = new List<ModelContentEvent>();
+        await foreach (var item in adapter.StreamParticipantVisibleContentAsync(
+            new ModelContentStreamRequest(
+                SessionRuntimeTestFixtures.CreateOwnership(),
+                "ainv.synth.0001",
+                "agen.synth.0001"),
+            CancellationToken.None))
+        {
+            streamed.Add(item);
+        }
+
+        Assert.Equal(
+            SyntheticDevelopmentModelExecutionAdapter.ParticipantVisibleReply,
+            Assert.IsType<ModelContentTextDelta>(streamed[0]).ExactUtf8Text);
+        Assert.IsType<ModelContentCompleted>(streamed[1]);
+    }
+
+    [Fact]
     public async Task Parsed_control_json_yields_one_envelope_or_an_execution_failure()
     {
         var adapter = new DeterministicFakeModelExecutionAdapter();

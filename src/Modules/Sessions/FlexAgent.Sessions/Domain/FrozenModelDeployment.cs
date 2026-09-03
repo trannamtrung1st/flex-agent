@@ -326,6 +326,7 @@ public static class FrozenModelDeploymentResolver
         }
 
         if (string.Equals(frozen.CredentialMode, ModelDeploymentCredentialModes.OrganizationByok, StringComparison.Ordinal)
+            && catalogRecord.OwnerOrganizationId != Guid.Empty
             && catalogRecord.OwnerOrganizationId != ownership.OrganizationId)
         {
             return Failure(FrozenModelDeploymentOutcomeCodes.CredentialWrongOrganization);

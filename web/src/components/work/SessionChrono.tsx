@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { arcPath, formatClock, polar } from "../../lib/format";
 import type { SessionSnapshotV1 } from "../../contracts/v1";
 import { Key } from "../../design-system";
+import { liveSessionStage } from "../../features/session/session-stage";
+import { StageBars } from "./SessionMarks";
 
 const SWEEP = 300;
 
@@ -46,6 +48,8 @@ export function SessionChrono({
     || snapshot?.lifecycle_state === "terminated"
     || snapshot?.lifecycle_state === "aborted";
   const shouldTick = remaining != null && !paused && !sealing && !terminal;
+  const minutes = Math.max(1, Math.round(budget / 60));
+  const stages = liveSessionStage(snapshot);
 
   useEffect(() => {
     setNowMs(Date.now());
@@ -67,7 +71,6 @@ export function SessionChrono({
     if (budget <= 0) {
       return [];
     }
-    const minutes = Math.max(1, Math.round(budget / 60));
     const items = [];
     for (let m = 0; m <= minutes; m += 5) {
       const d = (m / minutes) * SWEEP;
@@ -76,15 +79,20 @@ export function SessionChrono({
       items.push({ x1, y1, x2, y2, m });
     }
     return items;
-  }, [budget]);
+  }, [budget, minutes]);
 
   return (
     <section className="chrono" aria-label="Session timing">
       <div className="chrono-main">
         <div className="chrono-digits-block">
-          <h2 className="chrono-label">Time remaining</h2>
+          <h2 className="chrono-label">Time Remaining</h2>
           <p className="chrono-digits" role="timer" aria-live="off">
             {remaining == null ? "—" : formatClock(remaining)}
+          </p>
+          <p className="chrono-note">
+            {paused
+              ? "Paused. Remaining active time is held on the server."
+              : "Display aid from the last confirmed server remaining time."}
           </p>
         </div>
         {remaining == null ? null : (
@@ -96,31 +104,26 @@ export function SessionChrono({
                 <line key={tick.m} x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} />
               ))}
             </g>
+            <g className="gauge-nums">
+              <text x={polar(48, 48, 25, 0)[0]} y={polar(48, 48, 25, 0)[1]}>
+                {minutes}
+              </text>
+              <text x={polar(48, 48, 25, 150)[0]} y={polar(48, 48, 25, 150)[1]}>
+                {Math.round(minutes / 2)}
+              </text>
+            </g>
             <circle className="gauge-needle" cx={nx} cy={ny} r="3.4" />
           </svg>
         )}
-        <details className="chrono-details">
-          <summary>Time details</summary>
-          <p>
-            {paused
-              ? "Paused. Remaining active time is held on the server."
-              : "Display aid from the last confirmed server remaining time. Not a client clock."}
-          </p>
-          <p>Policy: {snapshot?.timing?.policy ?? "disabled"}</p>
-          {snapshot?.timing?.budget_seconds != null ? (
-            <p>Active-duration budget: {formatClock(snapshot.timing.budget_seconds)}</p>
-          ) : null}
-          {snapshot?.bound_submission?.summary ? (
-            <p>{snapshot.bound_submission.summary}</p>
-          ) : null}
-        </details>
       </div>
       <div className="chrono-stage">
         <p className="stage-line">
-          Stage — <span>{terminal ? "Complete" : sealing ? "Sealing" : "Examination"}</span>
+          Stage — <span>{terminal ? "Complete" : sealing ? "Sealing" : "Examination"}</span>{" "}
+          <span className="stage-count">{stages.stage} of {stages.total}</span>
         </p>
+        <StageBars stage={stages.stage} total={stages.total} complete={terminal} />
         {canSubmit ? (
-          <Key disabled={terminal} onClick={onSubmit}>
+          <Key id="submitOpen" disabled={terminal} onClick={onSubmit}>
             Submit Session
           </Key>
         ) : null}

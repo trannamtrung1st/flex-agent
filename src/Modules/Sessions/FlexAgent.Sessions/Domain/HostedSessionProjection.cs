@@ -219,13 +219,30 @@ public static class HostedSessionSnapshotProjector
         var items = new List<HostedTranscriptItem>();
         foreach (var item in session.VisibleTranscript)
         {
+            var author = item.AuthorType == TranscriptAuthorTypes.Agent ? "agent" : "participant";
+            var content = item.ExactUtf8Text;
+            var status = content is null ? "unavailable" : "accepted";
+            if (content is null && item.AuthorType == TranscriptAuthorTypes.Agent)
+            {
+                var message = session.AgentMessages.FirstOrDefault(candidate =>
+                    string.Equals(candidate.MessageId, item.MessageId, StringComparison.Ordinal));
+                var assembled = message?.AssembleExactText();
+                if (!string.IsNullOrEmpty(assembled))
+                {
+                    content = assembled;
+                    status = message!.CompletionState == AgentMessageCompletionStates.Complete
+                        ? "complete"
+                        : message.IsTerminal ? "incomplete" : "streaming";
+                }
+            }
+
             items.Add(new HostedTranscriptItem(
                 ToStableId(item.MessageId, "msg"),
-                item.AuthorType == TranscriptAuthorTypes.Agent ? "agent" : "participant",
-                item.ExactUtf8Text is null ? "unavailable" : "accepted",
+                author,
+                status,
                 "1",
                 Math.Max(1, session.SessionSequence).ToString(CultureInfo.InvariantCulture),
-                item.ExactUtf8Text,
+                content,
                 FormatUtc(session.LastCommittedAt),
                 string.IsNullOrWhiteSpace(item.TurnId) ? null : ToStableId(item.TurnId, "turn")));
         }

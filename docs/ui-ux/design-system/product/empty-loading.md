@@ -70,6 +70,8 @@ attention object only. Reduced motion holds geometry still.
 - use a current-generation marker at the boundary only
 - do not animate previously generated content
 - keep Agent Core processing/speaking synchronized with real semantics
+- when the transport delivers a committed chunk, a bounded character cadence
+  may present that chunk; reduced motion shows the committed string at once
 
 ## Pending
 

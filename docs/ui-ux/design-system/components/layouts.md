@@ -26,7 +26,8 @@ Guided-task `brandExtras` may include `RailHomeLink` and `ProfileMenu` with
 `components/work/`) map business nodes. Assignment heading status bands use
 `AssignmentStatusReadout` in `components/work/`. The live-session React shell
 is `LiveSessionLayout` in `web/src/design-system/patterns/layouts/`. Design Lab
-keeps a composition donor; production must not import lab styles or fixtures.
+Session wraps that same shell with catalog `homeTo` `/surfaces`; production
+must not import lab styles or fixtures.
 
 Each family renders one root with `data-layout="<id>"`. Pages must not wrap
 content in a second layout root. Component Deck specimens may nest a second
@@ -164,6 +165,9 @@ a shell; declaring reserved `.layout-*` structural selectors; selecting
   the page scrolls (`IA-MVP-4`).
 - Live session stacks at ≤1180px and reflows with page scroll at ≤760px so
   transcript, composer, and completion stay reachable at 400% zoom.
+- Guided-task and live-session decorative `.frame-traces` are absolutely
+  overlaid on the shell root so they cannot participate in grid auto-placement;
+  focused skip links stay in the instrument rail grid area.
 - Contrast, keyboard, focus, reduced motion, and forced colors follow the
   foundation modules. Layout CSS also owns print overflow, forced-color
   borders, and reduced-motion scroll behavior for the four shells. State never

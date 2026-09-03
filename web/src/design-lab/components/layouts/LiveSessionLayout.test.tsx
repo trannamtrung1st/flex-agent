@@ -54,5 +54,6 @@ describe("LiveSessionLayout", () => {
     expect(screen.getByText("Composer slot")).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Examiner station" })).toHaveTextContent("Examiner slot");
     expect(screen.getByRole("main", { name: "Examination transcript" }).querySelector(".composition-inset")).toBeNull();
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/surfaces");
   });
 });
