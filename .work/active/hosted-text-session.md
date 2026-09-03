@@ -505,13 +505,23 @@ touched Session files is clean; vitest reveal + Session page + ledger
 remaining `0`. Do not claim live expiry until API/Worker are rebuilt
 and 0069 is applied.
 
-Still not done: warning emission + reconstructable warning history; multi-tab/
-device behavior; offline/reconnect; live terminate/abort; forced-colors;
-400% zoom/reflow; distinct backend/frontend/security-privacy/QA reviews;
-durable-truth/current-state promotion. **Core hosted-session timing
-implementation and full Implementation CI are closed** (see 2026-09-03 review
-below). Do not retire this file until the remaining QA/behavior matrix and
-specialist reviews complete.
+Still not done: live rebuilt API/Worker + migration `0069` / server-owned
+expiry verification (CI OIDC smoke applied `0069` and built Worker OCI but does
+not exercise `IHostedSessionExpirySweep`; do not claim live expiry until local
+Compose API/Worker are rebuilt and expiry is proven — see evidence below);
+warning emission + reconstructable warning history; multi-tab/device behavior;
+offline/reconnect; live terminate/abort; forced-colors; 400% zoom/reflow;
+distinct backend/frontend/security-privacy/QA reviews; durable-truth/current-
+state promotion. **Core hosted-session timing implementation and full
+Implementation CI are closed** (see 2026-09-03 review below). Do not retire
+this file until the remaining QA/behavior matrix and specialist reviews
+complete.
+
+2026-09-03 review of `ed47065` (keep `in-progress`): approve docs/task-state
+update recording timing + CI closure. Corrected: restored live API/Worker +
+`0069` expiry verification in remaining summary; fixed stale HEAD reference in
+verification table. Implementation **`33748755541`** on `ed47065` correctly
+skipped implementation jobs; Documentation CI green.
 
 2026-09-03 review — **core timing + Implementation CI closed** (keep
 `in-progress`): Implementation **`33743544924`** on code-bearing **`888eb91`**
@@ -737,7 +747,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke. HEAD `5ed60c7` docs-only run **`33743559578`** skipped implementation jobs correctly. |
+| Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke (applied `0069`; Worker OCI built; expiry sweep not exercised). Follow-up docs-only runs **`33743559578`** (`5ed60c7`) and **`33748755541`** (`ed47065`) skipped implementation jobs correctly. |
 | Review of `4ce0308` positive capture + env-gated preset | complete | Submissions timing tests; Runtime; web; superseded by `cd90e5d`/`888eb91` chain + full CI above. |
 | Review of `1126162` fail-closed + preset + Gitleaks fixes | confirmed prior pass | Sessions 531; HostedSessionTimingFairnessTests 5; gitleaks clean; Assessment HTTP negatives 24 passed. |
 | Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for prior pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
