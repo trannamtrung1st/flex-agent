@@ -1,6 +1,6 @@
 # Current state
 
-Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-02**.
+Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-03**.
 
 This file owns **classification only**. It must not restate or override product
 meaning, `REQ-*`/`AC-*` contracts, UI/UX journeys, architecture documents, or
@@ -136,8 +136,8 @@ Pages: `ProductionAuthGatePage`, `ProductionHomePage`,
 `ProductionActivitiesPage`, `ProductionCampaignCreatePage`,
 `ProductionAssessmentSetupRoute`, `ProductionEnrollmentPage`,
 `ProductionEnrollmentDetailPage`, `ProductionMyWorkPage`,
-`ProductionMyWorkDetailPage`. Review/Release/Results locators may still be
-unavailable shells.
+`ProductionMyWorkDetailPage`, `ProductionTextSessionPage`. Review/Release/Results
+locators may still be unavailable shells.
 
 Design Lab: isolated under `web/src/design-lab/` and `/design-lab/*`. Not
 product authority.
@@ -172,8 +172,8 @@ synthetic pin is not production qualification.
 | Assessment Campaign draft/setup UI | Partial implemented | `AssessmentConfiguration`; production setup pages |
 | Activities server-numbered paging and capability-aware table selection | Partial implemented | `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; numbered Activities list and page/matching table selection are in code and tests |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
-| Submission intake / Attempt start | Partial implemented | Submissions module, atomic Development Attempt start, My Work readiness/locator, Start Attempt confirmation facts (`UI-SUBM-DEC-4`), local-versus-recorded acknowledgments (readiness `current_outcome`), Attempt history on My Work, and **Continue Attempt** to an honest unavailable Session route; Production/Staging remain fail-closed; hosted live Session is a separate gap |
-| Hosted Session start/command/snapshot; e2e production Session | Gap / default-off | Atomic start creates an Active Session locator; production SPA still reports the host contract unavailable; successor `.work/active/hosted-text-session.md` |
+| Submission intake / Attempt start | Partial implemented | Development atomic start, readiness, durable exact acknowledgments (`current_outcome` vs bindable), history, reconciliation, and **Continue Attempt** locator are complete and reviewed on `ec84274` ([Implementation 33703247493](https://github.com/trannamtrung1st/flex-agent/actions/runs/33703247493)); Production/Staging remain fail-closed; beyond-baseline retry grant (`REQ-SUBM-21`) remains a gap |
+| Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production Session routes landed; Worker is in the authenticated-browser profile; Production provider execution remains default-off; successor `.work/active/hosted-text-session.md` is `in-progress` |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
@@ -187,11 +187,9 @@ synthetic pin is not production qualification.
 
 ## Active work
 
-`.work/active/p0-attempt-session-start.md` is `in-progress` pending review of
-the acknowledgment, history, and retry-confirmation cleanup. Hosted live
-Session remains unclaimed.
-`.work/active/hosted-text-session.md` and
-`.work/active/text-interaction-controller-contract.md` are `planned` and not
+`.work/active/hosted-text-session.md` is `in-progress`. The Attempt-start
+predecessor is retired from `.work/active` (recover from Git).
+`.work/active/text-interaction-controller-contract.md` is `planned` and not
 activated. Completed Participants cursor-pager, server-numbered pagination,
-reset, and harness-correction records are retired from `.work/active`; recover
-them from Git.
+reset, harness-correction, and Attempt-start records are retired from
+`.work/active`; recover them from Git.
