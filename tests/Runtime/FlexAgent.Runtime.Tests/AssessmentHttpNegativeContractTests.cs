@@ -221,8 +221,8 @@ public sealed class AssessmentHttpNegativeContractTests
                 AssessmentAuthorizationActions.SelectSources,
             ],
             permitAuthorization: true);
-        using var firstCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha"}""");
-        using var secondCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Beta"}""");
+        using var firstCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha","timing_preset_id":"development.synthetic_timed.v1"}""");
+        using var secondCreate = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Beta","timing_preset_id":"development.synthetic_timed.v1"}""");
         Assert.Equal(HttpStatusCode.Created, firstCreate.StatusCode);
         Assert.Equal(HttpStatusCode.Created, secondCreate.StatusCode);
         using var page = await SendGetAsync(
@@ -256,7 +256,7 @@ public sealed class AssessmentHttpNegativeContractTests
                 AssessmentAuthorizationActions.SelectSources,
             ],
             permitAuthorization: true);
-        using var created = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha"}""");
+        using var created = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"Alpha","timing_preset_id":"development.synthetic_timed.v1"}""");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var response = await SendGetAsync(
             context,
@@ -698,6 +698,7 @@ public sealed class AssessmentHttpNegativeContractTests
         return JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             ["title"] = "Campaign",
+            ["timing_preset_id"] = AssessmentDevelopmentTimingPresets.SyntheticTimedV1,
             ["organization_policy_source_id"] = source,
             ["organization_policy_version_id"] = version,
             ["organization_policy_digest"] = digest,

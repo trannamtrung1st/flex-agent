@@ -81,3 +81,11 @@ paths = [
   '''(?i)tests/Runtime/FlexAgent\.Runtime\.Tests/HumanAuthenticationCoordinatorTests\.cs$''',
 ]
 regexes = ['''eyJ''']
+
+[[rules.allowlists]]
+description = "Synthetic session command idempotency keys in envelope validator tests."
+condition = "AND"
+paths = [
+  '''(?i)tests/Sessions/FlexAgent\.Sessions\.Tests/Application/HostedSessionCommandEnvelopeValidatorTests\.cs$''',
+]
+regexes = ['''(?i)^(idempotency_key":")?(idem-synthetic)-\d{4}"?$''']

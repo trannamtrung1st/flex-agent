@@ -259,6 +259,33 @@ public static partial class AssessmentEndpointExtensions
             return;
         }
 
+        TimingRules timingRules;
+        if (string.Equals(
+                request.TimingPresetId,
+                AssessmentDevelopmentTimingPresets.SyntheticTimedV1,
+                StringComparison.Ordinal))
+        {
+            timingRules = AssessmentDevelopmentTimingPresets.SyntheticTimedV1Rules();
+        }
+        else if (request.StartsAtUtc != default)
+        {
+            timingRules = new TimingRules(
+                request.StartsAtUtc,
+                request.EndsAtUtc,
+                request.DeadlineUtc,
+                string.IsNullOrWhiteSpace(request.TimeZoneId) ? "UTC" : request.TimeZoneId,
+                request.AttemptLimit < 1 ? 2 : request.AttemptLimit,
+                request.PerAttemptDurationSeconds,
+                request.WarningApproachingRemainingSeconds,
+                request.WarningImminentRemainingSeconds);
+        }
+        else
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
+            return;
+        }
+
         var created = await drafts.CreateAsync(
             new CreateAssessmentDraftCommand(
                 actor,
@@ -270,25 +297,7 @@ public static partial class AssessmentEndpointExtensions
                         ? "Submit one written response"
                         : request.SubmissionRequirementSummary,
                     taskSource),
-                request.StartsAtUtc == default
-                    ? new TimingRules(
-                        new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
-                        new DateTimeOffset(2026, 9, 30, 23, 59, 0, TimeSpan.Zero),
-                        new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
-                        "UTC",
-                        2,
-                        3600,
-                        900,
-                        300)
-                    : new TimingRules(
-                        request.StartsAtUtc,
-                        request.EndsAtUtc,
-                        request.DeadlineUtc,
-                        string.IsNullOrWhiteSpace(request.TimeZoneId) ? "UTC" : request.TimeZoneId,
-                        request.AttemptLimit < 1 ? 2 : request.AttemptLimit,
-                        request.PerAttemptDurationSeconds,
-                        request.WarningApproachingRemainingSeconds,
-                        request.WarningImminentRemainingSeconds),
+                timingRules,
                 policy,
                 agent,
                 harness,
@@ -861,7 +870,8 @@ public static partial class AssessmentEndpointExtensions
         int AttemptLimit,
         int? PerAttemptDurationSeconds,
         int? WarningApproachingRemainingSeconds = null,
-        int? WarningImminentRemainingSeconds = null);
+        int? WarningImminentRemainingSeconds = null,
+        string? TimingPresetId = null);
 
     private sealed record SaveActivityRequest(string Title, long ExpectedRevisionNumber);
 

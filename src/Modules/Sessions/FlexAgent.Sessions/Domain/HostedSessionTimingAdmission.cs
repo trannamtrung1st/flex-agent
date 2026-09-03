@@ -1,8 +1,15 @@
 namespace FlexAgent.Sessions.Domain;
 
+public enum HostedSessionTimingAdmissionVerdict
+{
+    Allowed,
+    CutoffPassed,
+    TimingUnavailable,
+}
+
 public static class HostedSessionTimingAdmission
 {
-    public static bool IsCutoffPassed(
+    public static HostedSessionTimingAdmissionVerdict Evaluate(
         SessionLifecycleState lifecycle,
         DateTimeOffset startedAt,
         DateTimeOffset lastCommittedAt,
@@ -11,6 +18,12 @@ public static class HostedSessionTimingAdmission
         int accumulatedPausedSeconds = 0,
         DateTimeOffset? openPauseStartedAt = null)
     {
+        ArgumentNullException.ThrowIfNull(policy);
+        if (policy.Reconstruction == HostedTimingReconstruction.Unavailable)
+        {
+            return HostedSessionTimingAdmissionVerdict.TimingUnavailable;
+        }
+
         var timing = HostedSessionTiming.Project(
             lifecycle,
             startedAt,
@@ -19,10 +32,34 @@ public static class HostedSessionTimingAdmission
             policy,
             accumulatedPausedSeconds,
             openPauseStartedAt);
+        if (string.Equals(timing.Policy, "unavailable", StringComparison.Ordinal))
+        {
+            return HostedSessionTimingAdmissionVerdict.TimingUnavailable;
+        }
+
         return HostedSessionCutoffAdmission.ShouldExpireLiveSession(
-            MapLifecycle(lifecycle),
-            timing.RemainingSeconds);
+                MapLifecycle(lifecycle),
+                timing.RemainingSeconds)
+            ? HostedSessionTimingAdmissionVerdict.CutoffPassed
+            : HostedSessionTimingAdmissionVerdict.Allowed;
     }
+
+    public static bool IsCutoffPassed(
+        SessionLifecycleState lifecycle,
+        DateTimeOffset startedAt,
+        DateTimeOffset lastCommittedAt,
+        DateTimeOffset authoritativeUtc,
+        HostedFrozenTimingPolicy policy,
+        int accumulatedPausedSeconds = 0,
+        DateTimeOffset? openPauseStartedAt = null) =>
+        Evaluate(
+            lifecycle,
+            startedAt,
+            lastCommittedAt,
+            authoritativeUtc,
+            policy,
+            accumulatedPausedSeconds,
+            openPauseStartedAt) == HostedSessionTimingAdmissionVerdict.CutoffPassed;
 
     private static string MapLifecycle(SessionLifecycleState lifecycle) =>
         lifecycle switch

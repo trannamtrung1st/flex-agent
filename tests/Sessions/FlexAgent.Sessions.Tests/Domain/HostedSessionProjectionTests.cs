@@ -5,6 +5,32 @@ namespace FlexAgent.Sessions.Tests.Domain;
 public sealed class HostedSessionProjectionTests
 {
     [Fact]
+    public void Participant_unavailable_timing_closes_send_and_complete()
+    {
+        var actions = SessionPermittedActionsProjector.Project(
+            HostedSessionProjectionKinds.Participant,
+            SessionLifecycleState.Active,
+            remainingSeconds: null,
+            timingPolicy: "unavailable");
+
+        Assert.DoesNotContain(HostedSessionPermittedActions.SendMessage, actions);
+        Assert.DoesNotContain(HostedSessionPermittedActions.CompleteSession, actions);
+        Assert.Contains(HostedSessionPermittedActions.Reconcile, actions);
+    }
+
+    [Fact]
+    public void Administrator_paused_unavailable_timing_closes_resume()
+    {
+        var actions = SessionPermittedActionsProjector.Project(
+            HostedSessionProjectionKinds.Administrator,
+            SessionLifecycleState.Paused,
+            timingPolicy: "unavailable");
+
+        Assert.DoesNotContain(HostedSessionPermittedActions.ResumeSession, actions);
+        Assert.Contains(HostedSessionPermittedActions.TerminateSession, actions);
+    }
+
+    [Fact]
     public void Participant_active_permits_send_complete_and_reconcile()
     {
         var actions = SessionPermittedActionsProjector.Project(

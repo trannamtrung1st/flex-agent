@@ -248,6 +248,121 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
         Assert.Equal("completed", lifecycle);
     }
 
+    [Fact]
+    public async Task AcceptAsync_rejects_messages_when_frozen_timing_is_unavailable()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var session = SessionRuntime.CreateActive(binding, startedAt);
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await BackdateSessionStartAsync(scope.Transaction, binding.Ownership, startedAt);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var accept = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var result = await accept.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.timing.unavailable",
+                "turn.timing.unavailable",
+                "slot.timing.unavailable",
+                "trig.timing.unavailable",
+                "idem.timing.unavailable",
+                Guid.NewGuid(),
+                "integration.test",
+                "blocked message"),
+            binding,
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.TimingUnavailable, result.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Expiry_sweep_finds_due_session_when_many_unavailable_hard_end_rows_precede_it()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
+        var expiredBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var expiredStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        var expiredSession = SessionRuntime.CreateActive(expiredBinding, expiredStartedAt);
+        var expiredHardEnd = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var expiredPolicy = new HostedFrozenTimingPolicy(
+            HostedTimingReconstruction.Unbounded,
+            null,
+            [],
+            expiredHardEnd);
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(
+                expiredBinding.Ownership,
+                expiredSession,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await InsertFrozenTimingAsync(scope.Transaction, expiredBinding.Ownership, expiredPolicy);
+            await BackdateSessionStartAsync(scope.Transaction, expiredBinding.Ownership, expiredStartedAt);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        for (var index = 0; index < 32; index++)
+        {
+            var corruptBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+            var corruptStartedAt = DateTimeOffset.UtcNow.AddDays(-30).AddMinutes(index);
+            var corruptSession = SessionRuntime.CreateActive(corruptBinding, corruptStartedAt);
+            var corruptPolicy = new HostedFrozenTimingPolicy(
+                HostedTimingReconstruction.Unavailable,
+                null,
+                [],
+                DateTimeOffset.UtcNow.AddDays(-1));
+            await using var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+            await repository.InsertActiveAsync(
+                corruptBinding.Ownership,
+                corruptSession,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await InsertFrozenTimingAsync(scope.Transaction, corruptBinding.Ownership, corruptPolicy);
+            await BackdateSessionStartAsync(scope.Transaction, corruptBinding.Ownership, corruptStartedAt);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var sweep = CreateExpirySweep(organization.ActorId, repository);
+        var expiredCount = await sweep.ExpireDueAsync(CancellationToken);
+        Assert.True(expiredCount >= 1);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var lifecycle = await connection.QuerySingleAsync<string>(
+            """
+            SELECT lifecycle_state
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+            """,
+            new
+            {
+                expiredBinding.Ownership.OrganizationId,
+                expiredBinding.Ownership.SessionId,
+            });
+        Assert.Equal("completed", lifecycle);
+    }
+
     private PostgresHostedSessionExpirySweep CreateExpirySweep(
         Guid actorId,
         PostgresSessionRuntimeRepository repository) =>

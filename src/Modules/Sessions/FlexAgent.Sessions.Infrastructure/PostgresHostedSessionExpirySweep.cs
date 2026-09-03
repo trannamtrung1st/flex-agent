@@ -29,6 +29,7 @@ public sealed class PostgresHostedSessionExpirySweep(
                     ON timing.organization_id = runtime.organization_id
                    AND timing.session_id = runtime.session_id
                 WHERE runtime.lifecycle_state IN ('active', 'paused')
+                  AND timing.document->>'reconstruction' IN ('timed', 'unbounded')
                   AND timing.document->>'hard_end_at_utc' IS NOT NULL
                   AND (timing.document->>'hard_end_at_utc')::timestamptz <= clock_timestamp()
                 ORDER BY (timing.document->>'hard_end_at_utc')::timestamptz

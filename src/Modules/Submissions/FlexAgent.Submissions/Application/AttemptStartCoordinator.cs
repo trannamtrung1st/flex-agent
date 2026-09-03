@@ -338,6 +338,16 @@ public sealed class AttemptStartCoordinator(
                     binding,
                     transaction.CommitHandle,
                     cancellationToken);
+                if (FrozenAttemptTimingDocuments.IsUnavailable(frozenTimingDocument))
+                {
+                    transaction.AbortCommit();
+                    failedAfterAbort = StartOperationPolicy.Fail(
+                        claimed.Value,
+                        AttemptFailureCodes.Ineligible,
+                        now).Value!;
+                    return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
+                }
+
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(
                         attemptId,

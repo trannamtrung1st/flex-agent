@@ -1,4 +1,5 @@
 import { ProductionApiError } from "./production-api";
+import { developmentSyntheticTimedActivityCreateFields } from "../features/assessment/developmentTimingPresets";
 
 export interface AssessmentSetupView {
   activity_id: string;
@@ -285,6 +286,7 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
+          ...developmentSyntheticTimedActivityCreateFields(),
           ...sourceFields("organization_policy", sources.organization_policy),
           ...sourceFields("agent", sources.agent),
           ...sourceFields("harness", sources.harness),

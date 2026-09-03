@@ -181,6 +181,19 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             return Denied();
         }
 
+        if (HostedSessionTimingAuthority.IsUnavailable(live.Snapshot.TimingPolicy)
+            && commandType is "session.message.send.v1" or "session.resume.v1")
+        {
+            return new HostedSessionCommandResult(
+                false,
+                "rejected",
+                "session.timing.unavailable",
+                "none",
+                live.Snapshot.PermittedActions,
+                live.Snapshot.SessionVersion,
+                live.Snapshot.SessionSequence);
+        }
+
         if (HostedSessionCutoffAdmission.ShouldExpireLiveSession(
                 live.Snapshot.LifecycleState,
                 live.Snapshot.RemainingSeconds))
@@ -336,6 +349,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             TriggerAdmissionOutcomeCodes.Reconciled => "duplicate",
             TriggerAdmissionOutcomeCodes.StaleVersion or TriggerAdmissionOutcomeCodes.IdempotencyConflict => "conflict",
             TriggerAdmissionOutcomeCodes.CutoffPassed => "rejected",
+            TriggerAdmissionOutcomeCodes.TimingUnavailable => "rejected",
             TriggerAdmissionOutcomeCodes.Denied or TriggerAdmissionOutcomeCodes.OwnershipMismatch => "rejected",
             _ => result.Succeeded ? "accepted" : "rejected",
         };
@@ -346,9 +360,12 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             _ => "none",
         };
         var lifecycle = SessionLifecycleState.Active;
-        var outcomeCode = result.OutcomeCode == TriggerAdmissionOutcomeCodes.CutoffPassed
-            ? "session.cutoff.passed"
-            : result.OutcomeCode.Replace('_', '.');
+        var outcomeCode = result.OutcomeCode switch
+        {
+            TriggerAdmissionOutcomeCodes.CutoffPassed => "session.cutoff.passed",
+            TriggerAdmissionOutcomeCodes.TimingUnavailable => "session.timing.unavailable",
+            _ => result.OutcomeCode.Replace('_', '.'),
+        };
         return new HostedSessionCommandResult(
             result.Succeeded,
             category,

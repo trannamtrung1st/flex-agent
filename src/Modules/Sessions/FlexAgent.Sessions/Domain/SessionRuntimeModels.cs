@@ -77,6 +77,7 @@ public static class TriggerAdmissionOutcomeCodes
     public const string Denied = "trigger_admission.denied";
     public const string MissingParticipantContent = "trigger_admission.missing_participant_content";
     public const string CutoffPassed = "trigger_admission.cutoff_passed";
+    public const string TimingUnavailable = "trigger_admission.timing_unavailable";
 }
 
 public static class InvocationCompletionOutcomeCodes

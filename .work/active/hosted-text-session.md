@@ -510,6 +510,12 @@ and previously missing hosted-session states (warning emission, multi-tab,
 offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
 retire this file.
 
+2026-09-03 review of `1126162` (keep `in-progress`): fail closed on
+`timing.unavailable` for send/resume/permitted actions and Attempt start;
+exclude unavailable rows from Worker hard-end expiry candidates; wire explicit
+`development.synthetic_timed.v1` preset through Activity create (API + web);
+allowlist Gitleaks false positives in session command envelope validator tests.
+
 2026-09-03 review of `7de6983` (keep `in-progress`): fixed expiry SQL pause
 sign (`budget + paused`), enforce `hard_end_at_utc` for unbounded Sessions in
 projection/admission/sweep, wire warning thresholds through Activity HTTP +
@@ -677,7 +683,8 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for this pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
+| Review of `1126162` fail-closed + preset + Gitleaks fixes | confirmed for this pass | 2026-09-03: Sessions 531; HostedSessionTimingFairnessTests 5; gitleaks clean; Assessment HTTP negatives 24 passed after explicit preset on create payloads. |
+| Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for prior pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for prior pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
 | Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |

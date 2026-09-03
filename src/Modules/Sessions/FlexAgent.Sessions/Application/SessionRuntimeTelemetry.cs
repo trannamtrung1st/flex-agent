@@ -352,6 +352,7 @@ internal static class SessionRuntimeTelemetryVocabularies
         TriggerAdmissionOutcomeCodes.StaleClock,
         TriggerAdmissionOutcomeCodes.MissingTurn,
         TriggerAdmissionOutcomeCodes.CutoffPassed,
+        TriggerAdmissionOutcomeCodes.TimingUnavailable,
         TriggerAdmissionOutcomeCodes.Denied,
         InvocationCompletionOutcomeCodes.Decided,
         InvocationCompletionOutcomeCodes.ExecutionFailed,

@@ -81,14 +81,25 @@ public sealed class PostgresAcceptParticipantMessageCoordinator(
                     scope.Transaction,
                     cancellationToken: cancellationToken));
             var timingPolicy = HostedSessionFrozenTiming.FromDocumentJson(frozenDocument);
-            if (HostedSessionTimingAdmission.IsCutoffPassed(
-                    session.LifecycleState,
-                    startedAt,
-                    session.LastCommittedAt,
-                    authoritativeUtc,
-                    timingPolicy,
-                    session.AccumulatedPausedSeconds,
-                    session.OpenPauseStartedAt))
+            var admissionVerdict = HostedSessionTimingAdmission.Evaluate(
+                session.LifecycleState,
+                startedAt,
+                session.LastCommittedAt,
+                authoritativeUtc,
+                timingPolicy,
+                session.AccumulatedPausedSeconds,
+                session.OpenPauseStartedAt);
+            if (admissionVerdict == HostedSessionTimingAdmissionVerdict.TimingUnavailable)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TriggerAdmissionResult(
+                    false,
+                    TriggerAdmissionOutcomeCodes.TimingUnavailable,
+                    null,
+                    null);
+            }
+
+            if (admissionVerdict == HostedSessionTimingAdmissionVerdict.CutoffPassed)
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new TriggerAdmissionResult(

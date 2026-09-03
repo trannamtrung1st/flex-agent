@@ -223,6 +223,28 @@ public interface IFrozenAttemptTimingCapture
         CancellationToken cancellationToken = default);
 }
 
+public static class FrozenAttemptTimingDocuments
+{
+    public static bool IsUnavailable(string? documentJson)
+    {
+        if (string.IsNullOrWhiteSpace(documentJson))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(documentJson);
+            return document.RootElement.TryGetProperty("reconstruction", out var reconstruction)
+                && string.Equals(reconstruction.GetString(), "unavailable", StringComparison.Ordinal);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return true;
+        }
+    }
+}
+
 public sealed class UnavailableFrozenAttemptTimingCapture : IFrozenAttemptTimingCapture
 {
     public static UnavailableFrozenAttemptTimingCapture Instance { get; } = new();
@@ -235,6 +257,34 @@ public sealed class UnavailableFrozenAttemptTimingCapture : IFrozenAttemptTiming
     {
         _ = (effectiveTiming, binding, commitTransaction, cancellationToken);
         return Task.FromResult("""{"reconstruction":"unavailable","budget_seconds":null,"warnings":[],"hard_end_at_utc":null}""");
+    }
+}
+
+public sealed class DevelopmentSyntheticFrozenAttemptTimingCapture : IFrozenAttemptTimingCapture
+{
+    public static DevelopmentSyntheticFrozenAttemptTimingCapture Instance { get; } = new();
+
+    public Task<string> CaptureAsync(
+        EffectiveTiming effectiveTiming,
+        ActivatedCohortBinding binding,
+        object commitTransaction,
+        CancellationToken cancellationToken = default)
+    {
+        _ = (binding, commitTransaction, cancellationToken);
+        ArgumentNullException.ThrowIfNull(effectiveTiming);
+        var hardEnd = effectiveTiming.EffectiveAttemptStartExclusiveEndUtc
+            <= effectiveTiming.EffectiveSubmissionExclusiveEndUtc
+            ? effectiveTiming.EffectiveAttemptStartExclusiveEndUtc
+            : effectiveTiming.EffectiveSubmissionExclusiveEndUtc;
+        var hardEndJson = hardEnd.ToString("O");
+        if (effectiveTiming.EffectivePerAttemptDurationSeconds is not > 0)
+        {
+            return Task.FromResult(
+                $$"""{"reconstruction":"unbounded","budget_seconds":null,"warnings":[],"hard_end_at_utc":"{{hardEndJson}}"}""");
+        }
+
+        return Task.FromResult(
+            $$"""{"reconstruction":"timed","budget_seconds":{{effectiveTiming.EffectivePerAttemptDurationSeconds}},"warnings":[{"code":"approaching","remaining_seconds":900},{"code":"imminent","remaining_seconds":300}],"hard_end_at_utc":"{{hardEndJson}}"}""");
     }
 }
 

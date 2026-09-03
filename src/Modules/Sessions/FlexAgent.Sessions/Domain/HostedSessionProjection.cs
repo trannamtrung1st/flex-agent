@@ -66,19 +66,40 @@ public static class SessionPermittedActionsProjector
     public static IReadOnlyList<string> Project(
         string projectionKind,
         SessionLifecycleState lifecycle,
-        int? remainingSeconds = null)
+        int? remainingSeconds = null,
+        string? timingPolicy = null)
     {
         return projectionKind switch
         {
-            HostedSessionProjectionKinds.Participant => Participant(lifecycle, remainingSeconds),
-            HostedSessionProjectionKinds.Administrator => Administrator(lifecycle),
+            HostedSessionProjectionKinds.Participant => Participant(lifecycle, remainingSeconds, timingPolicy),
+            HostedSessionProjectionKinds.Administrator => Administrator(lifecycle, timingPolicy),
             HostedSessionProjectionKinds.Historical => Historical(lifecycle),
             _ => [],
         };
     }
 
-    private static IReadOnlyList<string> Participant(SessionLifecycleState lifecycle, int? remainingSeconds)
+    private static IReadOnlyList<string> Participant(
+        SessionLifecycleState lifecycle,
+        int? remainingSeconds,
+        string? timingPolicy)
     {
+        if (HostedSessionTimingAuthority.IsUnavailable(timingPolicy))
+        {
+            return lifecycle switch
+            {
+                SessionLifecycleState.Active or SessionLifecycleState.Paused or SessionLifecycleState.Completing =>
+                [
+                    HostedSessionPermittedActions.Reconcile,
+                    HostedSessionPermittedActions.ReturnToMyWork,
+                ],
+                _ =>
+                [
+                    HostedSessionPermittedActions.ViewTranscript,
+                    HostedSessionPermittedActions.ReturnToMyWork,
+                ],
+            };
+        }
+
         if (lifecycle == SessionLifecycleState.Active && remainingSeconds == 0)
         {
             return
@@ -116,8 +137,15 @@ public static class SessionPermittedActionsProjector
         };
     }
 
-    private static IReadOnlyList<string> Administrator(SessionLifecycleState lifecycle) =>
-        lifecycle switch
+    private static IReadOnlyList<string> Administrator(SessionLifecycleState lifecycle, string? timingPolicy) =>
+        HostedSessionTimingAuthority.IsUnavailable(timingPolicy)
+            ? lifecycle switch
+            {
+                SessionLifecycleState.Active or SessionLifecycleState.Paused or SessionLifecycleState.Completing =>
+                    [HostedSessionPermittedActions.TerminateSession],
+                _ => [],
+            }
+            : lifecycle switch
         {
             SessionLifecycleState.Active =>
             [
@@ -202,7 +230,11 @@ public static class HostedSessionSnapshotProjector
             session.SessionVersion,
             session.SessionSequence,
             authoritativeUtc,
-            SessionPermittedActionsProjector.Project(projectionKind, session.LifecycleState, timing.RemainingSeconds),
+            SessionPermittedActionsProjector.Project(
+                projectionKind,
+                session.LifecycleState,
+                timing.RemainingSeconds,
+                timing.Policy),
             recovery,
             session.CutoffSequence,
             includeTranscript ? "Assessment Agent" : null,
