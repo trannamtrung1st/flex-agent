@@ -232,7 +232,7 @@ lifecycle, or Release from them.
 - Production `/` redirects here when My work is available (one assignment index)
 - Constraints: `PC-03`, `PC-07` (rail cannot mutate lifecycle)
 
-### MVP Text Session (production contract-unavailable; lab composition donor)
+### MVP Text Session (production live-session)
 
 - Foundations: accessibility, colors, typography, layout, density,
   interaction states, motion, status
@@ -241,8 +241,9 @@ lifecycle, or Release from them.
   empty/loading, protected content
 - Governing specification: [Text Session](../flows/text-session.md)
 - Constraints: `PC-08`; no production simulator. Approved family is
-  `live-session`; production locator stays `management` until the host
-  contract exists.
+  `live-session` on `/sessions/:sessionId`. Remaining time is a server
+  projection; the examiner chrono is a display aid. Do not import Design Lab
+  styles or fixtures.
 
 ### Evidence, Evaluation, and Human Review (production contract-unavailable; lab composition donor)
 

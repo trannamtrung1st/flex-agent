@@ -55,7 +55,7 @@ browser harness):
 | --- | --- | --- |
 | Auth session, Assessment shell, setup, Enrollment, My Work, Submission intake | Exposed under `/auth`, `/v1/assessment`, `/v2/assessment` | Implemented in `web/src/api/` and production pages |
 | Attempt start | Mapped under `/v2/assessment/my-work/{enrollmentId}/attempt` | Implemented; Continue uses the committed Session locator |
-| Text Session snapshot, commands, and hosted events | `GET/POST /v1/sessions/{sessionId}` and `GET /v1/sessions/{sessionId}/events`; compatibility SSE remains `GET /sessions/{sessionId}/events` | `/sessions/:sessionId` is the Participant live-session route; `/operations` and `/transcript` are separate management records |
+| Text Session snapshot, commands, and hosted events | `GET/POST /v1/sessions/{sessionId}` and `GET /v1/sessions/{sessionId}/events`; compatibility SSE remains `GET /sessions/{sessionId}/events`. Participant snapshots include `timing` (`policy`, `remaining_seconds`, optional `budget_seconds`) as server authority for Time remaining. | `/sessions/:sessionId` is the Participant live-session route; examiner chrono interpolates remaining seconds locally and must not announce ticks; `/operations` and `/transcript` are separate management records |
 | Review, Result, Release | Architecture contract exists; no production host HTTP group | Destinations stay contract-unavailable |
 
 Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions/{id}/events`, and `/browser`

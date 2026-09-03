@@ -54,7 +54,12 @@ public sealed record HostedSessionSnapshot(
     IReadOnlyList<HostedTranscriptItem> Transcript,
     bool OlderAvailable,
     string ActivityWorkState,
-    string? ActivityTurnId);
+    string? ActivityTurnId,
+    string TimingPolicy = "disabled",
+    int? RemainingSeconds = null,
+    string? WarningCode = "none",
+    string? PauseStartedAt = null,
+    int? TimingBudgetSeconds = null);
 
 public static class SessionPermittedActionsProjector
 {
@@ -79,8 +84,14 @@ public static class SessionPermittedActionsProjector
                 HostedSessionPermittedActions.Reconcile,
                 HostedSessionPermittedActions.ReturnToMyWork,
             ],
-            SessionLifecycleState.Paused or SessionLifecycleState.Completing or SessionLifecycleState.Ready =>
+            SessionLifecycleState.Paused or SessionLifecycleState.Ready =>
             [
+                HostedSessionPermittedActions.Reconcile,
+                HostedSessionPermittedActions.ReturnToMyWork,
+            ],
+            SessionLifecycleState.Completing =>
+            [
+                HostedSessionPermittedActions.CompleteSession,
                 HostedSessionPermittedActions.Reconcile,
                 HostedSessionPermittedActions.ReturnToMyWork,
             ],
@@ -124,7 +135,9 @@ public static class HostedSessionSnapshotProjector
     public static HostedSessionSnapshot Project(
         SessionRuntime session,
         string projectionKind,
-        DateTimeOffset authoritativeUtc)
+        DateTimeOffset authoritativeUtc,
+        DateTimeOffset? startedAt = null,
+        int? timingBudgetSeconds = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         var includeTranscript = projectionKind is HostedSessionProjectionKinds.Participant
@@ -157,6 +170,12 @@ public static class HostedSessionSnapshotProjector
                 },
             };
 
+        var timing = HostedSessionTiming.Project(
+            session.LifecycleState,
+            startedAt ?? session.LastCommittedAt,
+            session.LastCommittedAt,
+            authoritativeUtc,
+            timingBudgetSeconds ?? HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds);
         return new HostedSessionSnapshot(
             projectionKind,
             session.Ownership.SessionId,
@@ -174,7 +193,12 @@ public static class HostedSessionSnapshotProjector
             projectionKind == HostedSessionProjectionKinds.Historical ? "idle" : workState,
             lastTurn is null || projectionKind == HostedSessionProjectionKinds.Historical
                 ? null
-                : ToStableId(lastTurn.TurnId, "turn"));
+                : ToStableId(lastTurn.TurnId, "turn"),
+            includeTranscript ? timing.Policy : "disabled",
+            includeTranscript ? timing.RemainingSeconds : null,
+            includeTranscript ? timing.WarningCode : "none",
+            includeTranscript ? timing.PauseStartedAt : null,
+            includeTranscript ? timing.BudgetSeconds : null);
     }
 
     public static string MapLifecycle(SessionLifecycleState state) =>

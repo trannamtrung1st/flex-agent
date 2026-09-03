@@ -105,7 +105,8 @@ public sealed record SessionTimingProjectionV1(
     string Policy,
     int? RemainingSeconds,
     string? WarningCode,
-    string? PauseStartedAt);
+    string? PauseStartedAt,
+    int? BudgetSeconds = null);
 
 public sealed record SessionBoundSubmissionSummaryV1(
     string Summary,

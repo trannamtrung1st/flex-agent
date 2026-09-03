@@ -5,9 +5,8 @@ They do not assemble command strips, gangways, bulkheads, instrument rails,
 work bays, or page footers.
 
 Implementation: `web/src/design-system/patterns/layouts/` for management,
-guided-task, and reference. The live-session React shell is
-`web/src/design-lab/components/layouts/LiveSessionLayout.tsx` until a production
-session route exists; the family id stays in the production layout set. Route assignment is
+guided-task, reference, and the production `LiveSessionLayout` used by
+`/sessions/:sessionId`. Route assignment is
 router-owned (`PC-10`). Destinations in a gangway exist only when permitted
 (`PC-09`). Accessibility follows [accessibility](../foundation/accessibility.md)
 and `PC-12`. Synthetic fixtures stay out of production (`PC-14`).
@@ -18,7 +17,7 @@ and `PC-12`. Synthetic fixtures stay out of production (`PC-14`).
 | --- | --- | --- | --- | --- |
 | `management` | skip link, banner/`header` command strip, optional `nav` gangway or bulkhead, `main`, optional `footer` | command strip, main content | navigation groups, breadcrumbs, banner, footer, overlays | yes |
 | `guided-task` | skip link, complementary instrument rail, `main` work well, `footer` actions | rail brand, rail instruments, heading, work well | actions, overlays | yes |
-| `live-session` | skip link, complementary instrument rail, `main` transcript, composer `footer`, complementary examiner | rail brand, instruments, transcript, composer, examiner | overlays, warned/complete modifiers | yes (shell in design-lab until a production session route) |
+| `live-session` | skip link, complementary instrument rail, `main` transcript, composer `footer`, complementary examiner | rail brand, instruments, transcript, composer, examiner | overlays, warned/complete modifiers | yes |
 | `reference` | skip link, command strip, optional index rail, `main`, optional footer | command strip, catalog/deck main | index rail, footer | design lab only |
 
 Guided-task `brandExtras` may include `RailHomeLink` and `ProfileMenu` with
@@ -26,8 +25,8 @@ Guided-task `brandExtras` may include `RailHomeLink` and `ProfileMenu` with
 `PhaseSpine`; domain wrappers (for example `AssignmentSpine` in
 `components/work/`) map business nodes. Assignment heading status bands use
 `AssignmentStatusReadout` in `components/work/`. The live-session React shell
-is `LiveSessionLayout` in `web/src/design-lab/components/layouts/`; the family
-id stays in the production layout set.
+is `LiveSessionLayout` in `web/src/design-system/patterns/layouts/`. Design Lab
+keeps a composition donor; production must not import lab styles or fixtures.
 
 Each family renders one root with `data-layout="<id>"`. Pages must not wrap
 content in a second layout root. Component Deck specimens may nest a second
@@ -193,7 +192,9 @@ matches those families where the host contract is implemented:
 | --- | --- |
 | `/`, `/activities`, `/activities/new`, setup, Enrollment roster/detail, `/my-work` | `management` |
 | `/my-work/:enrollmentId` | `guided-task` |
-| `/sessions/:sessionId`, `/review`, `/review/:reviewId`, `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `live-session` for Session and `guided-task` for Review/Release records. |
+| `/sessions/:sessionId` | `live-session` |
+| `/sessions/:sessionId/operations`, `/sessions/:sessionId/transcript` | `management` nested records |
+| `/review`, `/review/:reviewId`, `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `guided-task` for Review/Release records. |
 | unknown locator (`*`) | `management` |
 
 When My work is available, production `/` redirects to `/my-work`; administrator
@@ -201,5 +202,5 @@ When My work is available, production `/` redirects to `/my-work`; administrator
 
 New production pages clone a matching existing production surface and Deck
 specimen. Isolated lab journeys remain donors for shells whose approved family
-is not yet production-backed (`live-session`, reviewer split ledger). Do not
+is not yet production-backed (reviewer split ledger). Do not
 copy lab fixtures or invent a second chrome language.

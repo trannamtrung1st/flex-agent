@@ -174,7 +174,12 @@ public static class SessionHostedEndpointExtensions
             snapshot.RecoveryCategory,
             snapshot.CutoffSequence?.ToString(CultureInfo.InvariantCulture),
             agent,
-            new SessionTimingProjectionV1("disabled", null, "none", null),
+            new SessionTimingProjectionV1(
+                snapshot.TimingPolicy,
+                snapshot.RemainingSeconds,
+                snapshot.WarningCode,
+                snapshot.PauseStartedAt,
+                snapshot.TimingBudgetSeconds),
             submission,
             transcript,
             new SessionActivityProjectionV1(snapshot.ActivityWorkState, snapshot.ActivityTurnId, null));

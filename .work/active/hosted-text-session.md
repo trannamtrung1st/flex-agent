@@ -1,6 +1,6 @@
 ---
 id: hosted-text-session
-status: completed
+status: in-progress
 created: 2026-09-02
 updated: 2026-09-03
 ---
@@ -145,7 +145,8 @@ authorized by this plan because approved families and donors already exist.
   the current unversioned SSE route and closed v1 wire behavior as a
   compatibility path rather than extending it incompatibly.
 - Production Participant Text Session route using the approved `live-session`
-  family: entry/restore, Agent identity, authoritative time, exact Submission
+  family: entry/restore, Agent identity and core animation, authoritative
+  remaining-time projection plus examiner chrono, exact Submission
   summary, ordered transcript, local composer, pending/reconciling send,
   durable streaming, work/no-action/failure states, reconnect/offline,
   pause/permission change, completion confirmation/finalizing, and terminal
@@ -182,8 +183,11 @@ authorized by this plan because approved families and donors already exist.
   is only the Session-owned read boundary already required by the Text Session
   specification.
 - Voice, playback, tools, external retrieval, Dynamic memory, learning,
-  shared/multi-Participant Sessions, arbitrary timers, Interaction Controller
-  behavior, or richer Decision/output kinds.
+  shared/multi-Participant Sessions, arbitrary extra timers, Interaction Controller
+  behavior, or richer Decision/output kinds. The approved Participant remaining-
+  time projection and chrono display are in scope. The internal Agent next-timer
+  lane and unapproved `PROP-9` cooldown/duplicate-suppression stay out. Expiry
+  as an idempotent hosted terminal command remains a gap.
 - Offline message queues, automatic resend after an uncertain response,
   automatic external-link fetching, accepted-message editing/deletion, or
   reopening a terminal Session.
@@ -334,6 +338,12 @@ authorized by this plan because approved families and donors already exist.
   separate `management` nested-record routes cloned from an accepted production
   record page plus the Component Deck management-record specimen; neither route
   may inherit Participant live controls.
+- [x] Remaining-time red/green: project `active_duration` remaining seconds
+  from `session_runtimes.created_at` and the Proposed 45-minute synthetic
+  development budget when Activity duration is absent. Seat Design Lab chrono
+  digits/gauge and Submit Session on the examiner; keep Agent core animation;
+  Enter inserts a newline (`UI-SESS-DEC-4`). Do not enable the Agent timer
+  lane or invent warning/expiry behavior.
 - [x] Frontend state red/green: add typed production Session API/SSE clients,
   TanStack Query snapshot ownership, and an explicit reducer for committed
   deltas and ephemeral local states. Implement the six independent state
@@ -390,8 +400,9 @@ implemented. Production HTTP locators remain Attempt-committed UUIDs.
 delegations for existing demo-org runtimes. Fail-closed execution completes
 work without Agent text; snapshot maps `execution_failed` to `failed` so the
 Participant can send again. Administrator pause/resume confirmed on
-`:5274`. Timing stays the frozen `disabled` projection. Production model
-enablement is not claimed.
+`:5274`. Participant remaining time now projects `active_duration` with the
+Proposed 45-minute synthetic development budget. Agent timer lane stays
+disabled. Production model enablement is not claimed.
 
 2026-09-03 consistency review (no code edits): stack healthy (`session-endpoint:ok`,
 Worker up, `:5274` 200, RedirectUri restored to canonical). Focused hosted
@@ -449,7 +460,10 @@ to be the same authoritative Session string.
   Hosted HTTP/UI availability must not silently enable model execution.
 - Do not depend on unapproved `PROP-9` timer guidance for public behavior. Use
   the already approved one-lane timer semantics and implemented frozen bounds;
-  expose no internal scheduling state to the Participant.
+  expose no internal Agent-lane scheduling state to the Participant. Participant
+  **Time remaining** is a separate hosted snapshot projection (`active_duration`
+  remaining seconds). When Activity duration is absent, use the labeled
+  Proposed 45-minute synthetic development budget.
 
 # Findings / deviations
 
@@ -575,9 +589,10 @@ Gaps for review (not blockers for this host/UI slice):
   administrator and therefore sees an empty historical transcript list.
 - Fail-closed Worker produces `execution_failed`, not intentional no-action or
   Agent fragments. Deterministic-fake enablement is out of scope.
-- Timer remains disabled (`PROP-9` unused). Multi-tab, offline reconnect,
-  terminate/abort, light/dark, reduced-motion, forced-colors, and 400% zoom
-  were not fully re-checked in this close-out.
+- Agent next-timer lane remains disabled (`PROP-9` unused). Participant
+  remaining-time chrono is now in this slice. Expiry terminalization, warning
+  thresholds, multi-tab, offline reconnect, terminate/abort, light/dark,
+  forced-colors, and 400% zoom were not fully re-checked in this close-out.
 - Participant can open `/operations` and see lifecycle/version without
   pause/terminate; they do not inherit control.
 - `docs/current-state.md` not promoted. Independent reviews not yet executed.
@@ -588,3 +603,14 @@ with both admitted messages after RedirectUri returned to canonical.
 
 Implementation CI `oidc` static gate failed on 593f554: validator fixture
 `valid_config()` omitted the required `worker` service.
+
+2026-09-03 defect: `session.complete.v1` only entered `completing` and never
+sealed `completed`, so the live console stayed composer-closed with no further
+server transition. Host now runs begin_completing then complete (same pattern
+as terminate). Production live-session chrome now uses the Design Lab
+conversation donor: Agent core animation, examiner chrono, ledger turns, and
+Transmit composer. Briefing and console-feed stay out. Detector on the changed
+page/CSS returned no hits. Remaining-time chrono verified on candidate
+`:5274` after API rebuild: desktop examiner shows Time remaining digits plus
+gauge; narrow stacks examiner above transcript/composer. RedirectUri restored
+to canonical `:18080`.

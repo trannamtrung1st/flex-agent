@@ -18,6 +18,17 @@ public sealed class HostedSessionProjectionTests
     }
 
     [Fact]
+    public void Participant_completing_still_permits_idempotent_complete()
+    {
+        var actions = SessionPermittedActionsProjector.Project(
+            HostedSessionProjectionKinds.Participant,
+            SessionLifecycleState.Completing);
+
+        Assert.Contains(HostedSessionPermittedActions.CompleteSession, actions);
+        Assert.DoesNotContain(HostedSessionPermittedActions.SendMessage, actions);
+    }
+
+    [Fact]
     public void Administrator_active_permits_pause_and_terminate_without_transcript_actions()
     {
         var actions = SessionPermittedActionsProjector.Project(
@@ -52,6 +63,26 @@ public sealed class HostedSessionProjectionTests
         Assert.Empty(snapshot.Transcript);
         Assert.Equal(0, snapshot.BoundSubmissionCount);
         Assert.Null(snapshot.AgentDisplayName);
+        Assert.Equal("disabled", snapshot.TimingPolicy);
+        Assert.Null(snapshot.RemainingSeconds);
+    }
+
+    [Fact]
+    public void Snapshot_participant_projects_active_duration_remaining()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var observed = started.AddMinutes(15);
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Participant,
+            observed,
+            started,
+            HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds);
+
+        Assert.Equal("active_duration", snapshot.TimingPolicy);
+        Assert.Equal(30 * 60, snapshot.RemainingSeconds);
+        Assert.Equal(45 * 60, snapshot.TimingBudgetSeconds);
     }
 
     [Fact]

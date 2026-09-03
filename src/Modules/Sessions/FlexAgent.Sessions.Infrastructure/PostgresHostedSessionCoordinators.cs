@@ -70,11 +70,31 @@ public sealed class PostgresHostedSessionSnapshotQuery(
             }
 
             var observedAt = await runtimeRepository.ReadAuthoritativeUtcAsync(scope.Transaction, cancellationToken);
+            var startedAt = await scope.Transaction.Connection!.QuerySingleAsync<DateTimeOffset>(
+                new CommandDefinition(
+                    """
+                    SELECT created_at
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    """,
+                    new
+                    {
+                        session.Ownership.OrganizationId,
+                        session.Ownership.SessionId,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
             await scope.CommitAsync(cancellationToken);
             return new HostedSessionQueryResult(
                 true,
                 "session.snapshot.loaded",
-                HostedSessionSnapshotProjector.Project(session, projectionKind, observedAt));
+                HostedSessionSnapshotProjector.Project(
+                    session,
+                    projectionKind,
+                    observedAt,
+                    startedAt,
+                    HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds));
         }
         catch
         {
@@ -192,46 +212,37 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             return MapAdmission(admitted, projectionKind, messageId);
         }
 
-        var transition = commandType switch
-        {
-            "session.pause.v1" => SessionLifecycleTransitions.Pause,
-            "session.resume.v1" => SessionLifecycleTransitions.Resume,
-            "session.complete.v1" => SessionLifecycleTransitions.BeginCompleting,
-            "session.terminate.v1" => SessionLifecycleTransitions.BeginCompleting,
-            _ => null,
-        };
-        if (transition is null)
+        var transitions = HostedSessionLifecycleSequence.Transitions(commandType);
+        if (transitions.Count == 0)
         {
             return null;
         }
 
-        var first = await lifecycle.ChangeAsync(
-            new ChangeSessionLifecycleCommand(
-                actor,
-                binding.Ownership,
-                expectedSessionVersion,
-                transition,
-                TryParseCorrelation(commandId),
-                "http.session_command"),
-            binding,
-            cancellationToken);
-        if (commandType == "session.terminate.v1" && first.Succeeded)
+        _ = terminateReasonCode;
+        var expectedVersion = expectedSessionVersion;
+        HostedSessionCommandResult? last = null;
+        foreach (var transition in transitions)
         {
-            var second = await lifecycle.ChangeAsync(
+            var step = await lifecycle.ChangeAsync(
                 new ChangeSessionLifecycleCommand(
                     actor,
                     binding.Ownership,
-                    first.SessionVersion,
-                    SessionLifecycleTransitions.Terminate,
+                    expectedVersion,
+                    transition,
                     TryParseCorrelation(commandId),
                     "http.session_command"),
                 binding,
                 cancellationToken);
-            return MapLifecycle(second, projectionKind);
+            last = MapLifecycle(step, projectionKind);
+            if (!step.Succeeded)
+            {
+                return last;
+            }
+
+            expectedVersion = step.SessionVersion;
         }
 
-        _ = terminateReasonCode;
-        return MapLifecycle(first, projectionKind);
+        return last;
     }
 
     private static HostedSessionCommandResult Denied() =>

@@ -386,7 +386,9 @@ The persistent header contains:
 
 - **Text Session** and the participant-visible Agent name;
 - the current Session lifecycle label;
-- **Time remaining** as server-derived text;
+- **Time remaining** as server-derived text, seated in the examiner panel on
+  the production `live-session` surface as chrono digits and a remaining-budget
+  gauge; the digits are a display aid and are not Session authority;
 - Attempt ordinal when permitted;
 - connection or synchronization state only when it needs attention; and
 - the Assignment return context when leaving is safe.
@@ -547,8 +549,10 @@ shown to the Participant.
 
 ### Persistent time presentation
 
-The live header shows **Time remaining** in a stable text format appropriate to
-the duration. **Time details** exposes:
+The live Session shows **Time remaining** in a stable text format appropriate to
+the duration. On the production `live-session` examiner panel that is chrono
+digits plus a remaining-budget gauge; ticks must not be announced. **Time
+details** exposes:
 
 - the server-confirmed start;
 - remaining active-duration budget;
@@ -1012,7 +1016,17 @@ identifiers.
 
 ## Open questions
 
-None. Approved `UI-SESS-DEC-13` follows the approved Session requirements:
+- **Proposed.** When a frozen Activity does not yet publish a per-Attempt
+  duration, the hosted snapshot may project `timing.policy = active_duration`
+  with a synthetic development budget of 45 minutes from `session_runtimes.created_at`.
+  **Interim default:** keep that budget only for local/synthetic development
+  display so the approved remaining-time UI (`REQ-SESS-20`–`30`, `AC-SESS-9`–`14`,
+  `UI-SESS-DEC-7`) has a server remaining-seconds fact. Replace it with the
+  frozen Activity duration as soon as one is present. Do not treat the 45-minute
+  figure as an approved Campaign rule, and do not invent warning thresholds or
+  expiry terminalization from it.
+
+Approved `UI-SESS-DEC-13` follows the approved Session requirements:
 internal no-action is not participant copy; working state resolves without an
 error; the resolution is announced once; and a neutral persistent status
 appears only when the frozen workflow requires it. This is perceivable and

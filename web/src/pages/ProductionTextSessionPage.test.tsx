@@ -29,11 +29,16 @@ function participantSnapshot(overrides: Record<string, unknown> = {}) {
     lifecycle_state: "active",
     session_version: 2,
     last_confirmed_sequence: "4",
-    authoritative_observed_at: "2026-09-03T00:00:00Z",
+    authoritative_observed_at: new Date().toISOString(),
     permitted_actions: ["send_message", "complete_session", "reconcile"],
     recovery_category: "none",
     agent: { display_name: "Assessment Agent" },
-    timing: { policy: "disabled", remaining_seconds: null, warning_code: "none" },
+    timing: {
+      policy: "active_duration",
+      remaining_seconds: 2400,
+      warning_code: "none",
+      budget_seconds: 2700,
+    },
     bound_submission: { summary: "Bound Submission", item_count: 1 },
     transcript: {
       items: [
@@ -118,9 +123,11 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
     expect(await screen.findByText("Hello examiner")).toBeVisible();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Complete" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit Session" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Time remaining" })).toBeVisible();
+    expect(screen.getByRole("timer")).toHaveTextContent("00:40:00");
   });
 
   it("conceals a denied Session without offering the composer", async () => {
@@ -134,7 +141,7 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
     expect(await screen.findByText("This Session cannot be opened with the current access.")).toBeVisible();
-    expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
   });
 
   it("closes the composer while the Session is paused", async () => {
@@ -151,7 +158,7 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
     expect(await screen.findByText("This Session is paused. Sending is closed until an administrator resumes it.")).toBeVisible();
-    expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
   });
 
   it("sends a Participant message through the hosted command contract", async () => {
@@ -183,9 +190,9 @@ describe("hosted Session pages", () => {
     });
 
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
-    const composer = await screen.findByRole("textbox", { name: "Message" });
+    const composer = await screen.findByRole("textbox", { name: "Compose reply" });
     fireEvent.change(composer, { target: { value: "Next answer" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -235,7 +242,62 @@ describe("hosted Session pages", () => {
 
     expect(await screen.findByText("Hello examiner")).toBeVisible();
     expect(screen.getByLabelText("Historical transcript")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Transmit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  });
+
+  it("shows completion confirmation and return without a score", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          lifecycle_state: "completed",
+          permitted_actions: ["view_transcript", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+
+    expect(await screen.findByRole("heading", { name: "Session completed" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to assignment" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+  });
+
+  it("seals a stuck completing Session with the complete command", async () => {
+    const fetchMock = stubFetch((url, init) => {
+      if (url.includes("/commands")) {
+        expect(init?.method).toBe("POST");
+        const body = JSON.parse(init?.body as string);
+        expect(body.command_type).toBe("session.complete.v1");
+        return jsonResponse({
+          schema_version: "v1",
+          succeeded: true,
+          outcome_category: "accepted",
+          outcome_code: "accepted",
+          command_id: body.command_id,
+          command_type: body.command_type,
+          session_id: sessionId,
+          permitted_recovery_action: "none",
+          permitted_actions: ["view_transcript"],
+        });
+      }
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          lifecycle_state: "completing",
+          permitted_actions: ["complete_session", "reconcile", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByRole("heading", { name: "Session completing" })).toBeVisible();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/commands"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
   });
 });

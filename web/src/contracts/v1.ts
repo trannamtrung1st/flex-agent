@@ -82,6 +82,7 @@ export interface SessionTimingProjectionV1 {
   remaining_seconds?: number | null;
   warning_code?: 'none' | 'approaching' | 'imminent' | null;
   pause_started_at?: string;
+  budget_seconds?: number | null;
 }
 
 export interface SessionBoundSubmissionSummaryV1 {
