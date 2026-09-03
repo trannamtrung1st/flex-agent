@@ -92,6 +92,12 @@ public interface IEnrollmentTimingQueryService
         EnrollmentActorContext actor,
         Guid enrollmentId,
         CancellationToken cancellationToken = default);
+
+    Task<EffectiveTiming?> ComposeAuthoritativeInTransactionAsync(
+        Enrollment enrollment,
+        IEnrollmentTransaction transaction,
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAccommodationPolicyPort

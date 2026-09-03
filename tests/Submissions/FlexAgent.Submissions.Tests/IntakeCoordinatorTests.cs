@@ -505,5 +505,15 @@ public sealed class IntakeCoordinatorTests
                     Timing,
                     AccommodationConsequenceCodes.None),
                 "enrollment.ok"));
+
+        public Task<EffectiveTiming?> ComposeAuthoritativeInTransactionAsync(
+            Enrollment enrollment,
+            IEnrollmentTransaction transaction,
+            DateTimeOffset asOfUtc,
+            CancellationToken cancellationToken = default)
+        {
+            _ = (enrollment, transaction, asOfUtc, cancellationToken);
+            return Task.FromResult(Timing);
+        }
     }
 }

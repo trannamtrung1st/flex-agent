@@ -439,5 +439,35 @@ internal static class SubmissionIntakeTestSeed
                         "UTC"),
                     AccommodationConsequenceCodes.None),
                 "enrollment.ok"));
+
+        public Task<EffectiveTiming?> ComposeAuthoritativeInTransactionAsync(
+            Enrollment enrollment,
+            IEnrollmentTransaction transaction,
+            DateTimeOffset asOfUtc,
+            CancellationToken cancellationToken = default)
+        {
+            _ = (enrollment, transaction, asOfUtc, cancellationToken);
+            return Task.FromResult<EffectiveTiming?>(new EffectiveTiming(
+                new BaselineTiming(
+                    DateTimeOffset.Parse("2026-08-24T12:00:00Z"),
+                    DateTimeOffset.Parse("2026-09-30T23:59:00Z"),
+                    DateTimeOffset.Parse("2026-09-30T17:00:00Z"),
+                    "UTC",
+                    1,
+                    3600,
+                    new AccommodationPolicyIdentity(Guid.CreateVersion7(), Guid.CreateVersion7(), new string('c', 64)),
+                    false),
+                DateTimeOffset.Parse("2026-08-24T12:00:00Z"),
+                DateTimeOffset.Parse("2026-09-30T17:00:00Z"),
+                DateTimeOffset.Parse("2026-08-24T12:00:00Z"),
+                DateTimeOffset.Parse("2026-09-30T23:59:00Z"),
+                3600,
+                DateTimeOffset.Parse("2026-08-24T12:00:00Z"),
+                "open",
+                true,
+                [],
+                AccommodationConsequenceCodes.None,
+                "UTC"));
+        }
     }
 }

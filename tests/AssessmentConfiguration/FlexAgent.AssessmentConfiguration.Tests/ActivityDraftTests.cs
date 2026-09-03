@@ -141,5 +141,21 @@ public sealed class ActivityDraftTests
         var atBudget = AssessmentFixtures.ValidTiming() with { WarningImminentRemainingSeconds = 3600 };
         Assert.False(atBudget.IsValid(out var atBudgetCode));
         Assert.Equal(AssessmentFailureCodes.InvalidField, atBudgetCode);
+
+        var missingWarnings = AssessmentFixtures.ValidTiming() with
+        {
+            WarningApproachingRemainingSeconds = null,
+            WarningImminentRemainingSeconds = null,
+        };
+        Assert.False(missingWarnings.IsValid(out var missingCode));
+        Assert.Equal(AssessmentFailureCodes.InvalidField, missingCode);
+
+        var duplicateWarnings = AssessmentFixtures.ValidTiming() with
+        {
+            WarningApproachingRemainingSeconds = 600,
+            WarningImminentRemainingSeconds = 600,
+        };
+        Assert.False(duplicateWarnings.IsValid(out var duplicateCode));
+        Assert.Equal(AssessmentFailureCodes.InvalidField, duplicateCode);
     }
 }

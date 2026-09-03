@@ -87,15 +87,30 @@ public sealed record TimingRules(
             return false;
         }
 
-        if (WarningApproachingRemainingSeconds is <= 0 || WarningImminentRemainingSeconds is <= 0)
+        if (PerAttemptDurationSeconds is int duration)
         {
-            failureCode = AssessmentFailureCodes.InvalidField;
-            return false;
-        }
+            if (WarningApproachingRemainingSeconds is not int approaching
+                || WarningImminentRemainingSeconds is not int imminent
+                || approaching <= 0
+                || imminent <= 0)
+            {
+                failureCode = AssessmentFailureCodes.InvalidField;
+                return false;
+            }
 
-        if (PerAttemptDurationSeconds is int duration
-            && (WarningApproachingRemainingSeconds is int approaching && approaching >= duration
-                || WarningImminentRemainingSeconds is int imminent && imminent >= duration))
+            if (approaching >= duration || imminent >= duration)
+            {
+                failureCode = AssessmentFailureCodes.InvalidField;
+                return false;
+            }
+
+            if (approaching == imminent)
+            {
+                failureCode = AssessmentFailureCodes.InvalidField;
+                return false;
+            }
+        }
+        else if (WarningApproachingRemainingSeconds is <= 0 || WarningImminentRemainingSeconds is <= 0)
         {
             failureCode = AssessmentFailureCodes.InvalidField;
             return false;

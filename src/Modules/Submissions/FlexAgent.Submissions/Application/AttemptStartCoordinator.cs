@@ -308,12 +308,35 @@ public sealed class AttemptStartCoordinator(
                     return Fail(bindError, readiness.State);
                 }
 
-                var frozenTimingDocument = await _frozenTiming.CaptureAsync(
+                var binding = await cohorts.RevalidateAsync(
                     enrollment.OrganizationId,
-                    enrollment.EnrollmentId,
                     enrollment.ActivityId,
                     enrollment.CohortId,
+                    transaction,
+                    cancellationToken);
+                if (binding is null)
+                {
+                    var blocked = StartOperationPolicy.Fail(claimed.Value, AttemptFailureCodes.Ineligible, now).Value!;
+                    await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
+                    return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
+                }
+
+                var effectiveTiming = await timing.ComposeAuthoritativeInTransactionAsync(
+                    enrollment,
+                    transaction,
                     now,
+                    cancellationToken);
+                if (effectiveTiming is null)
+                {
+                    var blocked = StartOperationPolicy.Fail(claimed.Value, AttemptFailureCodes.Ineligible, now).Value!;
+                    await startOperations.UpsertAsync(blocked, transaction, cancellationToken);
+                    return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
+                }
+
+                var frozenTimingDocument = await _frozenTiming.CaptureAsync(
+                    effectiveTiming,
+                    binding,
+                    transaction.CommitHandle,
                     cancellationToken);
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(

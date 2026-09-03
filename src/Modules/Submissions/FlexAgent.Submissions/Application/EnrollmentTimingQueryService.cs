@@ -198,6 +198,43 @@ public sealed class EnrollmentTimingQueryService(
             "enrollment.ok");
     }
 
+    public async Task<EffectiveTiming?> ComposeAuthoritativeInTransactionAsync(
+        Enrollment enrollment,
+        IEnrollmentTransaction transaction,
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var binding = await cohorts.RevalidateAsync(
+            enrollment.OrganizationId,
+            enrollment.ActivityId,
+            enrollment.CohortId,
+            transaction,
+            cancellationToken);
+        if (binding is null)
+        {
+            return null;
+        }
+
+        var baseline = TimingMapper.BaselineFrom(binding);
+        var policy = await policies.ResolveCurrentAsync(
+            enrollment.OrganizationId,
+            baseline,
+            asOfUtc,
+            transaction,
+            cancellationToken);
+        var records = await accommodations.ListForEnrollmentAsync(
+            enrollment.OrganizationId,
+            enrollment.EnrollmentId,
+            transaction,
+            cancellationToken);
+        return EffectiveTimingEvaluator.Evaluate(
+            baseline,
+            enrollment.Status,
+            policy,
+            records,
+            asOfUtc);
+    }
+
     private async Task<EnrollmentTimingDetail> ComposeAsync(
         EnrollmentActorContext actor,
         Enrollment enrollment,

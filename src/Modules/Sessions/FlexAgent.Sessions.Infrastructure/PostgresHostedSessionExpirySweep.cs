@@ -14,10 +14,12 @@ public sealed class PostgresHostedSessionExpirySweep(
     PostgresSessionLifecycleCoordinator lifecycle,
     HostedSessionExpirySettings settings) : IHostedSessionExpirySweep
 {
+    private const int BatchSize = 32;
+
     public async Task<int> ExpireDueAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        var candidates = (await connection.QueryAsync<DueRow>(
+        var hardEndDue = (await connection.QueryAsync<DueRow>(
             new CommandDefinition(
                 """
                 SELECT runtime.organization_id AS OrganizationId,
@@ -30,15 +32,57 @@ public sealed class PostgresHostedSessionExpirySweep(
                   AND timing.document->>'reconstruction' = 'timed'
                   AND jsonb_typeof(timing.document->'warnings') = 'array'
                   AND jsonb_array_length(timing.document->'warnings') > 0
+                  AND timing.document->>'hard_end_at_utc' IS NOT NULL
+                  AND (timing.document->>'hard_end_at_utc')::timestamptz <= clock_timestamp()
+                ORDER BY (timing.document->>'hard_end_at_utc')::timestamptz
+                LIMIT @BatchSize
+                """,
+                new { BatchSize },
+                cancellationToken: cancellationToken))).ToArray();
+        var activeBudgetDue = (await connection.QueryAsync<DueRow>(
+            new CommandDefinition(
+                """
+                SELECT runtime.organization_id AS OrganizationId,
+                       runtime.session_id AS SessionId
+                FROM session_runtimes AS runtime
+                INNER JOIN session_frozen_timing AS timing
+                    ON timing.organization_id = runtime.organization_id
+                   AND timing.session_id = runtime.session_id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(
+                        EXTRACT(EPOCH FROM (interval.ended_at - interval.started_at)))::int,
+                        0) AS accumulated_seconds
+                    FROM session_pause_intervals AS interval
+                    WHERE interval.organization_id = runtime.organization_id
+                      AND interval.session_id = runtime.session_id
+                      AND interval.ended_at IS NOT NULL
+                ) AS pause_totals ON TRUE
+                WHERE runtime.lifecycle_state = 'active'
+                  AND timing.document->>'reconstruction' = 'timed'
+                  AND jsonb_typeof(timing.document->'warnings') = 'array'
+                  AND jsonb_array_length(timing.document->'warnings') > 0
+                  AND runtime.created_at
+                      + make_interval(secs => GREATEST(COALESCE((timing.document->>'budget_seconds')::int, 0), 0))
+                      - make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
+                      <= clock_timestamp()
                 ORDER BY runtime.created_at
                     + make_interval(secs => GREATEST(COALESCE((timing.document->>'budget_seconds')::int, 0), 0))
-                LIMIT 32
+                    - make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
+                LIMIT @BatchSize
                 """,
+                new { BatchSize },
                 cancellationToken: cancellationToken))).ToArray();
 
+        var seen = new HashSet<(Guid OrganizationId, Guid SessionId)>();
         var expired = 0;
-        foreach (var candidate in candidates)
+        foreach (var candidate in hardEndDue.Concat(activeBudgetDue))
         {
+            var key = (candidate.OrganizationId, candidate.SessionId);
+            if (!seen.Add(key))
+            {
+                continue;
+            }
+
             if (await TryExpireAsync(candidate.OrganizationId, candidate.SessionId, cancellationToken))
             {
                 expired++;

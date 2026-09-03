@@ -335,6 +335,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             TriggerAdmissionOutcomeCodes.Succeeded => "accepted",
             TriggerAdmissionOutcomeCodes.Reconciled => "duplicate",
             TriggerAdmissionOutcomeCodes.StaleVersion or TriggerAdmissionOutcomeCodes.IdempotencyConflict => "conflict",
+            TriggerAdmissionOutcomeCodes.CutoffPassed => "rejected",
             TriggerAdmissionOutcomeCodes.Denied or TriggerAdmissionOutcomeCodes.OwnershipMismatch => "rejected",
             _ => result.Succeeded ? "accepted" : "rejected",
         };
@@ -345,10 +346,13 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             _ => "none",
         };
         var lifecycle = SessionLifecycleState.Active;
+        var outcomeCode = result.OutcomeCode == TriggerAdmissionOutcomeCodes.CutoffPassed
+            ? "session.cutoff.passed"
+            : result.OutcomeCode.Replace('_', '.');
         return new HostedSessionCommandResult(
             result.Succeeded,
             category,
-            result.OutcomeCode.Replace('_', '.'),
+            outcomeCode,
             recovery,
             SessionPermittedActionsProjector.Project(projectionKind, lifecycle),
             result.SessionVersion,

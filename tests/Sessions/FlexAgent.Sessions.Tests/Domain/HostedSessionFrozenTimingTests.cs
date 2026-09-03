@@ -179,6 +179,49 @@ public sealed class HostedSessionFrozenTimingTests
     }
 
     [Fact]
+    public void Frozen_document_round_trip_keeps_effective_budget_configured_warnings_and_hard_end()
+    {
+        var hardEnd = DateTimeOffset.Parse("2026-09-10T17:00:00Z");
+        var captured = HostedSessionFrozenTiming.ComposeFromEffective(
+            """
+            {
+              "fairness_domains": [
+                {
+                  "domain_key": "timing",
+                  "effective_value": {
+                    "per_attempt_duration_seconds": "3600",
+                    "warning_approaching_remaining_seconds": "900",
+                    "warning_imminent_remaining_seconds": "300"
+                  }
+                }
+              ]
+            }
+            """,
+            5400,
+            applyEffectiveDuration: true,
+            DateTimeOffset.Parse("2026-09-12T17:00:00Z"),
+            hardEnd);
+
+        var reloaded = HostedSessionFrozenTiming.FromDocumentJson(
+            HostedSessionFrozenTiming.ToDocumentJson(captured));
+
+        Assert.Equal(HostedTimingReconstruction.Timed, reloaded.Reconstruction);
+        Assert.Equal(5400, reloaded.BudgetSeconds);
+        Assert.Equal(hardEnd, reloaded.HardEndAtUtc);
+        Assert.Contains(reloaded.WarningSchedule, item => item.Code == "approaching" && item.RemainingSecondsThreshold == 900);
+        Assert.Contains(reloaded.WarningSchedule, item => item.Code == "imminent" && item.RemainingSecondsThreshold == 300);
+    }
+
+    [Fact]
+    public void ResolveHardEndAtUtc_uses_the_earliest_absolute_boundary()
+    {
+        var attemptEnd = DateTimeOffset.Parse("2026-09-12T17:00:00Z");
+        var submissionEnd = DateTimeOffset.Parse("2026-09-10T17:00:00Z");
+
+        Assert.Equal(submissionEnd, HostedSessionFrozenTiming.ResolveHardEndAtUtc(attemptEnd, submissionEnd));
+    }
+
+    [Fact]
     public void Frozen_document_round_trip_keeps_effective_budget_and_configured_warnings()
     {
         var captured = HostedSessionFrozenTiming.Compose(

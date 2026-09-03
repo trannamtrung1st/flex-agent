@@ -1,3 +1,4 @@
+using Dapper;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -50,6 +51,53 @@ public sealed class PostgresAcceptParticipantMessageCoordinator(
             var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
                 scope.Transaction,
                 cancellationToken);
+            var startedAt = await scope.Transaction.Connection!.QuerySingleAsync<DateTimeOffset>(
+                new CommandDefinition(
+                    """
+                    SELECT created_at
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND activity_id = @ActivityId
+                      AND participant_id = @ParticipantId
+                      AND attempt_id = @AttemptId
+                      AND session_id = @SessionId
+                    """,
+                    command.Ownership,
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            var frozenDocument = await scope.Transaction.Connection!.QuerySingleOrDefaultAsync<string>(
+                new CommandDefinition(
+                    """
+                    SELECT document::text
+                    FROM session_frozen_timing
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    """,
+                    new
+                    {
+                        command.Ownership.OrganizationId,
+                        command.Ownership.SessionId,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            var timingPolicy = HostedSessionFrozenTiming.FromDocumentJson(frozenDocument);
+            if (HostedSessionTimingAdmission.IsCutoffPassed(
+                    session.LifecycleState,
+                    startedAt,
+                    session.LastCommittedAt,
+                    authoritativeUtc,
+                    timingPolicy,
+                    session.AccumulatedPausedSeconds,
+                    session.OpenPauseStartedAt))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TriggerAdmissionResult(
+                    false,
+                    TriggerAdmissionOutcomeCodes.CutoffPassed,
+                    null,
+                    null);
+            }
+
             var result = acceptHandler.Handle(command, session, authoritativeUtc);
             if (!result.Succeeded || result.Invocation is null)
             {

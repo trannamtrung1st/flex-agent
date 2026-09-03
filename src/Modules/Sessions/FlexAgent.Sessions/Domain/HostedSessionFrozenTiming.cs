@@ -14,7 +14,8 @@ public enum HostedTimingReconstruction
 public sealed record HostedFrozenTimingPolicy(
     HostedTimingReconstruction Reconstruction,
     int? BudgetSeconds,
-    IReadOnlyList<HostedTimingWarningThreshold> WarningSchedule)
+    IReadOnlyList<HostedTimingWarningThreshold> WarningSchedule,
+    DateTimeOffset? HardEndAtUtc = null)
 {
     public static HostedFrozenTimingPolicy UnboundedPolicy { get; } =
         new(HostedTimingReconstruction.Unbounded, null, []);
@@ -132,6 +133,29 @@ public static class HostedSessionFrozenTiming
             : policy;
     }
 
+    public static DateTimeOffset ResolveHardEndAtUtc(
+        DateTimeOffset effectiveAttemptStartExclusiveEndUtc,
+        DateTimeOffset effectiveSubmissionExclusiveEndUtc) =>
+        effectiveAttemptStartExclusiveEndUtc <= effectiveSubmissionExclusiveEndUtc
+            ? effectiveAttemptStartExclusiveEndUtc
+            : effectiveSubmissionExclusiveEndUtc;
+
+    public static HostedFrozenTimingPolicy ComposeFromEffective(
+        string? baselineDocumentJson,
+        int? effectivePerAttemptDurationSeconds,
+        bool applyEffectiveDuration,
+        DateTimeOffset effectiveAttemptStartExclusiveEndUtc,
+        DateTimeOffset effectiveSubmissionExclusiveEndUtc)
+    {
+        var policy = Compose(baselineDocumentJson, effectivePerAttemptDurationSeconds, applyEffectiveDuration);
+        return policy with
+        {
+            HardEndAtUtc = ResolveHardEndAtUtc(
+                effectiveAttemptStartExclusiveEndUtc,
+                effectiveSubmissionExclusiveEndUtc),
+        };
+    }
+
     public static string ToDocumentJson(HostedFrozenTimingPolicy policy)
     {
         ArgumentNullException.ThrowIfNull(policy);
@@ -160,6 +184,15 @@ public static class HostedSessionFrozenTiming
             }
 
             writer.WriteEndArray();
+            if (policy.HardEndAtUtc is DateTimeOffset hardEnd)
+            {
+                writer.WriteString("hard_end_at_utc", hardEnd.ToString("O"));
+            }
+            else
+            {
+                writer.WriteNull("hard_end_at_utc");
+            }
+
             writer.WriteEndObject();
         }
 
@@ -209,13 +242,30 @@ public static class HostedSessionFrozenTiming
                 }
             }
 
+            DateTimeOffset? hardEnd = null;
+            if (TryGetProperty(root, "hard_end_at_utc", out var hardEndElement)
+                && hardEndElement.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(
+                    hardEndElement.GetString(),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var parsedHardEnd))
+            {
+                hardEnd = parsedHardEnd.ToUniversalTime();
+            }
+
             return kind switch
             {
-                "unbounded" => HostedFrozenTimingPolicy.UnboundedPolicy with { WarningSchedule = warnings },
+                "unbounded" => HostedFrozenTimingPolicy.UnboundedPolicy with
+                {
+                    WarningSchedule = warnings,
+                    HardEndAtUtc = hardEnd,
+                },
                 "timed" when budget is > 0 => new HostedFrozenTimingPolicy(
                     HostedTimingReconstruction.Timed,
                     budget,
-                    warnings),
+                    warnings,
+                    hardEnd),
                 _ => HostedFrozenTimingPolicy.UnavailablePolicy,
             };
         }

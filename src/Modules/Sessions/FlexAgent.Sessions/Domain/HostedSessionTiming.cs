@@ -38,7 +38,8 @@ public static class HostedSessionTiming
             policy.BudgetSeconds.Value,
             accumulatedPausedSeconds,
             openPauseStartedAt,
-            policy.WarningSchedule);
+            policy.WarningSchedule,
+            policy.HardEndAtUtc);
     }
 
     public static HostedTimingProjection Project(
@@ -49,7 +50,8 @@ public static class HostedSessionTiming
         int budgetSeconds,
         int accumulatedPausedSeconds = 0,
         DateTimeOffset? openPauseStartedAt = null,
-        IReadOnlyList<HostedTimingWarningThreshold>? warningSchedule = null)
+        IReadOnlyList<HostedTimingWarningThreshold>? warningSchedule = null,
+        DateTimeOffset? hardEndAtUtc = null)
     {
         if (budgetSeconds <= 0)
         {
@@ -68,10 +70,12 @@ public static class HostedSessionTiming
         var wall = Math.Max(0, (int)(endOfActive - startedAt).TotalSeconds);
         var paused = Math.Clamp(accumulatedPausedSeconds, 0, wall);
         var elapsed = (int)Math.Clamp(wall - paused, 0, budgetSeconds);
-        var remaining = SessionPermittedActionsProjector.IsTerminal(lifecycle)
-            || lifecycle == SessionLifecycleState.Completing
-            ? 0
-            : budgetSeconds - elapsed;
+        var remaining = ComputeRemainingSeconds(
+            lifecycle,
+            budgetSeconds,
+            elapsed,
+            authoritativeUtc,
+            hardEndAtUtc);
         var pauseStarted = lifecycle == SessionLifecycleState.Paused
             ? HostedSessionSnapshotProjector.FormatUtc(pauseAnchor)
             : null;
@@ -112,6 +116,31 @@ public static class HostedSessionTiming
         }
 
         return due[0].Code;
+    }
+
+    internal static int ComputeRemainingSeconds(
+        SessionLifecycleState lifecycle,
+        int budgetSeconds,
+        int elapsedSeconds,
+        DateTimeOffset authoritativeUtc,
+        DateTimeOffset? hardEndAtUtc)
+    {
+        if (SessionPermittedActionsProjector.IsTerminal(lifecycle)
+            || lifecycle == SessionLifecycleState.Completing)
+        {
+            return 0;
+        }
+
+        var budgetRemaining = budgetSeconds - elapsedSeconds;
+        if (hardEndAtUtc is null)
+        {
+            return budgetRemaining;
+        }
+
+        var hardRemaining = (int)Math.Max(
+            0,
+            Math.Ceiling((hardEndAtUtc.Value - authoritativeUtc).TotalSeconds));
+        return Math.Min(budgetRemaining, hardRemaining);
     }
 }
 

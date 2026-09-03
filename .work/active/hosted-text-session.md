@@ -510,6 +510,22 @@ and previously missing hosted-session states (warning emission, multi-tab,
 offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
 retire this file.
 
+2026-09-03 review of `0e8cf46` (keep `in-progress`): four fairness-critical
+P1 timing gaps closed in source — (1) Attempt-start timing capture now uses
+`ComposeAuthoritativeInTransactionAsync` plus `IFrozenAttemptTimingCapture`
+with the enrollment commit transaction; (2) frozen timing documents include
+`hard_end_at_utc` and projection uses the earliest budget/hard-end boundary;
+(3) `PostgresAcceptParticipantMessageCoordinator` re-checks cutoff under the
+session lock with `TriggerAdmissionOutcomeCodes.CutoffPassed`; (4) Worker
+expiry scan uses separate hard-end and active-budget due predicates with
+pause-interval accounting so >32 old paused Sessions cannot starve a due
+active Session. Timed `TimingRules` now require positive, in-duration,
+non-duplicated warning thresholds at activation. Domain/regression:
+Sessions 524 passed; Submissions 152 passed; Assessment 96 passed.
+Integration fairness tests added (`HostedSessionTimingFairnessTests`) — cutoff
+crossing and >32 paused starvation: **2 passed** (Testcontainers). Live rebuild,
+0069 apply, and accommodation-race Attempt-start integration test remain open.
+
 Hosted Session transport, actor projections, production SPA routes, Worker
 composition, bounded hosted telemetry, and fail-closed Worker identity are
 implemented. Production HTTP locators remain Attempt-committed UUIDs.

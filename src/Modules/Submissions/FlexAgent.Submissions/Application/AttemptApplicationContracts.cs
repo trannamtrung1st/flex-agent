@@ -217,11 +217,9 @@ public sealed record SessionStartCommitRequest(
 public interface IFrozenAttemptTimingCapture
 {
     Task<string> CaptureAsync(
-        Guid organizationId,
-        Guid enrollmentId,
-        Guid activityId,
-        Guid cohortId,
-        DateTimeOffset asOfUtc,
+        EffectiveTiming effectiveTiming,
+        ActivatedCohortBinding binding,
+        object commitTransaction,
         CancellationToken cancellationToken = default);
 }
 
@@ -230,15 +228,13 @@ public sealed class UnavailableFrozenAttemptTimingCapture : IFrozenAttemptTiming
     public static UnavailableFrozenAttemptTimingCapture Instance { get; } = new();
 
     public Task<string> CaptureAsync(
-        Guid organizationId,
-        Guid enrollmentId,
-        Guid activityId,
-        Guid cohortId,
-        DateTimeOffset asOfUtc,
+        EffectiveTiming effectiveTiming,
+        ActivatedCohortBinding binding,
+        object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        _ = (organizationId, enrollmentId, activityId, cohortId, asOfUtc, cancellationToken);
-        return Task.FromResult("""{"reconstruction":"unavailable","budget_seconds":null,"warnings":[]}""");
+        _ = (effectiveTiming, binding, commitTransaction, cancellationToken);
+        return Task.FromResult("""{"reconstruction":"unavailable","budget_seconds":null,"warnings":[],"hard_end_at_utc":null}""");
     }
 }
 

@@ -89,8 +89,19 @@ public sealed class ActivationBaselineDocumentTests
     public void Configured_warning_thresholds_are_frozen_only_when_authored()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;
+        var unboundedDraft = draft.Save(
+            draft.RevisionNumber,
+            draft.Content with
+            {
+                Timing = draft.Content.Timing with
+                {
+                    PerAttemptDurationSeconds = null,
+                    WarningApproachingRemainingSeconds = null,
+                    WarningImminentRemainingSeconds = null,
+                },
+            }).Value!;
         var withoutWarnings = ActivationBaselineDocument.FromReadyDraft(
-            draft,
+            unboundedDraft,
             AssessmentFixtures.PermittedSources()).Value!;
         var withWarnings = ActivationBaselineDocument.FromReadyDraft(
             draft.Save(

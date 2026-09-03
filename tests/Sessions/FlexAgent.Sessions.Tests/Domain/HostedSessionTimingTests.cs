@@ -166,4 +166,55 @@ public sealed class HostedSessionTimingTests
         Assert.Equal("disabled", timing.Policy);
         Assert.Null(timing.RemainingSeconds);
     }
+
+    [Fact]
+    public void Paused_session_past_the_frozen_hard_end_reports_zero_remaining()
+    {
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var pausedAt = started.AddMinutes(5);
+        var hardEnd = started.AddMinutes(10);
+        var later = hardEnd.AddMinutes(30);
+        var policy = new HostedFrozenTimingPolicy(
+            HostedTimingReconstruction.Timed,
+            3600,
+            [
+                new HostedTimingWarningThreshold("approaching", 900),
+                new HostedTimingWarningThreshold("imminent", 300),
+            ],
+            hardEnd);
+
+        var timing = HostedSessionTiming.Project(
+            SessionLifecycleState.Paused,
+            started,
+            pausedAt,
+            later,
+            policy);
+
+        Assert.Equal(0, timing.RemainingSeconds);
+    }
+
+    [Fact]
+    public void Remaining_seconds_use_the_earlier_of_budget_and_hard_end()
+    {
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var now = started.AddMinutes(55);
+        var hardEnd = started.AddHours(1);
+        var policy = new HostedFrozenTimingPolicy(
+            HostedTimingReconstruction.Timed,
+            3600,
+            [
+                new HostedTimingWarningThreshold("approaching", 900),
+                new HostedTimingWarningThreshold("imminent", 300),
+            ],
+            hardEnd);
+
+        var timing = HostedSessionTiming.Project(
+            SessionLifecycleState.Active,
+            started,
+            now,
+            now,
+            policy);
+
+        Assert.Equal(300, timing.RemainingSeconds);
+    }
 }

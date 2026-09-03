@@ -4,15 +4,12 @@ using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Domain;
+using Npgsql;
 
 namespace FlexAgent.Submissions.Infrastructure;
 
 public sealed class PostgresHostedSessionFrozenTimingSource(
-    PostgresConnectionAccessor connections,
-    IActivatedCohortPort cohorts,
-    IEnrollmentStore enrollments,
-    IAccommodationStore accommodations,
-    IAccommodationPolicyPort policies) : IHostedSessionFrozenTimingSource, IFrozenAttemptTimingCapture
+    PostgresConnectionAccessor connections) : IHostedSessionFrozenTimingSource, IFrozenAttemptTimingCapture
 {
     public async Task<HostedFrozenTimingPolicy> LoadAsync(
         Guid organizationId,
@@ -40,74 +37,40 @@ public sealed class PostgresHostedSessionFrozenTimingSource(
     }
 
     public async Task<string> CaptureAsync(
-        Guid organizationId,
-        Guid enrollmentId,
-        Guid activityId,
-        Guid cohortId,
-        DateTimeOffset asOfUtc,
+        EffectiveTiming effectiveTiming,
+        ActivatedCohortBinding binding,
+        object commitTransaction,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var baselineDocument = await connection.QuerySingleOrDefaultAsync<string>(
+        ArgumentNullException.ThrowIfNull(effectiveTiming);
+        ArgumentNullException.ThrowIfNull(binding);
+        if (commitTransaction is not NpgsqlTransaction transaction)
+        {
+            throw new ArgumentException("commit.transaction.required", nameof(commitTransaction));
+        }
+
+        var baselineDocument = await transaction.Connection!.QuerySingleOrDefaultAsync<string>(
             new CommandDefinition(
                 """
-                SELECT baseline.document::text
-                FROM assessment_activation_baselines AS baseline
-                INNER JOIN assessment_cohorts AS cohort
-                    ON cohort.organization_id = baseline.organization_id
-                   AND cohort.baseline_id = baseline.baseline_id
-                WHERE baseline.organization_id = @OrganizationId
-                  AND cohort.activity_id = @ActivityId
-                  AND cohort.cohort_id = @CohortId
+                SELECT document::text
+                FROM assessment_activation_baselines
+                WHERE organization_id = @OrganizationId
+                  AND baseline_id = @BaselineId
                 """,
                 new
                 {
-                    OrganizationId = organizationId,
-                    ActivityId = activityId,
-                    CohortId = cohortId,
+                    binding.OrganizationId,
+                    binding.BaselineId,
                 },
+                transaction,
                 cancellationToken: cancellationToken));
 
-        var enrollment = await enrollments.FindAsync(
-            organizationId,
-            enrollmentId,
-            null,
-            cancellationToken);
-        var binding = await cohorts.FindActivatedAsync(
-            organizationId,
-            activityId,
-            cohortId,
-            cancellationToken);
-        var applyEffective = false;
-        int? effectiveDuration = null;
-        if (enrollment is not null && binding is not null)
-        {
-            var baseline = TimingMapper.BaselineFrom(binding);
-            var policy = await policies.ResolveCurrentAsync(
-                organizationId,
-                baseline,
-                asOfUtc,
-                null,
-                cancellationToken);
-            var records = await accommodations.ListForEnrollmentAsync(
-                organizationId,
-                enrollment.EnrollmentId,
-                null,
-                cancellationToken);
-            var effective = EffectiveTimingEvaluator.Evaluate(
-                baseline,
-                enrollment.Status,
-                policy,
-                records,
-                asOfUtc);
-            applyEffective = effective.IsAuthoritativeEligibility;
-            effectiveDuration = effective.EffectivePerAttemptDurationSeconds;
-        }
-
         return HostedSessionFrozenTiming.ToDocumentJson(
-            HostedSessionFrozenTiming.Compose(
+            HostedSessionFrozenTiming.ComposeFromEffective(
                 baselineDocument,
-                effectiveDuration,
-                applyEffective));
+                effectiveTiming.EffectivePerAttemptDurationSeconds,
+                effectiveTiming.IsAuthoritativeEligibility,
+                effectiveTiming.EffectiveAttemptStartExclusiveEndUtc,
+                effectiveTiming.EffectiveSubmissionExclusiveEndUtc));
     }
 }

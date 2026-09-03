@@ -17,7 +17,9 @@ internal static class AssessmentFixtures
         DeadlineUtc: new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
         TimeZoneId: "UTC",
         AttemptLimit: 2,
-        PerAttemptDurationSeconds: 3600);
+        PerAttemptDurationSeconds: 3600,
+        WarningApproachingRemainingSeconds: 900,
+        WarningImminentRemainingSeconds: 300);
 
     internal static TaskBinding ValidTask() => new(
         Guid.Parse("44444444-4444-4444-4444-444444444444"),

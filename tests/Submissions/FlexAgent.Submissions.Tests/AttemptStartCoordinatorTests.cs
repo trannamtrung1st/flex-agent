@@ -742,6 +742,36 @@ public sealed class AttemptStartCoordinatorTests
                         "UTC"),
                     AccommodationConsequenceCodes.None),
                 "enrollment.ok"));
+
+        public Task<EffectiveTiming?> ComposeAuthoritativeInTransactionAsync(
+            Enrollment enrollment,
+            IEnrollmentTransaction transaction,
+            DateTimeOffset asOfUtc,
+            CancellationToken cancellationToken = default)
+        {
+            _ = (enrollment, transaction, asOfUtc, cancellationToken);
+            return Task.FromResult<EffectiveTiming?>(new EffectiveTiming(
+                new BaselineTiming(
+                    Now,
+                    Now.AddDays(30),
+                    Now.AddDays(20),
+                    "UTC",
+                    1,
+                    3600,
+                    new AccommodationPolicyIdentity(Guid.CreateVersion7(), Guid.CreateVersion7(), new string('c', 64)),
+                    false),
+                Now,
+                Now.AddDays(20),
+                Now,
+                Now.AddDays(30),
+                3600,
+                Now,
+                TimingEligibilityStates.Open,
+                true,
+                [],
+                AccommodationConsequenceCodes.None,
+                "UTC"));
+        }
     }
 
     private sealed class FixedNoticePort(RequiredNoticeProjection notice) : IParticipantNoticePort
