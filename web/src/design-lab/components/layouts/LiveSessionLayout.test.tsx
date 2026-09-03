@@ -56,4 +56,20 @@ describe("LiveSessionLayout", () => {
     expect(screen.getByRole("main", { name: "Examination transcript" }).querySelector(".composition-inset")).toBeNull();
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/surfaces");
   });
+
+  it("omits the composer footer when no composer slot is provided", () => {
+    wrap(
+      <LayoutAssignment id="live-session">
+        <LiveSessionLayout
+          railLabel="Session instruments"
+          brandSuffix="Examination Console"
+          instruments={<p>Feed</p>}
+          examiner={<p>Examiner slot</p>}
+        >
+          <p>Transcript slot</p>
+        </LiveSessionLayout>
+      </LayoutAssignment>,
+    );
+    expect(document.querySelector(".layout-session__composer")).toBeNull();
+  });
 });

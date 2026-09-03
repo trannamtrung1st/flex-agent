@@ -305,7 +305,6 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             return;
         }
 
-        var expiryCommandId = $"sessioncommand.expiry.{binding.Ownership.SessionId:N}";
         var expiryVersion = snapshot.SessionVersion;
         foreach (var transition in new[]
                  {
@@ -319,7 +318,10 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                     binding.Ownership,
                     expiryVersion,
                     transition,
-                    HostedSessionCommandCorrelation.ForCommandId(expiryCommandId),
+                    HostedSessionCommandCorrelation.ForCommandId(
+                        HostedSessionCommandCorrelation.ExpiryCommandId(
+                            binding.Ownership.SessionId,
+                            transition)),
                     _expiry.SourceChannel,
                     transition == SessionLifecycleTransitions.Complete
                         ? TerminalReasonCategories.TimeExpiry

@@ -26,4 +26,23 @@ public sealed class HostedSessionCommandCorrelationTests
             HostedSessionCommandCorrelation.ForCommandId("sessioncommand.other"),
             first);
     }
+
+    [Fact]
+    public void Expiry_transitions_use_distinct_command_ids_for_complete()
+    {
+        var sessionId = Guid.Parse("7f1d3c2e-4a90-4b11-8c22-9d33e44f55a6");
+
+        var begin = HostedSessionCommandCorrelation.ExpiryCommandId(
+            sessionId,
+            SessionLifecycleTransitions.BeginCompleting);
+        var complete = HostedSessionCommandCorrelation.ExpiryCommandId(
+            sessionId,
+            SessionLifecycleTransitions.Complete);
+
+        Assert.Equal($"sessioncommand.expiry.{sessionId:N}", begin);
+        Assert.Equal($"sessioncommand.expiry.{sessionId:N}.complete", complete);
+        Assert.NotEqual(
+            HostedSessionCommandCorrelation.ForCommandId(begin),
+            HostedSessionCommandCorrelation.ForCommandId(complete));
+    }
 }

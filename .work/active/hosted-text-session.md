@@ -449,6 +449,15 @@ green — fairness 5/5; worker-loop probe 1/1 (~3s). Evidence: Session
 `time_expiry`, Attempt `completed`. **Still open:** QA matrix; distinct
 specialist reviews; completion checklist; then promote + retire.
 
+2026-09-03 review of `92b43fb` + `183d13a` (**accept sequence — keep
+`in-progress`**): no blocker; P2 cleanup before task closure — (1)
+`docs/current-state.md` Worker-proof wording updated to “corrected in
+`92b43fb`”; (2) probe script now waits for Worker container health, not
+only `session-endpoint:ok`; (3) Compose probe reuses stable actor/enrollment
+and logs append-only footprint in `finally`; (4) request-triggered expiry
+now uses distinct `.complete` correlation via
+`HostedSessionCommandCorrelation.ExpiryCommandId`.
+
 ## Present implementation (authoritative)
 
 - **Landed:** authenticated snapshot/command/events host; versioned hosted SSE;
@@ -845,6 +854,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | Implementation CI on probe infra (`920596e`) | complete | 2026-09-03: **`33763594004`** green; probe test skipped in dotnet job (`FLEXAGENT_COMPOSE_PROBE` unset). Does not prove running Worker loop. |
 | Running-Worker Compose expiry loop (`92b43fb`) | complete (local env-gated) | 2026-09-03 confirm: `probe-compose-hosted-expiry-sweep.sh` end-to-end green — migrate, API/Worker recreate, nginx restart, fairness 5/5, worker-loop probe 1/1 (~3s). Session `01a067b2-b631-7832-9383-04f252532c58` → `completed`, terminal `time_expiry`, Attempt `completed`. Not exercised in CI. |
 | 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
+| 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
 
 # Blockers
 

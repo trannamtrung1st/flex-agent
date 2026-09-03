@@ -43,88 +43,95 @@ public sealed class ComposeStackHostedExpiryProbeTests
         var probeContext = await ComposeProbeSubmissionSeed.SeedDueSessionAsync(
             services,
             TestContext.Current.CancellationToken);
-        var repository = SessionPersistenceFixtures.RuntimeRepository();
-        var expiredStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
-        var expiredSession = SessionRuntime.CreateActive(probeContext.Binding, expiredStartedAt);
-        var expiredHardEnd = DateTimeOffset.UtcNow.AddMinutes(-1);
-        var expiredPolicy = new HostedFrozenTimingPolicy(
-            HostedTimingReconstruction.Unbounded,
-            null,
-            [],
-            expiredHardEnd);
-
-        await using (var scope = await PostgresTransactionScope.BeginAsync(services.ConnectionAccessor, TestContext.Current.CancellationToken))
+        try
         {
-            await SessionPersistenceFixtures.InsertActiveAsync(
-                repository,
-                probeContext.Binding.Ownership,
-                expiredSession,
-                SessionPersistenceFixtures.Actor(probeContext.ParticipantActorId),
-                scope.Transaction,
-                TestContext.Current.CancellationToken,
-                frozenTiming: expiredPolicy,
-                seedDefaultFrozenTiming: false);
-            await BackdateSessionStartAsync(scope.Transaction, probeContext.Binding.Ownership, expiredStartedAt);
-            await scope.CommitAsync(TestContext.Current.CancellationToken);
-        }
+            var repository = SessionPersistenceFixtures.RuntimeRepository();
+            var expiredStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
+            var expiredSession = SessionRuntime.CreateActive(probeContext.Binding, expiredStartedAt);
+            var expiredHardEnd = DateTimeOffset.UtcNow.AddMinutes(-1);
+            var expiredPolicy = new HostedFrozenTimingPolicy(
+                HostedTimingReconstruction.Unbounded,
+                null,
+                [],
+                expiredHardEnd);
 
-        var deadline = DateTimeOffset.UtcNow.Add(WorkerLoopWait);
-        string lifecycle = "active";
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
-            await using var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken);
-            lifecycle = await connection.QuerySingleAsync<string>(
-                """
-                SELECT lifecycle_state
-                FROM session_runtimes
-                WHERE organization_id = @OrganizationId
-                  AND session_id = @SessionId
-                """,
-                new
-                {
-                    probeContext.Binding.Ownership.OrganizationId,
-                    probeContext.Binding.Ownership.SessionId,
-                });
-            if (string.Equals(lifecycle, "completed", StringComparison.Ordinal))
+            await using (var scope = await PostgresTransactionScope.BeginAsync(services.ConnectionAccessor, TestContext.Current.CancellationToken))
             {
-                break;
+                await SessionPersistenceFixtures.InsertActiveAsync(
+                    repository,
+                    probeContext.Binding.Ownership,
+                    expiredSession,
+                    SessionPersistenceFixtures.Actor(probeContext.ParticipantActorId),
+                    scope.Transaction,
+                    TestContext.Current.CancellationToken,
+                    frozenTiming: expiredPolicy,
+                    seedDefaultFrozenTiming: false);
+                await BackdateSessionStartAsync(scope.Transaction, probeContext.Binding.Ownership, expiredStartedAt);
+                await scope.CommitAsync(TestContext.Current.CancellationToken);
+            }
+
+            var deadline = DateTimeOffset.UtcNow.Add(WorkerLoopWait);
+            string lifecycle = "active";
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+                await using var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken);
+                lifecycle = await connection.QuerySingleAsync<string>(
+                    """
+                    SELECT lifecycle_state
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    """,
+                    new
+                    {
+                        probeContext.Binding.Ownership.OrganizationId,
+                        probeContext.Binding.Ownership.SessionId,
+                    });
+                if (string.Equals(lifecycle, "completed", StringComparison.Ordinal))
+                {
+                    break;
+                }
+            }
+
+            Assert.Equal("completed", lifecycle);
+
+            await using (var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken))
+            {
+                var terminalReason = await connection.QuerySingleOrDefaultAsync<string?>(
+                    """
+                    SELECT reason_category
+                    FROM session_terminal_records
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    ORDER BY committed_at DESC
+                    LIMIT 1
+                    """,
+                    new
+                    {
+                        probeContext.Binding.Ownership.OrganizationId,
+                        probeContext.Binding.Ownership.SessionId,
+                    });
+                Assert.Equal(TerminalReasonCategories.TimeExpiry, terminalReason);
+
+                var attemptStatus = await connection.QuerySingleAsync<string>(
+                    """
+                    SELECT status
+                    FROM submissions_attempts
+                    WHERE organization_id = @OrganizationId
+                      AND attempt_id = @AttemptId
+                    """,
+                    new
+                    {
+                        probeContext.Binding.Ownership.OrganizationId,
+                        probeContext.Binding.Ownership.AttemptId,
+                    });
+                Assert.Equal("completed", attemptStatus);
             }
         }
-
-        Assert.Equal("completed", lifecycle);
-
-        await using (var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken))
+        finally
         {
-            var terminalReason = await connection.QuerySingleOrDefaultAsync<string?>(
-                """
-                SELECT reason_category
-                FROM session_terminal_records
-                WHERE organization_id = @OrganizationId
-                  AND session_id = @SessionId
-                ORDER BY committed_at DESC
-                LIMIT 1
-                """,
-                new
-                {
-                    probeContext.Binding.Ownership.OrganizationId,
-                    probeContext.Binding.Ownership.SessionId,
-                });
-            Assert.Equal(TerminalReasonCategories.TimeExpiry, terminalReason);
-
-            var attemptStatus = await connection.QuerySingleAsync<string>(
-                """
-                SELECT status
-                FROM submissions_attempts
-                WHERE organization_id = @OrganizationId
-                  AND attempt_id = @AttemptId
-                """,
-                new
-                {
-                    probeContext.Binding.Ownership.OrganizationId,
-                    probeContext.Binding.Ownership.AttemptId,
-                });
-            Assert.Equal("completed", attemptStatus);
+            ComposeProbeSubmissionSeed.LogProbeFootprint(probeContext, Console.Error);
         }
     }
 

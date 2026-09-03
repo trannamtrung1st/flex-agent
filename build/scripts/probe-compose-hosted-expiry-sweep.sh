@@ -18,14 +18,43 @@ echo "==> Rebuilding API and Worker from current source"
 
 echo "==> Restarting gateway so nginx picks up recreated API upstream"
 "${COMPOSE[@]}" restart nginx
+sleep 5
 
-echo "==> Waiting for API and Worker health"
-for _ in $(seq 1 60); do
-  if bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" status 2>&1 | grep -q "session-endpoint:ok"; then
+echo "==> Waiting for API/Worker container health and session endpoint"
+compose_service_healthy() {
+  local service="$1"
+  local container_id
+  container_id="$("${COMPOSE[@]}" ps --quiet "${service}" 2>/dev/null || true)"
+  if [[ -z "${container_id}" ]]; then
+    return 1
+  fi
+
+  local status health
+  status="$(docker inspect --format='{{.State.Status}}' "${container_id}" 2>/dev/null || true)"
+  health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${container_id}" 2>/dev/null || true)"
+  [[ "${status}" == "running" && "${health}" == "healthy" ]]
+}
+
+session_endpoint_ok() {
+  curl -sf "http://127.0.0.1:18080/auth/session" >/dev/null 2>&1 \
+    || curl -sf "http://localhost:18080/auth/session" >/dev/null 2>&1
+}
+
+ready=false
+for _ in $(seq 1 120); do
+  if session_endpoint_ok \
+    && compose_service_healthy api \
+    && compose_service_healthy worker; then
+    ready=true
     break
   fi
   sleep 2
 done
+if [[ "${ready}" != "true" ]]; then
+  echo "timed out waiting for session-endpoint:ok and healthy api/worker containers" >&2
+  "${COMPOSE[@]}" ps api worker >&2 || true
+  exit 1
+fi
 
 echo "==> Verifying session_frozen_timing exists"
 "${COMPOSE[@]}" exec -T postgres psql -U flexagent -d flexagent -c "\dt session_frozen_timing" | grep -q session_frozen_timing

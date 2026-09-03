@@ -14,7 +14,7 @@ export type LiveSessionLayoutProps = {
   brandExtras?: ReactNode;
   instruments: ReactNode;
   children: ReactNode;
-  composer: ReactNode;
+  composer?: ReactNode;
   examiner: ReactNode;
   overlays?: ReactNode;
   warned?: boolean;
@@ -72,7 +72,9 @@ export function LiveSessionLayout({
           >
             {children}
           </LayoutContent>
-          <footer className="layout-session__composer composer-row">{composer}</footer>
+          {composer != null ? (
+            <footer className="layout-session__composer composer-row">{composer}</footer>
+          ) : null}
         </div>
         <aside className="layout-session__examiner agent-panel pane" aria-label={examinerLabel}>
           {examiner}

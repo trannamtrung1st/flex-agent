@@ -3,8 +3,21 @@ using System.Text;
 
 namespace FlexAgent.Sessions.Domain;
 
+/// <summary>
+/// Derives stable correlation identifiers from hosted Session command IDs.
+/// </summary>
 public static class HostedSessionCommandCorrelation
 {
+    /// <summary>
+    /// Command IDs for expiry-driven lifecycle transitions. Complete uses a
+    /// <c>.complete</c> suffix so audit/outbox correlation stays distinct from
+    /// BeginCompleting for both Worker sweeps and request-triggered expiry.
+    /// </summary>
+    public static string ExpiryCommandId(Guid sessionId, string transition) =>
+        transition == SessionLifecycleTransitions.Complete
+            ? $"sessioncommand.expiry.{sessionId:N}.complete"
+            : $"sessioncommand.expiry.{sessionId:N}";
+
     public static Guid ForCommandId(string commandId)
     {
         if (string.IsNullOrWhiteSpace(commandId))

@@ -334,11 +334,6 @@ export function ProductionTextSessionPage() {
               { term: "Session ID", value: snapshot?.session_id ? <CompactId tabbable value={snapshot.session_id} /> : "—" },
               { term: "Participant", value: shell?.display_name?.trim() || "Participant" },
               { term: "Session", value: snapshot?.lifecycle_state ?? "loading" },
-            ]}
-          />
-          <ReadoutList
-            className="readout-stack readout-stack--sys"
-            rows={[
               { term: "Record", value: terminal ? "Preserved" : timeEnded ? "Closing" : "Open" },
               { term: "Link", value: view.connection === "connected" ? "Nominal" : "Recovering" },
             ]}
@@ -346,15 +341,7 @@ export function ProductionTextSessionPage() {
           <ProtocolPlate label="Protocol" value="V1" />
         </>
       )}
-      composer={composerClosed ? (
-        <p>{
-          paused && !timeEnded
-            ? "This Session is paused. Sending is closed until an administrator resumes it."
-            : timeEnded || expiredByTime
-              ? "Time ended. Sending is closed."
-              : "Composer closed."
-        }</p>
-      ) : (
+      composer={composerClosed ? undefined : (
         <>
           <form
             className="composer"

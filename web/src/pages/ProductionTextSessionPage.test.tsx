@@ -136,6 +136,8 @@ describe("hosted Session pages", () => {
     expect(document.querySelector(".turn")).toHaveClass("is-active");
     expect(screen.getByLabelText("Session turns")).toHaveClass("ledger");
     expect(screen.queryByRole("region", { name: "Console feed" })).toBeNull();
+    expect(document.querySelector(".layout-session__rail-scroll .readout-stack")).toBeTruthy();
+    expect(document.querySelectorAll(".layout-session__rail-scroll .readout-stack")).toHaveLength(1);
   });
 
   it("conceals a denied Session without offering the composer", async () => {
@@ -165,8 +167,9 @@ describe("hosted Session pages", () => {
 
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
-    expect(await screen.findByText("This Session is paused. Sending is closed until an administrator resumes it.")).toBeVisible();
+    expect(await screen.findByText("This Session is paused. Sending stays closed until an administrator resumes it.")).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(document.querySelector(".layout-session__composer")).toBeNull();
   });
 
   it("sends a Participant message through the hosted command contract", async () => {
@@ -441,6 +444,7 @@ describe("hosted Session pages", () => {
     expect(screen.getByText(/Sealed/)).toBeVisible();
     expect(document.querySelector(".complete-plate")).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(document.querySelector(".layout-session__composer")).toBeNull();
     expect(document.querySelector(".turn.is-active")).toBeNull();
   });
 

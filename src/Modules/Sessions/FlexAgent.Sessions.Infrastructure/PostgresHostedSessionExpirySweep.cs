@@ -158,7 +158,6 @@ public sealed class PostgresHostedSessionExpirySweep(
             version = session.SessionVersion;
         }
 
-        var commandId = $"sessioncommand.expiry.{binding.Ownership.SessionId:N}";
         foreach (var transition in new[]
                  {
                      SessionLifecycleTransitions.BeginCompleting,
@@ -172,9 +171,9 @@ public sealed class PostgresHostedSessionExpirySweep(
                     version,
                     transition,
                     HostedSessionCommandCorrelation.ForCommandId(
-                        transition == SessionLifecycleTransitions.Complete
-                            ? $"{commandId}.complete"
-                            : commandId),
+                        HostedSessionCommandCorrelation.ExpiryCommandId(
+                            binding.Ownership.SessionId,
+                            transition)),
                     settings.SourceChannel,
                     transition == SessionLifecycleTransitions.Complete
                         ? TerminalReasonCategories.TimeExpiry
