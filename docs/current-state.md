@@ -173,7 +173,7 @@ synthetic pin is not production qualification.
 | Activities server-numbered paging and capability-aware table selection | Partial implemented | `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; numbered Activities list and page/matching table selection are in code and tests |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
 | Submission intake / Attempt start | Partial implemented | Development atomic start, readiness, durable exact acknowledgments (`current_outcome` vs bindable), history, reconciliation, and **Continue Attempt** locator are complete and reviewed on `ec84274` ([Implementation 33703247493](https://github.com/trannamtrung1st/flex-agent/actions/runs/33703247493)); Production/Staging remain fail-closed; beyond-baseline retry grant (`REQ-SUBM-21`) remains a gap |
-| Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production `/sessions/:sessionId` live-session landed; authenticated-browser Worker uses Development `deterministic_fake` only (repeating synthetic reply). Production/Staging Worker stay fail-closed. Design-system `LiveSessionLayout` and work `StageBars` are the production donors. Successor `.work/active/hosted-text-session.md` is `in-progress` |
+| Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production `/sessions/:sessionId` live-session landed; frozen timing persisted at Attempt start (`0069`); Worker expiry sweep (`IHostedSessionExpirySweep`) on authenticated-browser Compose (Development `deterministic_fake` only). Production/Staging Worker stay fail-closed. Design-system `LiveSessionLayout` and work `StageBars` are production donors. Core timing + Implementation CI closed (`888eb91` / run `33743544924`); live Compose stack verified with migration `0069` + API/Worker rebuild 2026-09-03. Residual gaps: live warning schedule emission on demo data, multi-tab/offline/terminate live matrix (attempts exhausted), forced-colors/400% live pass, assigned-Reviewer-only synthetic identity |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
@@ -187,7 +187,7 @@ synthetic pin is not production qualification.
 
 ## Active work
 
-`.work/active/hosted-text-session.md` is `in-progress`. The Attempt-start
+`.work/active/hosted-text-session.md` completed and retired 2026-09-03 (recover from Git). The Attempt-start
 predecessor is retired from `.work/active` (recover from Git).
 `.work/active/text-interaction-controller-contract.md` is `planned` and not
 activated. Completed Participants cursor-pager, server-numbered pagination,

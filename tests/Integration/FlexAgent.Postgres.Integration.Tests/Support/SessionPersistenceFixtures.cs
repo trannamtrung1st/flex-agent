@@ -12,7 +12,7 @@ namespace FlexAgent.Postgres.Integration.Tests.Support;
 internal static class SessionPersistenceFixtures
 {
     internal static readonly DateTimeOffset DefaultHardEndAtUtc =
-        new(2026, 12, 31, 23, 59, 59, TimeSpan.Zero);
+        new(2099, 12, 31, 23, 59, 59, TimeSpan.Zero);
 
     internal static HostedFrozenTimingPolicy DefaultFrozenTimingPolicy() =>
         HostedFrozenTimingPolicy.UnboundedPolicy with { HardEndAtUtc = DefaultHardEndAtUtc };
