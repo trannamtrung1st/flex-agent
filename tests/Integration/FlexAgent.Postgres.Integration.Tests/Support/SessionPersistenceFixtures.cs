@@ -53,7 +53,7 @@ internal static class SessionPersistenceFixtures
         HostedFrozenTimingPolicy? frozenTiming = null,
         bool seedDefaultFrozenTiming = true)
     {
-        await SessionPersistenceFixtures.InsertActiveAsync(repository, 
+        await repository.InsertActiveAsync(
             ownership,
             session,
             participantActor,
