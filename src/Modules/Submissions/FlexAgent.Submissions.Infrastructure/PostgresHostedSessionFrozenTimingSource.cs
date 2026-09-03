@@ -36,7 +36,7 @@ public sealed class PostgresHostedSessionFrozenTimingSource(
         return HostedSessionFrozenTiming.FromDocumentJson(document);
     }
 
-    public async Task<string> CaptureAsync(
+    public async Task<FrozenAttemptTimingCaptureResult> CaptureAsync(
         EffectiveTiming effectiveTiming,
         ActivatedCohortBinding binding,
         object commitTransaction,
@@ -65,12 +65,13 @@ public sealed class PostgresHostedSessionFrozenTimingSource(
                 transaction,
                 cancellationToken: cancellationToken));
 
-        return HostedSessionFrozenTiming.ToDocumentJson(
-            HostedSessionFrozenTiming.ComposeFromEffective(
-                baselineDocument,
-                effectiveTiming.EffectivePerAttemptDurationSeconds,
-                effectiveTiming.IsAuthoritativeEligibility,
-                effectiveTiming.EffectiveAttemptStartExclusiveEndUtc,
-                effectiveTiming.EffectiveSubmissionExclusiveEndUtc));
+        return FrozenAttemptTimingCaptureResult.FromDocument(
+            HostedSessionFrozenTiming.ToDocumentJson(
+                HostedSessionFrozenTiming.ComposeFromEffective(
+                    baselineDocument,
+                    effectiveTiming.EffectivePerAttemptDurationSeconds,
+                    effectiveTiming.IsAuthoritativeEligibility,
+                    effectiveTiming.EffectiveAttemptStartExclusiveEndUtc,
+                    effectiveTiming.EffectiveSubmissionExclusiveEndUtc)));
     }
 }

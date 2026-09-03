@@ -28,14 +28,17 @@ function renderCreate(options?: {
   sources?: ProductionSourceOption[];
   createError?: Error;
   loadActivities?: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
-  loadSourceOptions?: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
+  loadSourceOptions?: (signal?: AbortSignal) => Promise<{ environment: "development" | "production"; sources: ProductionSourceOption[] }>;
   onCreated?: (activityId: string) => void;
   queryClient?: ReturnType<typeof createFlexQueryClient>;
 }) {
   const created: Array<{ title: string; sources: Record<string, { source_id: string }> }> = [];
   const queryClient = options?.queryClient ?? createFlexQueryClient();
   const loadSourceOptions = options?.loadSourceOptions ?? (() =>
-    Promise.resolve({ sources: options?.sources ?? REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)) }));
+    Promise.resolve({
+      environment: "development" as const,
+      sources: options?.sources ?? REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+    }));
   render(
     <FlexQueryProvider client={queryClient}>
       <MemoryRouter>
@@ -45,7 +48,7 @@ function renderCreate(options?: {
             permitted_actions: options?.permittedActions ?? ["create_assessment"],
           } satisfies ProductionActivityList))}
           loadSourceOptions={loadSourceOptions}
-          createActivity={(title, sources) => {
+          createActivity={(title, sources, _hostEnvironment) => {
             if (options?.createError) {
               return Promise.reject(options.createError);
             }
@@ -161,8 +164,23 @@ describe("AssessmentCampaignCreatePage", () => {
     expect(screen.getByLabelText("Campaign title")).toHaveValue("Local campaign");
   });
 
+  it("blocks create in production environments until timing is authored", async () => {
+    renderCreate({
+      loadSourceOptions: () => Promise.resolve({
+        environment: "production",
+        sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+      }),
+    });
+
+    expect(await screen.findByRole("heading", { name: "Create timing is not configured" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+  });
+
   it("omits create when the server does not permit it", async () => {
-    const loadSourceOptions = vi.fn(() => Promise.resolve({ sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)) }));
+    const loadSourceOptions = vi.fn(() => Promise.resolve({
+      environment: "development" as const,
+      sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+    }));
     renderCreate({
       permittedActions: [],
       loadSourceOptions,
@@ -187,6 +205,7 @@ describe("AssessmentCampaignCreatePage", () => {
               permitted_actions: ["create_assessment"],
             } satisfies ProductionActivityList)}
             loadSourceOptions={() => Promise.resolve({
+              environment: "development" as const,
               sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
             })}
             createActivity={createActivity}
@@ -241,6 +260,7 @@ describe("AssessmentCampaignCreatePage", () => {
     await screen.findByRole("button", { name: "Create" });
     fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local campaign" } });
     queryClient.setQueryData(assessmentKeys.sourceOptions(), {
+      environment: "development",
       sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category, "v2")),
     });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -255,6 +275,7 @@ describe("AssessmentCampaignCreatePage", () => {
     await screen.findByLabelText("Campaign title");
     fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Kept title" } });
     queryClient.setQueryData(assessmentKeys.sourceOptions(), {
+      environment: "development",
       sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category, "v9")),
     });
     await waitFor(() => {

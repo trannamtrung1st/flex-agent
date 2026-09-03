@@ -333,12 +333,12 @@ public sealed class AttemptStartCoordinator(
                     return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
                 }
 
-                var frozenTimingDocument = await _frozenTiming.CaptureAsync(
+                var capture = await _frozenTiming.CaptureAsync(
                     effectiveTiming,
                     binding,
                     transaction.CommitHandle,
                     cancellationToken);
-                if (FrozenAttemptTimingDocuments.IsUnavailable(frozenTimingDocument))
+                if (!capture.Succeeded || string.IsNullOrWhiteSpace(capture.Document))
                 {
                     transaction.AbortCommit();
                     failedAfterAbort = StartOperationPolicy.Fail(
@@ -348,6 +348,7 @@ public sealed class AttemptStartCoordinator(
                     return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
                 }
 
+                var frozenTimingDocument = capture.Document;
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(
                         attemptId,

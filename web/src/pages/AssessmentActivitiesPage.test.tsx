@@ -98,7 +98,10 @@ function renderActivities(options?: {
       sourceCalls.push(signal);
     }
 
-    return Promise.resolve({ sources: options?.sources ?? REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)) });
+    return Promise.resolve({
+      environment: "development" as const,
+      sources: options?.sources ?? REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+    });
   });
   render(
     <FlexQueryProvider client={queryClient}>
@@ -211,7 +214,10 @@ describe("AssessmentActivitiesPage", () => {
   });
 
   it("omits create when the server does not permit it", async () => {
-    const loadSourceOptions = vi.fn(() => Promise.resolve({ sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)) }));
+    const loadSourceOptions = vi.fn(() => Promise.resolve({
+      environment: "development" as const,
+      sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+    }));
     renderActivities({
       permittedActions: [],
       activities: [activityRow({ activity_id: "act-1", title: "Existing" })],

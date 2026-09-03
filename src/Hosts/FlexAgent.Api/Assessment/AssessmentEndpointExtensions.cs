@@ -265,6 +265,13 @@ public static partial class AssessmentEndpointExtensions
                 AssessmentDevelopmentTimingPresets.SyntheticTimedV1,
                 StringComparison.Ordinal))
         {
+            if (!development)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
+                return;
+            }
+
             timingRules = AssessmentDevelopmentTimingPresets.SyntheticTimedV1Rules();
         }
         else if (request.StartsAtUtc != default)

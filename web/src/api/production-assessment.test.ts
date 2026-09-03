@@ -198,6 +198,17 @@ describe("production assessment client", () => {
     expect(keys[2]).not.toEqual(keys[0]);
   });
 
+  it("rejects create in production environments without authored timing", async () => {
+    const fetchJson = vi.fn();
+    const client = createProductionAssessmentClient(fetchJson);
+
+    await expect(client.createActivity("Campaign", {}, "production")).rejects.toMatchObject({
+      status: 400,
+      message: "Campaign timing must be configured before creation is available in this environment.",
+    });
+    expect(fetchJson).not.toHaveBeenCalled();
+  });
+
   it("passes an AbortSignal through list and source-option reads", async () => {
     const fetchJson = vi.fn().mockResolvedValue({ activities: [], permitted_actions: [], sources: [] });
     const client = createProductionAssessmentClient(fetchJson);

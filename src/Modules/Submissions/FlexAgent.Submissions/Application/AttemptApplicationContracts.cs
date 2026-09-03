@@ -1,3 +1,6 @@
+using System.Text;
+using System.Text.Json;
+using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
@@ -214,9 +217,29 @@ public sealed record SessionStartCommitRequest(
     DateTimeOffset StartedAtUtc,
     string FrozenTimingDocument = "");
 
+public static class AttemptFrozenTimingOutcomeCodes
+{
+    public const string Captured = "attempt_start.frozen_timing_captured";
+    public const string Unavailable = "attempt_start.frozen_timing_unavailable";
+}
+
+public sealed record FrozenAttemptTimingCaptureResult(
+    bool Succeeded,
+    string? Document,
+    string OutcomeCode)
+{
+    public static FrozenAttemptTimingCaptureResult Failed(string outcomeCode = AttemptFrozenTimingOutcomeCodes.Unavailable) =>
+        new(false, null, outcomeCode);
+
+    public static FrozenAttemptTimingCaptureResult FromDocument(string? documentJson) =>
+        FrozenAttemptTimingDocuments.TryValidateAuthoritative(documentJson, out var normalized)
+            ? new(true, normalized, AttemptFrozenTimingOutcomeCodes.Captured)
+            : Failed();
+}
+
 public interface IFrozenAttemptTimingCapture
 {
-    Task<string> CaptureAsync(
+    Task<FrozenAttemptTimingCaptureResult> CaptureAsync(
         EffectiveTiming effectiveTiming,
         ActivatedCohortBinding binding,
         object commitTransaction,
@@ -225,38 +248,258 @@ public interface IFrozenAttemptTimingCapture
 
 public static class FrozenAttemptTimingDocuments
 {
-    public static bool IsUnavailable(string? documentJson)
+    public static bool TryValidateAuthoritative(string? documentJson, out string normalizedDocument)
     {
+        normalizedDocument = string.Empty;
         if (string.IsNullOrWhiteSpace(documentJson))
         {
-            return true;
+            return false;
         }
 
         try
         {
             using var document = System.Text.Json.JsonDocument.Parse(documentJson);
-            return document.RootElement.TryGetProperty("reconstruction", out var reconstruction)
-                && string.Equals(reconstruction.GetString(), "unavailable", StringComparison.Ordinal);
+            var root = document.RootElement;
+            if (!TryGetProperty(root, "reconstruction", out var reconstructionElement)
+                || reconstructionElement.GetString() is not { } reconstruction)
+            {
+                return false;
+            }
+
+            if (!TryParseHardEnd(root, out var hardEndAtUtc, out var hardEndValid))
+            {
+                return false;
+            }
+
+            if (!hardEndValid)
+            {
+                return false;
+            }
+
+            return reconstruction switch
+            {
+                "unbounded" => AcceptUnbounded(root, hardEndAtUtc, out normalizedDocument),
+                "timed" => AcceptTimed(root, hardEndAtUtc, out normalizedDocument),
+                _ => false,
+            };
         }
         catch (System.Text.Json.JsonException)
         {
-            return true;
+            return false;
         }
     }
+
+    private static bool AcceptUnbounded(
+        System.Text.Json.JsonElement root,
+        DateTimeOffset? hardEndAtUtc,
+        out string normalizedDocument)
+    {
+        normalizedDocument = string.Empty;
+        if (TryGetProperty(root, "budget_seconds", out var budgetElement)
+            && budgetElement.ValueKind != JsonValueKind.Null)
+        {
+            return false;
+        }
+
+        normalizedDocument = ComposeAuthoritativeDocument("unbounded", null, [], hardEndAtUtc);
+        return true;
+    }
+
+    private static bool AcceptTimed(
+        System.Text.Json.JsonElement root,
+        DateTimeOffset? hardEndAtUtc,
+        out string normalizedDocument)
+    {
+        normalizedDocument = string.Empty;
+        if (!TryGetProperty(root, "budget_seconds", out var budgetElement)
+            || budgetElement.ValueKind != JsonValueKind.Number
+            || !budgetElement.TryGetInt32(out var budgetSeconds)
+            || budgetSeconds <= 0)
+        {
+            return false;
+        }
+
+        if (!TryReadWarnings(root, out var approaching, out var imminent))
+        {
+            return false;
+        }
+
+        if (approaching <= 0
+            || imminent <= 0
+            || approaching >= budgetSeconds
+            || imminent >= budgetSeconds
+            || approaching == imminent)
+        {
+            return false;
+        }
+
+        normalizedDocument = ComposeAuthoritativeDocument(
+            "timed",
+            budgetSeconds,
+            [("approaching", approaching), ("imminent", imminent)],
+            hardEndAtUtc);
+        return true;
+    }
+
+    private static bool TryReadWarnings(
+        System.Text.Json.JsonElement root,
+        out int approaching,
+        out int imminent)
+    {
+        approaching = 0;
+        imminent = 0;
+        if (!TryGetProperty(root, "warnings", out var warningsElement)
+            || warningsElement.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var item in warningsElement.EnumerateArray())
+        {
+            if (!TryGetProperty(item, "code", out var codeElement)
+                || !TryGetProperty(item, "remaining_seconds", out var secondsElement)
+                || codeElement.GetString() is not { Length: > 0 } code
+                || !secondsElement.TryGetInt32(out var remainingSeconds))
+            {
+                continue;
+            }
+
+            if (string.Equals(code, "approaching", StringComparison.Ordinal))
+            {
+                approaching = remainingSeconds;
+            }
+            else if (string.Equals(code, "imminent", StringComparison.Ordinal))
+            {
+                imminent = remainingSeconds;
+            }
+        }
+
+        return approaching > 0 && imminent > 0;
+    }
+
+    private static bool TryParseHardEnd(
+        System.Text.Json.JsonElement root,
+        out DateTimeOffset? hardEndAtUtc,
+        out bool valid)
+    {
+        hardEndAtUtc = null;
+        valid = true;
+        if (!TryGetProperty(root, "hard_end_at_utc", out var hardEndElement))
+        {
+            return true;
+        }
+
+        if (hardEndElement.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        if (hardEndElement.ValueKind != JsonValueKind.String
+            || !DateTimeOffset.TryParse(
+                hardEndElement.GetString(),
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out var parsed))
+        {
+            valid = false;
+            return true;
+        }
+
+        hardEndAtUtc = parsed.ToUniversalTime();
+        return true;
+    }
+
+    public static string ComposeAuthoritativeDocument(
+        string reconstruction,
+        int? budgetSeconds,
+        IReadOnlyList<(string Code, int RemainingSeconds)> warnings,
+        DateTimeOffset? hardEndAtUtc) =>
+        BuildDocument(
+            reconstruction,
+            budgetSeconds,
+            warnings.Select(item => new WarningEntry(item.Code, item.RemainingSeconds)).ToArray(),
+            hardEndAtUtc);
+
+    private static string BuildDocument(
+        string reconstruction,
+        int? budgetSeconds,
+        IReadOnlyList<WarningEntry> warnings,
+        DateTimeOffset? hardEndAtUtc)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new System.Text.Json.Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("reconstruction", reconstruction);
+            if (budgetSeconds is int budget)
+            {
+                writer.WriteNumber("budget_seconds", budget);
+            }
+            else
+            {
+                writer.WriteNull("budget_seconds");
+            }
+
+            writer.WriteStartArray("warnings");
+            foreach (var warning in warnings)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("code", warning.Code);
+                writer.WriteNumber("remaining_seconds", warning.RemainingSeconds);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            if (hardEndAtUtc is DateTimeOffset hardEnd)
+            {
+                writer.WriteString("hard_end_at_utc", hardEnd.ToString("O"));
+            }
+            else
+            {
+                writer.WriteNull("hard_end_at_utc");
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static bool TryGetProperty(System.Text.Json.JsonElement element, string name, out System.Text.Json.JsonElement value)
+    {
+        if (element.TryGetProperty(name, out value))
+        {
+            return true;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
+    }
+
+    private readonly record struct WarningEntry(string Code, int RemainingSeconds);
 }
 
 public sealed class UnavailableFrozenAttemptTimingCapture : IFrozenAttemptTimingCapture
 {
     public static UnavailableFrozenAttemptTimingCapture Instance { get; } = new();
 
-    public Task<string> CaptureAsync(
+    public Task<FrozenAttemptTimingCaptureResult> CaptureAsync(
         EffectiveTiming effectiveTiming,
         ActivatedCohortBinding binding,
         object commitTransaction,
         CancellationToken cancellationToken = default)
     {
         _ = (effectiveTiming, binding, commitTransaction, cancellationToken);
-        return Task.FromResult("""{"reconstruction":"unavailable","budget_seconds":null,"warnings":[],"hard_end_at_utc":null}""");
+        return Task.FromResult(FrozenAttemptTimingCaptureResult.Failed());
     }
 }
 
@@ -264,7 +507,7 @@ public sealed class DevelopmentSyntheticFrozenAttemptTimingCapture : IFrozenAtte
 {
     public static DevelopmentSyntheticFrozenAttemptTimingCapture Instance { get; } = new();
 
-    public Task<string> CaptureAsync(
+    public Task<FrozenAttemptTimingCaptureResult> CaptureAsync(
         EffectiveTiming effectiveTiming,
         ActivatedCohortBinding binding,
         object commitTransaction,
@@ -272,19 +515,30 @@ public sealed class DevelopmentSyntheticFrozenAttemptTimingCapture : IFrozenAtte
     {
         _ = (binding, commitTransaction, cancellationToken);
         ArgumentNullException.ThrowIfNull(effectiveTiming);
+        var preset = AssessmentDevelopmentTimingPresets.SyntheticTimedV1Rules();
         var hardEnd = effectiveTiming.EffectiveAttemptStartExclusiveEndUtc
             <= effectiveTiming.EffectiveSubmissionExclusiveEndUtc
             ? effectiveTiming.EffectiveAttemptStartExclusiveEndUtc
             : effectiveTiming.EffectiveSubmissionExclusiveEndUtc;
-        var hardEndJson = hardEnd.ToString("O");
         if (effectiveTiming.EffectivePerAttemptDurationSeconds is not > 0)
         {
-            return Task.FromResult(
-                $$"""{"reconstruction":"unbounded","budget_seconds":null,"warnings":[],"hard_end_at_utc":"{{hardEndJson}}"}""");
+            return Task.FromResult(FrozenAttemptTimingCaptureResult.FromDocument(
+                FrozenAttemptTimingDocuments.ComposeAuthoritativeDocument(
+                    "unbounded",
+                    null,
+                    [],
+                    hardEnd)));
         }
 
-        return Task.FromResult(
-            $$"""{"reconstruction":"timed","budget_seconds":{{effectiveTiming.EffectivePerAttemptDurationSeconds}},"warnings":[{"code":"approaching","remaining_seconds":900},{"code":"imminent","remaining_seconds":300}],"hard_end_at_utc":"{{hardEndJson}}"}""");
+        return Task.FromResult(FrozenAttemptTimingCaptureResult.FromDocument(
+            FrozenAttemptTimingDocuments.ComposeAuthoritativeDocument(
+                "timed",
+                effectiveTiming.EffectivePerAttemptDurationSeconds,
+                [
+                    ("approaching", preset.WarningApproachingRemainingSeconds!.Value),
+                    ("imminent", preset.WarningImminentRemainingSeconds!.Value),
+                ],
+                hardEnd)));
     }
 }
 

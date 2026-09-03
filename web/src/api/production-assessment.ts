@@ -35,6 +35,13 @@ export interface ProductionSourceRef {
   content_digest: string;
 }
 
+export type AssessmentHostEnvironment = "development" | "production";
+
+export interface ProductionSourceOptionsResponse {
+  environment: AssessmentHostEnvironment;
+  sources: ProductionSourceOption[];
+}
+
 export interface ProductionSourceOption extends ProductionSourceRef {
   category: string;
   source_kind: string;
@@ -273,11 +280,22 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
         signal ? { signal } : undefined,
       ),
     listSourceOptions: (signal?: AbortSignal) =>
-      fetchJson<{ sources: ProductionSourceOption[] }>(
+      fetchJson<ProductionSourceOptionsResponse>(
         "/v1/assessment/source-options",
         signal ? { signal } : undefined,
       ),
-    createActivity: async (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => {
+    createActivity: async (
+      title: string,
+      sources: Partial<Record<string, ProductionSourceRef>>,
+      hostEnvironment: AssessmentHostEnvironment,
+    ) => {
+      if (hostEnvironment !== "development") {
+        throw new ProductionApiError(
+          400,
+          "Campaign timing must be configured before creation is available in this environment.",
+        );
+      }
+
       const created = await fetchJson<{
         succeeded: boolean;
         activity_id?: string;

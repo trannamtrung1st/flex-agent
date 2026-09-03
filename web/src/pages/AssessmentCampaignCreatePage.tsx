@@ -10,7 +10,9 @@ import {
   type NumberedActivityListQuery,
   type ProductionActivityList,
   type ProductionSourceOption,
+  type ProductionSourceOptionsResponse,
   type ProductionSourceRef,
+  type AssessmentHostEnvironment,
 } from "../api/production-assessment";
 import {
   BackKey,
@@ -54,8 +56,12 @@ import { assessmentKeys } from "../features/assessment/queryKeys";
 
 export interface AssessmentCampaignCreatePageProps {
   loadActivities: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
-  loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
-  createActivity: (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => Promise<string>;
+  loadSourceOptions: (signal?: AbortSignal) => Promise<ProductionSourceOptionsResponse>;
+  createActivity: (
+    title: string,
+    sources: Partial<Record<string, ProductionSourceRef>>,
+    hostEnvironment: AssessmentHostEnvironment,
+  ) => Promise<string>;
   onCreated: (activityId: string) => void;
 }
 
@@ -148,6 +154,7 @@ export function AssessmentCampaignCreatePage({
   const sourcesQuery = useAssessmentSourceOptionsQuery(loadSourceOptions, canCreate);
   const createMutation = useCreateAssessmentActivityMutation(createActivity, onCreated);
   const sources = useMemo(() => sourcesQuery.data?.sources ?? [], [sourcesQuery.data?.sources]);
+  const hostEnvironment = sourcesQuery.data?.environment ?? "production";
   const form = useForm<CampaignCreateValues>({
     resolver: zodResolver(campaignCreateSchema),
     defaultValues: emptyCampaignCreateValues,
@@ -236,6 +243,18 @@ export function AssessmentCampaignCreatePage({
     );
   }
 
+  if (sourcesQuery.isSuccess && hostEnvironment !== "development") {
+    return (
+      <CeremonyUnavailable
+        title="Create timing is not configured"
+        description="Campaign timing must be configured before creation is available in this environment."
+        note="Production Campaign creation requires an authored timing schedule."
+        danger
+        recovery={{ label: "Return to Activities", to: "/activities" }}
+      />
+    );
+  }
+
   const missingCategory = REQUIRED_SOURCE_CATEGORIES.find((category) => !sources.some((source) => source.category === category));
   const selectedSources = form.watch("sources");
   const eligibilityMode = createSourceEligibilityMode(
@@ -276,9 +295,11 @@ export function AssessmentCampaignCreatePage({
               return;
             }
 
-            const latestSources = queryClient.getQueryData<{ sources: ProductionSourceOption[] }>(
+            const latestSourceOptions = queryClient.getQueryData<ProductionSourceOptionsResponse>(
               assessmentKeys.sourceOptions(),
-            )?.sources ?? sources;
+            );
+            const latestSources = latestSourceOptions?.sources ?? sources;
+            const latestEnvironment = latestSourceOptions?.environment ?? hostEnvironment;
             const chosen = resolveSelectedSources(latestSources, values.sources, REQUIRED_SOURCE_CATEGORIES);
             if (Object.keys(chosen).length !== REQUIRED_SOURCE_CATEGORIES.length) {
               form.setError("root", {
@@ -291,7 +312,7 @@ export function AssessmentCampaignCreatePage({
               return;
             }
 
-            createMutation.mutate({ title: values.title, sources: chosen });
+            createMutation.mutate({ title: values.title, sources: chosen, hostEnvironment: latestEnvironment });
           }, () => {
             requestAnimationFrame(() => {
               document.getElementById(summaryId)?.focus();

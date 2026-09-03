@@ -4,8 +4,9 @@ import {
   DEFAULT_ACTIVITY_LIST_QUERY,
   type NumberedActivityListQuery,
   type ProductionActivityList,
-  type ProductionSourceOption,
+  type ProductionSourceOptionsResponse,
   type ProductionSourceRef,
+  type AssessmentHostEnvironment,
 } from "../../api/production-assessment";
 import { assessmentKeys } from "./queryKeys";
 
@@ -22,7 +23,7 @@ export function useAssessmentActivitiesQuery(
 }
 
 export function useAssessmentSourceOptionsQuery(
-  loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>,
+  loadSourceOptions: (signal?: AbortSignal) => Promise<ProductionSourceOptionsResponse>,
   enabled: boolean,
 ) {
   return useQuery({
@@ -39,7 +40,11 @@ export const activitiesListInvalidation = {
 };
 
 export function useCreateAssessmentActivityMutation(
-  createActivity: (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => Promise<string>,
+  createActivity: (
+    title: string,
+    sources: Partial<Record<string, ProductionSourceRef>>,
+    hostEnvironment: AssessmentHostEnvironment,
+  ) => Promise<string>,
   onCreated: (activityId: string) => void,
 ) {
   const queryClient = useQueryClient();
@@ -47,10 +52,12 @@ export function useCreateAssessmentActivityMutation(
     mutationFn: ({
       title,
       sources,
+      hostEnvironment,
     }: {
       title: string;
       sources: Partial<Record<string, ProductionSourceRef>>;
-    }) => createActivity(title, sources),
+      hostEnvironment: AssessmentHostEnvironment;
+    }) => createActivity(title, sources, hostEnvironment),
     onSuccess: (activityId) => {
       void queryClient.invalidateQueries(activitiesListInvalidation);
       onCreated(activityId);
