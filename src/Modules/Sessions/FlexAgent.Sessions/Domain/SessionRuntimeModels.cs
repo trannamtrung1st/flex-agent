@@ -513,7 +513,8 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? LifecycleState = null,
     string? RecoveryCategory = null,
     string? AccessState = null,
-    long SessionVersion = 0);
+    long SessionVersion = 0,
+    string? ItemStatus = null);
 
 public sealed record AuthorizedSessionEventReplayResult(
     bool Succeeded,

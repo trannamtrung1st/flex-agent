@@ -255,6 +255,7 @@ describe("hosted Session pages", () => {
     expect(composer).toBeEnabled();
     expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
     expect(screen.getByText("Considering your reply…")).toBeVisible();
+    expect(document.querySelector(".agent-core.is-thinking")).toBeTruthy();
   });
 
   it("hides Submit Session while an Agent turn is still open", async () => {
@@ -306,6 +307,7 @@ describe("hosted Session pages", () => {
           command_type: body.command_type,
           session_id: sessionId,
           session_version: commandCalls === 1 ? 3 : 7,
+          session_sequence: commandCalls === 1 ? "5" : "8",
           permitted_recovery_action: "none",
           permitted_actions: ["send_message"],
         });
@@ -313,6 +315,8 @@ describe("hosted Session pages", () => {
       if (url.includes(`/v1/sessions/${sessionId}`)) {
         return jsonResponse(participantSnapshot({
           session_version: commandCalls === 0 ? 2 : commandCalls === 1 ? 3 : 7,
+          last_confirmed_sequence: commandCalls >= 1 ? "5" : "4",
+          activity: commandCalls >= 1 ? { work_state: "working", turn_id: "turn.1" } : { work_state: "idle" },
         }));
       }
       return jsonResponse({ error: "unexpected" }, 500);
@@ -331,7 +335,7 @@ describe("hosted Session pages", () => {
       schema_version: "v1",
       event_type: "session.hosted.agent.fragment.v1",
       session_id: sessionId,
-      session_sequence: "5",
+      session_sequence: "6",
       session_version: 5,
       occurred_at: agentOccurredAt,
       payload: {
@@ -345,12 +349,13 @@ describe("hosted Session pages", () => {
       schema_version: "v1",
       event_type: "session.hosted.agent.complete.v1",
       session_id: sessionId,
-      session_sequence: "6",
+      session_sequence: "7",
       session_version: 6,
       payload: {
         summary: "Agent complete.",
         agent_message_id: "amsg.turn1",
         work_state: "idle",
+        item_status: "complete",
       },
     });
 
@@ -516,12 +521,17 @@ describe("hosted Session pages", () => {
           command_type: body.command_type,
           session_id: sessionId,
           session_version: 5,
+          session_sequence: "6",
           permitted_recovery_action: "none",
           permitted_actions: ["send_message"],
         });
       }
       if (url.includes(`/v1/sessions/${sessionId}`)) {
-        return jsonResponse(participantSnapshot({ session_version: commandCalls === 0 ? 2 : 4 }));
+        return jsonResponse(participantSnapshot({
+          session_version: commandCalls === 0 ? 2 : 4,
+          last_confirmed_sequence: commandCalls >= 2 ? "6" : "4",
+          activity: commandCalls >= 2 ? { work_state: "working", turn_id: "turn.1" } : { work_state: "idle" },
+        }));
       }
       return jsonResponse({ error: "unexpected" }, 500);
     });
@@ -594,22 +604,28 @@ describe("hosted Session pages", () => {
 
   it("closes send at remaining zero and reconciles to the time-ended confirmation", async () => {
     let expired = false;
+    let reconcileStarted = false;
     const fetchMock = stubFetch((url, init) => {
       if (url.includes("/commands")) {
         const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}");
         expect(body.command_type).toBe("session.reconcile.v1");
         expired = true;
-        return jsonResponse({
-          schema_version: "v1",
-          succeeded: true,
-          outcome_category: "accepted",
-          outcome_code: "session.reconcile.succeeded",
-          command_id: body.command_id,
-          command_type: body.command_type,
-          session_id: sessionId,
-          permitted_recovery_action: "none",
-          permitted_actions: ["view_transcript", "return_to_my_work"],
-          session_version: 8,
+        reconcileStarted = true;
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(jsonResponse({
+              schema_version: "v1",
+              succeeded: true,
+              outcome_category: "accepted",
+              outcome_code: "session.reconcile.succeeded",
+              command_id: body.command_id,
+              command_type: body.command_type,
+              session_id: sessionId,
+              permitted_recovery_action: "none",
+              permitted_actions: ["view_transcript", "return_to_my_work"],
+              session_version: 8,
+            }));
+          }, 100);
         });
       }
       if (url.includes(`/v1/sessions/${sessionId}`)) {
@@ -641,6 +657,7 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
     expect(await screen.findByRole("heading", { name: "Checking Session end" })).toBeVisible();
+    await waitFor(() => expect(reconcileStarted).toBe(true));
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Submit Session" })).toBeNull();
     expect(screen.getByText("2 of 2")).toBeVisible();

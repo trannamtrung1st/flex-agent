@@ -13,7 +13,7 @@ import { AgentStatusLine, ProtocolPlate } from "../components/work/SessionMarks"
 import { TextSessionStation } from "../components/work/TextSessionStation";
 import { sessionKeys } from "../features/session/queryKeys";
 import { sessionAtTimeBoundary } from "../features/session/session-stage";
-import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer } from "../features/session/session-view";
+import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer, sessionPostSendReconciled } from "../features/session/session-view";
 import { transcriptItemCopy, useTranscriptReveal } from "../features/session/useTranscriptReveal";
 import type { SessionCommandEnvelopeV1, SessionHostedEventEnvelopeV1, SessionSnapshotV1 } from "../contracts/v1";
 import {
@@ -144,8 +144,19 @@ export function ProductionTextSessionPage() {
           dispatch({ type: "draft", draft: "" });
           setPendingIdempotency(null);
         }
-        await snapshotQuery.refetch();
-        dispatch({ type: "send", sendState: "idle" });
+        const refreshed = await snapshotQuery.refetch();
+        if (refreshed.isError || !refreshed.data) {
+          dispatch({ type: "send", sendState: "uncertain" });
+          dispatch({ type: "error", message: "The command was accepted but the Session snapshot could not be reconciled." });
+          return "stop";
+        }
+        dispatch({ type: "snapshot", snapshot: refreshed.data });
+        if (
+          envelope.command_type !== "session.message.send.v1"
+          || sessionPostSendReconciled(refreshed.data, outcome.session_sequence ?? null)
+        ) {
+          dispatch({ type: "send", sendState: "idle" });
+        }
         return "stop";
       }
       return outcome;
@@ -196,6 +207,15 @@ export function ProductionTextSessionPage() {
   }, [client, sessionId, snapshotQuery]);
 
   const snapshot = view.snapshot;
+  useEffect(() => {
+    if (view.sendState !== "checking") {
+      return;
+    }
+    if (sessionPostSendReconciled(snapshot, view.lastAcceptedSequence)) {
+      dispatch({ type: "send", sendState: "idle" });
+    }
+  }, [view.sendState, view.lastAcceptedSequence, snapshot]);
+
   const terminal = snapshot?.lifecycle_state === "completed"
     || snapshot?.lifecycle_state === "terminated"
     || snapshot?.lifecycle_state === "aborted";

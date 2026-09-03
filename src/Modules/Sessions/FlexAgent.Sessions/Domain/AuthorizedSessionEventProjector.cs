@@ -55,7 +55,8 @@ public static class AuthorizedSessionEventProjector
                         : "Agent response incomplete.",
                     AgentMessageId: message.MessageId,
                     AssembledContentDigest: message.AssembledContentDigest,
-                    FragmentCount: message.Fragments.Count));
+                    FragmentCount: message.Fragments.Count,
+                    ItemStatus: MapAgentItemStatus(message.CompletionState)));
             }
         }
 
@@ -110,4 +111,13 @@ public static class AuthorizedSessionEventProjector
 
         return utc.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'", CultureInfo.InvariantCulture);
     }
+
+    private static string MapAgentItemStatus(string completionState) =>
+        completionState switch
+        {
+            AgentMessageCompletionStates.Complete => "complete",
+            AgentMessageCompletionStates.Incomplete => "incomplete",
+            AgentMessageCompletionStates.Cancelled => "cancelled",
+            _ => "streaming",
+        };
 }

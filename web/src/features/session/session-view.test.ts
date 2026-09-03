@@ -1,4 +1,4 @@
-import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer } from "./session-view";
+import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer, sessionPostSendReconciled } from "./session-view";
 import type { SessionSnapshotV1 } from "../../contracts/v1";
 
 const snapshot: SessionSnapshotV1 = {
@@ -259,6 +259,44 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.session_version).toBe(5);
   });
 
+  it("preserves a streaming Agent item when refetch omits it at the same sequence", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+          work_state: "working",
+        },
+      },
+    });
+    const next = sessionLiveReducer(streamed, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 5,
+        last_confirmed_sequence: "13",
+        activity: { work_state: "idle", turn_id: "turn.1" },
+        transcript: {
+          items: [],
+          older_available: false,
+        },
+      },
+    });
+
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("streaming");
+    expect(next.snapshot?.activity?.work_state).toBe("working");
+    expect(sessionAgentTurnOpen(next.snapshot)).toBe(true);
+  });
+
   it("clears considering work when agent.work reports no_action", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
       type: "snapshot",
@@ -380,6 +418,29 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.session_version).toBe(6);
   });
 
+  it("does not rewind working Agent activity when a refetch reports idle at the same sequence", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 5,
+        last_confirmed_sequence: "13",
+        activity: { work_state: "working", turn_id: "turn.1" },
+      },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 5,
+        last_confirmed_sequence: "13",
+        activity: { work_state: "idle", turn_id: "turn.1" },
+      },
+    });
+    expect(next.snapshot?.activity?.work_state).toBe("working");
+    expect(sessionAgentTurnOpen(next.snapshot)).toBe(true);
+  });
+
   it("does not rewind Agent transcript status from complete to streaming on stale refetch", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
     const streamed = sessionLiveReducer(withSnapshot, {
@@ -441,6 +502,82 @@ describe("sessionLiveReducer", () => {
     expect(sessionCommandsBlocked(next.snapshot, "idle")).toBe(false);
   });
 
+  it("marks Agent terminal SSE status from item_status", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+          work_state: "working",
+        },
+      },
+    });
+    const next = sessionLiveReducer(streamed, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: {
+          summary: "Agent response incomplete.",
+          agent_message_id: "amsg.synthetic.0001",
+          item_status: "incomplete",
+        },
+      },
+    });
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("incomplete");
+  });
+
+  it("keeps snapshot incomplete status over a prior erroneous complete merge", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const erroneous = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: {
+          summary: "Agent response complete.",
+          agent_message_id: "amsg.synthetic.0001",
+        },
+      },
+    });
+    const next = sessionLiveReducer(erroneous, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        last_confirmed_sequence: "14",
+        transcript: {
+          items: [{
+            item_id: "amsg.synthetic.0001",
+            author: "agent",
+            status: "incomplete",
+            content: "Hello examiner",
+            sequence_start: "13",
+            sequence_end: "14",
+          }],
+          older_available: false,
+        },
+      },
+    });
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("incomplete");
+  });
+
   it("keeps send blocked while an Agent item is still streaming", () => {
     expect(sessionAgentTurnOpen({
       ...snapshot,
@@ -472,5 +609,17 @@ describe("sessionLiveReducer", () => {
         older_available: false,
       },
     }, "idle")).toBe(false);
+  });
+
+  it("detects post-send reconciliation from queued Agent work", () => {
+    expect(sessionPostSendReconciled({
+      ...snapshot,
+      activity: { work_state: "queued" },
+    }, "13")).toBe(true);
+    expect(sessionPostSendReconciled({
+      ...snapshot,
+      activity: { work_state: "idle" },
+      transcript: { items: [], older_available: false },
+    }, "13")).toBe(false);
   });
 });

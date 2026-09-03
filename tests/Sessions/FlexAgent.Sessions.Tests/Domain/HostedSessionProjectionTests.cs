@@ -326,4 +326,122 @@ public sealed class HostedSessionProjectionTests
         Assert.DoesNotContain(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentNoAction);
         Assert.True(HostedSessionEventProjector.IsIssuedStreamCursor(session, noActionSequence));
     }
+
+    [Fact]
+    public void Snapshot_preserves_transcript_occurred_at_after_later_session_mutation()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var t1 = SessionRuntimeTestFixtures.T0;
+        var t2 = t1.AddSeconds(2);
+        var t3 = t1.AddSeconds(3);
+        var t4 = t1.AddSeconds(4);
+        var t5 = t1.AddSeconds(30);
+
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            t1);
+        var invocationId = first.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            t2).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.proj.1"),
+            t3).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(invocationId, t4).Succeeded);
+
+        SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.2",
+            "turn.2",
+            "slot.2",
+            "trig.participant.2",
+            "idem.p.2",
+            t5);
+
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Participant,
+            t5);
+
+        var participant = Assert.Single(
+            snapshot.Transcript,
+            item => item.Author == "participant"
+                && item.TurnId == HostedSessionSnapshotProjector.ToStableId("turn.1", "turn"));
+        var agent = Assert.Single(snapshot.Transcript, item => item.Author == "agent");
+
+        Assert.Equal(HostedSessionSnapshotProjector.FormatUtc(t1), participant.OccurredAt);
+        Assert.Equal(HostedSessionSnapshotProjector.FormatUtc(t3), agent.OccurredAt);
+        Assert.NotEqual(participant.OccurredAt, agent.OccurredAt);
+        Assert.NotEqual(HostedSessionSnapshotProjector.FormatUtc(t5), participant.OccurredAt);
+    }
+
+    [Fact]
+    public void Hosted_agent_complete_carries_terminal_item_status()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hel", "agen.test.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.MarkAgentResponseIncomplete(
+            invocationId,
+            SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+
+        var replay = HostedSessionEventProjector.Project(session, afterSequence: 0);
+        var terminal = Assert.Single(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentComplete);
+        Assert.Equal("incomplete", terminal.ItemStatus);
+
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Participant,
+            SessionRuntimeTestFixtures.T0.AddSeconds(5));
+        var agent = Assert.Single(snapshot.Transcript, item => item.Author == "agent");
+        Assert.Equal("incomplete", agent.Status);
+    }
+
+    [Fact]
+    public void Issued_stream_cursor_accepts_only_hosted_emitted_sequences()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        Assert.False(HostedSessionEventProjector.IsIssuedStreamCursor(session, 999_999));
+
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.proj.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+
+        var fragmentSequence = session.AgentMessages[0].Fragments[0].SessionSequence;
+        Assert.True(HostedSessionEventProjector.IsIssuedStreamCursor(session, fragmentSequence));
+        Assert.False(HostedSessionEventProjector.IsIssuedStreamCursor(session, fragmentSequence + 10_000));
+    }
 }

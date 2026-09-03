@@ -322,7 +322,8 @@ public static class SessionEventEndpointExtensions
                     LifecycleState: evt.LifecycleState,
                     RecoveryCategory: evt.RecoveryCategory,
                     AccessState: evt.AccessState,
-                    CutoffSequence: evt.CutoffSequence)),
+                    CutoffSequence: evt.CutoffSequence,
+                    ItemStatus: evt.ItemStatus)),
             JsonOptions);
     }
 

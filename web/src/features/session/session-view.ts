@@ -9,6 +9,7 @@ export interface SessionLiveView {
   sendState: SessionSendState;
   connection: SessionConnectionState;
   lastError: string | null;
+  lastAcceptedSequence: string | null;
 }
 
 export const emptySessionLiveView: SessionLiveView = {
@@ -17,6 +18,7 @@ export const emptySessionLiveView: SessionLiveView = {
   sendState: "idle",
   connection: "connecting",
   lastError: null,
+  lastAcceptedSequence: null,
 };
 
 /** Agent turn still open: queued/working activity or a streaming Agent transcript item. */
@@ -31,6 +33,41 @@ export function sessionAgentTurnOpen(snapshot: SessionSnapshotV1 | null): boolea
   return (snapshot.transcript?.items ?? []).some(
     (item) => item.author === "agent" && item.status === "streaming",
   );
+}
+
+/** Post-send reconciliation observed on snapshot or hosted SSE. */
+export function sessionPostSendReconciled(
+  snapshot: SessionSnapshotV1 | null,
+  lastAcceptedSequence: string | null,
+): boolean {
+  if (!snapshot) {
+    return false;
+  }
+  if (sessionAgentTurnOpen(snapshot)) {
+    return true;
+  }
+  const workState = snapshot.activity?.work_state;
+  if (
+    workState === "queued"
+    || workState === "working"
+    || workState === "no_action"
+    || workState === "failed"
+  ) {
+    return true;
+  }
+  if (!lastAcceptedSequence) {
+    return false;
+  }
+  const acceptedSequence = Number(lastAcceptedSequence);
+  return (snapshot.transcript?.items ?? []).some((item) => {
+    if (item.author !== "participant") {
+      return false;
+    }
+    const itemSequence = Number(item.sequence_end ?? item.sequence_start);
+    return Number.isFinite(itemSequence)
+      && Number.isFinite(acceptedSequence)
+      && itemSequence >= acceptedSequence;
+  });
 }
 
 /** Hold send and completion until admission checks finish and the Agent turn resolves. */
@@ -63,6 +100,7 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
         ...state,
         sendState: action.sendState,
         lastError: action.sendState === "pending" ? null : state.lastError,
+        lastAcceptedSequence: action.sendState === "idle" ? null : state.lastAcceptedSequence,
       };
     case "accepted":
       return {
@@ -70,6 +108,7 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
         snapshot: applyObservedVersion(state.snapshot, action.session_version, action.session_sequence),
         sendState: "checking",
         lastError: null,
+        lastAcceptedSequence: action.session_sequence ?? state.lastAcceptedSequence,
       };
     case "connection":
       return { ...state, connection: action.connection };
@@ -110,15 +149,18 @@ function mergeActivity(
   const priorResolved = prior.work_state === "idle"
     || prior.work_state === "no_action"
     || prior.work_state === "failed";
+  const priorBusy = prior.work_state === "working" || prior.work_state === "queued";
   const nextBusy = next.work_state === "working" || next.work_state === "queued";
+  const nextResolved = next.work_state === "idle"
+    || next.work_state === "no_action"
+    || next.work_state === "failed";
   const priorSequence = Number(previous.last_confirmed_sequence);
   const nextSequence = Number(incoming.last_confirmed_sequence);
+  const sequenceComparable = Number.isFinite(priorSequence) && Number.isFinite(nextSequence);
   if (
-    priorResolved
-    && nextBusy
-    && Number.isFinite(priorSequence)
-    && Number.isFinite(nextSequence)
+    sequenceComparable
     && priorSequence >= nextSequence
+    && ((priorResolved && nextBusy) || (priorBusy && nextResolved))
   ) {
     return prior;
   }
@@ -167,11 +209,17 @@ function mergeTranscriptItem(
   if (!merged.occurred_at && prior.occurred_at) {
     merged = { ...merged, occurred_at: prior.occurred_at };
   }
-  const resolvedStatus = transcriptStatusRank(prior.status) > transcriptStatusRank(merged.status)
-    ? prior.status
-    : merged.status;
-  if (resolvedStatus !== merged.status) {
-    merged = { ...merged, status: resolvedStatus };
+  if (item.author === "agent" && (item.status === "incomplete" || item.status === "cancelled")) {
+    merged = { ...merged, status: item.status };
+  } else if (prior.author === "agent" && (prior.status === "incomplete" || prior.status === "cancelled")) {
+    merged = { ...merged, status: prior.status };
+  } else {
+    const resolvedStatus = transcriptStatusRank(prior.status) > transcriptStatusRank(merged.status)
+      ? prior.status
+      : merged.status;
+    if (resolvedStatus !== merged.status) {
+      merged = { ...merged, status: resolvedStatus };
+    }
   }
   return merged;
 }
@@ -236,7 +284,7 @@ function mergeAuthoritativeSnapshot(
     const itemSequence = Number(item.sequence_end ?? item.sequence_start);
     return Number.isFinite(itemSequence)
       && Number.isFinite(incomingSequence)
-      && itemSequence > incomingSequence;
+      && itemSequence >= incomingSequence;
   });
 
   if (priorItems.length === 0 || nextItems.length === 0) {
@@ -308,7 +356,7 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
       if (existing >= 0) {
         items[existing] = {
           ...items[existing]!,
-          status: "complete",
+          status: event.payload.item_status ?? "complete",
           occurred_at: items[existing]!.occurred_at ?? event.occurred_at,
         };
         next.transcript = {

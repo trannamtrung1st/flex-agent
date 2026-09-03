@@ -204,6 +204,7 @@ export interface SessionHostedEventPayloadV1 {
   cutoff_sequence?: PositiveInt64WireString;
   access_state?: 'authorized' | 'revalidate' | 'revoked';
   recovery_category?: SessionRecoveryCategoryV1;
+  item_status?: SessionSnapshotTranscriptItemV1['status'];
 }
 
 export type SessionHostedEventTypeV1 =

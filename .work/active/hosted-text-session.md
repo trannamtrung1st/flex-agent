@@ -522,6 +522,22 @@ editable per `UI-SESS-DEC-2`. Stale refetches no longer rewind Agent item
 status from `complete` to `streaming`. **Evidence:** session-view vitest 16;
 `ProductionTextSessionPage` vitest 16.
 
+2026-09-03 **Review of `288a8ee` + `3257aa4` — P1/P2 correction pass (keep
+`in-progress`)**: (1) snapshot transcript rows now derive `occurred_at` and
+sequence from durable manifest/fragment data — participant from
+`transcript.append.v1`, agent from first fragment `CommittedAt`; regression
+`Snapshot_preserves_transcript_occurred_at_after_later_session_mutation`.
+(2) hosted `agent.complete` carries authoritative `item_status`
+(complete/incomplete/cancelled); frontend reducer and merge prefer snapshot
+terminal truth over erroneous SSE `complete`. (3) post-accept `checking` clears
+only when `sessionPostSendReconciled` (snapshot shows queued/working/failed/
+no_action, agent turn open, or participant item at/after accepted sequence);
+refetch error → `uncertain`. (4) `IsIssuedStreamCursor` accepts only sequences
+actually emitted by hosted projection replay. **Evidence:** Sessions 538;
+session-view vitest 21+; `ProductionTextSessionPage` vitest 37. Lifecycle
+pause/resume/warning/access SSE, multi-tab/offline matrix, and specialist
+reviews remain open.
+
 2026-09-03 **P1 repeated-turn 409 (confirmed + fixed; keep `in-progress`)**:
 hosted SSE replay used `AuthorizedSessionEventProjector`, which left
 `SessionVersion = 0` on Agent fragment/completion events. The browser
@@ -887,7 +903,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
 | 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
 | Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; regression tests for version, repeated turn, refresh-while-working, stale retry. Sessions/Runtime/web vitest green locally. Live `:5274` re-verify still open. |
-| Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-03: projector emits message accepted, agent queued/working/no-action/failure plus fragment/complete/terminal; hosted cursor validation extended; reconnect refetches snapshot. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
+| Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-03: projector emits message accepted, agent queued/working/no-action/failure plus fragment/complete/terminal; hosted cursor validation tightened to emitted sequences only; reconnect refetches snapshot; snapshot transcript timestamps stable across refresh; `item_status` on agent complete. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
 
 # Blockers
 

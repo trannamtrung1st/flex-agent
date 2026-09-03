@@ -271,29 +271,41 @@ public static class HostedSessionSnapshotProjector
     private static IReadOnlyList<HostedTranscriptItem> ProjectTranscript(SessionRuntime session)
     {
         var items = new List<HostedTranscriptItem>();
+        var coveredAgentMessageIds = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var item in session.VisibleTranscript)
         {
-            var author = item.AuthorType == TranscriptAuthorTypes.Agent ? "agent" : "participant";
-            var content = item.ExactUtf8Text;
-            var status = content is null ? "unavailable" : "accepted";
-            if (content is null && item.AuthorType == TranscriptAuthorTypes.Agent)
+            if (item.AuthorType == TranscriptAuthorTypes.Participant)
             {
-                var message = session.AgentMessages.FirstOrDefault(candidate =>
-                    string.Equals(candidate.MessageId, item.MessageId, StringComparison.Ordinal));
-                var assembled = message?.AssembleExactText();
-                if (!string.IsNullOrEmpty(assembled))
-                {
-                    content = assembled;
-                    status = message!.CompletionState == AgentMessageCompletionStates.Complete
-                        ? "complete"
-                        : message.IsTerminal ? "incomplete" : "streaming";
-                }
+                var append = FindTranscriptAppendRecord(session, item.MessageId);
+                var sequence = append?.SessionSequence ?? Math.Max(1, session.SessionSequence);
+                items.Add(new HostedTranscriptItem(
+                    ToStableId(item.MessageId, "msg"),
+                    "participant",
+                    item.ExactUtf8Text is null ? "unavailable" : "accepted",
+                    Math.Max(1, sequence).ToString(CultureInfo.InvariantCulture),
+                    Math.Max(1, sequence).ToString(CultureInfo.InvariantCulture),
+                    item.ExactUtf8Text,
+                    append is null
+                        ? FormatUtc(session.LastCommittedAt)
+                        : FormatUtc(append.OccurredAt),
+                    string.IsNullOrWhiteSpace(item.TurnId) ? null : ToStableId(item.TurnId, "turn")));
+                continue;
             }
 
+            var message = FindAgentMessage(session, item.MessageId);
+            if (message is not null)
+            {
+                coveredAgentMessageIds.Add(message.MessageId);
+                items.Add(ProjectAgentTranscriptItem(message, ToStableId(item.MessageId, "msg")));
+                continue;
+            }
+
+            var content = item.ExactUtf8Text;
             items.Add(new HostedTranscriptItem(
                 ToStableId(item.MessageId, "msg"),
-                author,
-                status,
+                "agent",
+                content is null ? "unavailable" : "accepted",
                 "1",
                 Math.Max(1, session.SessionSequence).ToString(CultureInfo.InvariantCulture),
                 content,
@@ -303,32 +315,56 @@ public static class HostedSessionSnapshotProjector
 
         foreach (var message in session.AgentMessages)
         {
-            var itemId = ToStableId(message.MessageId, "amsg");
-            if (items.Any(existing => existing.ItemId == itemId))
+            if (coveredAgentMessageIds.Contains(message.MessageId))
             {
                 continue;
             }
 
-            var assembled = string.Concat(message.Fragments.Select(fragment => fragment.ExactUtf8Text));
-            var start = message.Fragments.Count == 0
-                ? Math.Max(1, session.SessionSequence)
-                : message.Fragments[0].SessionSequence;
-            var end = message.SealedSessionSequence ?? message.Fragments.LastOrDefault()?.SessionSequence ?? start;
-            items.Add(new HostedTranscriptItem(
-                itemId,
-                "agent",
-                message.CompletionState == AgentMessageCompletionStates.Complete
-                    ? "complete"
-                    : message.IsTerminal ? "incomplete" : "streaming",
-                Math.Max(1, start).ToString(CultureInfo.InvariantCulture),
-                Math.Max(1, end).ToString(CultureInfo.InvariantCulture),
-                string.IsNullOrEmpty(assembled) ? null : assembled,
-                FormatUtc(message.SealedAt ?? session.LastCommittedAt),
-                string.IsNullOrWhiteSpace(message.TurnId) ? null : ToStableId(message.TurnId, "turn")));
+            items.Add(ProjectAgentTranscriptItem(message, ToStableId(message.MessageId, "amsg")));
         }
 
         return items;
     }
+
+    private static ManifestRuntimeRecord? FindTranscriptAppendRecord(SessionRuntime session, string messageId) =>
+        session.ManifestRuntimeRecords.FirstOrDefault(record =>
+            string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TranscriptAppendV1, StringComparison.Ordinal)
+            && string.Equals(record.PayloadRef.ProtectedRef, messageId, StringComparison.Ordinal));
+
+    private static AgentResponseMessage? FindAgentMessage(SessionRuntime session, string messageId) =>
+        session.AgentMessages.FirstOrDefault(message =>
+            string.Equals(message.MessageId, messageId, StringComparison.Ordinal));
+
+    private static HostedTranscriptItem ProjectAgentTranscriptItem(AgentResponseMessage message, string itemId)
+    {
+        var assembled = message.AssembleExactText();
+        var start = message.Fragments.Count == 0
+            ? Math.Max(1, message.SealedSessionSequence ?? 1)
+            : message.Fragments[0].SessionSequence;
+        var end = message.SealedSessionSequence ?? message.Fragments.LastOrDefault()?.SessionSequence ?? start;
+        var occurredAtSource = message.Fragments.Count > 0
+            ? message.Fragments[0].CommittedAt
+            : message.SealedAt;
+
+        return new HostedTranscriptItem(
+            itemId,
+            "agent",
+            MapAgentTranscriptStatus(message),
+            Math.Max(1, start).ToString(CultureInfo.InvariantCulture),
+            Math.Max(1, end).ToString(CultureInfo.InvariantCulture),
+            string.IsNullOrEmpty(assembled) ? null : assembled,
+            occurredAtSource is null ? null : FormatUtc(occurredAtSource.Value),
+            string.IsNullOrWhiteSpace(message.TurnId) ? null : ToStableId(message.TurnId, "turn"));
+    }
+
+    private static string MapAgentTranscriptStatus(AgentResponseMessage message) =>
+        message.CompletionState switch
+        {
+            AgentMessageCompletionStates.Complete => "complete",
+            AgentMessageCompletionStates.Incomplete => "incomplete",
+            AgentMessageCompletionStates.Cancelled => "cancelled",
+            _ => message.Fragments.Count > 0 ? "streaming" : "streaming",
+        };
 
     public static string ToStableId(string value, string prefix)
     {
@@ -357,25 +393,61 @@ public static class HostedSessionEventProjector
     public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterSequence)
     {
         ArgumentNullException.ThrowIfNull(session);
+        if (!TryBuildHostedEvents(session, afterSequence, out var events, out var baselineOutcome))
+        {
+            return new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
+        }
+
+        var pageSize = session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
+            * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
+        var hasMore = events.Count > pageSize;
+        if (hasMore)
+        {
+            events = events.Take(pageSize).ToList();
+        }
+
+        return baselineOutcome == SessionEventReplayOutcomeCodes.Succeeded
+            ? new AuthorizedSessionEventReplayResult(true, SessionEventReplayOutcomeCodes.Succeeded, events, hasMore)
+            : new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
+    }
+
+    public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (!TryBuildHostedEvents(session, afterSequence: 0, out var events, out _))
+        {
+            return false;
+        }
+
+        return events.Any(evt =>
+            long.Parse(evt.SessionSequence, CultureInfo.InvariantCulture) == sequence);
+    }
+
+    private static bool TryBuildHostedEvents(
+        SessionRuntime session,
+        long afterSequence,
+        out List<AuthorizedSessionProjectionEvent> events,
+        out string baselineOutcome)
+    {
+        events = [];
+        baselineOutcome = SessionEventReplayOutcomeCodes.Succeeded;
 
         foreach (var message in session.AgentMessages)
         {
             if (message.IsTerminal && message.SealedSessionSequence is null)
             {
-                return new AuthorizedSessionEventReplayResult(
-                    false,
-                    SessionEventReplayOutcomeCodes.Reconcile,
-                    []);
+                baselineOutcome = SessionEventReplayOutcomeCodes.Reconcile;
+                return false;
             }
         }
 
         var baseline = AuthorizedSessionEventProjector.Project(session, afterSequence);
+        baselineOutcome = baseline.OutcomeCode;
         if (!baseline.Succeeded)
         {
-            return baseline;
+            return false;
         }
 
-        var events = new List<AuthorizedSessionProjectionEvent>();
         var sessionId = session.Ownership.SessionId.ToString("D");
         AppendCommittedHostedEvents(session, sessionId, afterSequence, events);
 
@@ -423,55 +495,7 @@ public static class HostedSessionEventProjector
             long.Parse(left.SessionSequence, CultureInfo.InvariantCulture)
                 .CompareTo(long.Parse(right.SessionSequence, CultureInfo.InvariantCulture)));
 
-        var pageSize = session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
-            * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
-        var hasMore = events.Count > pageSize;
-        if (hasMore)
-        {
-            events = events.Take(pageSize).ToList();
-        }
-
-        return baseline with { Events = events, HasMore = hasMore };
-    }
-
-    public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-        if (AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, sequence))
-        {
-            return true;
-        }
-
-        foreach (var record in session.ManifestRuntimeRecords)
-        {
-            if (record.SessionSequence == sequence)
-            {
-                return true;
-            }
-        }
-
-        foreach (var invocation in session.Invocations)
-        {
-            if (invocation.SessionSequence == sequence)
-            {
-                return true;
-            }
-
-            if (invocation.ValidationEffect?.EffectCommitSessionSequence == sequence)
-            {
-                return true;
-            }
-        }
-
-        foreach (var turn in session.Turns)
-        {
-            if (turn.CreatedSessionSequence == sequence)
-            {
-                return true;
-            }
-        }
-
-        return session.CutoffSequence == sequence;
+        return true;
     }
 
     private static void AppendCommittedHostedEvents(

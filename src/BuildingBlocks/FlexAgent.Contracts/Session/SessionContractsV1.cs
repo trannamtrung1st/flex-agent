@@ -185,7 +185,8 @@ public sealed record SessionHostedEventPayloadV1(
     int? FragmentCount = null,
     string? CutoffSequence = null,
     string? AccessState = null,
-    string? RecoveryCategory = null);
+    string? RecoveryCategory = null,
+    string? ItemStatus = null);
 
 public sealed record SessionHostedEventEnvelopeV1(
     string SchemaVersion,

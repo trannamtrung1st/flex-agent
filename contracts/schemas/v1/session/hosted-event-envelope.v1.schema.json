@@ -124,6 +124,10 @@
         "recovery_category": {
           "type": "string",
           "enum": ["none", "reconcile_snapshot", "retry_later", "sign_in", "unavailable"]
+        },
+        "item_status": {
+          "type": "string",
+          "enum": ["accepted", "streaming", "complete", "incomplete", "cancelled", "unavailable"]
         }
       }
     }
