@@ -522,7 +522,9 @@ test unused param) required to unblock Implementation web job on run
 `33734154401`. CI fix `0895025` follow-up: align Activities page source-options
 type with `ProductionSourceOptionsResponse`; seed default frozen timing in
 Postgres integration session fixtures so admission no longer returns
-`timing_unavailable` without a row.
+`timing_unavailable` without a row. Follow-up: bulk replace accidentally made
+`SessionPersistenceFixtures.InsertActiveAsync` recurse into itself (CI #504 dotnet
+StackOverflow in ~1m); fixed to call `repository.InsertActiveAsync`.
 
 2026-09-03 review of `4004584` (keep `in-progress`): require non-null
 `hard_end_at_utc` for authoritative `timed` and `unbounded` capture documents;
