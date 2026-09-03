@@ -505,10 +505,28 @@ touched Session files is clean; vitest reveal + Session page + ledger
 remaining `0`. Do not claim live expiry until API/Worker are rebuilt
 and 0069 is applied.
 
-Still not done: live API/Worker rebuild for 0069, full Implementation CI,
-and previously missing hosted-session states (warning emission, multi-tab,
-offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
-retire this file.
+Still not done: warning emission + reconstructable warning history; multi-tab/
+device behavior; offline/reconnect; live terminate/abort; forced-colors;
+400% zoom/reflow; distinct backend/frontend/security-privacy/QA reviews;
+durable-truth/current-state promotion. **Core hosted-session timing
+implementation and full Implementation CI are closed** (see 2026-09-03 review
+below). Do not retire this file until the remaining QA/behavior matrix and
+specialist reviews complete.
+
+2026-09-03 review — **core timing + Implementation CI closed** (keep
+`in-progress`): Implementation **`33743544924`** on code-bearing **`888eb91`**
+full green — changes, dotnet, web, oidc, supply-chain (NuGet vuln, pnpm audit,
+licenses, SBOM + grype, Gitleaks clean), OCI/OIDC smoke. Commit chain:
+`0895025` lint cleanup; `972d742` Activities `ProductionSourceOptionsResponse`
++ Postgres fixture default frozen timing; `888eb91` fix recursive
+`SessionPersistenceFixtures.InsertActiveAsync`; `5ed60c7` task-state only.
+No new P0/P1 timing regression. Proceed with remaining hosted-session QA/
+behavior closure; do not iterate core timing unless a concrete failure appears.
+**P2 deferred:** `DefaultHardEndAtUtc` uses `2026-12-31` (expires after that
+date); prefer distant deterministic boundary (e.g. 2099) or hard end relative to
+session start. Fixture auto-seed keeps unavailable-timing tests on
+`repository.InsertActiveAsync` or `seedDefaultFrozenTiming: false`
+(`HostedSessionTimingFairnessTests` unchanged).
 
 2026-09-03 review of `cd90e5d` (keep `in-progress`): approved core timing
 boundary — mandatory `hard_end_at_utc`, coordinator re-validation, private
@@ -719,7 +737,8 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Review of `4ce0308` positive capture + env-gated preset | in progress this pass | Submissions FrozenAttemptTimingDocuments 10; Runtime 336; web CampaignCreate + production-assessment tests passed. Full CI not re-run. |
+| Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke. HEAD `5ed60c7` docs-only run **`33743559578`** skipped implementation jobs correctly. |
+| Review of `4ce0308` positive capture + env-gated preset | complete | Submissions timing tests; Runtime; web; superseded by `cd90e5d`/`888eb91` chain + full CI above. |
 | Review of `1126162` fail-closed + preset + Gitleaks fixes | confirmed prior pass | Sessions 531; HostedSessionTimingFairnessTests 5; gitleaks clean; Assessment HTTP negatives 24 passed. |
 | Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for prior pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for prior pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
@@ -771,14 +790,16 @@ Lead decision is required. Implementation has:
 - [ ] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review
 
-Independent review of `593f554` / `417adf1` / `d662cab` plus Implementation CI
-`33708509001` found P1 timing, `unavailable` merge, and discarded terminate
-`reason_code` defects; P2 HTTP/schema drift; and four Web lint failures. Do not
-mark completed until those are green and the missing hosted-session states are
-rechecked.
+Independent review of `593f554` / `417adf1` / `d662cab` timing defects and
+later `cd90e5d`/`888eb91` chain are addressed; Implementation CI
+**`33743544924`** is green. Do not mark the **task** completed until the
+missing hosted-session states below and specialist reviews are rechecked.
 
 Gaps for review (not blockers for this host/UI slice):
 
+- **P2:** `SessionPersistenceFixtures.DefaultHardEndAtUtc` is `2026-12-31`;
+  move to a distant boundary or session-relative hard end before that date
+  passes (does not invalidate current green CI).
 - No assigned-Reviewer-only synthetic identity; `demo.admin` resolves as
   administrator and therefore sees an empty historical transcript list.
 - Authenticated-browser Worker now uses Development `deterministic_fake` so
