@@ -23,7 +23,7 @@ public sealed class DemoWorkSeedFixtureTests
     public const string ActivatedTaskTitle = "Hazard identification response";
 
     public const string ActivatedBaselineDigest =
-        "7df34f545bf192ca09bd7c6177d6314febed518e1799b533b4c745c872592452";
+        "1406e373f68c6f136b2317c991af05f3b4813c0adb3abc79c70f0dc4ab28be17";
 
     [Fact]
     public void Activated_campaign_baseline_digest_matches_demo_work_seed_contract()
@@ -70,7 +70,9 @@ public sealed class DemoWorkSeedFixtureTests
                 new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
                 "UTC",
                 2,
-                3600),
+                3600,
+                900,
+                300),
             AssessmentDevelopmentSources.OrganizationPolicy,
             AssessmentDevelopmentSources.Agent,
             AssessmentDevelopmentSources.Harness,
@@ -106,7 +108,9 @@ public sealed class DemoWorkSeedFixtureTests
                 new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
                 "UTC",
                 2,
-                3600),
+                3600,
+                900,
+                300),
             AssessmentDevelopmentSources.OrganizationPolicy,
             AssessmentDevelopmentSources.Agent,
             AssessmentDevelopmentSources.Harness,

@@ -22,7 +22,18 @@ public static class HostedSessionTiming
         if (policy.Reconstruction == HostedTimingReconstruction.Unbounded
             || policy.BudgetSeconds is not > 0)
         {
-            return new HostedTimingProjection("disabled", null, "none", null, null);
+            if (policy.HardEndAtUtc is null)
+            {
+                return new HostedTimingProjection("disabled", null, "none", null, null);
+            }
+
+            return ProjectHardEndBoundary(
+                lifecycle,
+                startedAt,
+                lastCommittedAt,
+                authoritativeUtc,
+                policy.HardEndAtUtc.Value,
+                openPauseStartedAt);
         }
 
         if (policy.WarningSchedule.Count == 0)
@@ -118,6 +129,37 @@ public static class HostedSessionTiming
         return due[0].Code;
     }
 
+    private static HostedTimingProjection ProjectHardEndBoundary(
+        SessionLifecycleState lifecycle,
+        DateTimeOffset startedAt,
+        DateTimeOffset lastCommittedAt,
+        DateTimeOffset authoritativeUtc,
+        DateTimeOffset hardEndAtUtc,
+        DateTimeOffset? openPauseStartedAt)
+    {
+        if (SessionPermittedActionsProjector.IsTerminal(lifecycle)
+            || lifecycle == SessionLifecycleState.Completing)
+        {
+            return new HostedTimingProjection("unbounded", 0, "none", null, null);
+        }
+
+        var pauseAnchor = openPauseStartedAt ?? lastCommittedAt;
+        var pauseStarted = lifecycle == SessionLifecycleState.Paused
+            ? HostedSessionSnapshotProjector.FormatUtc(pauseAnchor < startedAt ? startedAt : pauseAnchor)
+            : null;
+        return new HostedTimingProjection(
+            "unbounded",
+            ComputeHardEndRemaining(authoritativeUtc, hardEndAtUtc),
+            "none",
+            pauseStarted,
+            null);
+    }
+
+    internal static int ComputeHardEndRemaining(
+        DateTimeOffset authoritativeUtc,
+        DateTimeOffset hardEndAtUtc) =>
+        (int)Math.Max(0, Math.Ceiling((hardEndAtUtc - authoritativeUtc).TotalSeconds));
+
     internal static int ComputeRemainingSeconds(
         SessionLifecycleState lifecycle,
         int budgetSeconds,
@@ -137,9 +179,7 @@ public static class HostedSessionTiming
             return budgetRemaining;
         }
 
-        var hardRemaining = (int)Math.Max(
-            0,
-            Math.Ceiling((hardEndAtUtc.Value - authoritativeUtc).TotalSeconds));
+        var hardRemaining = ComputeHardEndRemaining(authoritativeUtc, hardEndAtUtc.Value);
         return Math.Min(budgetRemaining, hardRemaining);
     }
 }

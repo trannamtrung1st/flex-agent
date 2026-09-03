@@ -21,6 +21,8 @@ export interface AssessmentSetupView {
     ends_at_utc: string;
     deadline_utc: string;
     per_attempt_duration_seconds?: number | null;
+    warning_approaching_remaining_seconds?: number | null;
+    warning_imminent_remaining_seconds?: number | null;
   };
   disabled_capabilities?: string[];
   sources?: Array<{ category: string; source_id: string; version_id: string; content_digest: string }>;
@@ -118,6 +120,8 @@ export interface ProductionActivityDetail {
     ends_at_utc: string;
     deadline_utc: string;
     per_attempt_duration_seconds?: number | null;
+    warning_approaching_remaining_seconds?: number | null;
+    warning_imminent_remaining_seconds?: number | null;
   } | null;
   disabled_capabilities?: string[] | null;
   cohort_id?: string | null;

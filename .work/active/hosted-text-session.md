@@ -510,21 +510,15 @@ and previously missing hosted-session states (warning emission, multi-tab,
 offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
 retire this file.
 
-2026-09-03 review of `0e8cf46` (keep `in-progress`): four fairness-critical
-P1 timing gaps closed in source — (1) Attempt-start timing capture now uses
-`ComposeAuthoritativeInTransactionAsync` plus `IFrozenAttemptTimingCapture`
-with the enrollment commit transaction; (2) frozen timing documents include
-`hard_end_at_utc` and projection uses the earliest budget/hard-end boundary;
-(3) `PostgresAcceptParticipantMessageCoordinator` re-checks cutoff under the
-session lock with `TriggerAdmissionOutcomeCodes.CutoffPassed`; (4) Worker
-expiry scan uses separate hard-end and active-budget due predicates with
-pause-interval accounting so >32 old paused Sessions cannot starve a due
-active Session. Timed `TimingRules` now require positive, in-duration,
-non-duplicated warning thresholds at activation. Domain/regression:
-Sessions 524 passed; Submissions 152 passed; Assessment 96 passed.
-Integration fairness tests added (`HostedSessionTimingFairnessTests`) — cutoff
-crossing and >32 paused starvation: **2 passed** (Testcontainers). Live rebuild,
-0069 apply, and accommodation-race Attempt-start integration test remain open.
+2026-09-03 review of `7de6983` (keep `in-progress`): fixed expiry SQL pause
+sign (`budget + paused`), enforce `hard_end_at_utc` for unbounded Sessions in
+projection/admission/sweep, wire warning thresholds through Activity HTTP +
+demo/fixture seeds, and add resumed-active expiry starvation regression.
+Verification 2026-09-03: Sessions 525 passed (includes unbounded hard-end
+domain test); HostedSessionTimingFairnessTests 3 passed (cutoff, paused
+starvation, resumed-active starvation); Runtime 336 passed (includes updated
+demo baseline digest); AssessmentConfiguration 96 passed; Postgres integration
+384 passed. Full Implementation CI not re-run end-to-end in this pass.
 
 Hosted Session transport, actor projections, production SPA routes, Worker
 composition, bounded hosted telemetry, and fail-closed Worker identity are
@@ -683,7 +677,8 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for this pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
+| Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for this pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
+| Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for prior pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
 | Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |
 | Existing contract/runtime/host/frontend seam inventory | complete for planning | 2026-09-03: command envelope C#/schema present; production SSE only; snapshot/command host, hosted event contract, production Session page, `/v1/sessions` gateway route, and authenticated-browser Worker service absent; Design Lab donor identified |

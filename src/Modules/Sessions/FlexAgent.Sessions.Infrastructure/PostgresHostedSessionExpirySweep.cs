@@ -29,9 +29,6 @@ public sealed class PostgresHostedSessionExpirySweep(
                     ON timing.organization_id = runtime.organization_id
                    AND timing.session_id = runtime.session_id
                 WHERE runtime.lifecycle_state IN ('active', 'paused')
-                  AND timing.document->>'reconstruction' = 'timed'
-                  AND jsonb_typeof(timing.document->'warnings') = 'array'
-                  AND jsonb_array_length(timing.document->'warnings') > 0
                   AND timing.document->>'hard_end_at_utc' IS NOT NULL
                   AND (timing.document->>'hard_end_at_utc')::timestamptz <= clock_timestamp()
                 ORDER BY (timing.document->>'hard_end_at_utc')::timestamptz
@@ -63,11 +60,11 @@ public sealed class PostgresHostedSessionExpirySweep(
                   AND jsonb_array_length(timing.document->'warnings') > 0
                   AND runtime.created_at
                       + make_interval(secs => GREATEST(COALESCE((timing.document->>'budget_seconds')::int, 0), 0))
-                      - make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
+                      + make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
                       <= clock_timestamp()
                 ORDER BY runtime.created_at
                     + make_interval(secs => GREATEST(COALESCE((timing.document->>'budget_seconds')::int, 0), 0))
-                    - make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
+                    + make_interval(secs => GREATEST(COALESCE(pause_totals.accumulated_seconds, 0), 0))
                 LIMIT @BatchSize
                 """,
                 new { BatchSize },

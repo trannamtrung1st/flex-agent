@@ -158,18 +158,7 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
             await scope.CommitAsync(CancellationToken);
         }
 
-        var sweep = new PostgresHostedSessionExpirySweep(
-            Fixture.Services.ConnectionAccessor,
-            new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
-            repository,
-            new PostgresHostedFrozenTimingDocumentSource(Fixture.Services.ConnectionAccessor),
-            new PostgresSessionLifecycleCoordinator(
-                Fixture.Services.ConnectionAccessor,
-                repository,
-                new ChangeSessionLifecycleHandler()),
-            new HostedSessionExpirySettings(
-                SessionPersistenceFixtures.Actor(organization.ActorId),
-                HostedSessionExpiryChannels.Service));
+        var sweep = CreateExpirySweep(organization.ActorId, repository);
         var expiredCount = await sweep.ExpireDueAsync(CancellationToken);
         Assert.True(expiredCount >= 1);
 
@@ -188,6 +177,134 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
             });
         Assert.Equal("completed", lifecycle);
     }
+
+    [Fact]
+    public async Task Expiry_sweep_finds_due_active_session_when_many_resumed_active_sessions_with_long_pause_history_precede_it()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
+        var expiredBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var expiredStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        var expiredSession = SessionRuntime.CreateActive(expiredBinding, expiredStartedAt);
+        var expiredPolicy = TimedPolicy(expiredStartedAt.AddHours(4), budgetSeconds: 120);
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(
+                expiredBinding.Ownership,
+                expiredSession,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await InsertFrozenTimingAsync(scope.Transaction, expiredBinding.Ownership, expiredPolicy);
+            await BackdateSessionStartAsync(scope.Transaction, expiredBinding.Ownership, expiredStartedAt);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        for (var index = 0; index < 32; index++)
+        {
+            var resumedBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+            var resumedStartedAt = DateTimeOffset.UtcNow.AddMinutes(-100).AddSeconds(index);
+            var resumedSession = SessionRuntime.CreateActive(resumedBinding, resumedStartedAt);
+            var pauseStartedAt = resumedStartedAt.AddMinutes(1);
+            var pauseEndedAt = resumedStartedAt.AddMinutes(51);
+            await using var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+            await repository.InsertActiveAsync(
+                resumedBinding.Ownership,
+                resumedSession,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await BackdateSessionStartAsync(scope.Transaction, resumedBinding.Ownership, resumedStartedAt);
+            await InsertClosedPauseIntervalAsync(
+                scope.Transaction,
+                resumedBinding.Ownership,
+                pauseStartedAt,
+                pauseEndedAt);
+            await InsertFrozenTimingAsync(
+                scope.Transaction,
+                resumedBinding.Ownership,
+                TimedPolicy(DateTimeOffset.UtcNow.AddDays(10), budgetSeconds: 3600));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var sweep = CreateExpirySweep(organization.ActorId, repository);
+        var expiredCount = await sweep.ExpireDueAsync(CancellationToken);
+        Assert.True(expiredCount >= 1);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var lifecycle = await connection.QuerySingleAsync<string>(
+            """
+            SELECT lifecycle_state
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+            """,
+            new
+            {
+                expiredBinding.Ownership.OrganizationId,
+                expiredBinding.Ownership.SessionId,
+            });
+        Assert.Equal("completed", lifecycle);
+    }
+
+    private PostgresHostedSessionExpirySweep CreateExpirySweep(
+        Guid actorId,
+        PostgresSessionRuntimeRepository repository) =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
+            repository,
+            new PostgresHostedFrozenTimingDocumentSource(Fixture.Services.ConnectionAccessor),
+            new PostgresSessionLifecycleCoordinator(
+                Fixture.Services.ConnectionAccessor,
+                repository,
+                new ChangeSessionLifecycleHandler()),
+            new HostedSessionExpirySettings(
+                SessionPersistenceFixtures.Actor(actorId),
+                HostedSessionExpiryChannels.Service));
+
+    private static Task InsertClosedPauseIntervalAsync(
+        NpgsqlTransaction transaction,
+        SessionOwnership ownership,
+        DateTimeOffset pauseStartedAt,
+        DateTimeOffset pauseEndedAt) =>
+        transaction.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_pause_intervals (
+                    organization_id,
+                    activity_id,
+                    participant_id,
+                    attempt_id,
+                    session_id,
+                    pause_id,
+                    started_at,
+                    ended_at,
+                    last_committed_at)
+                VALUES (
+                    @OrganizationId,
+                    @ActivityId,
+                    @ParticipantId,
+                    @AttemptId,
+                    @SessionId,
+                    @PauseId,
+                    @StartedAt,
+                    @EndedAt,
+                    @EndedAt)
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    PauseId = Guid.CreateVersion7(),
+                    StartedAt = pauseStartedAt,
+                    EndedAt = pauseEndedAt,
+                },
+                transaction));
 
     private static HostedFrozenTimingPolicy TimedPolicy(DateTimeOffset hardEndAtUtc, int budgetSeconds) =>
         new(

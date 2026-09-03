@@ -265,6 +265,20 @@ export function SetupCeremonyStation({
               label="Per-attempt duration"
               value={setupDurationLabel(view.timing?.per_attempt_duration_seconds)}
             />
+            {view.timing?.warning_approaching_remaining_seconds != null ? (
+              <FrozenResolvedField
+                id={`${titleId}-warning-approaching`}
+                label="Approaching warning"
+                value={setupDurationLabel(view.timing.warning_approaching_remaining_seconds)}
+              />
+            ) : null}
+            {view.timing?.warning_imminent_remaining_seconds != null ? (
+              <FrozenResolvedField
+                id={`${titleId}-warning-imminent`}
+                label="Imminent warning"
+                value={setupDurationLabel(view.timing.warning_imminent_remaining_seconds)}
+              />
+            ) : null}
           </Grid>
         </FormSection>
         <FormSection legend="Memory and capabilities">

@@ -277,14 +277,18 @@ public static partial class AssessmentEndpointExtensions
                         new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
                         "UTC",
                         2,
-                        3600)
+                        3600,
+                        900,
+                        300)
                     : new TimingRules(
                         request.StartsAtUtc,
                         request.EndsAtUtc,
                         request.DeadlineUtc,
                         string.IsNullOrWhiteSpace(request.TimeZoneId) ? "UTC" : request.TimeZoneId,
                         request.AttemptLimit < 1 ? 2 : request.AttemptLimit,
-                        request.PerAttemptDurationSeconds),
+                        request.PerAttemptDurationSeconds,
+                        request.WarningApproachingRemainingSeconds,
+                        request.WarningImminentRemainingSeconds),
                 policy,
                 agent,
                 harness,
@@ -398,6 +402,8 @@ public static partial class AssessmentEndpointExtensions
                 ends_at_utc = draft.Content.Timing.EndsAtUtc,
                 deadline_utc = draft.Content.Timing.DeadlineUtc,
                 per_attempt_duration_seconds = draft.Content.Timing.PerAttemptDurationSeconds,
+                warning_approaching_remaining_seconds = draft.Content.Timing.WarningApproachingRemainingSeconds,
+                warning_imminent_remaining_seconds = draft.Content.Timing.WarningImminentRemainingSeconds,
             },
             disabled_capabilities = DisabledCapabilityLabels(capabilities),
             cohort_id = cohort?.CohortId,
@@ -853,7 +859,9 @@ public static partial class AssessmentEndpointExtensions
         DateTimeOffset DeadlineUtc,
         string TimeZoneId,
         int AttemptLimit,
-        int? PerAttemptDurationSeconds);
+        int? PerAttemptDurationSeconds,
+        int? WarningApproachingRemainingSeconds = null,
+        int? WarningImminentRemainingSeconds = null);
 
     private sealed record SaveActivityRequest(string Title, long ExpectedRevisionNumber);
 

@@ -151,6 +151,27 @@ public sealed class HostedSessionTimingTests
     }
 
     [Fact]
+    public void Unbounded_session_enforces_the_frozen_hard_end_without_a_duration_budget()
+    {
+        var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
+        var hardEnd = started.AddHours(1);
+        var now = hardEnd.AddMinutes(5);
+        var policy = HostedFrozenTimingPolicy.UnboundedPolicy with { HardEndAtUtc = hardEnd };
+
+        var timing = HostedSessionTiming.Project(
+            SessionLifecycleState.Active,
+            started,
+            now,
+            now,
+            policy);
+
+        Assert.Equal("unbounded", timing.Policy);
+        Assert.Equal(0, timing.RemainingSeconds);
+        Assert.Null(timing.BudgetSeconds);
+        Assert.Equal("none", timing.WarningCode);
+    }
+
+    [Fact]
     public void Unbounded_policy_disables_the_timer()
     {
         var started = DateTimeOffset.Parse("2026-09-03T00:00:00Z");
