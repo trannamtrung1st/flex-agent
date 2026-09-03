@@ -510,6 +510,20 @@ and previously missing hosted-session states (warning emission, multi-tab,
 offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
 retire this file.
 
+2026-09-03 review of `4004584` (keep `in-progress`): require non-null
+`hard_end_at_utc` for authoritative `timed` and `unbounded` capture documents;
+re-validate capture document at `AttemptStartCoordinator` trust boundary;
+harden structural JSON validation (root/warning object shape, no
+`InvalidOperationException` escape); private successful
+`FrozenAttemptTimingCaptureResult` construction with internal test bypass;
+coordinator regression proves invalid capture never reaches
+`CommitActiveAsync`. Verification 2026-09-03: Submissions
+`FrozenAttemptTimingDocumentsTests` + `AttemptStartCoordinatorTests` 29 passed;
+Runtime demo seed 3 passed. Full Implementation CI not re-run in this pass.
+Core hosted timing correctness considered closed pending CI; warning emission,
+multi-tab/offline, terminate/abort-live, accessibility matrix, and specialist
+reviews remain open.
+
 2026-09-03 review of `4ce0308` (keep `in-progress`): positive frozen timing
 capture validation via typed `FrozenAttemptTimingCaptureResult`; gate
 `development.synthetic_timed.v1` to development host environment; production

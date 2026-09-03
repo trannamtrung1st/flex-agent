@@ -122,6 +122,34 @@ public sealed class AttemptStartCoordinatorTests
     }
 
     [Fact]
+    public async Task Invalid_frozen_timing_capture_is_rejected_before_session_commit()
+    {
+        var harness = await CreateHarnessAsync(frozenTiming: new MaliciousFrozenAttemptTimingCapture());
+        var digest = AttemptCommandDigest.Compute(
+            OrganizationId,
+            EnrollmentId,
+            ParticipantId,
+            1,
+            AttemptEntitlementSources.Baseline,
+            harness.VersionIds,
+            []);
+        var started = await harness.Coordinator.StartAsync(
+            new StartAttemptCommand(ParticipantContext(), EnrollmentId, "start-key-0001", digest),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(started.Succeeded);
+        Assert.Equal(AttemptFailureCodes.Ineligible, started.OutcomeCode);
+        Assert.Empty(harness.Attempts.Items);
+        Assert.Equal(0, harness.Sessions.CommitCount);
+        var readiness = await harness.Coordinator.GetAsync(
+            ParticipantContext(),
+            EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(AttemptReadinessStates.Eligible, readiness.Value!.ReadinessState);
+        Assert.Equal(1, readiness.Value.RemainingEntitlement);
+    }
+
+    [Fact]
     public async Task Binding_failure_after_session_commit_aborts_without_an_attempt()
     {
         var harness = await CreateHarnessAsync(acknowledgments: new FailBindAcknowledgmentPort());
@@ -484,7 +512,8 @@ public sealed class AttemptStartCoordinatorTests
     private static async Task<Harness> CreateHarnessAsync(
         int attemptLimit = 1,
         IParticipantNoticePort? notices = null,
-        IAcknowledgmentLifecyclePort? acknowledgments = null)
+        IAcknowledgmentLifecyclePort? acknowledgments = null,
+        IFrozenAttemptTimingCapture? frozenTiming = null)
     {
         var binding = Binding(attemptLimit);
         var enrollments = new InMemoryEnrollmentStore();
@@ -555,7 +584,8 @@ public sealed class AttemptStartCoordinatorTests
             audit,
             unitOfWork,
             sessions,
-            new FixedEnrollmentClock(Now));
+            new FixedEnrollmentClock(Now),
+            frozenTiming ?? DevelopmentSyntheticFrozenAttemptTimingCapture.Instance);
         return new Harness(
             coordinator,
             attempts,
@@ -689,6 +719,19 @@ public sealed class AttemptStartCoordinatorTests
             object commitTransaction,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<string?>(null);
+    }
+
+    private sealed class MaliciousFrozenAttemptTimingCapture : IFrozenAttemptTimingCapture
+    {
+        public Task<FrozenAttemptTimingCaptureResult> CaptureAsync(
+            EffectiveTiming effectiveTiming,
+            ActivatedCohortBinding binding,
+            object commitTransaction,
+            CancellationToken cancellationToken = default)
+        {
+            _ = (effectiveTiming, binding, commitTransaction, cancellationToken);
+            return Task.FromResult(FrozenAttemptTimingCaptureResult.UnvalidatedForTests("{}"));
+        }
     }
 
     private sealed class OpenTimingPort : IEnrollmentTimingQueryService

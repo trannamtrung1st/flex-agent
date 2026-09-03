@@ -338,7 +338,10 @@ public sealed class AttemptStartCoordinator(
                     binding,
                     transaction.CommitHandle,
                     cancellationToken);
-                if (!capture.Succeeded || string.IsNullOrWhiteSpace(capture.Document))
+                if (!capture.Succeeded
+                    || !FrozenAttemptTimingDocuments.TryValidateAuthoritative(
+                        capture.Document,
+                        out var frozenTimingDocument))
                 {
                     transaction.AbortCommit();
                     failedAfterAbort = StartOperationPolicy.Fail(
@@ -348,7 +351,6 @@ public sealed class AttemptStartCoordinator(
                     return Fail(AttemptFailureCodes.Ineligible, AttemptReadinessStates.ConfigurationUnavailable);
                 }
 
-                var frozenTimingDocument = capture.Document;
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(
                         attemptId,

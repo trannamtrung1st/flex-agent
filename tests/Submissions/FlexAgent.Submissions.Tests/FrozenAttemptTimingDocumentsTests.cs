@@ -15,6 +15,10 @@ public sealed class FrozenAttemptTimingDocumentsTests
     [InlineData("""{"reconstruction":"timed","budget_seconds":3600,"warnings":[]}""")]
     [InlineData("""{"reconstruction":"timed","budget_seconds":null,"warnings":[{"code":"approaching","remaining_seconds":900},{"code":"imminent","remaining_seconds":300}],"hard_end_at_utc":"2026-09-30T17:00:00Z"}""")]
     [InlineData("""{"reconstruction":"timed","budget_seconds":3600,"warnings":[{"code":"approaching","remaining_seconds":900},{"code":"imminent","remaining_seconds":300}],"hard_end_at_utc":"not-a-timestamp"}""")]
+    [InlineData("""{"reconstruction":"unbounded","budget_seconds":null,"warnings":[]}""")]
+    [InlineData("""{"reconstruction":"timed","budget_seconds":3600,"warnings":[{"code":"approaching","remaining_seconds":900},{"code":"imminent","remaining_seconds":300}]}""")]
+    [InlineData("[]")]
+    [InlineData("""{"reconstruction":"timed","budget_seconds":3600,"warnings":[1,2],"hard_end_at_utc":"2026-09-30T17:00:00Z"}""")]
     public void Invalid_documents_fail_positive_validation(string? documentJson)
     {
         Assert.False(FrozenAttemptTimingDocuments.TryValidateAuthoritative(documentJson, out _));

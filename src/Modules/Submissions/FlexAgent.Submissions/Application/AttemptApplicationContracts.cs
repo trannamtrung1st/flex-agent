@@ -223,11 +223,19 @@ public static class AttemptFrozenTimingOutcomeCodes
     public const string Unavailable = "attempt_start.frozen_timing_unavailable";
 }
 
-public sealed record FrozenAttemptTimingCaptureResult(
-    bool Succeeded,
-    string? Document,
-    string OutcomeCode)
+public sealed class FrozenAttemptTimingCaptureResult
 {
+    public bool Succeeded { get; }
+    public string? Document { get; }
+    public string OutcomeCode { get; }
+
+    private FrozenAttemptTimingCaptureResult(bool succeeded, string? document, string outcomeCode)
+    {
+        Succeeded = succeeded;
+        Document = document;
+        OutcomeCode = outcomeCode;
+    }
+
     public static FrozenAttemptTimingCaptureResult Failed(string outcomeCode = AttemptFrozenTimingOutcomeCodes.Unavailable) =>
         new(false, null, outcomeCode);
 
@@ -235,6 +243,9 @@ public sealed record FrozenAttemptTimingCaptureResult(
         FrozenAttemptTimingDocuments.TryValidateAuthoritative(documentJson, out var normalized)
             ? new(true, normalized, AttemptFrozenTimingOutcomeCodes.Captured)
             : Failed();
+
+    internal static FrozenAttemptTimingCaptureResult UnvalidatedForTests(string document) =>
+        new(true, document, AttemptFrozenTimingOutcomeCodes.Captured);
 }
 
 public interface IFrozenAttemptTimingCapture
@@ -258,20 +269,20 @@ public static class FrozenAttemptTimingDocuments
 
         try
         {
-            using var document = System.Text.Json.JsonDocument.Parse(documentJson);
+            using var document = JsonDocument.Parse(documentJson);
             var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
             if (!TryGetProperty(root, "reconstruction", out var reconstructionElement)
                 || reconstructionElement.GetString() is not { } reconstruction)
             {
                 return false;
             }
 
-            if (!TryParseHardEnd(root, out var hardEndAtUtc, out var hardEndValid))
-            {
-                return false;
-            }
-
-            if (!hardEndValid)
+            if (!TryParseRequiredHardEnd(root, out var hardEndAtUtc))
             {
                 return false;
             }
@@ -283,15 +294,19 @@ public static class FrozenAttemptTimingDocuments
                 _ => false,
             };
         }
-        catch (System.Text.Json.JsonException)
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
         {
             return false;
         }
     }
 
     private static bool AcceptUnbounded(
-        System.Text.Json.JsonElement root,
-        DateTimeOffset? hardEndAtUtc,
+        JsonElement root,
+        DateTimeOffset hardEndAtUtc,
         out string normalizedDocument)
     {
         normalizedDocument = string.Empty;
@@ -306,8 +321,8 @@ public static class FrozenAttemptTimingDocuments
     }
 
     private static bool AcceptTimed(
-        System.Text.Json.JsonElement root,
-        DateTimeOffset? hardEndAtUtc,
+        JsonElement root,
+        DateTimeOffset hardEndAtUtc,
         out string normalizedDocument)
     {
         normalizedDocument = string.Empty;
@@ -356,6 +371,11 @@ public static class FrozenAttemptTimingDocuments
 
         foreach (var item in warningsElement.EnumerateArray())
         {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
             if (!TryGetProperty(item, "code", out var codeElement)
                 || !TryGetProperty(item, "remaining_seconds", out var secondsElement)
                 || codeElement.GetString() is not { Length: > 0 } code
@@ -377,32 +397,18 @@ public static class FrozenAttemptTimingDocuments
         return approaching > 0 && imminent > 0;
     }
 
-    private static bool TryParseHardEnd(
-        System.Text.Json.JsonElement root,
-        out DateTimeOffset? hardEndAtUtc,
-        out bool valid)
+    private static bool TryParseRequiredHardEnd(JsonElement root, out DateTimeOffset hardEndAtUtc)
     {
-        hardEndAtUtc = null;
-        valid = true;
-        if (!TryGetProperty(root, "hard_end_at_utc", out var hardEndElement))
-        {
-            return true;
-        }
-
-        if (hardEndElement.ValueKind == JsonValueKind.Null)
-        {
-            return true;
-        }
-
-        if (hardEndElement.ValueKind != JsonValueKind.String
+        hardEndAtUtc = default;
+        if (!TryGetProperty(root, "hard_end_at_utc", out var hardEndElement)
+            || hardEndElement.ValueKind != JsonValueKind.String
             || !DateTimeOffset.TryParse(
                 hardEndElement.GetString(),
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.RoundtripKind,
                 out var parsed))
         {
-            valid = false;
-            return true;
+            return false;
         }
 
         hardEndAtUtc = parsed.ToUniversalTime();
