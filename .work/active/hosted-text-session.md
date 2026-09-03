@@ -585,3 +585,6 @@ Gaps for review (not blockers for this host/UI slice):
 2026-09-03 confirm pass: stack still healthy; hosted HTTP/telemetry/profile 29
 and projection 7 passed; Participant live Session remained `active`/`connected`
 with both admitted messages after RedirectUri returned to canonical.
+
+Implementation CI `oidc` static gate failed on 593f554: validator fixture
+`valid_config()` omitted the required `worker` service.

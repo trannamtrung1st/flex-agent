@@ -59,6 +59,7 @@ def valid_config() -> dict:
                 },
             },
             "spa": {"build": {}},
+            "worker": {"build": {}},
             "nginx": {
                 "image": f"nginx:1.30.4{DIGEST}",
                 "ports": [
@@ -131,6 +132,10 @@ def main() -> None:
     ok = run_validator(valid_config())
     if ok.returncode != 0:
         raise SystemExit(ok.stderr)
+
+    missing_worker = copy.deepcopy(valid_config())
+    del missing_worker["services"]["worker"]
+    expect_fail(missing_worker, "missing services")
 
     demo_work = copy.deepcopy(valid_config())
     demo_work["services"]["seed-demo-work"] = {
