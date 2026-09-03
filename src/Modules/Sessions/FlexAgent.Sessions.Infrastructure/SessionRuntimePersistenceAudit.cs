@@ -24,7 +24,8 @@ internal static class SessionRuntimePersistenceAudit
         ISessionRuntimeTelemetry? telemetry = null,
         long? relationshipVersion = null,
         string? authorizationReferenceType = null,
-        Guid? authorizationReferenceId = null)
+        Guid? authorizationReferenceId = null,
+        string? reasonCode = null)
     {
         var digest = ProtectedContentRef.DigestForReference(payloadSeed);
         var signals = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
@@ -43,7 +44,7 @@ internal static class SessionRuntimePersistenceAudit
                     ResourceType: SessionRuntimeResourceTypes.Session,
                     ResourceId: ownership.SessionId,
                     Outcome: "succeeded",
-                    ReasonCode: null,
+                    ReasonCode: reasonCode,
                     RelationshipVersion: relationshipVersion,
                     SourceChannel: sourceChannel,
                     PayloadDigest: digest,

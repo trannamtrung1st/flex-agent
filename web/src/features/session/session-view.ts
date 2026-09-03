@@ -24,6 +24,7 @@ export type SessionLiveAction =
   | { type: "event"; event: SessionHostedEventEnvelopeV1 }
   | { type: "draft"; draft: string }
   | { type: "send"; sendState: SessionSendState }
+  | { type: "accepted"; session_version?: number | null; session_sequence?: string | null }
   | { type: "connection"; connection: SessionConnectionState }
   | { type: "error"; message: string | null };
 
@@ -41,6 +42,13 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
         sendState: action.sendState,
         lastError: action.sendState === "pending" ? null : state.lastError,
       };
+    case "accepted":
+      return {
+        ...state,
+        snapshot: applyObservedVersion(state.snapshot, action.session_version, action.session_sequence),
+        sendState: "idle",
+        lastError: null,
+      };
     case "connection":
       return { ...state, connection: action.connection };
     case "error":
@@ -50,30 +58,71 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
   }
 }
 
+function laterSequence(left: string, right: string): string {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  if (!Number.isFinite(leftNumber)) {
+    return right;
+  }
+  if (!Number.isFinite(rightNumber) || leftNumber > rightNumber) {
+    return left;
+  }
+  return right;
+}
+
+function applyObservedVersion(
+  snapshot: SessionSnapshotV1 | null,
+  sessionVersion?: number | null,
+  sessionSequence?: string | null,
+): SessionSnapshotV1 | null {
+  if (!snapshot) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    session_version: Math.max(sessionVersion ?? 0, snapshot.session_version),
+    last_confirmed_sequence: sessionSequence
+      ? laterSequence(snapshot.last_confirmed_sequence, sessionSequence)
+      : snapshot.last_confirmed_sequence,
+  };
+}
+
 function mergeAuthoritativeSnapshot(
   previous: SessionSnapshotV1 | null,
   incoming: SessionSnapshotV1,
 ): SessionSnapshotV1 {
-  const priorItems = previous?.transcript?.items ?? [];
-  const nextItems = incoming.transcript?.items ?? [];
-  if (priorItems.length === 0 || nextItems.length === 0 || previous?.session_id !== incoming.session_id) {
+  if (!previous || previous.session_id !== incoming.session_id) {
     return incoming;
   }
 
-  return {
+  const merged: SessionSnapshotV1 = {
     ...incoming,
+    session_version: Math.max(previous.session_version, incoming.session_version),
+    last_confirmed_sequence: laterSequence(previous.last_confirmed_sequence, incoming.last_confirmed_sequence),
+  };
+  const priorItems = previous.transcript?.items ?? [];
+  const nextItems = incoming.transcript?.items ?? [];
+  if (priorItems.length === 0 || nextItems.length === 0 || !incoming.transcript) {
+    return merged;
+  }
+
+  return {
+    ...merged,
     transcript: {
-      ...incoming.transcript!,
+      ...incoming.transcript,
       items: nextItems.map((item) => {
         const prior = priorItems.find((candidate) => candidate.item_id === item.item_id);
         if (!prior?.content) {
           return item;
         }
-        if (!item.content || item.status === "unavailable") {
+        if (item.status === "unavailable") {
+          return item;
+        }
+        if (!item.content) {
           return {
             ...item,
             content: prior.content,
-            status: item.status === "unavailable" ? prior.status : item.status,
           };
         }
         if (prior.content.startsWith(item.content) && prior.content.length > item.content.length) {
@@ -117,6 +166,11 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
   }
 
   if (event.event_type === "session.hosted.agent.complete.v1") {
+    next.activity = {
+      work_state: event.payload.work_state ?? "idle",
+      turn_id: event.payload.turn_id ?? snapshot.activity?.turn_id,
+      resolution_category: event.payload.resolution_category,
+    };
     const items = [...(next.transcript?.items ?? [])];
     const messageId = event.payload.agent_message_id;
     if (messageId) {
@@ -142,6 +196,11 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
   }
 
   if (event.event_type === "session.hosted.agent.fragment.v1" && event.payload.text_delta) {
+    next.activity = {
+      work_state: event.payload.work_state ?? "working",
+      turn_id: event.payload.turn_id ?? snapshot.activity?.turn_id,
+      resolution_category: event.payload.resolution_category,
+    };
     const items = [...(next.transcript?.items ?? [])];
     const messageId = event.payload.agent_message_id ?? `amsg.${event.session_sequence}`;
     const existing = items.findIndex((item) => item.item_id === messageId);

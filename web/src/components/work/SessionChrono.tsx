@@ -52,10 +52,6 @@ export function SessionChrono({
   const stages = liveSessionStage(snapshot);
 
   useEffect(() => {
-    setNowMs(Date.now());
-  }, [snapshot?.authoritative_observed_at, snapshot?.timing?.remaining_seconds]);
-
-  useEffect(() => {
     if (!shouldTick) {
       return;
     }

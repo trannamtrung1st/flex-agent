@@ -305,7 +305,7 @@ public static class SessionEventEndpointExtensions
                 hostedType,
                 sessionId,
                 evt.SessionSequence,
-                0,
+                checked((int)Math.Max(0, evt.SessionVersion)),
                 evt.OccurredAt,
                 new SessionHostedEventPayloadV1(
                     evt.Summary,

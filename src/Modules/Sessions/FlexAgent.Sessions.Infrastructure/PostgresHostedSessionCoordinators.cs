@@ -85,7 +85,26 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
+            var baselineJson = await scope.Transaction.Connection!.QuerySingleOrDefaultAsync<string?>(
+                new CommandDefinition(
+                    """
+                    SELECT baseline.document::text
+                    FROM submissions_attempts AS attempt
+                    INNER JOIN assessment_activation_baselines AS baseline
+                        ON baseline.organization_id = attempt.organization_id
+                       AND baseline.baseline_id = attempt.baseline_id
+                    WHERE attempt.organization_id = @OrganizationId
+                      AND attempt.session_id = @SessionId
+                    """,
+                    new
+                    {
+                        session.Ownership.OrganizationId,
+                        session.Ownership.SessionId,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
             await scope.CommitAsync(cancellationToken);
+            var frozenTiming = HostedSessionFrozenTiming.FromActivationBaselineDocument(baselineJson);
             return new HostedSessionQueryResult(
                 true,
                 "session.snapshot.loaded",
@@ -94,7 +113,8 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     projectionKind,
                     observedAt,
                     startedAt,
-                    HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds));
+                    frozenTiming.BudgetSeconds,
+                    frozenTiming.WarningSchedule));
         }
         catch
         {
@@ -218,7 +238,6 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             return null;
         }
 
-        _ = terminateReasonCode;
         var expectedVersion = expectedSessionVersion;
         HostedSessionCommandResult? last = null;
         foreach (var transition in transitions)
@@ -230,7 +249,8 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                     expectedVersion,
                     transition,
                     TryParseCorrelation(commandId),
-                    "http.session_command"),
+                    "http.session_command",
+                    transition == SessionLifecycleTransitions.Terminate ? terminateReasonCode : null),
                 binding,
                 cancellationToken);
             last = MapLifecycle(step, projectionKind);

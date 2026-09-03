@@ -48,7 +48,9 @@ public sealed partial class SessionRuntime
         IReadOnlyList<TimerScheduleRevision> timerSchedules,
         IReadOnlyList<ManifestRuntimeRecord> manifestRecords,
         SessionTerminalRecord? terminalRecord,
-        EvaluationHandoff? evaluationHandoff)
+        EvaluationHandoff? evaluationHandoff,
+        int accumulatedPausedSeconds = 0,
+        DateTimeOffset? openPauseStartedAt = null)
     {
         Binding = binding;
         Ownership = binding.Ownership;
@@ -57,6 +59,8 @@ public sealed partial class SessionRuntime
         SessionSequence = sessionSequence;
         CutoffSequence = cutoffSequence;
         LastCommittedAt = lastCommittedAt;
+        AccumulatedPausedSeconds = accumulatedPausedSeconds;
+        OpenPauseStartedAt = openPauseStartedAt;
         _invocations.AddRange(invocations);
         _turns.AddRange(turns);
         _visibleTranscript.AddRange(transcript);
@@ -86,6 +90,10 @@ public sealed partial class SessionRuntime
     public long? CutoffSequence { get; private set; }
 
     public DateTimeOffset LastCommittedAt { get; private set; }
+
+    public int AccumulatedPausedSeconds { get; private set; }
+
+    public DateTimeOffset? OpenPauseStartedAt { get; private set; }
 
     public IReadOnlyList<AgentInvocation> Invocations => _invocations;
 
@@ -141,7 +149,9 @@ public sealed partial class SessionRuntime
         IReadOnlyList<TimerScheduleRevision>? timerSchedules = null,
         IReadOnlyList<ManifestRuntimeRecord>? manifestRecords = null,
         SessionTerminalRecord? terminalRecord = null,
-        EvaluationHandoff? evaluationHandoff = null)
+        EvaluationHandoff? evaluationHandoff = null,
+        int accumulatedPausedSeconds = 0,
+        DateTimeOffset? openPauseStartedAt = null)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!IsUtc(lastCommittedAt))
@@ -164,7 +174,9 @@ public sealed partial class SessionRuntime
             timerSchedules ?? [],
             manifestRecords ?? [],
             terminalRecord,
-            evaluationHandoff);
+            evaluationHandoff,
+            accumulatedPausedSeconds,
+            openPauseStartedAt);
     }
 
     internal void ReplaceLastCommittedAtFromDatabase(DateTimeOffset lastCommittedAt)
@@ -377,6 +389,7 @@ public sealed partial class SessionRuntime
             AppendTimerEvent(revision, "paused", authoritativeUtc);
         }
 
+        OpenPauseStartedAt = authoritativeUtc;
         LifecycleState = SessionLifecycleState.Paused;
         Touch(authoritativeUtc);
     }
@@ -389,6 +402,7 @@ public sealed partial class SessionRuntime
             return;
         }
 
+        CloseOpenPause(authoritativeUtc);
         LifecycleState = SessionLifecycleState.Active;
         foreach (var revision in _timerSchedules.Where(item => item.LaneState == TimerLaneStates.Pending))
         {
@@ -409,6 +423,7 @@ public sealed partial class SessionRuntime
             return;
         }
 
+        CloseOpenPause(authoritativeUtc);
         LifecycleState = SessionLifecycleState.Completing;
         CutoffSequence = SessionSequence;
         CancelOpenTimerLane(authoritativeUtc);
@@ -462,6 +477,7 @@ public sealed partial class SessionRuntime
             return;
         }
 
+        CloseOpenPause(authoritativeUtc);
         CutoffSequence ??= SessionSequence;
         CancelOpenTimerLane(authoritativeUtc);
         SealOpenAgentMessagesIncomplete(authoritativeUtc);
@@ -1589,7 +1605,7 @@ public sealed partial class SessionRuntime
         TrackPublication(message);
         AppendTranscript(message.MessageId, TranscriptAuthorTypes.Agent, authoritativeUtc);
         var turn = FindTurn(message.TurnId);
-        if (turn is { State: TurnStates.WorkQueued })
+        if (turn is { State: TurnStates.WorkQueued or TurnStates.Accepted })
         {
             turn.MarkComplete();
             TrackTurn(turn);
@@ -1693,6 +1709,18 @@ public sealed partial class SessionRuntime
         SessionSequence++;
         LastCommittedAt = authoritativeUtc;
         return SessionSequence;
+    }
+
+    private void CloseOpenPause(DateTimeOffset authoritativeUtc)
+    {
+        if (OpenPauseStartedAt is not { } started)
+        {
+            return;
+        }
+
+        var extra = (int)Math.Clamp((authoritativeUtc - started).TotalSeconds, 0, int.MaxValue);
+        AccumulatedPausedSeconds = (int)Math.Clamp((long)AccumulatedPausedSeconds + extra, 0, int.MaxValue);
+        OpenPauseStartedAt = null;
     }
 
     private void Touch(DateTimeOffset authoritativeUtc)

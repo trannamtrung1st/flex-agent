@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { SessionSnapshotTranscriptItemV1 } from "../../contracts/v1";
 
 export function transcriptItemCopy(item: SessionSnapshotTranscriptItemV1): string {
@@ -8,30 +8,27 @@ export function transcriptItemCopy(item: SessionSnapshotTranscriptItemV1): strin
   return item.content ?? "";
 }
 
+function copies(items: SessionSnapshotTranscriptItemV1[]): Record<string, string> {
+  return Object.fromEntries(items.map((item) => [item.item_id, transcriptItemCopy(item)]));
+}
+
+function subscribeReducedMotion(onChange: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
 export function useTranscriptReveal(items: SessionSnapshotTranscriptItemV1[], ready = true) {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
-  const hydrated = useRef(false);
   const signature = items.map((item) => `${item.item_id}:${item.status}:${item.content ?? ""}`).join("|");
+  const reduceMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
 
   useEffect(() => {
-    if (!ready || hydrated.current) {
-      return;
-    }
-    const initial: Record<string, string> = {};
-    for (const item of items) {
-      initial[item.item_id] = transcriptItemCopy(item);
-    }
-    setRevealed(initial);
-    hydrated.current = true;
-  }, [items, ready]);
-
-  useEffect(() => {
-    if (!ready || !hydrated.current) {
-      return;
-    }
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setRevealed(Object.fromEntries(items.map((item) => [item.item_id, transcriptItemCopy(item)])));
+    if (!ready || reduceMotion) {
       return;
     }
 
@@ -65,7 +62,11 @@ export function useTranscriptReveal(items: SessionSnapshotTranscriptItemV1[], re
     }, 24);
 
     return () => window.clearInterval(id);
-  }, [items, ready, signature]);
+  }, [items, ready, reduceMotion, signature]);
+
+  if (!ready || reduceMotion || Object.keys(revealed).length === 0) {
+    return copies(items);
+  }
 
   return revealed;
 }

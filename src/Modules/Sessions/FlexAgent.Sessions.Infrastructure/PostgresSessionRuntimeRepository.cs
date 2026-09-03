@@ -150,6 +150,43 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
         ORDER BY schedule_revision_ordinal, schedule_revision;
         """;
 
+    private const string LoadPauseIntervalsSql = """
+        SELECT started_at, ended_at
+        FROM session_pause_intervals
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY started_at, pause_id;
+        """;
+
+    private const string InsertOpenPauseSql = """
+        INSERT INTO session_pause_intervals (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            pause_id, started_at, ended_at)
+        SELECT
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @PauseId, @StartedAt, NULL
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM session_pause_intervals
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND ended_at IS NULL);
+        """;
+
+    private const string CloseOpenPauseSql = """
+        UPDATE session_pause_intervals
+        SET ended_at = @EndedAt
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+          AND ended_at IS NULL;
+        """;
+
     private const string LoadManifestRuntimeSql = """
         SELECT
             manifest_sequence,
@@ -950,6 +987,8 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
             new CommandDefinition(LoadAgentFragmentsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var timerRows = (await connection.QueryAsync<SessionTimerScheduleRow>(
             new CommandDefinition(LoadTimerSchedulesSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var pauseRows = (await connection.QueryAsync<SessionPauseIntervalRow>(
+            new CommandDefinition(LoadPauseIntervalsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var manifestRows = (await connection.QueryAsync<SessionManifestRuntimeRow>(
             new CommandDefinition(LoadManifestRuntimeSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var terminalRow = await connection.QuerySingleOrDefaultAsync<SessionTerminalRow>(
@@ -1079,7 +1118,9 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
             timerRows.Select(ToTimerSchedule).ToArray(),
             manifestRows.Select(ToManifestRecord).ToArray(),
             terminalRow is null ? null : ToTerminalRecord(terminalRow),
-            handoffRow is null ? null : ToEvaluationHandoff(handoffRow));
+            handoffRow is null ? null : ToEvaluationHandoff(handoffRow),
+            AccumulatedPausedSeconds(pauseRows),
+            OpenPauseStartedAt(pauseRows));
     }
 
     public async Task<bool> TrySaveAdmissionAsync(
@@ -1506,6 +1547,7 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
         await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
+        await PersistPauseIntervalsAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -1536,6 +1578,7 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
         await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
+        await PersistPauseIntervalsAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -2346,6 +2389,71 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
         ownership.SessionId,
     };
 
+    private async Task PersistPauseIntervalsAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var connection = RequireConnection(transaction);
+        if (session.OpenPauseStartedAt is { } started)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    InsertOpenPauseSql,
+                    new
+                    {
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId,
+                        PauseId = Guid.CreateVersion7(),
+                        StartedAt = started,
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+            return;
+        }
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                CloseOpenPauseSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    EndedAt = session.LastCommittedAt,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    private static int AccumulatedPausedSeconds(IReadOnlyList<SessionPauseIntervalRow> rows)
+    {
+        var total = 0L;
+        foreach (var row in rows)
+        {
+            if (row.ended_at is null)
+            {
+                continue;
+            }
+
+            total += Math.Max(0, (long)(ToUtc(row.ended_at.Value) - ToUtc(row.started_at)).TotalSeconds);
+        }
+
+        return (int)Math.Clamp(total, 0, int.MaxValue);
+    }
+
+    private static DateTimeOffset? OpenPauseStartedAt(IReadOnlyList<SessionPauseIntervalRow> rows)
+    {
+        var open = rows.LastOrDefault(row => row.ended_at is null);
+        return open is null ? null : ToUtc(open.started_at);
+    }
+
     private static object HeadParameters(
         SessionOwnership ownership,
         SessionRuntime session,
@@ -2389,6 +2497,10 @@ public sealed class PostgresSessionRuntimeRepository(ISessionAttemptTerminalSink
         "aborted" => SessionLifecycleState.Aborted,
         _ => throw new InvalidOperationException($"Unknown Session lifecycle '{state}'."),
     };
+
+    private sealed record SessionPauseIntervalRow(
+        DateTime started_at,
+        DateTime? ended_at);
 
     private sealed record SessionRuntimeRow(
         Guid organization_id,

@@ -9,7 +9,8 @@ public sealed record ChangeSessionLifecycleCommand(
     long ExpectedSessionVersion,
     string Transition,
     Guid CorrelationId,
-    string SourceChannel);
+    string SourceChannel,
+    string? ReasonCode = null);
 
 public interface IChangeSessionLifecycleHandler
 {

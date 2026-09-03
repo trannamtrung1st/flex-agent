@@ -17,6 +17,7 @@ public sealed class ChangeSessionLifecycleCommandTests
         Assert.Contains(parameters, parameter => parameter.Name == "Ownership" && parameter.ParameterType == typeof(SessionOwnership));
         Assert.Contains(parameters, parameter => parameter.Name == "ExpectedSessionVersion" && parameter.ParameterType == typeof(long));
         Assert.Contains(parameters, parameter => parameter.Name == "Transition" && parameter.ParameterType == typeof(string));
+        Assert.Contains(parameters, parameter => parameter.Name == "ReasonCode" && parameter.ParameterType == typeof(string));
         Assert.DoesNotContain(parameters, parameter => parameter.ParameterType == typeof(DateTime));
         Assert.DoesNotContain(parameters, parameter => parameter.ParameterType == typeof(DateTimeOffset));
         Assert.DoesNotContain(parameters, parameter => parameter.Name is "utcNow" or "authoritativeUtc" or "timestamp" or "clock");
@@ -234,6 +235,34 @@ public sealed class ChangeSessionLifecycleCommandTests
         Assert.Equal(SessionLifecycleState.Active, session.LifecycleState);
         Assert.Equal(remaining, session.CurrentTimerLane.RemainingActiveSeconds);
         Assert.Equal(SessionRuntimeTestFixtures.T0.AddMinutes(10).AddSeconds(remaining), session.CurrentTimerLane.DueAt);
+        Assert.Equal(9 * 60, session.AccumulatedPausedSeconds);
+        Assert.Null(session.OpenPauseStartedAt);
+    }
+
+    [Fact]
+    public void Terminate_reason_is_carried_on_the_command_and_lifecycle_audit_seed()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var handler = new ChangeSessionLifecycleHandler();
+        Assert.True(handler.Handle(
+            CreateCommand(session, SessionLifecycleTransitions.BeginCompleting),
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(1)).Succeeded);
+
+        var command = CreateCommand(session, SessionLifecycleTransitions.Terminate) with
+        {
+            ReasonCode = "administrator_stop",
+        };
+        var result = handler.Handle(command, session, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(
+            "terminate:terminated:2:administrator_stop",
+            SessionRuntimeLifecycleAudit.Seed(
+                command.Transition,
+                session.LifecycleState,
+                session.SessionVersion,
+                command.ReasonCode));
     }
 
     private static ChangeSessionLifecycleCommand CreateCommand(

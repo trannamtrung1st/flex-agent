@@ -99,11 +99,16 @@ public sealed class PostgresSessionLifecycleCoordinator(
                 command.SourceChannel,
                 SessionRuntimeAuditActions.ChangeLifecycle,
                 SessionRuntimeOutboxEventTypes.LifecycleChanged,
-                $"{command.Transition}:{session.LifecycleState}:{session.SessionVersion}",
+                SessionRuntimeLifecycleAudit.Seed(
+                    command.Transition,
+                    session.LifecycleState,
+                    session.SessionVersion,
+                    command.ReasonCode),
                 authoritativeUtc,
                 scope.Transaction,
                 cancellationToken,
-                _telemetry);
+                _telemetry,
+                reasonCode: command.ReasonCode);
 
             foreach (var message in pendingSeals)
             {

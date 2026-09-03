@@ -137,7 +137,8 @@ public static class HostedSessionSnapshotProjector
         string projectionKind,
         DateTimeOffset authoritativeUtc,
         DateTimeOffset? startedAt = null,
-        int? timingBudgetSeconds = null)
+        int? timingBudgetSeconds = null,
+        IReadOnlyList<HostedTimingWarningThreshold>? warningSchedule = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         var includeTranscript = projectionKind is HostedSessionProjectionKinds.Participant
@@ -156,9 +157,12 @@ public static class HostedSessionSnapshotProjector
             ? "failed"
             : lastTurn is null
             ? "idle"
+            : lastTurn.ResponseSlot.State == ResponseSlotStates.IntentionalNoAction
+            ? "no_action"
+            : lastTurn.State == TurnStates.Complete
+            ? "idle"
             : lastTurn.ResponseSlot.State switch
             {
-                ResponseSlotStates.IntentionalNoAction => "no_action",
                 ResponseSlotStates.Cancelled => "failed",
                 ResponseSlotStates.ClaimedForPublication => "working",
                 _ => lastTurn.State switch
@@ -175,7 +179,10 @@ public static class HostedSessionSnapshotProjector
             startedAt ?? session.LastCommittedAt,
             session.LastCommittedAt,
             authoritativeUtc,
-            timingBudgetSeconds ?? HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds);
+            HostedSessionTiming.ResolveBudget(timingBudgetSeconds),
+            session.AccumulatedPausedSeconds,
+            session.OpenPauseStartedAt,
+            warningSchedule);
         return new HostedSessionSnapshot(
             projectionKind,
             session.Ownership.SessionId,
@@ -322,7 +329,16 @@ public static class HostedSessionEventProjector
                 continue;
             }
 
-            events.Add(evt with { EventType = hostedType });
+            events.Add(evt with
+            {
+                EventType = hostedType,
+                SessionVersion = session.SessionVersion,
+                WorkState = hostedType == HostedSessionEventTypes.AgentComplete
+                    ? "idle"
+                    : hostedType == HostedSessionEventTypes.AgentFragment
+                    ? "working"
+                    : evt.WorkState,
+            });
         }
 
         if (session.CutoffSequence is { } cutoff

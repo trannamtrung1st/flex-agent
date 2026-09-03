@@ -113,13 +113,17 @@ export function ProductionTextSessionPage() {
         dispatch({
           type: "error",
           message: outcome.outcome_category === "conflict"
-            ? "The Session changed. Reconcile before sending again."
+            ? "This Session record was updated. Send again."
             : "The Session could not accept that command.",
         });
         await snapshotQuery.refetch();
         return;
       }
-      dispatch({ type: "send", sendState: "idle" });
+      dispatch({
+        type: "accepted",
+        session_version: outcome.session_version,
+        session_sequence: outcome.session_sequence,
+      });
       if (command.command_type === "session.message.send.v1") {
         dispatch({ type: "draft", draft: "" });
         setPendingIdempotency(null);
@@ -169,19 +173,17 @@ export function ProductionTextSessionPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [terminal]);
 
+  /* Completing is a server lifecycle; the follow-up complete command runs
+     after the authoritative snapshot arrives. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!snapshot || snapshot.projection_kind !== "participant" || snapshot.lifecycle_state !== "completing") {
       return;
     }
-    if (working) {
+    if (working || !can(snapshot, "complete_session") || sealedOnce.current === snapshot.session_id) {
       return;
     }
-    if (sealedOnce.current === snapshot.session_id) {
-      return;
-    }
-    if (!can(snapshot, "complete_session")) {
-      return;
-    }
+
     sealedOnce.current = snapshot.session_id;
     void submit({
       schema_version: "v1",
@@ -193,6 +195,7 @@ export function ProductionTextSessionPage() {
       payload: {},
     });
   }, [sessionId, snapshot, submit, working]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (snapshotQuery.isError && !snapshot) {
     return (

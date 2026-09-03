@@ -77,7 +77,7 @@ public static class SessionHostedEndpointExtensions
         }
 
         using var document = await JsonDocument.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted);
-        if (!TryReadEnvelope(document.RootElement, sessionId, out var envelope))
+        if (!HostedSessionCommandEnvelopeValidator.TryRead(document.RootElement, sessionId, out var envelope))
         {
             telemetry?.RecordCommand("unknown", "invalid", StopwatchElapsed(started));
             await EnrollmentEndpointExtensions.WriteError(context, StatusCodes.Status400BadRequest, "session.command.invalid");
@@ -185,67 +185,6 @@ public static class SessionHostedEndpointExtensions
             new SessionActivityProjectionV1(snapshot.ActivityWorkState, snapshot.ActivityTurnId, null));
     }
 
-    private static bool TryReadEnvelope(JsonElement root, Guid routeSessionId, out HostedCommandEnvelope envelope)
-    {
-        envelope = default;
-        if (root.ValueKind != JsonValueKind.Object
-            || !root.TryGetProperty("schema_version", out var version)
-            || version.GetString() != "v1"
-            || !root.TryGetProperty("command_type", out var typeEl)
-            || typeEl.GetString() is not { } commandType
-            || !root.TryGetProperty("command_id", out var idEl)
-            || idEl.GetString() is not { Length: >= 8 } commandId
-            || !root.TryGetProperty("idempotency_key", out var idemEl)
-            || idemEl.GetString() is not { Length: >= 8 } idempotency
-            || !root.TryGetProperty("session_locator", out var locator)
-            || !locator.TryGetProperty("session_id", out var locatorId)
-            || locatorId.GetString() is not { } locatorSession
-            || !Guid.TryParse(locatorSession, out var bodySession)
-            || bodySession != routeSessionId
-            || !root.TryGetProperty("expected_session_version", out var versionEl)
-            || !versionEl.TryGetInt32(out var expectedVersion)
-            || expectedVersion < 0)
-        {
-            return false;
-        }
-
-        string? messageText = null;
-        string? reason = null;
-        if (commandType == "session.message.send.v1")
-        {
-            if (!root.TryGetProperty("payload", out var payload)
-                || !payload.TryGetProperty("message_text", out var text)
-                || text.GetString() is not { Length: > 0 } message)
-            {
-                return false;
-            }
-
-            messageText = message;
-        }
-        else if (commandType == "session.terminate.v1")
-        {
-            if (!root.TryGetProperty("payload", out var payload)
-                || !payload.TryGetProperty("reason_code", out var reasonEl)
-                || reasonEl.GetString() is not { Length: > 0 } reasonCode)
-            {
-                return false;
-            }
-
-            reason = reasonCode;
-        }
-
-        envelope = new HostedCommandEnvelope(commandType, commandId, idempotency, expectedVersion, messageText, reason);
-        return true;
-    }
-
     private static TimeSpan StopwatchElapsed(long started) =>
         TimeSpan.FromSeconds((System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency);
-
-    private readonly record struct HostedCommandEnvelope(
-        string CommandType,
-        string CommandId,
-        string IdempotencyKey,
-        int ExpectedSessionVersion,
-        string? MessageText,
-        string? TerminateReasonCode);
 }

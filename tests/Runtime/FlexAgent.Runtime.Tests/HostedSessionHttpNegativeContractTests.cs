@@ -90,6 +90,30 @@ public sealed class HostedSessionHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Pause_command_with_message_payload_is_invalid()
+    {
+        await using var context = await LoginAsync();
+        var sessionId = Guid.CreateVersion7();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/sessions/{sessionId}/commands")
+        {
+            Content = new StringContent(
+                "{\"schema_version\":\"v1\",\"command_type\":\"session.pause.v1\",\"command_id\":\"cmd.synthetic.0099\",\"idempotency_key\":\"idem-synthetic-0099\",\"session_locator\":{\"session_id\":\""
+                + sessionId.ToString("D")
+                + "\"},\"expected_session_version\":3,\"payload\":{\"message_text\":\"Pause commands must not carry message payloads.\"}}",
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("session.command.invalid", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("accepted_message_id", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Guessed_command_is_concealed_as_not_found()
     {
         await using var context = await LoginAsync();

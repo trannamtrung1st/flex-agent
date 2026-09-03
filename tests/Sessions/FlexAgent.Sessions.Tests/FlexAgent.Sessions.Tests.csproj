@@ -12,6 +12,9 @@
     <Content Include="..\..\..\contracts\fixtures\schema\v2\session\agent-decision\**\*"
              Link="contracts\fixtures\schema\v2\session\agent-decision\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\schema\v1\session\command-envelope\**\*"
+             Link="contracts\fixtures\schema\v1\session\command-envelope\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -262,6 +262,15 @@ authorized by this plan because approved families and donors already exist.
 
 # Plan
 
+- [x] Review-driven correctness pass (keep `in-progress`; do not retire):
+  authoritative timing from frozen Attempt/Activity duration plus accumulated
+  pause intervals and configured warnings (`REQ-SESS-20`–`24`, `PROP-2`,
+  `PROP-6`); authoritative `unavailable` wins over local transcript;
+  persist/audit `session.terminate.v1` `reason_code`; hosted HTTP commands
+  validate against the closed canonical envelope; fix Web
+  `react-hooks/set-state-in-effect` CI failures; add focused P1 regressions.
+  Missing expiry/warning/multi-tab/offline/terminate-live/forced-colors/400%
+  evidence stays open.
 - [x] After the dependency gate clears, refresh the implementation inventory and
   reconcile the predecessor handoff, Session/Attempt terminal mapping, API
   identity composition, migrations, worker gates, route layout, and current
@@ -388,11 +397,28 @@ authorized by this plan because approved families and donors already exist.
   administrator transcript route without live controls. Desktop and 390px
   screenshots captured locally. API RedirectUri restored to canonical after
   candidate admin sign-in.
-- [>] Request distinct backend, frontend, security/privacy, and QA reviews.
+- [x] Fix examiner work-state lingering after Agent complete and same-Session
+  send conflicts caused by Worker version bumps the SPA never saw.
+- [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
   `docs/current-state.md` is not updated in this slice; promote only after
   those reviews. Keep this file until review and durable-truth promotion.
 
 # Current state
+
+Independent review blockers are being implemented in place. Task stays
+`in-progress`. Authoritative timing now subtracts persisted
+`session_pause_intervals` and reads frozen Activity
+`per_attempt_duration_seconds` (45-minute Proposed budget only when that
+value is absent or unbounded). Configured warning keys on the timing domain
+are projected; none are invented. Authoritative `unavailable` wins in the
+SPA. Terminate `reason_code` is on the lifecycle command and audit seed.
+Hosted HTTP commands validate through the canonical command-envelope schema
+(UUID locator rewritten to a stable_id placeholder). Web lint is green.
+
+Still not done: rebuild live API/Worker for 0068 + interval persist, full
+Implementation CI, and the previously missing hosted-session states
+(expiry, warning emission, multi-tab, offline reconnect, terminate/abort
+live, forced-colors, 400% zoom). Do not retire this file.
 
 Hosted Session transport, actor projections, production SPA routes, Worker
 composition, bounded hosted telemetry, and fail-closed Worker identity are
@@ -473,6 +499,13 @@ to be the same authoritative Session string.
 
 # Findings / deviations
 
+- 2026-09-03 independent review: hosted snapshot timing used a hard-coded
+  45-minute budget and charged paused wall-clock after resume; client merge
+  restored protected text over authoritative `unavailable`; terminate
+  `reason_code` was discarded (`_ = terminateReasonCode`); HTTP
+  `TryReadEnvelope` was not equivalent to the closed command schema. Web CI
+  failed on `set-state-in-effect` in Session chrono, transcript reveal, and
+  completing-seal. Task remains in-progress.
 - The missing boundary is transport and composition, not product meaning:
   command variants, runtime state, Postgres coordinators, Worker processing,
   and SSE replay exist, while the production snapshot/command host and SPA are
@@ -543,6 +576,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
+| Review-driven P1/P2 correctness (timing, unavailable, terminate reason, HTTP schema, web lint) | confirmed for this pass | 2026-09-03 confirm: Sessions 501; Hosted HTTP 7; Web lint green; session-view/chrono/page 21. API+Worker rebuilt with command-envelope COPY; migrate ran `0068`. Live `:5274` snapshot `active_duration` budget 2700, remaining 0, warning `none` on long-running Session `01a06512-…ae7d4c` (elapsed already exceeds the Proposed 45-minute budget; no invented warnings). Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
 | Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |
 | Existing contract/runtime/host/frontend seam inventory | complete for planning | 2026-09-03: command envelope C#/schema present; production SSE only; snapshot/command host, hosted event contract, production Session page, `/v1/sessions` gateway route, and authenticated-browser Worker service absent; Design Lab donor identified |
@@ -584,12 +618,18 @@ Lead decision is required. Implementation has:
 
 # Completion
 
-- [x] Planned work is reconciled with actual changes
-- [x] Applicable focused tests pass
-- [x] Applicable integration/regression checks pass (`verify:oidc` skipped)
-- [x] Governing specifications were rechecked
-- [x] Remaining gaps or unverified behavior are recorded
-- [x] Task state is safe and complete for external review
+- [ ] Planned work is reconciled with actual changes
+- [ ] Applicable focused tests pass
+- [ ] Applicable integration/regression checks pass
+- [ ] Governing specifications were rechecked
+- [ ] Remaining gaps or unverified behavior are recorded
+- [ ] Task state is safe and complete for external review
+
+Independent review of `593f554` / `417adf1` / `d662cab` plus Implementation CI
+`33708509001` found P1 timing, `unavailable` merge, and discarded terminate
+`reason_code` defects; P2 HTTP/schema drift; and four Web lint failures. Do not
+mark completed until those are green and the missing hosted-session states are
+rechecked.
 
 Gaps for review (not blockers for this host/UI slice):
 
@@ -605,6 +645,11 @@ Gaps for review (not blockers for this host/UI slice):
   imminent`. Lab `is-warned` at 40:00 of a 60-minute demo is theater, not a
   production schedule. Desktop top inset matches Lab (rail/bay/examiner 18px);
   decorative traces are now absolutely overlaid so they cannot add a row.
+- [x] 2026-09-03: after Agent complete, snapshot work_state is idle; hosted
+  events carry current Session version and work_state; SPA keeps the higher
+  version across refetch and applies command outcomes. Live `:5274` Session
+  `01a06512-…ae7d4c` showed idle/awaiting after reload and accepted a new send
+  (`Confirm same Session send.`) without a version-conflict notice.
 - [x] Live console polish: snapshot now assembles Agent text from fragments;
   the SPA keeps richer local copy across refetch, typewrites durable Agent
   deltas, focuses the latest turn, uses two Examination/Complete bars, and

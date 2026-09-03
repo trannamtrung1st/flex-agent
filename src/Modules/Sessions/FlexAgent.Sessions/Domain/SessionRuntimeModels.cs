@@ -510,7 +510,8 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? MessageId = null,
     string? LifecycleState = null,
     string? RecoveryCategory = null,
-    string? AccessState = null);
+    string? AccessState = null,
+    long SessionVersion = 0);
 
 public sealed record AuthorizedSessionEventReplayResult(
     bool Succeeded,

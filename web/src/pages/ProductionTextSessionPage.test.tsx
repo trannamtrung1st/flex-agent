@@ -253,7 +253,7 @@ describe("hosted Session pages", () => {
     fireEvent.change(composer, { target: { value: "Stale send" } });
     fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
 
-    expect(await screen.findByText("The Session changed. Reconcile before sending again.")).toBeVisible();
+    expect(await screen.findByText("This Session record was updated. Send again.")).toBeVisible();
     expect(screen.queryByText("The command outcome is uncertain. Reconcile before sending again.")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("Stale send");
   });

@@ -16,6 +16,7 @@ COPY src/Modules/Submissions/FlexAgent.Submissions/ src/Modules/Submissions/Flex
 COPY src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/ src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/
 COPY src/Hosts/FlexAgent.Worker/ src/Hosts/FlexAgent.Worker/
 COPY contracts/schemas/v1/common/primitives.v1.schema.json contracts/schemas/v1/common/primitives.v1.schema.json
+COPY contracts/schemas/v1/session/command-envelope.v1.schema.json contracts/schemas/v1/session/command-envelope.v1.schema.json
 COPY contracts/schemas/v2/session/agent-decision.v2.schema.json contracts/schemas/v2/session/agent-decision.v2.schema.json
 COPY build/toolchain.json build/toolchain.json
 

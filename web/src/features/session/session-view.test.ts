@@ -61,7 +61,7 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.transcript?.items).toHaveLength(0);
   });
 
-  it("keeps richer local Agent text when a later snapshot is unavailable", () => {
+  it("lets an authoritative unavailable snapshot erase stale local transcript content", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
     const streamed = sessionLiveReducer(withSnapshot, {
       type: "event",
@@ -100,6 +100,49 @@ describe("sessionLiveReducer", () => {
       },
     });
 
+    expect(next.snapshot?.transcript?.items[0]?.content).toBeNull();
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("unavailable");
+  });
+
+  it("keeps a richer local Agent prefix only while the server still authorizes that item", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 3,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+        },
+      },
+    });
+    const next = sessionLiveReducer(streamed, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        last_confirmed_sequence: "14",
+        transcript: {
+          items: [
+            {
+              item_id: "amsg.synthetic.0001",
+              author: "agent",
+              status: "streaming",
+              content: "Hello",
+              sequence_start: "13",
+              sequence_end: "14",
+            },
+          ],
+          older_available: false,
+        },
+      },
+    });
+
     expect(next.snapshot?.transcript?.items[0]?.content).toBe("Hello examiner");
     expect(next.snapshot?.transcript?.items[0]?.status).toBe("streaming");
   });
@@ -120,5 +163,59 @@ describe("sessionLiveReducer", () => {
     });
     expect(next.snapshot?.activity?.work_state).toBe("no_action");
     expect(next.snapshot?.transcript?.items).toHaveLength(0);
+  });
+
+  it("clears considering work when the Agent turn completes", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: { ...snapshot, activity: { work_state: "working", turn_id: "turn.1" } },
+    });
+    const streaming = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello",
+          work_state: "working",
+        },
+      },
+    });
+    expect(streaming.snapshot?.activity?.work_state).toBe("working");
+    expect(streaming.snapshot?.session_version).toBe(5);
+
+    const next = sessionLiveReducer(streaming, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: { summary: "Agent response complete.", agent_message_id: "amsg.synthetic.0001" },
+      },
+    });
+    expect(next.snapshot?.activity?.work_state).toBe("idle");
+    expect(next.snapshot?.session_version).toBe(6);
+  });
+
+  it("does not let a stale snapshot rewind Session version on the same Session", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: { ...snapshot, session_version: 8, last_confirmed_sequence: "20" },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "snapshot",
+      snapshot: { ...snapshot, session_version: 4, last_confirmed_sequence: "16" },
+    });
+    expect(next.snapshot?.session_version).toBe(8);
+    expect(next.snapshot?.last_confirmed_sequence).toBe("20");
   });
 });

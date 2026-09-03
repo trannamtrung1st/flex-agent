@@ -170,6 +170,41 @@ public sealed class HostedSessionProjectionTests
         Assert.Equal("Hello examiner", agent.Content);
         Assert.Equal("complete", agent.Status);
         Assert.DoesNotContain(snapshot.Transcript, item => item.Status == "unavailable" && item.Author == "agent");
+        Assert.Equal("idle", snapshot.ActivityWorkState);
+    }
+
+    [Fact]
+    public void Hosted_agent_events_carry_current_session_version_and_work_state()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.proj.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(
+            invocationId,
+            SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+
+        var replay = HostedSessionEventProjector.Project(session, afterSequence: 0);
+        var fragment = Assert.Single(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentFragment);
+        var complete = Assert.Single(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentComplete);
+
+        Assert.Equal(session.SessionVersion, fragment.SessionVersion);
+        Assert.Equal(session.SessionVersion, complete.SessionVersion);
+        Assert.Equal("working", fragment.WorkState);
+        Assert.Equal("idle", complete.WorkState);
     }
 
     [Fact]
