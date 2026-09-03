@@ -455,16 +455,18 @@ specialist reviews; completion checklist; then promote + retire.
   production `/sessions/:sessionId`, `/operations`, `/transcript`; frozen
   timing (`0069`); `IHostedSessionExpirySweep` on Worker loop;
   `LiveSessionLayout` / `StageBars`; probe script + env-gated compose test
-  (infrastructure from `920596e`).
+  (`920596e` infrastructure; **`92b43fb`** running-Worker loop proof).
 - **CI closed:** core timing **`888eb91`** / **`33743544924`**; fixture
-  **`b24f67c`** / **`33754337758`**; probe commit **`920596e`** /
-  **`33763594004`** (probe test skipped in CI).
-- **Still open (tracked):** record worker-loop probe session IDs in
-  verification table; warning emission/history; multi-tab/device;
+  **`b24f67c`** / **`33754337758`**; probe infra **`920596e`** /
+  **`33763594004`** (probe skipped in CI).
+- **Worker-loop proof (local, not task closure):** **`92b43fb`** —
+  `probe-compose-hosted-expiry-sweep.sh` green 2026-09-03 confirm pass;
+  Session `01a067b2-…532c58` → `completed` / `time_expiry`, Attempt
+  `completed` (~3s). CI does not run env-gated probe.
+- **Still open (tracked):** warning emission/history; multi-tab/device;
   offline/reconnect; terminate/abort live; forced-colors/400%; distinct
   specialist reviews; completion checklist; durable current-state promotion;
-  then completed + retire. **Worker-loop probe path corrected locally** after
-  `920596e` review (not yet in Git).
+  then `completed` + retire.
 
 # Current state
 
@@ -840,6 +842,9 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | Implementation tests and live-browser evidence | complete for this slice | 2026-09-03: hosted projection 7 passed; hosted HTTP+telemetry 7 passed; profile 22 passed. `verify:web` 638+206+11; `verify:dotnet` 1840/3 skipped; supply-chain and oci exit 0. Playwright: fail-closed `work: failed` then send recovered; guessed Session unavailable; admin pause→paused→resume; admin transcript route has no items/controls because administrator projection omits transcript. `verify:oidc` not run on this stack |
 | Live-console CompactId, seated name, Agent status plaque | complete for this polish | 2026-09-03: `ProductionTextSessionPage` + keys + SessionMarks 55 passed. Candidate `:5274` (Demo Participant, compact `01a064de…9adad9`) and Design Lab `:5275` (`FXA…2A07`, Jordan Blake). Narrow 1-line status clamp opened a wrapping value plaque for the full examiner sentence. API RedirectUri restored to canonical after overlay |
 | Design-system / Lab donor consistency | complete for this pass | 2026-09-03: Lab `LiveSessionLayout` wraps the production shell; `StageBars` owned by `components/work`; Lab complete plate copy and examiner sealed line match production. `check_docs.py` passed after `DESIGN.md` regenerate. Lab 5-bar theater and disabled composer remain demo-only. Desktop complete plate 560px on `:5275` and `:5274` |
+| Implementation CI on probe infra (`920596e`) | complete | 2026-09-03: **`33763594004`** green; probe test skipped in dotnet job (`FLEXAGENT_COMPOSE_PROBE` unset). Does not prove running Worker loop. |
+| Running-Worker Compose expiry loop (`92b43fb`) | complete (local env-gated) | 2026-09-03 confirm: `probe-compose-hosted-expiry-sweep.sh` end-to-end green — migrate, API/Worker recreate, nginx restart, fairness 5/5, worker-loop probe 1/1 (~3s). Session `01a067b2-b631-7832-9383-04f252532c58` → `completed`, terminal `time_expiry`, Attempt `completed`. Not exercised in CI. |
+| 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
 
 # Blockers
 
@@ -922,9 +927,10 @@ Gaps for review (not blockers for this host/UI slice):
   availability). Independent specialist review of this consistency pass is
   in the same conversation.
 
-2026-09-03 confirm pass: stack still healthy; hosted HTTP/telemetry/profile 29
-and projection 7 passed; Participant live Session remained `active`/`connected`
-with both admitted messages after RedirectUri returned to canonical.
+2026-09-03 confirm pass (post-`92b43fb`): `probe-compose-hosted-expiry-sweep.sh`
+green; Session `01a067b2-…532c58` worker-loop expiry proof; fairness 5/5;
+vitest 12/12; `check_docs.py` passed; stack `session-endpoint:ok`. Task stays
+`in-progress`.
 
 Implementation CI `oidc` static gate failed on 593f554: validator fixture
 `valid_config()` omitted the required `worker` service.
