@@ -511,6 +511,17 @@ while Agent work is queued/working and while the post-accept snapshot
 refetch is in flight. A single `trigger.admission.stale.version` conflict
 refetches then retries the same message on the same Session locator.
 
+2026-09-03 **P1 turn-close gating + transcript timestamps (keep `in-progress`)**:
+Agent transcript items from hosted SSE now carry `occurred_at` on
+fragment/complete so turn times render without waiting for a later send.
+Stale post-send snapshot refetches no longer rewind resolved Agent
+`activity` when sequence/version lag SSE. Send and **Submit Session** stay
+blocked until the Agent turn closes (queued/working activity or a streaming
+Agent item) and post-accept reconciliation finishes; composer text stays
+editable per `UI-SESS-DEC-2`. Stale refetches no longer rewind Agent item
+status from `complete` to `streaming`. **Evidence:** session-view vitest 16;
+`ProductionTextSessionPage` vitest 16.
+
 2026-09-03 **P1 repeated-turn 409 (confirmed + fixed; keep `in-progress`)**:
 hosted SSE replay used `AuthorizedSessionEventProjector`, which left
 `SessionVersion = 0` on Agent fragment/completion events. The browser

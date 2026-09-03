@@ -1,4 +1,4 @@
-import type { SessionHostedEventEnvelopeV1, SessionSnapshotV1 } from "../../contracts/v1";
+import type { SessionHostedEventEnvelopeV1, SessionSnapshotTranscriptItemV1, SessionSnapshotV1 } from "../../contracts/v1";
 
 export type SessionConnectionState = "connecting" | "connected" | "reconnecting" | "offline";
 export type SessionSendState = "idle" | "pending" | "checking" | "uncertain";
@@ -18,6 +18,28 @@ export const emptySessionLiveView: SessionLiveView = {
   connection: "connecting",
   lastError: null,
 };
+
+/** Agent turn still open: queued/working activity or a streaming Agent transcript item. */
+export function sessionAgentTurnOpen(snapshot: SessionSnapshotV1 | null): boolean {
+  if (!snapshot) {
+    return false;
+  }
+  const workState = snapshot.activity?.work_state;
+  if (workState === "working" || workState === "queued") {
+    return true;
+  }
+  return (snapshot.transcript?.items ?? []).some(
+    (item) => item.author === "agent" && item.status === "streaming",
+  );
+}
+
+/** Hold send and completion until admission checks finish and the Agent turn resolves. */
+export function sessionCommandsBlocked(
+  snapshot: SessionSnapshotV1 | null,
+  sendState: SessionSendState,
+): boolean {
+  return sendState !== "idle" || sessionAgentTurnOpen(snapshot);
+}
 
 export type SessionLiveAction =
   | { type: "snapshot"; snapshot: SessionSnapshotV1 }
@@ -58,6 +80,102 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
   }
 }
 
+function snapshotIsStale(previous: SessionSnapshotV1, incoming: SessionSnapshotV1): boolean {
+  if (previous.session_version > incoming.session_version) {
+    return true;
+  }
+  const previousSequence = Number(previous.last_confirmed_sequence);
+  const incomingSequence = Number(incoming.last_confirmed_sequence);
+  return Number.isFinite(previousSequence)
+    && Number.isFinite(incomingSequence)
+    && previousSequence > incomingSequence;
+}
+
+function mergeActivity(
+  previous: SessionSnapshotV1,
+  incoming: SessionSnapshotV1,
+  incomingStale: boolean,
+): SessionSnapshotV1["activity"] {
+  if (incomingStale) {
+    return previous.activity ?? incoming.activity;
+  }
+  const prior = previous.activity;
+  const next = incoming.activity;
+  if (!prior) {
+    return next;
+  }
+  if (!next) {
+    return prior;
+  }
+  const priorResolved = prior.work_state === "idle"
+    || prior.work_state === "no_action"
+    || prior.work_state === "failed";
+  const nextBusy = next.work_state === "working" || next.work_state === "queued";
+  const priorSequence = Number(previous.last_confirmed_sequence);
+  const nextSequence = Number(incoming.last_confirmed_sequence);
+  if (
+    priorResolved
+    && nextBusy
+    && Number.isFinite(priorSequence)
+    && Number.isFinite(nextSequence)
+    && priorSequence >= nextSequence
+  ) {
+    return prior;
+  }
+  return next;
+}
+
+function transcriptStatusRank(status: SessionSnapshotTranscriptItemV1["status"]): number {
+  switch (status) {
+    case "unavailable":
+      return 5;
+    case "complete":
+      return 4;
+    case "incomplete":
+    case "cancelled":
+      return 3;
+    case "streaming":
+      return 2;
+    case "accepted":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function mergeTranscriptItem(
+  item: SessionSnapshotTranscriptItemV1,
+  prior: SessionSnapshotTranscriptItemV1 | undefined,
+): SessionSnapshotTranscriptItemV1 {
+  if (!prior) {
+    return item;
+  }
+  let merged = item;
+  if (item.status === "unavailable") {
+    return item;
+  }
+  if (!item.content && prior.content) {
+    merged = { ...merged, content: prior.content };
+  } else if (
+    item.content
+    && prior.content
+    && prior.content.startsWith(item.content)
+    && prior.content.length > item.content.length
+  ) {
+    merged = { ...merged, content: prior.content };
+  }
+  if (!merged.occurred_at && prior.occurred_at) {
+    merged = { ...merged, occurred_at: prior.occurred_at };
+  }
+  const resolvedStatus = transcriptStatusRank(prior.status) > transcriptStatusRank(merged.status)
+    ? prior.status
+    : merged.status;
+  if (resolvedStatus !== merged.status) {
+    merged = { ...merged, status: resolvedStatus };
+  }
+  return merged;
+}
+
 function laterSequence(left: string, right: string): string {
   const leftNumber = Number(left);
   const rightNumber = Number(right);
@@ -96,10 +214,12 @@ function mergeAuthoritativeSnapshot(
     return incoming;
   }
 
+  const incomingStale = snapshotIsStale(previous, incoming);
   const merged: SessionSnapshotV1 = {
     ...incoming,
     session_version: Math.max(previous.session_version, incoming.session_version),
     last_confirmed_sequence: laterSequence(previous.last_confirmed_sequence, incoming.last_confirmed_sequence),
+    activity: mergeActivity(previous, incoming, incomingStale),
   };
   const priorItems = previous.transcript?.items ?? [];
   const nextItems = incoming.transcript?.items ?? [];
@@ -138,22 +258,7 @@ function mergeAuthoritativeSnapshot(
       ...incoming.transcript,
       items: [...nextItems, ...preservedAhead].map((item) => {
         const prior = priorItems.find((candidate) => candidate.item_id === item.item_id);
-        if (!prior?.content) {
-          return item;
-        }
-        if (item.status === "unavailable") {
-          return item;
-        }
-        if (!item.content) {
-          return {
-            ...item,
-            content: prior.content,
-          };
-        }
-        if (prior.content.startsWith(item.content) && prior.content.length > item.content.length) {
-          return { ...item, content: prior.content };
-        }
-        return item;
+        return mergeTranscriptItem(item, prior);
       }),
     },
   };
@@ -201,7 +306,11 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     if (messageId) {
       const existing = items.findIndex((item) => item.item_id === messageId);
       if (existing >= 0) {
-        items[existing] = { ...items[existing]!, status: "complete" };
+        items[existing] = {
+          ...items[existing]!,
+          status: "complete",
+          occurred_at: items[existing]!.occurred_at ?? event.occurred_at,
+        };
         next.transcript = {
           items,
           older_available: next.transcript?.older_available ?? false,
@@ -247,6 +356,7 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
         status: "streaming",
         content: `${currentItem.content ?? ""}${event.payload.text_delta}`,
         sequence_end: event.session_sequence,
+        occurred_at: currentItem.occurred_at ?? event.occurred_at,
       };
     } else {
       items.push({
@@ -256,6 +366,7 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
         content: event.payload.text_delta,
         sequence_start: event.session_sequence,
         sequence_end: event.session_sequence,
+        occurred_at: event.occurred_at,
         turn_id: event.payload.turn_id,
       });
     }

@@ -1,4 +1,4 @@
-import { emptySessionLiveView, sessionLiveReducer } from "./session-view";
+import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer } from "./session-view";
 import type { SessionSnapshotV1 } from "../../contracts/v1";
 
 const snapshot: SessionSnapshotV1 = {
@@ -318,5 +318,159 @@ describe("sessionLiveReducer", () => {
     });
     expect(next.snapshot?.session_version).toBe(8);
     expect(next.snapshot?.last_confirmed_sequence).toBe("20");
+  });
+
+  it("stamps occurred_at on Agent transcript items from hosted SSE", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 3,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello",
+          work_state: "working",
+        },
+      },
+    });
+    expect(streamed.snapshot?.transcript?.items[0]?.occurred_at).toBe("2026-09-03T00:00:03Z");
+
+    const next = sessionLiveReducer(streamed, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 4,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: { summary: "Agent response complete.", agent_message_id: "amsg.synthetic.0001" },
+      },
+    });
+    expect(next.snapshot?.transcript?.items[0]?.occurred_at).toBe("2026-09-03T00:00:03Z");
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("complete");
+  });
+
+  it("does not rewind resolved Agent activity from a stale refetched snapshot", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 6,
+        last_confirmed_sequence: "14",
+        activity: { work_state: "idle", turn_id: "turn.1" },
+      },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 4,
+        last_confirmed_sequence: "12",
+        activity: { work_state: "working", turn_id: "turn.1" },
+      },
+    });
+    expect(next.snapshot?.activity?.work_state).toBe("idle");
+    expect(next.snapshot?.session_version).toBe(6);
+  });
+
+  it("does not rewind Agent transcript status from complete to streaming on stale refetch", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const streamed = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.fragment.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:03Z",
+        payload: {
+          summary: "Durable Agent fragment.",
+          agent_message_id: "amsg.synthetic.0001",
+          text_delta: "Hello examiner",
+          work_state: "working",
+        },
+      },
+    });
+    const withCompleteItem = sessionLiveReducer(streamed, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.complete.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "14",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: {
+          summary: "Agent response complete.",
+          agent_message_id: "amsg.synthetic.0001",
+          work_state: "idle",
+        },
+      },
+    });
+    const next = sessionLiveReducer(withCompleteItem, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 4,
+        last_confirmed_sequence: "12",
+        activity: { work_state: "working", turn_id: "turn.1" },
+        transcript: {
+          items: [{
+            item_id: "amsg.synthetic.0001",
+            author: "agent",
+            status: "streaming",
+            content: "Hello",
+            sequence_start: "13",
+            sequence_end: "13",
+          }],
+          older_available: false,
+        },
+      },
+    });
+    expect(next.snapshot?.transcript?.items[0]?.status).toBe("complete");
+    expect(next.snapshot?.transcript?.items[0]?.content).toBe("Hello examiner");
+    expect(next.snapshot?.activity?.work_state).toBe("idle");
+    expect(sessionCommandsBlocked(next.snapshot, "idle")).toBe(false);
+  });
+
+  it("keeps send blocked while an Agent item is still streaming", () => {
+    expect(sessionAgentTurnOpen({
+      ...snapshot,
+      activity: { work_state: "idle" },
+      transcript: {
+        items: [{
+          item_id: "amsg.1",
+          author: "agent",
+          status: "streaming",
+          content: "Partial",
+          sequence_start: "13",
+          sequence_end: "13",
+        }],
+        older_available: false,
+      },
+    })).toBe(true);
+    expect(sessionCommandsBlocked({
+      ...snapshot,
+      activity: { work_state: "idle" },
+      transcript: {
+        items: [{
+          item_id: "amsg.1",
+          author: "agent",
+          status: "complete",
+          content: "Done",
+          sequence_start: "13",
+          sequence_end: "14",
+        }],
+        older_available: false,
+      },
+    }, "idle")).toBe(false);
   });
 });

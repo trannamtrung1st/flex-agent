@@ -13,7 +13,7 @@ import { AgentStatusLine, ProtocolPlate } from "../components/work/SessionMarks"
 import { TextSessionStation } from "../components/work/TextSessionStation";
 import { sessionKeys } from "../features/session/queryKeys";
 import { sessionAtTimeBoundary } from "../features/session/session-stage";
-import { emptySessionLiveView, sessionLiveReducer } from "../features/session/session-view";
+import { emptySessionLiveView, sessionAgentTurnOpen, sessionCommandsBlocked, sessionLiveReducer } from "../features/session/session-view";
 import { transcriptItemCopy, useTranscriptReveal } from "../features/session/useTranscriptReveal";
 import type { SessionCommandEnvelopeV1, SessionHostedEventEnvelopeV1, SessionSnapshotV1 } from "../contracts/v1";
 import {
@@ -87,7 +87,9 @@ export function ProductionTextSessionPage() {
   }, [snapshotQuery.data]);
 
   const refetchSnapshotRef = useRef(snapshotQuery.refetch);
-  refetchSnapshotRef.current = snapshotQuery.refetch;
+  useEffect(() => {
+    refetchSnapshotRef.current = snapshotQuery.refetch;
+  }, [snapshotQuery.refetch]);
 
   useEffect(() => {
     if (apiState !== "ready" || !sessionId) {
@@ -199,9 +201,10 @@ export function ProductionTextSessionPage() {
     || snapshot?.lifecycle_state === "aborted";
   const completing = snapshot?.lifecycle_state === "completing";
   const paused = snapshot?.lifecycle_state === "paused";
-  const working = snapshot?.activity?.work_state === "working" || snapshot?.activity?.work_state === "queued";
+  const agentTurnOpen = sessionAgentTurnOpen(snapshot);
+  const commandsBlocked = sessionCommandsBlocked(snapshot, view.sendState);
   const sendBusy = view.sendState !== "idle";
-  const sendHeld = sendBusy || working;
+  const sendHeld = commandsBlocked;
   const timeEnded = sessionAtTimeBoundary(snapshot);
   const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message");
   const items = snapshot?.transcript?.items ?? [];
@@ -245,7 +248,7 @@ export function ProductionTextSessionPage() {
     ) {
       return;
     }
-    if (working || !can(snapshot, "complete_session") || sealedOnce.current === snapshot.session_id) {
+    if (agentTurnOpen || !can(snapshot, "complete_session") || sealedOnce.current === snapshot.session_id) {
       return;
     }
 
@@ -261,7 +264,7 @@ export function ProductionTextSessionPage() {
         payload: {},
       });
     });
-  }, [sessionId, snapshot, submit, working]);
+  }, [sessionId, snapshot, submit, agentTurnOpen]);
 
   useEffect(() => {
     if (!snapshot || snapshot.projection_kind !== "participant" || !sessionAtTimeBoundary(snapshot)) {
@@ -455,9 +458,9 @@ export function ProductionTextSessionPage() {
         <>
           <section className="agent-post" aria-label="Examiner">
             <div
-              className={`agent-core agent-core--live1${working ? " is-thinking" : ""}`}
+              className={`agent-core agent-core--live1${agentTurnOpen ? " is-thinking" : ""}`}
               role="img"
-              aria-label={terminal ? "Agent core — session complete" : working ? "Agent core — considering" : "Agent core — idle"}
+              aria-label={terminal ? "Agent core — session complete" : agentTurnOpen ? "Agent core — considering" : "Agent core — idle"}
             >
               <span className="live1-ring" aria-hidden="true" />
               <span className="live1-shell" aria-hidden="true" />
@@ -466,11 +469,11 @@ export function ProductionTextSessionPage() {
               <BrandMark />
               <span className="agent-name-role">Examiner</span>
             </h1>
-            <AgentStatusLine>{examinerLine(snapshot, working, terminal)}</AgentStatusLine>
+            <AgentStatusLine>{examinerLine(snapshot, agentTurnOpen, terminal)}</AgentStatusLine>
           </section>
           <SessionChrono
             snapshot={snapshot}
-            canSubmit={can(snapshot, "complete_session") && !terminal && !timeEnded}
+            canSubmit={can(snapshot, "complete_session") && !terminal && !timeEnded && !commandsBlocked}
             onSubmit={() => setConfirmComplete(true)}
           />
         </>
@@ -502,7 +505,7 @@ export function ProductionTextSessionPage() {
                     id="confirmSubmit"
                     variant="transmit"
                     onClick={() => {
-                      if (!snapshot) return;
+                      if (!snapshot || commandsBlocked) return;
                       setConfirmComplete(false);
                       void submit({
                         schema_version: "v1",

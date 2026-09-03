@@ -257,6 +257,39 @@ describe("hosted Session pages", () => {
     expect(screen.getByText("Considering your reply…")).toBeVisible();
   });
 
+  it("hides Submit Session while an Agent turn is still open", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          activity: { work_state: "working", turn_id: "turn.1" },
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByText("Considering your reply…")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Submit Session" })).toBeNull();
+
+    MockEventSource.instances[0]?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.complete.v1",
+      session_id: sessionId,
+      session_sequence: "6",
+      session_version: 6,
+      occurred_at: "2026-09-03T15:31:00.000Z",
+      payload: {
+        summary: "Agent complete.",
+        agent_message_id: "amsg.turn1",
+        work_state: "idle",
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Submit Session" })).toBeVisible();
+    });
+  });
+
   it("sends a second message with the Session version advanced by SSE without a stale-version retry", async () => {
     let commandCalls = 0;
     const fetchMock = stubFetch((url, init) => {
@@ -293,13 +326,14 @@ describe("hosted Session pages", () => {
     await waitFor(() => expect(commandCalls).toBe(1));
 
     const source = MockEventSource.instances[0];
+    const agentOccurredAt = "2026-09-03T15:30:00.000Z";
     source?.emit({
       schema_version: "v1",
       event_type: "session.hosted.agent.fragment.v1",
       session_id: sessionId,
       session_sequence: "5",
       session_version: 5,
-      occurred_at: new Date().toISOString(),
+      occurred_at: agentOccurredAt,
       payload: {
         summary: "Agent fragment.",
         agent_message_id: "amsg.turn1",
@@ -313,7 +347,6 @@ describe("hosted Session pages", () => {
       session_id: sessionId,
       session_sequence: "6",
       session_version: 6,
-      occurred_at: new Date().toISOString(),
       payload: {
         summary: "Agent complete.",
         agent_message_id: "amsg.turn1",
@@ -324,6 +357,7 @@ describe("hosted Session pages", () => {
     await waitFor(() => {
       expect(screen.getByText("Examiner reply")).toBeVisible();
       expect(screen.queryByText("Considering your reply…")).toBeNull();
+      expect(screen.getByText(agentOccurredAt)).toBeVisible();
     });
 
     fireEvent.change(screen.getByRole("textbox", { name: "Compose reply" }), { target: { value: "Second turn" } });
