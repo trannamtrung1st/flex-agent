@@ -25,7 +25,7 @@ public sealed class SessionAdmissionConcurrencyTests(PostgresIntegrationFixture 
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
+            await SessionPersistenceFixtures.InsertActiveAsync(repository, binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 

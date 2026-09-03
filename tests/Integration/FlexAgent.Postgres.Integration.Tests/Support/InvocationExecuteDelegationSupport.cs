@@ -56,7 +56,7 @@ internal static class InvocationExecuteDelegationSupport
             clock,
             issue.Issue.DelegationId,
             issue.Mutation.CorrelationId);
-        await repository.InsertActiveAsync(
+        await SessionPersistenceFixtures.InsertActiveAsync(repository, 
             binding.Ownership,
             session,
             SessionPersistenceFixtures.Actor(organization.ActorId),

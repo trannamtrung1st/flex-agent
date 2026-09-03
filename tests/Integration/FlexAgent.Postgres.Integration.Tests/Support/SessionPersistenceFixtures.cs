@@ -1,11 +1,79 @@
+using Dapper;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests.Support;
 
 internal static class SessionPersistenceFixtures
 {
+    internal static readonly DateTimeOffset DefaultHardEndAtUtc =
+        new(2026, 12, 31, 23, 59, 59, TimeSpan.Zero);
+
+    internal static HostedFrozenTimingPolicy DefaultFrozenTimingPolicy() =>
+        HostedFrozenTimingPolicy.UnboundedPolicy with { HardEndAtUtc = DefaultHardEndAtUtc };
+
+    internal static Task InsertFrozenTimingAsync(
+        NpgsqlTransaction transaction,
+        SessionOwnership ownership,
+        HostedFrozenTimingPolicy policy) =>
+        transaction.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_frozen_timing (
+                    organization_id, session_id, document, created_at)
+                VALUES (
+                    @OrganizationId,
+                    @SessionId,
+                    CAST(@Document AS jsonb),
+                    NOW())
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    Document = HostedSessionFrozenTiming.ToDocumentJson(policy),
+                },
+                transaction));
+
+    internal static async Task InsertActiveAsync(
+        PostgresSessionRuntimeRepository repository,
+        SessionOwnership ownership,
+        SessionRuntime session,
+        TrustedRuntimeActor participantActor,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default,
+        AuthorizedServiceDelegationIssue? timerLaneDelegation = null,
+        ICommitAuthorizationKernel? authorizationKernel = null,
+        AuthorizedServiceDelegationIssue? invocationExecuteDelegation = null,
+        HostedFrozenTimingPolicy? frozenTiming = null,
+        bool seedDefaultFrozenTiming = true)
+    {
+        await SessionPersistenceFixtures.InsertActiveAsync(repository, 
+            ownership,
+            session,
+            participantActor,
+            transaction,
+            cancellationToken,
+            timerLaneDelegation,
+            authorizationKernel,
+            invocationExecuteDelegation);
+        if (frozenTiming is not null)
+        {
+            await InsertFrozenTimingAsync(transaction, ownership, frozenTiming);
+            return;
+        }
+
+        if (seedDefaultFrozenTiming)
+        {
+            await InsertFrozenTimingAsync(transaction, ownership, DefaultFrozenTimingPolicy());
+        }
+    }
+
     internal static PostgresSessionRuntimeRepository RuntimeRepository(
         ISessionAttemptTerminalSink? sink = null) =>
         new(sink ?? IgnoringSessionAttemptTerminalSink.Instance);

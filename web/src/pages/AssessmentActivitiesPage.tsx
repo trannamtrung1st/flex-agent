@@ -7,7 +7,7 @@ import {
   type NumberedActivityListQuery,
   type ProductionActivityList,
   type ProductionActivitySummary,
-  type ProductionSourceOption,
+  type ProductionSourceOptionsResponse,
 } from "../api/production-assessment";
 import { sourceCategoryLabel } from "../features/assessment/campaignCreatePresentation";
 import {
@@ -42,7 +42,7 @@ import {
 export interface AssessmentActivitiesPageProps {
   organizationId?: string;
   loadActivities: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
-  loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
+  loadSourceOptions: (signal?: AbortSignal) => Promise<ProductionSourceOptionsResponse>;
 }
 
 type ActivitySortKey = ActivitySortField;

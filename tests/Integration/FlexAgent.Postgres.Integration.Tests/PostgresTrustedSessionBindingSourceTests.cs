@@ -55,7 +55,7 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
             CancellationToken))
         {
             var startedAt = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
-            await repository.InsertActiveAsync(
+            await SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 SessionRuntime.CreateActive(binding, startedAt),
                 SessionPersistenceFixtures.Actor(organization.ActorId),
@@ -134,7 +134,7 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
             Fixture.Services.ConnectionAccessor,
             CancellationToken);
         var startedAt = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
-        await repository.InsertActiveAsync(
+        await SessionPersistenceFixtures.InsertActiveAsync(repository, 
             binding.Ownership,
             SessionRuntime.CreateActive(binding, startedAt),
             SessionPersistenceFixtures.Actor(organization.ActorId),

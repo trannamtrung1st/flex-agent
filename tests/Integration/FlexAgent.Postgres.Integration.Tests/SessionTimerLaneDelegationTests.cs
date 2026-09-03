@@ -332,7 +332,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         var session = SessionRuntime.CreateActive(binding, startedAt);
         var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
         var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
-            repository.InsertActiveAsync(
+            SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(organization.ActorId),
@@ -394,7 +394,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             var session = SessionRuntime.CreateActive(binding, startedAt);
             var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
             var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
-                repository.InsertActiveAsync(
+                SessionPersistenceFixtures.InsertActiveAsync(repository, 
                     binding.Ownership,
                     session,
                     SessionPersistenceFixtures.Actor(organization.ActorId),
@@ -470,7 +470,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         var session = SessionRuntime.CreateActive(binding, startedAt);
         var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken.None);
         var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
-            repository.InsertActiveAsync(
+            SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(organization.ActorId),
@@ -739,7 +739,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
             var session = SessionRuntime.CreateActive(binding, startedAt);
             var delegationClock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
-            await repository.InsertActiveAsync(
+            await SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(organization.ActorId),

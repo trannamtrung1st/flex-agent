@@ -7,6 +7,7 @@ import {
   type ProductionActivityList,
   type ProductionActivitySummary,
   type ProductionSourceOption,
+  type ProductionSourceOptionsResponse,
 } from "../api/production-assessment";
 import { FlexQueryProvider, createFlexQueryClient } from "../api/query-client";
 import { assessmentKeys } from "../features/assessment/queryKeys";
@@ -88,7 +89,7 @@ function renderActivities(options?: {
   permittedActions?: string[];
   sources?: ProductionSourceOption[];
   loadActivities?: (query: NumberedActivityListQuery, signal?: AbortSignal) => Promise<ProductionActivityList>;
-  loadSourceOptions?: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
+  loadSourceOptions?: (signal?: AbortSignal) => Promise<ProductionSourceOptionsResponse>;
   queryClient?: ReturnType<typeof createFlexQueryClient>;
 }) {
   const sourceCalls: AbortSignal[] = [];
@@ -311,6 +312,7 @@ describe("AssessmentActivitiesPage", () => {
       pagination: { mode: "numbered", page: 1, page_size: 16, total_items: 1, total_pages: 1 },
     });
     const loadSourceOptions = vi.fn(() => Promise.resolve({
+      environment: "development" as const,
       sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
     }));
     let releaseList: ((value: {

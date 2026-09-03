@@ -145,7 +145,7 @@ public sealed class AttemptTerminalMappingPersistenceTests(PostgresIntegrationFi
             var session = SessionRuntime.CreateActive(
                 binding,
                 new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-            await repository.InsertActiveAsync(
+            await SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(harness.ParticipantId),

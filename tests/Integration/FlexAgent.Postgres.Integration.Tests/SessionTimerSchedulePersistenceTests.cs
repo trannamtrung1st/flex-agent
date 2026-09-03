@@ -646,7 +646,7 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 organization.OrganizationId,
                 organization.ActorId,
                 AuthorizationActions.IssueServiceDelegation);
-            await repository.InsertActiveAsync(
+            await SessionPersistenceFixtures.InsertActiveAsync(repository, 
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(organization.ActorId),
