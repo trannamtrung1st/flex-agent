@@ -19,9 +19,11 @@ public sealed class AttemptStartCoordinator(
     IEnrollmentAuditPort audit,
     IEnrollmentUnitOfWork unitOfWork,
     IEnrollmentSessionPort sessions,
-    IEnrollmentClock? clock = null) : IAttemptStartCoordinator, IAttemptReadinessQuery
+    IEnrollmentClock? clock = null,
+    IFrozenAttemptTimingCapture? frozenTiming = null) : IAttemptStartCoordinator, IAttemptReadinessQuery
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
+    private readonly IFrozenAttemptTimingCapture _frozenTiming = frozenTiming ?? UnavailableFrozenAttemptTimingCapture.Instance;
 
     internal static readonly AsyncLocal<Func<Task>?> AfterStartTransactionBeforeFailedPersist = new();
 
@@ -306,6 +308,13 @@ public sealed class AttemptStartCoordinator(
                     return Fail(bindError, readiness.State);
                 }
 
+                var frozenTimingDocument = await _frozenTiming.CaptureAsync(
+                    enrollment.OrganizationId,
+                    enrollment.EnrollmentId,
+                    enrollment.ActivityId,
+                    enrollment.CohortId,
+                    now,
+                    cancellationToken);
                 var sessionCommit = await sessionStarts.CommitActiveAsync(
                     new SessionStartCommitRequest(
                         attemptId,
@@ -314,7 +323,8 @@ public sealed class AttemptStartCoordinator(
                         manifestId,
                         ScopeFrom(enrollment),
                         bindings,
-                        now),
+                        now,
+                        frozenTimingDocument),
                     transaction.CommitHandle,
                     cancellationToken);
                 if (!sessionCommit.Succeeded

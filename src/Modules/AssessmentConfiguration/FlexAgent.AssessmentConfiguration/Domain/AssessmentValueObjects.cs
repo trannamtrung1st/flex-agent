@@ -49,7 +49,9 @@ public sealed record TimingRules(
     DateTimeOffset DeadlineUtc,
     string TimeZoneId,
     int AttemptLimit,
-    int? PerAttemptDurationSeconds)
+    int? PerAttemptDurationSeconds,
+    int? WarningApproachingRemainingSeconds = null,
+    int? WarningImminentRemainingSeconds = null)
 {
     public bool IsValid(out string failureCode)
     {
@@ -80,6 +82,20 @@ public sealed record TimingRules(
         }
 
         if (PerAttemptDurationSeconds is <= 0)
+        {
+            failureCode = AssessmentFailureCodes.InvalidField;
+            return false;
+        }
+
+        if (WarningApproachingRemainingSeconds is <= 0 || WarningImminentRemainingSeconds is <= 0)
+        {
+            failureCode = AssessmentFailureCodes.InvalidField;
+            return false;
+        }
+
+        if (PerAttemptDurationSeconds is int duration
+            && (WarningApproachingRemainingSeconds is int approaching && approaching >= duration
+                || WarningImminentRemainingSeconds is int imminent && imminent >= duration))
         {
             failureCode = AssessmentFailureCodes.InvalidField;
             return false;

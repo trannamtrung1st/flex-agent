@@ -94,6 +94,31 @@ public sealed class UnhostedHostedSessionCommandCoordinator : IHostedSessionComm
     }
 }
 
+public sealed record HostedSessionExpirySettings(
+    TrustedRuntimeActor ServiceActor,
+    string SourceChannel);
+
+public static class HostedSessionExpiryChannels
+{
+    public const string Service = "session.hosted.expiry";
+}
+
+public interface IHostedSessionExpirySweep
+{
+    Task<int> ExpireDueAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class IdleHostedSessionExpirySweep : IHostedSessionExpirySweep
+{
+    public static IdleHostedSessionExpirySweep Instance { get; } = new();
+
+    public Task<int> ExpireDueAsync(CancellationToken cancellationToken = default)
+    {
+        _ = cancellationToken;
+        return Task.FromResult(0);
+    }
+}
+
 public interface IHostedSessionCommandCoordinator
 {
     Task<HostedSessionCommandResult?> SubmitAsync(

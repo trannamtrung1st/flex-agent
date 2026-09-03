@@ -7,6 +7,7 @@ import {
   createSessionCommandId,
   createSessionIdempotencyKey,
 } from "../api/production-session";
+import { SessionTranscriptLedger } from "../components/work/SessionTranscriptLedger";
 import { SessionChrono } from "../components/work/SessionChrono";
 import { AgentStatusLine, ProtocolPlate } from "../components/work/SessionMarks";
 import { TextSessionStation } from "../components/work/TextSessionStation";
@@ -71,7 +72,7 @@ export function ProductionTextSessionPage() {
   const ledgerRef = useRef<HTMLElement>(null);
   const sealedOnce = useRef<string | null>(null);
   const expiryReconcileOnce = useRef<string | null>(null);
-  const expiredByTime = useRef(false);
+  const [expiredByTime, setExpiredByTime] = useState(false);
 
   const snapshotQuery = useQuery({
     queryKey: sessionKeys.snapshot(sessionId),
@@ -105,64 +106,70 @@ export function ProductionTextSessionPage() {
     return () => source.close();
   }, [apiState, sessionId]);
 
-  const submit = useCallback(async (
-    command: SessionCommandEnvelopeV1,
-    options?: { staleVersionRetry?: boolean },
-  ) => {
-    dispatch({ type: "send", sendState: "pending" });
-    try {
-      const outcome = await client.submitCommand(sessionId, command);
+  const submit = useCallback(async (command: SessionCommandEnvelopeV1) => {
+    const sendOnce = async (envelope: SessionCommandEnvelopeV1) => {
+      dispatch({ type: "send", sendState: "pending" });
+      const outcome = await client.submitCommand(sessionId, envelope);
       if (outcome.outcome_category === "uncertain") {
         dispatch({ type: "send", sendState: "uncertain" });
         dispatch({ type: "error", message: "The command was not confirmed. Reconcile before sending again." });
+        return "stop";
+      }
+      if (outcome.succeeded || outcome.outcome_category === "duplicate") {
+        dispatch({
+          type: "accepted",
+          session_version: outcome.session_version,
+          session_sequence: outcome.session_sequence,
+        });
+        if (envelope.command_type === "session.message.send.v1") {
+          dispatch({ type: "draft", draft: "" });
+          setPendingIdempotency(null);
+        }
+        await snapshotQuery.refetch();
+        dispatch({ type: "send", sendState: "idle" });
+        return "stop";
+      }
+      return outcome;
+    };
+
+    try {
+      const first = await sendOnce(command);
+      if (first === "stop") {
         return;
       }
-      if (!outcome.succeeded && outcome.outcome_category !== "duplicate") {
+      if (
+        first.outcome_category === "conflict"
+        && command.command_type === "session.message.send.v1"
+      ) {
+        const refreshed = await snapshotQuery.refetch();
+        const nextVersion = refreshed.data?.session_version;
         if (
-          outcome.outcome_category === "conflict"
-          && command.command_type === "session.message.send.v1"
-          && !options?.staleVersionRetry
+          refreshed.data
+          && nextVersion != null
+          && nextVersion !== command.expected_session_version
         ) {
-          const refreshed = await snapshotQuery.refetch();
-          const nextVersion = refreshed.data?.session_version;
-          if (
-            refreshed.data
-            && nextVersion != null
-            && nextVersion !== command.expected_session_version
-          ) {
-            dispatch({ type: "snapshot", snapshot: refreshed.data });
-            const retryKey = createSessionIdempotencyKey();
-            setPendingIdempotency(retryKey);
-            await submit({
-              ...command,
-              command_id: createSessionCommandId(),
-              idempotency_key: retryKey,
-              expected_session_version: nextVersion,
-            }, { staleVersionRetry: true });
+          dispatch({ type: "snapshot", snapshot: refreshed.data });
+          const retryKey = createSessionIdempotencyKey();
+          setPendingIdempotency(retryKey);
+          const retry = await sendOnce({
+            ...command,
+            command_id: createSessionCommandId(),
+            idempotency_key: retryKey,
+            expected_session_version: nextVersion,
+          });
+          if (retry === "stop") {
             return;
           }
         }
-        dispatch({ type: "send", sendState: "idle" });
-        dispatch({
-          type: "error",
-          message: outcome.outcome_category === "conflict"
-            ? "This conversation is still the same Session. Send again."
-            : "The Session could not accept that command.",
-        });
-        await snapshotQuery.refetch();
-        return;
       }
-      dispatch({
-        type: "accepted",
-        session_version: outcome.session_version,
-        session_sequence: outcome.session_sequence,
-      });
-      if (command.command_type === "session.message.send.v1") {
-        dispatch({ type: "draft", draft: "" });
-        setPendingIdempotency(null);
-      }
-      await snapshotQuery.refetch();
       dispatch({ type: "send", sendState: "idle" });
+      dispatch({
+        type: "error",
+        message: first.outcome_category === "conflict"
+          ? "This conversation is still the same Session. Send again."
+          : "The Session could not accept that command.",
+      });
+      await snapshotQuery.refetch();
     } catch {
       dispatch({ type: "send", sendState: "uncertain" });
       dispatch({ type: "error", message: "The command outcome is uncertain. Reconcile before sending again." });
@@ -212,7 +219,6 @@ export function ProductionTextSessionPage() {
 
   /* Completing is a server lifecycle; the follow-up complete command runs
      after the authoritative snapshot arrives. */
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !snapshot
@@ -227,14 +233,16 @@ export function ProductionTextSessionPage() {
     }
 
     sealedOnce.current = snapshot.session_id;
-    void submit({
-      schema_version: "v1",
-      command_type: "session.complete.v1",
-      command_id: createSessionCommandId(),
-      idempotency_key: createSessionIdempotencyKey(),
-      session_locator: { session_id: sessionId },
-      expected_session_version: snapshot.session_version,
-      payload: {},
+    queueMicrotask(() => {
+      void submit({
+        schema_version: "v1",
+        command_type: "session.complete.v1",
+        command_id: createSessionCommandId(),
+        idempotency_key: createSessionIdempotencyKey(),
+        session_locator: { session_id: sessionId },
+        expected_session_version: snapshot.session_version,
+        payload: {},
+      });
     });
   }, [sessionId, snapshot, submit, working]);
 
@@ -247,21 +255,25 @@ export function ProductionTextSessionPage() {
     }
 
     expiryReconcileOnce.current = snapshot.session_id;
-    expiredByTime.current = true;
-    void submit({
-      schema_version: "v1",
-      command_type: "session.reconcile.v1",
-      command_id: createSessionCommandId(),
-      idempotency_key: createSessionIdempotencyKey(),
-      session_locator: { session_id: sessionId },
-      expected_session_version: snapshot.session_version,
-      client_last_seen_sequence: snapshot.last_confirmed_sequence === "0"
-        ? "1"
-        : snapshot.last_confirmed_sequence,
-      payload: {},
+    queueMicrotask(() => {
+      void submit({
+        schema_version: "v1",
+        command_type: "session.reconcile.v1",
+        command_id: createSessionCommandId(),
+        idempotency_key: createSessionIdempotencyKey(),
+        session_locator: { session_id: sessionId },
+        expected_session_version: snapshot.session_version,
+        client_last_seen_sequence: snapshot.last_confirmed_sequence === "0"
+          ? "1"
+          : snapshot.last_confirmed_sequence,
+        payload: {},
+      });
     });
   }, [sessionId, snapshot, submit]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (timeEnded && !expiredByTime) {
+    setExpiredByTime(true);
+  }
 
   if (snapshotQuery.isError && !snapshot) {
     return (
@@ -324,42 +336,6 @@ export function ProductionTextSessionPage() {
               { term: "Session", value: snapshot?.lifecycle_state ?? "loading" },
             ]}
           />
-          <section className="feed" aria-label="Console feed">
-            <h2 className="rail-h">Console Feed</h2>
-            <p className="feed-sub">Live transcript</p>
-            <ol className="feed-log" aria-live="off">
-              {items.slice(-4).map((item) => (
-                <li key={item.item_id}>
-                  <time>{item.occurred_at ? item.occurred_at.slice(11, 19) : "—"}</time>
-                  <span>{item.author === "agent" ? "Agent" : "Participant"} admitted.</span>
-                </li>
-              ))}
-              {snapshot?.activity?.work_state === "no_action" ? (
-                <li>
-                  <time>—</time>
-                  <span>Agent recorded no further output.</span>
-                </li>
-              ) : null}
-              {snapshot?.activity?.work_state === "failed" ? (
-                <li>
-                  <time>—</time>
-                  <span className="feed-mark-amber">Agent work failed closed.</span>
-                </li>
-              ) : null}
-              {view.lastError ? (
-                <li>
-                  <time>—</time>
-                  <span className="feed-mark-amber">{view.lastError}</span>
-                </li>
-              ) : null}
-              {view.connection === "reconnecting" || view.connection === "offline" ? (
-                <li>
-                  <time>—</time>
-                  <span>Link recovering.</span>
-                </li>
-              ) : null}
-            </ol>
-          </section>
           <ReadoutList
             className="readout-stack readout-stack--sys"
             rows={[
@@ -374,7 +350,7 @@ export function ProductionTextSessionPage() {
         <p>{
           paused && !timeEnded
             ? "This Session is paused. Sending is closed until an administrator resumes it."
-            : timeEnded || expiredByTime.current
+            : timeEnded || expiredByTime
               ? "Time ended. Sending is closed."
               : "Composer closed."
         }</p>
@@ -564,28 +540,19 @@ export function ProductionTextSessionPage() {
         </>
       )}
     >
-      <ol className="ledger">
-        {items.map((item, index) => {
+      <SessionTranscriptLedger
+        items={items}
+        label="Session turns"
+        copyFor={(item) => revealed[item.item_id] ?? transcriptItemCopy(item)}
+        turnState={(item, index) => {
           const copy = revealed[item.item_id] ?? transcriptItemCopy(item);
           const target = transcriptItemCopy(item);
-          const arriving = item.author === "agent" && copy.length > 0 && copy.length < target.length;
-          const active = !terminal && !completing && !timeEnded && index === items.length - 1;
-          return (
-            <li
-              key={item.item_id}
-              className={`turn turn--${item.author}${active ? " is-active" : ""}${arriving ? " is-arriving" : ""}`}
-            >
-              <div className="turn-body-wrap">
-                <span className="turn-index turn-index--card-edge" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <p className="turn-speaker">{item.author === "agent" ? "Agent" : "Participant"}</p>
-                <p className="turn-text">{copy}</p>
-                {item.occurred_at ? <p className="turn-time">{item.occurred_at}</p> : null}
-              </div>
-            </li>
-          );
-        })}
+          return {
+            arriving: item.author === "agent" && copy.length > 0 && copy.length < target.length,
+            active: !terminal && !completing && !timeEnded && index === items.length - 1,
+          };
+        }}
+      >
         {timeEnded ? (
           <li className="ledger-complete">
             <div className="complete-plate pane pane--notched">
@@ -609,9 +576,9 @@ export function ProductionTextSessionPage() {
                 <circle cx="26" cy="26" r="24" />
                 <path d="M15 27l8 8 15-17" />
               </svg>
-              <h2 className="complete-title">{expiredByTime.current ? "Time ended. Session completed" : "Session Complete"}</h2>
+              <h2 className="complete-title">{expiredByTime ? "Time ended. Session completed" : "Session Complete"}</h2>
               <p className="complete-copy">
-                {expiredByTime.current
+                {expiredByTime
                   ? "Only content accepted before the Session cutoff is included."
                   : "Your examination record has been preserved. Nothing further is required of you."}
               </p>
@@ -633,7 +600,7 @@ export function ProductionTextSessionPage() {
             </div>
           </li>
         ) : null}
-      </ol>
+      </SessionTranscriptLedger>
     </TextSessionStation>
   );
 }

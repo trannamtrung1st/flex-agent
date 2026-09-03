@@ -117,8 +117,11 @@ public sealed class PostgresHostedSessionCommandCoordinator(
     ITrustedSessionBindingSource bindings,
     PostgresAcceptParticipantMessageCoordinator messages,
     PostgresSessionLifecycleCoordinator lifecycle,
-    IHostedSessionSnapshotQuery snapshots) : IHostedSessionCommandCoordinator
+    IHostedSessionSnapshotQuery snapshots,
+    HostedSessionExpirySettings? expiry = null) : IHostedSessionCommandCoordinator
 {
+    private readonly HostedSessionExpirySettings? _expiry = expiry;
+
     public async Task<HostedSessionCommandResult?> SubmitAsync(
         TrustedRuntimeActor actor,
         Guid routeSessionId,
@@ -172,55 +175,38 @@ public sealed class PostgresHostedSessionCommandCoordinator(
         }
 
         var projectionKind = HostedSessionRelationships.ProjectionKind(subject.Relationship);
+        var live = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
+        if (!live.Found || live.Snapshot is null)
+        {
+            return Denied();
+        }
+
+        if (HostedSessionCutoffAdmission.ShouldExpireLiveSession(
+                live.Snapshot.LifecycleState,
+                live.Snapshot.RemainingSeconds))
+        {
+            await TryExpireDueAsync(binding, live.Snapshot, cancellationToken);
+            if (HostedSessionCutoffAdmission.ShouldRejectCommand(
+                    commandType,
+                    live.Snapshot.LifecycleState,
+                    live.Snapshot.RemainingSeconds))
+            {
+                var afterCutoff = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
+                return new HostedSessionCommandResult(
+                    false,
+                    "rejected",
+                    "session.cutoff.passed",
+                    "none",
+                    afterCutoff.Snapshot?.PermittedActions ?? [],
+                    afterCutoff.Snapshot?.SessionVersion,
+                    afterCutoff.Snapshot?.SessionSequence);
+            }
+        }
+
         if (commandType == "session.reconcile.v1")
         {
-            var snapshot = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
-            if (!snapshot.Found || snapshot.Snapshot is null)
-            {
-                return Denied();
-            }
-
-            var current = snapshot.Snapshot;
-            if (current.RemainingSeconds == 0
-                && (current.LifecycleState == "active" || current.LifecycleState == "paused"))
-            {
-                var expiryVersion = current.SessionVersion;
-                foreach (var transition in new[]
-                         {
-                             SessionLifecycleTransitions.BeginCompleting,
-                             SessionLifecycleTransitions.Complete,
-                         })
-                {
-                    var step = await lifecycle.ChangeAsync(
-                        new ChangeSessionLifecycleCommand(
-                            actor,
-                            binding.Ownership,
-                            expiryVersion,
-                            transition,
-                            TryParseCorrelation(commandId),
-                            "http.session_command",
-                            transition == SessionLifecycleTransitions.Complete
-                                ? TerminalReasonCategories.TimeExpiry
-                                : null),
-                        binding,
-                        cancellationToken);
-                    if (!step.Succeeded && step.OutcomeCode != SessionLifecycleOutcomeCodes.Reconciled)
-                    {
-                        break;
-                    }
-
-                    expiryVersion = step.SessionVersion;
-                }
-
-                snapshot = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
-                if (!snapshot.Found || snapshot.Snapshot is null)
-                {
-                    return Denied();
-                }
-
-                current = snapshot.Snapshot;
-            }
-
+            var current = (await snapshots.GetAsync(actor, routeSessionId, cancellationToken)).Snapshot
+                ?? live.Snapshot;
             return new HostedSessionCommandResult(
                 true,
                 "accepted",
@@ -252,7 +238,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                     slotId,
                     triggerId,
                     idempotencyKey,
-                    TryParseCorrelation(commandId),
+                    HostedSessionCommandCorrelation.ForCommandId(commandId),
                     "http.session_command",
                     messageText),
                 binding,
@@ -276,7 +262,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                     binding.Ownership,
                     expectedVersion,
                     transition,
-                    TryParseCorrelation(commandId),
+                    HostedSessionCommandCorrelation.ForCommandId(commandId),
                     "http.session_command",
                     transition == SessionLifecycleTransitions.Terminate ? terminateReasonCode : null),
                 binding,
@@ -291,6 +277,49 @@ public sealed class PostgresHostedSessionCommandCoordinator(
         }
 
         return last;
+    }
+
+    private async Task TryExpireDueAsync(
+        TrustedSessionBinding binding,
+        HostedSessionSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        if (_expiry is null
+            || !HostedSessionCutoffAdmission.ShouldExpireLiveSession(
+                snapshot.LifecycleState,
+                snapshot.RemainingSeconds))
+        {
+            return;
+        }
+
+        var expiryCommandId = $"sessioncommand.expiry.{binding.Ownership.SessionId:N}";
+        var expiryVersion = snapshot.SessionVersion;
+        foreach (var transition in new[]
+                 {
+                     SessionLifecycleTransitions.BeginCompleting,
+                     SessionLifecycleTransitions.Complete,
+                 })
+        {
+            var step = await lifecycle.ChangeAsync(
+                new ChangeSessionLifecycleCommand(
+                    _expiry.ServiceActor,
+                    binding.Ownership,
+                    expiryVersion,
+                    transition,
+                    HostedSessionCommandCorrelation.ForCommandId(expiryCommandId),
+                    _expiry.SourceChannel,
+                    transition == SessionLifecycleTransitions.Complete
+                        ? TerminalReasonCategories.TimeExpiry
+                        : null),
+                binding,
+                cancellationToken);
+            if (!step.Succeeded && step.OutcomeCode != SessionLifecycleOutcomeCodes.Reconciled)
+            {
+                break;
+            }
+
+            expiryVersion = step.SessionVersion;
+        }
     }
 
     private static HostedSessionCommandResult Denied() =>
@@ -347,8 +376,6 @@ public sealed class PostgresHostedSessionCommandCoordinator(
             result.SessionVersion);
     }
 
-    private static Guid TryParseCorrelation(string commandId) =>
-        Guid.TryParse(commandId, out var parsed) ? parsed : Guid.NewGuid();
 }
 
 public sealed class PostgresHostedSessionSubjectSource(

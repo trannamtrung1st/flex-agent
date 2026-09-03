@@ -146,6 +146,26 @@ public sealed class GatedP0SessionStartPort(
                     },
                     npgsql,
                     cancellationToken: cancellationToken));
+            if (!string.IsNullOrWhiteSpace(request.FrozenTimingDocument))
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO session_frozen_timing (
+                            organization_id, session_id, document, created_at)
+                        VALUES (@OrganizationId, @SessionId, CAST(@Document AS jsonb), @CreatedAt)
+                        """,
+                        new
+                        {
+                            ownership.OrganizationId,
+                            request.SessionId,
+                            Document = request.FrozenTimingDocument,
+                            CreatedAt = request.StartedAtUtc,
+                        },
+                        npgsql,
+                        cancellationToken: cancellationToken));
+            }
+
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """

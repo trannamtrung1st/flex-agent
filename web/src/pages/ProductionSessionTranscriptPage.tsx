@@ -4,11 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useProductionApi } from "../api/production-api";
 import { createProductionSessionClient } from "../api/production-session";
 import { sessionKeys } from "../features/session/queryKeys";
+import { SessionTranscriptLedger } from "../components/work/SessionTranscriptLedger";
 import {
   Alert,
+  EmptyPlate,
   OperateArea,
   ReadoutList,
   WorkWell,
+  WorkWellHead,
   WorkWellSection,
 } from "../design-system";
 
@@ -34,12 +37,17 @@ export function ProductionSessionTranscriptPage() {
   return (
     <OperateArea
       bay="record"
+      framed={false}
       label="Session transcript"
       title="Session transcript"
       context={snapshot ? `Lifecycle ${snapshot.lifecycle_state}` : "Loading"}
-      frame="record"
     >
-      <WorkWell live={false} label="Terminal transcript">
+      <WorkWell
+        seat="stack"
+        live={false}
+        label="Terminal transcript"
+        head={<WorkWellHead title="Terminal transcript" />}
+      >
         <WorkWellSection>
           <ReadoutList
             rows={[
@@ -47,16 +55,18 @@ export function ProductionSessionTranscriptPage() {
               { term: "Cutoff", value: snapshot?.cutoff_sequence ?? "—" },
             ]}
           />
-          <ol aria-label="Historical transcript">
-            {(snapshot?.transcript?.items ?? []).map((item) => (
-              <li key={item.item_id}>
-                <strong>{item.author}</strong>
-                {" "}
-                {item.status === "unavailable" ? "Content unavailable." : item.content}
-              </li>
-            ))}
-          </ol>
         </WorkWellSection>
+        {(snapshot?.transcript?.items ?? []).length > 0 ? (
+          <SessionTranscriptLedger
+            label="Historical transcript"
+            items={snapshot?.transcript?.items ?? []}
+          />
+        ) : (
+          <EmptyPlate
+            label="No transcript items"
+            note="This Session has no inspectable turns on the current assignment."
+          />
+        )}
       </WorkWell>
     </OperateArea>
   );

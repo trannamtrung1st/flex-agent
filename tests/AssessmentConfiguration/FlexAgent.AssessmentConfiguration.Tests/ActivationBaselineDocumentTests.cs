@@ -86,6 +86,39 @@ public sealed class ActivationBaselineDocumentTests
     }
 
     [Fact]
+    public void Configured_warning_thresholds_are_frozen_only_when_authored()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var withoutWarnings = ActivationBaselineDocument.FromReadyDraft(
+            draft,
+            AssessmentFixtures.PermittedSources()).Value!;
+        var withWarnings = ActivationBaselineDocument.FromReadyDraft(
+            draft.Save(
+                draft.RevisionNumber,
+                draft.Content with
+                {
+                    Timing = draft.Content.Timing with
+                    {
+                        WarningApproachingRemainingSeconds = 900,
+                        WarningImminentRemainingSeconds = 300,
+                    },
+                }).Value!,
+            AssessmentFixtures.PermittedSources()).Value!;
+
+        var omitted = withoutWarnings.FairnessDomains
+            .Single(domain => domain.DomainKey == AssessmentSourceCategories.Timing)
+            .EffectiveValue;
+        var authored = withWarnings.FairnessDomains
+            .Single(domain => domain.DomainKey == AssessmentSourceCategories.Timing)
+            .EffectiveValue;
+
+        Assert.False(omitted.ContainsKey("warning_approaching_remaining_seconds"));
+        Assert.False(omitted.ContainsKey("warning_imminent_remaining_seconds"));
+        Assert.Equal("900", authored["warning_approaching_remaining_seconds"]);
+        Assert.Equal("300", authored["warning_imminent_remaining_seconds"]);
+    }
+
+    [Fact]
     public void Activation_provenance_is_frozen_into_resolution_decisions()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

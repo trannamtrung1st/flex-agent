@@ -27,7 +27,7 @@ const copiedSheets: Record<string, string> = {
   "surfaces/not-found.css": "c5d5e16b52e6e9511d6030af209b88407024c66e9fb8e73ecdd25360c0b79a0b",
   "surfaces/participant-home.css": "51625ce1f75f9be4a58f448328a212665d8f0323a8b279df1836ebb5328ad03a",
   "surfaces/participant-journey.css": "ef7228efee72784b591f4ec840d67537991eee85140f734bd1ceb3ada8815155",
-  "surfaces/participant-session.css": "a52166e5204c64128f46fa7d5174e4f906e5add84c3fd3c4378b707efe1e09ff",
+  "surfaces/participant-session.css": "e6d0879e815d3abf4cdd28df6a7c72bd50b480d3f82cde1eaa7a6a783f4dacc6",
   "surfaces/reviewer-console.css": "19f5d6de01c1f063512d8514431dc225c1f046d5ccb6b5fefe95dae23b365b1d",
   "surfaces/surfaces-index.css": "88940c3016133d384eb2862005bbc4326cf900f405a148934d192fe0dac5af7a",
 };
@@ -63,6 +63,17 @@ describe("shared Shipboard stylesheets", () => {
     expect(sharedCss.indexOf("./components/live-session.css")).toBeGreaterThan(
       sharedCss.indexOf("./components/layouts.css"),
     );
+  });
+
+  it("closes the live-session token wrapper so PostCSS can load conversation chrome", () => {
+    const tokenBlock =
+      /html:has\(\[data-layout="live-session"\]\) \{\s*--key-quiet-padding-inline:\s*18px;\s*\}/;
+    const labBlock =
+      /html\[data-surface="participant-session"\] \{\s*--key-quiet-padding-inline:\s*18px;\s*\}/;
+    const lab = readFileSync(join(stylesRoot, "surfaces/participant-session.css"), "utf8");
+    const production = readFileSync(join(stylesRoot, "components/live-session.css"), "utf8");
+    expect(production).toMatch(tokenBlock);
+    expect(lab).toMatch(labBlock);
   });
 
   it("keeps production live-session chrome aligned with the lab participant-session donor", () => {

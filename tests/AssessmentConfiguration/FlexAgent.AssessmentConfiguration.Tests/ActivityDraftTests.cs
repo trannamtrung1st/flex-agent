@@ -130,4 +130,16 @@ public sealed class ActivityDraftTests
         Assert.False(inverted.IsValid(out var invertedCode));
         Assert.Equal(AssessmentFailureCodes.InvalidTiming, invertedCode);
     }
+
+    [Fact]
+    public void Timing_rejects_warning_thresholds_that_are_not_inside_the_duration()
+    {
+        var zero = AssessmentFixtures.ValidTiming() with { WarningApproachingRemainingSeconds = 0 };
+        Assert.False(zero.IsValid(out var zeroCode));
+        Assert.Equal(AssessmentFailureCodes.InvalidField, zeroCode);
+
+        var atBudget = AssessmentFixtures.ValidTiming() with { WarningImminentRemainingSeconds = 3600 };
+        Assert.False(atBudget.IsValid(out var atBudgetCode));
+        Assert.Equal(AssessmentFailureCodes.InvalidField, atBudgetCode);
+    }
 }

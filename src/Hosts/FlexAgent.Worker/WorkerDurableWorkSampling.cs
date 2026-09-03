@@ -104,6 +104,7 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
             services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
             services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
+            services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
             services.AddSingleton(new WorkerRuntimeCapabilities
             {
                 DurableWorkClaimingEnabled = false,
@@ -167,10 +168,18 @@ internal static class WorkerDurableWorkSampling
                 services.AddSingleton<IDueTimerFirePort, PostgresFireDueTimerCoordinator>();
                 services.AddSingleton(CreateTimerFireSettings(workerActorId));
                 services.AddSingleton<IDurableTimerFireProcessor, DurableTimerFireProcessor>();
+                services.AddSingleton(new HostedSessionExpirySettings(
+                    new TrustedRuntimeActor(workerActorId, "worker.session_runtime"),
+                    HostedSessionExpiryChannels.Service));
+                services.AddSingleton<IChangeSessionLifecycleHandler, ChangeSessionLifecycleHandler>();
+                services.AddSingleton<PostgresSessionLifecycleCoordinator>();
+                services.AddSingleton<IHostedSessionFrozenTimingSource, PostgresHostedFrozenTimingDocumentSource>();
+                services.AddSingleton<IHostedSessionExpirySweep, PostgresHostedSessionExpirySweep>();
             }
             else
             {
                 services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
+                services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
             }
 
             services.AddSingleton(new WorkerRuntimeCapabilities

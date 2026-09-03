@@ -356,9 +356,8 @@ authorized by this plan because approved families and donors already exist.
   separate `management` nested-record routes cloned from an accepted production
   record page plus the Component Deck management-record specimen; neither route
   may inherit Participant live controls.
-- [x] Remaining-time red/green: project `active_duration` remaining seconds
-  from `session_runtimes.created_at` and the Proposed 45-minute synthetic
-  development budget when Activity duration is absent. Seat Design Lab chrono
+- [x] Remaining-time red/green: project remaining seconds from the frozen
+  Session timing document captured at Attempt start. Seat Design Lab chrono
   digits/gauge and Submit Session on the examiner; keep Agent core animation;
   Enter sends immediately and Shift+Enter inserts a newline (Design Lab
   examination-console keys; Proposed override of `UI-SESS-DEC-4`). Seat
@@ -415,11 +414,33 @@ authorized by this plan because approved families and donors already exist.
   **Time ended. Session completed** (not a Result), stage 2 of 2. Reconcile
   seals Active/Paused Sessions via `begin_completing` + `complete` with
   `time_expiry` (`REQ-SESS-33`, `AC-SESS-16`, `PROP-5`, `UI-SESS` expiry).
+- [x] Live and historical transcript polish: close the unparsed
+  `live-session.css` token wrapper so conversation chrome and the ledger
+  scrollport load; reuse channel plates on the management transcript
+  record (`framed={false}` so `.operate-scroll` is the wheel target).
+  Do not retire this task.
+- [>] Review of `115e9c4` (keep `in-progress`): persist immutable Session
+  timing at Attempt start; freeze configured warning keys from Activity
+  timing when present (`PROP-6`, no invented thresholds); enforce cutoff
+  before message admission; system-owned expiry terminalization plus Worker
+  due-scan; deterministic command correlation; fix Web lint without
+  suppressions; remove stale 45-minute decision text.
 - [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
   `docs/current-state.md` is not updated in this slice; promote only after
   those reviews. Keep this file until review and durable-truth promotion.
 
 # Current state
+
+2026-09-03 transcript polish (candidate `:5274`, then RedirectUri restored
+to canonical `:18080`): Vite could not parse `live-session.css` (unclosed
+`html:has` token wrapper), so conversation chrome never loaded and the
+ledger had no overflow owner. Closing that block plus themed
+`scrollbar-gutter` on `.ledger-frame` restored the live scrollport
+(desktop: main `.ledger-frame` overflow auto, scrollHeight > clientHeight).
+Historical `/transcript` now uses the same channel plates in an unframed
+record well; `.operate-scroll` is the wheel target. Lab console-feed was
+removed from the production rail. Detector on the changed page/ledger
+returned no hits. Hosted-text-session stays `in-progress`.
 
 Expiry boundary: authoritative remaining `0` closes send/submit, moves
 stage to 2 of 2, shows Checking then **Time ended. Session completed**
@@ -428,8 +449,9 @@ stage to 2 of 2, shows Checking then **Time ended. Session completed**
 became `completed`; composer closed; Return to assignment present.
 RedirectUri restored to canonical `:18080`. Reload of an expiry-completed
 Session still uses the generic complete plate until `terminal_reason` is
-projected. Worker due-scan of remaining `0` without an open console is not
-in this slice.
+projected. Worker due-scan of remaining `0` is implemented as
+`IHostedSessionExpirySweep` on the Worker loop (service actor /
+`session.hosted.expiry`). Live rebuild and CI evidence are still open.
 
 Same-Session follow-up send no longer surfaces
 "This Session record was updated" on the happy path. Transmit stays held
@@ -453,17 +475,40 @@ command locators accept committed UUIDs without rewriting the body.
 Restored Agent transcript text no longer typewrites from empty on first
 paint. Pause-interval persistence is unchanged.
 
-Interim: accommodations are evaluated at `session_runtimes.created_at`, not
-a dedicated frozen Attempt-timing row. A later revoke can drop a grant from
-current rows even if it applied at start. Warning keys are consumed only
-when present on the frozen timing domain; `ActivationBaselineDocument`
-still does not write them, so real timed Sessions project `unavailable`
-until a workflow/configuration producer exists. Do not invent thresholds.
+2026-09-03 review of `115e9c4` (keep `in-progress`): persist
+`session_frozen_timing` at Attempt start so later accommodation revoke or
+supersession cannot rewrite the committed budget. Activity `TimingRules`
+may author warning thresholds; `ActivationBaselineDocument` copies only
+authored keys (`PROP-6`). Hosted commands reject admission after remaining
+`0` (`session.cutoff.passed`). Expiry terminalization uses the Worker
+service actor and `session.hosted.expiry`; the Participant reconcile
+observes. Worker due-scan expires due timed Sessions without an open
+console. Command correlation is deterministic for non-GUID `stable_id`
+values. Web lint suppressions for transcript reveal and completing effects
+were removed.
 
-Still not done: rebuild live API/Worker for 0068 + interval persist, full
-Implementation CI, and the previously missing hosted-session states
-(expiry, warning emission, multi-tab, offline reconnect, terminate/abort
-live, forced-colors, 400% zoom). Do not retire this file.
+Consistency review 2026-09-03 (keep `in-progress`): live Compose
+`:18080` is healthy (`session-endpoint:ok`, RedirectUri canonical) and
+candidate `:5274` is signed in as Demo Participant. The running API/Worker
+images do **not** contain `session_frozen_timing` / expiry-sweep symbols;
+Postgres has `session_pause_intervals` but no `session_frozen_timing`
+(0069 not applied). All four `session_runtimes` are `completed`. The
+Anti-Harassment assignment is Attempt-exhausted (2 consumed). Source
+cutoff now rejects only live `active`/`paused` remaining `0`, so a
+`completing` seal is not blocked by the projected remaining `0`. Worker
+due-scan now prefers timed documents that already have a warning
+schedule. Domain cutoff + frozen-timing + correlation tests: 16 passed.
+Confirm pass: Sessions timing/cutoff 25 passed; Assessment draft/baseline
+19 passed; API and Worker Debug builds succeeded; Web eslint on the
+touched Session files is clean; vitest reveal + Session page + ledger
+14+ tests passed. Source cutoff only trips live `active`/`paused`
+remaining `0`. Do not claim live expiry until API/Worker are rebuilt
+and 0069 is applied.
+
+Still not done: live API/Worker rebuild for 0069, full Implementation CI,
+and previously missing hosted-session states (warning emission, multi-tab,
+offline reconnect, terminate/abort live, forced-colors, 400% zoom). Do not
+retire this file.
 
 Hosted Session transport, actor projections, production SPA routes, Worker
 composition, bounded hosted telemetry, and fail-closed Worker identity are
@@ -475,8 +520,8 @@ implemented. Production HTTP locators remain Attempt-committed UUIDs.
 delegations for existing demo-org runtimes. Fail-closed execution completes
 work without Agent text; snapshot maps `execution_failed` to `failed` so the
 Participant can send again. Administrator pause/resume confirmed on
-`:5274`. Participant remaining time now projects `active_duration` with the
-Proposed 45-minute synthetic development budget. Agent timer lane stays
+`:5274`. Participant remaining time projects only frozen
+`unbounded` / `timed` / `unavailable` timing. Agent timer lane stays
 disabled. Production model enablement is not claimed.
 
 2026-09-03 consistency review (no code edits): stack healthy (`session-endpoint:ok`,
@@ -538,9 +583,10 @@ to be the same authoritative Session string.
 - Do not depend on unapproved `PROP-9` timer guidance for public behavior. Use
   the already approved one-lane timer semantics and implemented frozen bounds;
   expose no internal Agent-lane scheduling state to the Participant. Participant
-  **Time remaining** is a separate hosted snapshot projection (`active_duration`
-  remaining seconds). When Activity duration is absent, use the labeled
-  Proposed 45-minute synthetic development budget.
+  **Time remaining** is a separate hosted snapshot projection. Timing is
+  `unbounded`, `timed`, or `unavailable`. Missing, corrupt, or timed-without-
+  a-frozen-warning-schedule provenance is `unavailable`. Do not invent a
+  45-minute Session budget.
 
 # Findings / deviations
 

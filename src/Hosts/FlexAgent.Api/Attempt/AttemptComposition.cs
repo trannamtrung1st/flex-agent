@@ -13,6 +13,9 @@ public static partial class SubmissionEndpointExtensions
         services.AddSingleton<IRetryEntitlementReader>(_ => EmptyRetryEntitlementReader.Instance);
         services.AddSingleton<IAttemptTerminalMappingPort, AttemptTerminalMappingPort>();
         services.AddSingleton<ISessionAttemptTerminalSink, SubmissionsSessionAttemptTerminalSink>();
+        services.AddSingleton<IFrozenAttemptTimingCapture>(provider =>
+            provider.GetService<IHostedSessionFrozenTimingSource>() as IFrozenAttemptTimingCapture
+            ?? UnavailableFrozenAttemptTimingCapture.Instance);
         services.AddSingleton<AttemptStartCoordinator>();
         services.AddSingleton<IAttemptStartCoordinator>(static provider => provider.GetRequiredService<AttemptStartCoordinator>());
         services.AddSingleton<IAttemptReadinessQuery>(static provider => provider.GetRequiredService<AttemptStartCoordinator>());

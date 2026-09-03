@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace FlexAgent.Sessions.Domain;
@@ -129,6 +130,99 @@ public static class HostedSessionFrozenTiming
         return applyEffectiveDuration
             ? policy.WithEffectiveDuration(effectivePerAttemptDurationSeconds)
             : policy;
+    }
+
+    public static string ToDocumentJson(HostedFrozenTimingPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("reconstruction", policy.Reconstruction.ToString().ToLowerInvariant());
+            if (policy.BudgetSeconds is int budget)
+            {
+                writer.WriteNumber("budget_seconds", budget);
+            }
+            else
+            {
+                writer.WriteNull("budget_seconds");
+            }
+
+            writer.WritePropertyName("warnings");
+            writer.WriteStartArray();
+            foreach (var warning in policy.WarningSchedule)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("code", warning.Code);
+                writer.WriteNumber("remaining_seconds", warning.RemainingSecondsThreshold);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    public static HostedFrozenTimingPolicy FromDocumentJson(string? documentJson)
+    {
+        if (string.IsNullOrWhiteSpace(documentJson))
+        {
+            return HostedFrozenTimingPolicy.UnavailablePolicy;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(documentJson);
+            var root = document.RootElement;
+            if (!TryGetProperty(root, "reconstruction", out var reconstruction)
+                || reconstruction.GetString() is not { } kind)
+            {
+                return HostedFrozenTimingPolicy.UnavailablePolicy;
+            }
+
+            int? budget = null;
+            if (TryGetProperty(root, "budget_seconds", out var budgetElement)
+                && budgetElement.ValueKind == JsonValueKind.Number
+                && budgetElement.TryGetInt32(out var parsedBudget)
+                && parsedBudget > 0)
+            {
+                budget = parsedBudget;
+            }
+
+            var warnings = new List<HostedTimingWarningThreshold>();
+            if (TryGetProperty(root, "warnings", out var warningElement)
+                && warningElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in warningElement.EnumerateArray())
+                {
+                    if (TryGetProperty(item, "code", out var code)
+                        && TryGetProperty(item, "remaining_seconds", out var seconds)
+                        && code.GetString() is { Length: > 0 } warningCode
+                        && seconds.TryGetInt32(out var remaining)
+                        && remaining > 0)
+                    {
+                        warnings.Add(new HostedTimingWarningThreshold(warningCode, remaining));
+                    }
+                }
+            }
+
+            return kind switch
+            {
+                "unbounded" => HostedFrozenTimingPolicy.UnboundedPolicy with { WarningSchedule = warnings },
+                "timed" when budget is > 0 => new HostedFrozenTimingPolicy(
+                    HostedTimingReconstruction.Timed,
+                    budget,
+                    warnings),
+                _ => HostedFrozenTimingPolicy.UnavailablePolicy,
+            };
+        }
+        catch (JsonException)
+        {
+            return HostedFrozenTimingPolicy.UnavailablePolicy;
+        }
     }
 
     private static bool TryGetProperty(JsonElement element, string snakeName, out JsonElement value)

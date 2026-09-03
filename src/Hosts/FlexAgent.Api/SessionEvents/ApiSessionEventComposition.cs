@@ -262,7 +262,21 @@ internal static class ApiSessionEventComposition
         services.AddSingleton<IHostedSessionAccess, Adr002HostedSessionAccess>();
         services.AddSingleton<IHostedSessionFrozenTimingSource, PostgresHostedSessionFrozenTimingSource>();
         services.AddSingleton<IHostedSessionSnapshotQuery, PostgresHostedSessionSnapshotQuery>();
+        services.AddSingleton(provider =>
+        {
+            var configuration = provider.GetRequiredService<IConfiguration>();
+            if (!Guid.TryParse(configuration["Sessions:WorkerServiceActorId"], out var actorId)
+                || actorId == Guid.Empty)
+            {
+                actorId = Guid.Parse("00000000-0000-4000-8000-0000000000e1");
+            }
+
+            return new HostedSessionExpirySettings(
+                new TrustedRuntimeActor(actorId, "worker.session_runtime"),
+                HostedSessionExpiryChannels.Service);
+        });
         services.AddSingleton<IHostedSessionCommandCoordinator, PostgresHostedSessionCommandCoordinator>();
+        services.AddSingleton<IHostedSessionExpirySweep, PostgresHostedSessionExpirySweep>();
         services.AddHealthChecks()
             .AddCheck<SessionsStoreReadinessCheck>("sessions-store", tags: ["ready"]);
     }

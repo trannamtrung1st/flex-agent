@@ -211,7 +211,36 @@ public sealed record SessionStartCommitRequest(
     Guid ManifestId,
     SubmissionParentScope Scope,
     IReadOnlyList<AttemptSubmissionBinding> SubmissionBindings,
-    DateTimeOffset StartedAtUtc);
+    DateTimeOffset StartedAtUtc,
+    string FrozenTimingDocument = "");
+
+public interface IFrozenAttemptTimingCapture
+{
+    Task<string> CaptureAsync(
+        Guid organizationId,
+        Guid enrollmentId,
+        Guid activityId,
+        Guid cohortId,
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class UnavailableFrozenAttemptTimingCapture : IFrozenAttemptTimingCapture
+{
+    public static UnavailableFrozenAttemptTimingCapture Instance { get; } = new();
+
+    public Task<string> CaptureAsync(
+        Guid organizationId,
+        Guid enrollmentId,
+        Guid activityId,
+        Guid cohortId,
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken = default)
+    {
+        _ = (organizationId, enrollmentId, activityId, cohortId, asOfUtc, cancellationToken);
+        return Task.FromResult("""{"reconstruction":"unavailable","budget_seconds":null,"warnings":[]}""");
+    }
+}
 
 public sealed record SessionStartCommitResult(
     bool Succeeded,

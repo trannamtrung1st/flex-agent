@@ -134,6 +134,8 @@ describe("hosted Session pages", () => {
     expect(screen.getByText("Demo Participant")).toBeVisible();
     expect(document.querySelectorAll(".stage-bars span")).toHaveLength(2);
     expect(document.querySelector(".turn")).toHaveClass("is-active");
+    expect(screen.getByLabelText("Session turns")).toHaveClass("ledger");
+    expect(screen.queryByRole("region", { name: "Console feed" })).toBeNull();
   });
 
   it("conceals a denied Session without offering the composer", async () => {
@@ -251,7 +253,7 @@ describe("hosted Session pages", () => {
     const fetchMock = stubFetch((url, init) => {
       if (url.includes("/commands")) {
         commandCalls += 1;
-        const body = JSON.parse(String(init?.body));
+        const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}");
         if (commandCalls === 1) {
           expect(body.expected_session_version).toBe(2);
           return jsonResponse({
@@ -347,7 +349,10 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}/transcript`, <ProductionSessionTranscriptPage />);
 
     expect(await screen.findByText("Hello examiner")).toBeVisible();
-    expect(screen.getByLabelText("Historical transcript")).toBeVisible();
+    const ledger = screen.getByLabelText("Historical transcript");
+    expect(ledger).toBeVisible();
+    expect(ledger).toHaveClass("ledger");
+    expect(ledger.querySelector(".turn.turn--participant")).toHaveTextContent("Participant");
     expect(screen.queryByRole("button", { name: "Transmit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
   });
@@ -356,7 +361,7 @@ describe("hosted Session pages", () => {
     let expired = false;
     const fetchMock = stubFetch((url, init) => {
       if (url.includes("/commands")) {
-        const body = JSON.parse(String(init?.body));
+        const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}");
         expect(body.command_type).toBe("session.reconcile.v1");
         expired = true;
         return jsonResponse({

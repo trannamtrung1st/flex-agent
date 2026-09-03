@@ -13,6 +13,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_actor_relationships",
         "session_initial_manifests",
         "session_resolved_configurations",
+        "session_frozen_timing",
         "session_runtimes",
         "session_events",
         "session_turns",

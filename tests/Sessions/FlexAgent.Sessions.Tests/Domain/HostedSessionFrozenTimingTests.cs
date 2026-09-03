@@ -177,4 +177,45 @@ public sealed class HostedSessionFrozenTimingTests
         Assert.Contains(policy.WarningSchedule, item => item.Code == "approaching" && item.RemainingSecondsThreshold == 900);
         Assert.Contains(policy.WarningSchedule, item => item.Code == "imminent" && item.RemainingSecondsThreshold == 300);
     }
+
+    [Fact]
+    public void Frozen_document_round_trip_keeps_effective_budget_and_configured_warnings()
+    {
+        var captured = HostedSessionFrozenTiming.Compose(
+            """
+            {
+              "fairness_domains": [
+                {
+                  "domain_key": "timing",
+                  "effective_value": {
+                    "per_attempt_duration_seconds": "3600",
+                    "warning_approaching_remaining_seconds": "900",
+                    "warning_imminent_remaining_seconds": "300"
+                  }
+                }
+              ]
+            }
+            """,
+            5400,
+            applyEffectiveDuration: true);
+
+        var reloaded = HostedSessionFrozenTiming.FromDocumentJson(
+            HostedSessionFrozenTiming.ToDocumentJson(captured));
+
+        Assert.Equal(HostedTimingReconstruction.Timed, reloaded.Reconstruction);
+        Assert.Equal(5400, reloaded.BudgetSeconds);
+        Assert.Contains(reloaded.WarningSchedule, item => item.Code == "approaching" && item.RemainingSecondsThreshold == 900);
+        Assert.Contains(reloaded.WarningSchedule, item => item.Code == "imminent" && item.RemainingSecondsThreshold == 300);
+    }
+
+    [Fact]
+    public void Missing_frozen_document_is_unavailable()
+    {
+        Assert.Equal(
+            HostedTimingReconstruction.Unavailable,
+            HostedSessionFrozenTiming.FromDocumentJson(null).Reconstruction);
+        Assert.Equal(
+            HostedTimingReconstruction.Unavailable,
+            HostedSessionFrozenTiming.FromDocumentJson("{").Reconstruction);
+    }
 }

@@ -10,6 +10,7 @@ public sealed class WorkerBackgroundService(
     IRecoverableAuthorityGate authorityGate,
     IDurableInvocationWorkProcessor workProcessor,
     IDurableTimerFireProcessor timerFireProcessor,
+    IHostedSessionExpirySweep expirySweep,
     IDurableWorkBacklogSampler backlogSampler) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -67,6 +68,19 @@ public sealed class WorkerBackgroundService(
                     catch (Exception exception)
                     {
                         logger.LogError(exception, "Durable timer-fire processing failed.");
+                    }
+
+                    try
+                    {
+                        await expirySweep.ExpireDueAsync(stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "Hosted Session expiry sweep failed.");
                     }
                 }
 

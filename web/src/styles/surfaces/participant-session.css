@@ -1,5 +1,7 @@
 html[data-surface="participant-session"] {
   --key-quiet-padding-inline: 18px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Flex Agent — Participant examination session
    World: Shipboard Terminal (seed 8066189d)
@@ -325,6 +327,8 @@ html[data-surface="participant-session"] {
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   scroll-padding-block: 12px 20px;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--hairline) color-mix(in srgb, var(--ground) 82%, var(--hairline-dim));
   padding: 0;
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -791,7 +795,6 @@ html[data-surface="participant-session"] {
   }
 }
 
-}
 @keyframes live1-wander {
   0%, 100% { transform: translate(6px, -4px); }
   40% { transform: translate(-8px, 5px); }

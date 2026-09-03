@@ -140,18 +140,31 @@ public sealed record ActivationBaselineDocument(
                 ? FairnessClassifications.Derived
                 : FairnessClassifications.ActivitySupplied));
 
+        var timingValues = new Dictionary<string, string>
+        {
+            ["starts_at"] = content.Timing.StartsAtUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
+            ["ends_at"] = content.Timing.EndsAtUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
+            ["deadline_at"] = content.Timing.DeadlineUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
+            ["time_zone_id"] = content.Timing.TimeZoneId,
+            ["attempt_limit"] = content.Timing.AttemptLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["per_attempt_duration_seconds"] = content.Timing.PerAttemptDurationSeconds?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ?? "unbounded",
+        };
+        if (content.Timing.WarningApproachingRemainingSeconds is > 0)
+        {
+            timingValues["warning_approaching_remaining_seconds"] =
+                content.Timing.WarningApproachingRemainingSeconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (content.Timing.WarningImminentRemainingSeconds is > 0)
+        {
+            timingValues["warning_imminent_remaining_seconds"] =
+                content.Timing.WarningImminentRemainingSeconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         domains.Add(new FairnessDomainValue(
             AssessmentSourceCategories.Timing,
-            new Dictionary<string, string>
-            {
-                ["starts_at"] = content.Timing.StartsAtUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
-                ["ends_at"] = content.Timing.EndsAtUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
-                ["deadline_at"] = content.Timing.DeadlineUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
-                ["time_zone_id"] = content.Timing.TimeZoneId,
-                ["attempt_limit"] = content.Timing.AttemptLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["per_attempt_duration_seconds"] = content.Timing.PerAttemptDurationSeconds?.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    ?? "unbounded",
-            },
+            timingValues,
             FairnessClassifications.CohortSupplied));
 
         var decisions = new List<ResolutionDecision>
