@@ -535,7 +535,7 @@ public sealed class PostgresAcknowledgmentLifecyclePort(PostgresConnectionAccess
                     },
                     transaction,
                     cancellationToken: cancellationToken));
-            return AcknowledgmentSelection.CurrentBindable(listed.ToArray(), notices);
+            return AcknowledgmentSelection.CurrentExact(listed.ToArray(), notices);
         }
         finally
         {

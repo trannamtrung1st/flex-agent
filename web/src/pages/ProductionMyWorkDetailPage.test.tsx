@@ -686,6 +686,62 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(dialog).toHaveTextContent("Required acknowledgments recorded");
   });
 
+  it("does not re-POST an already recorded acknowledgment before start", async () => {
+    const acknowledgments: string[] = [];
+    const starts: string[] = [];
+    stubAuthenticatedFetch((url, init) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/attempt/acknowledgments") && init?.method === "POST") {
+        acknowledgments.push(typeof init.body === "string" ? init.body : "posted");
+        return jsonResponse({ schema_version: "v2", succeeded: true, outcome_code: "acknowledgment.recorded" });
+      }
+      if (url.includes("/attempt/start") && init?.method === "POST") {
+        starts.push("start");
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: false,
+          outcome_code: "attempt.ineligible",
+          remaining_entitlement: 1,
+          permitted_actions: ["return_to_my_work"],
+        });
+      }
+      if (url.includes("/attempt")) {
+        return jsonResponse(attemptPayload({
+          required_notices: [
+            {
+              notice_id: "notice-1",
+              notice_type: "instructions",
+              required_outcome: "affirmed",
+              protected_content_ref: "notice:1",
+              source_version_id: "src-v-1",
+              content_digest: "a".repeat(64),
+              source_id: "src-1",
+              current_outcome: "affirmed",
+            },
+          ],
+        }));
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({ permitted_actions: [] }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: /Attempt —/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Attempt" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Start this Attempt?" })).getByRole("button", { name: "Start Attempt 1" }));
+    await waitFor(() => {
+      expect(starts).toHaveLength(1);
+    });
+    expect(acknowledgments).toHaveLength(0);
+  });
+
   it("recovers from uncertain acknowledgment without occupying start", async () => {
     const ackKeys: string[] = [];
     stubAuthenticatedFetch((url, init) => {

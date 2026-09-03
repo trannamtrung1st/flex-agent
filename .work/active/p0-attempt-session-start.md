@@ -371,7 +371,12 @@ Review of `602dadb` requested one more pass: restore honest Session-locator
 copy (Continue does not claim a hosted Session) and project
 `current_outcome` on readiness notices so recorded acknowledgments survive
 reload. Acknowledgment idempotency keys are now `notice_id:source_version_id`.
-Do not retire this file until that follow-up is reviewed.
+Review of `2bc7a1c` required skipping acknowledgment POSTs when readiness
+already reports an exact affirmed `current_outcome`, projecting the latest
+exact-version outcome (including declined/withdrawn) separately from start-time
+`CurrentBindable`, and not treating a shared-admission window-boundary flake as
+an Attempt-start regression. Do not retire until that follow-up is reviewed
+and Implementation is green.
 
 Successor/operational only: hosted live Session, Production qualified model
 selection, Worker in Compose.
@@ -491,10 +496,10 @@ the plan.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Focused Submissions domain/application tests | passed | AttemptStartCoordinatorTests + mapping port previously green; included in full .NET 1812 |
+| Focused Submissions domain/application tests | passed | AttemptStartCoordinatorTests 14/14 including declined `current_outcome` vs start-time `CurrentBindable` |
 | PostgreSQL migration/integration/fault tests | passed | 2026-09-02: AttemptStartPersistenceTests 7 (includes registered digest drift). Notice list count mismatch fail-closed. Parser digest-before-empty. Mapping persistence 2. Full Postgres.Integration in verify-dotnet. |
 | Runtime HTTP negative-contract tests | passed | Included in `CI=true bash build/scripts/verify-dotnet.sh` |
-| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 13/13 including honest Session-locator copy and hydration from `current_outcome` |
+| Web unit/component tests | passed | `ProductionMyWorkDetailPage.test.tsx` 14/14 including skip of acknowledgment POST when `current_outcome` is already affirmed |
 | `pnpm verify:web` | passed | `bash build/scripts/verify-web.sh` exit 0 |
 | Proportionate `.NET` solution/build/test gates | passed | `CI=true bash build/scripts/verify-dotnet.sh` exit 0; 1812 succeeded, 3 skipped. Worker Dockerfile COPY for AssessmentConfiguration + Submissions. Artifact lock NU1004 fixed. |
 | `pnpm compose:status` and authenticated Playwright MCP | passed (partial) | Candidate `:5274` + `demo.participant` on seeded Q3: **Attempt in progress**, history **Attempt 1 active. Consumed.** above **Continue Attempt** at desktop 1280 and scrolled narrow 390. Start dialog / retry / uncertain-ack not live (active conflict). |
@@ -503,10 +508,11 @@ the plan.
 
 # Blockers
 
-None for Development start on a seeded Compose stack. Do not treat hosted live
-Session, confirmation-dialog facts, or Production qualified model identity as
-done. The versioned notice projection and transactional exact-version reader
-are implemented prerequisites, not remaining blockers.
+None for Development start on a seeded Compose stack. Confirmation-dialog
+facts are implemented. Do not treat hosted live Session or Production
+qualified model identity as done. The versioned notice projection and
+transactional exact-version reader are implemented prerequisites, not
+remaining blockers.
 
 # Readiness review
 

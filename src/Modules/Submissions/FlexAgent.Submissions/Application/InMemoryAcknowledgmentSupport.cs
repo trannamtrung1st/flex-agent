@@ -95,7 +95,7 @@ public sealed class InMemoryAcknowledgmentLifecyclePort : IAcknowledgmentLifecyc
                 && item.Record.ParticipantActorId == participantActorId)
             .Select(item => item.Record)
             .ToArray();
-        return Task.FromResult(AcknowledgmentSelection.CurrentBindable(scoped, notices));
+        return Task.FromResult(AcknowledgmentSelection.CurrentExact(scoped, notices));
     }
 
     public Task<string?> BindToAttemptAsync(

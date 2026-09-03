@@ -420,6 +420,43 @@ public sealed class AttemptStartCoordinatorTests
     }
 
     [Fact]
+    public async Task Readiness_projects_latest_declined_acknowledgment_outcome()
+    {
+        var notice = new RequiredNoticeProjection(
+            Guid.CreateVersion7(),
+            "instructions",
+            "affirmed",
+            "notice:1",
+            Guid.CreateVersion7(),
+            Digest,
+            Guid.CreateVersion7());
+        var acknowledgments = new InMemoryAcknowledgmentLifecyclePort();
+        var harness = await CreateHarnessAsync(
+            notices: new FixedNoticePort(notice),
+            acknowledgments: acknowledgments);
+        await acknowledgments.RecordAsync(
+            new AcknowledgeAttemptNoticeCommand(
+                ParticipantContext(),
+                EnrollmentId,
+                notice.NoticeId,
+                notice.SourceVersionId,
+                "declined",
+                "ack-key-declined",
+                "digest"),
+            notice,
+            new object(),
+            TestContext.Current.CancellationToken);
+
+        var readiness = await harness.Coordinator.GetAsync(
+            ParticipantContext(),
+            EnrollmentId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("declined", Assert.Single(readiness.Value!.RequiredNotices).CurrentOutcome);
+        Assert.Empty(AcknowledgmentSelection.CurrentBindable(acknowledgments.Items.Select(item => item.Record).ToArray(), [notice]));
+    }
+
+    [Fact]
     public async Task Unavailable_session_commit_gate_is_visible_in_readiness()
     {
         var harness = await CreateHarnessAsync();

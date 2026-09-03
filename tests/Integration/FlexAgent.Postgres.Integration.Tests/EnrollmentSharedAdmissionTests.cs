@@ -14,6 +14,7 @@ public sealed class EnrollmentSharedAdmissionTests(PostgresIntegrationFixture fi
     [Fact]
     public async Task Two_port_instances_share_one_actor_organization_surface_budget()
     {
+        await WaitUntilAwayFromAdmissionWindowBoundaryAsync();
         var organizationId = Guid.CreateVersion7();
         var actorId = Guid.CreateVersion7();
         var first = CreatePort();
@@ -373,6 +374,21 @@ public sealed class EnrollmentSharedAdmissionTests(PostgresIntegrationFixture fi
 
         Assert.True(
             EnrollmentLatencyObjectives.Percentile(samples, 95) < EnrollmentLatencyObjectives.MutationP95);
+    }
+
+    private async Task WaitUntilAwayFromAdmissionWindowBoundaryAsync()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var epoch = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                "SELECT FLOOR(EXTRACT(EPOCH FROM CLOCK_TIMESTAMP() AT TIME ZONE 'utc'))::bigint",
+                cancellationToken: CancellationToken));
+        var remaining = EnrollmentRequestLimitDefaults.WindowSeconds
+            - (int)(epoch % EnrollmentRequestLimitDefaults.WindowSeconds);
+        if (remaining < 3)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(remaining) + TimeSpan.FromMilliseconds(150), CancellationToken);
+        }
     }
 
     private PostgresEnrollmentSharedAdmissionPort CreatePort(EnrollmentSharedAdmissionSettings? settings = null) =>

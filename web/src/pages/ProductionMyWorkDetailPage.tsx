@@ -349,6 +349,9 @@ export function ProductionMyWorkDetailPage() {
   async function persistRequiredAcknowledgments(): Promise<boolean> {
     if (!attempt) return false;
     for (const notice of attempt.required_notices) {
+      if (notice.current_outcome === notice.required_outcome || recordedByNotice[notice.notice_id]) {
+        continue;
+      }
       const keyId = `${notice.notice_id}:${notice.source_version_id}`;
       const key = ackKeysRef.current[keyId] ?? createSubmissionIdempotencyKey();
       ackKeysRef.current[keyId] = key;
