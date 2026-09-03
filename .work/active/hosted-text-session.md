@@ -426,8 +426,9 @@ authorized by this plan because approved families and donors already exist.
   due-scan; deterministic command correlation; fix Web lint without
   suppressions; remove stale 45-minute decision text.
 - [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
-  `docs/current-state.md` is not updated in this slice; promote only after
-  those reviews. Keep this file until review and durable-truth promotion.
+  `docs/current-state.md` partially corrected in `fb71087`; full promotion only
+  after reviews and completion checklist. Keep this file until durable-truth
+  promotion and retirement.
 
 # Current state
 
@@ -529,6 +530,33 @@ from `d366171`; current-state corrected. Live rebuilt API/Worker + migration
 `0069` / server-owned expiry verification **still not done** in tracked evidence.
 Do not retire until QA/behavior matrix and distinct reviews complete.
 
+2026-09-03 review of `fb71087` (**approve** — keep `in-progress`): corrective
+commit closes process P1 from `b24f67c`. Documentation **`33756971896`** and
+Implementation **`33756971882`** green (docs/task-only; implementation jobs
+skipped correctly). Full code-bearing gate remains **`33754337758`** on
+`b24f67c`. Task file, `in-progress` status, unchecked completion, pending
+specialist reviews, and live expiry gap restored; unsupported current-state
+claims removed. **P2 housekeeping:** reconcile stale historical notes below
+against present-state summary. Proceed with remaining closure work; do not
+re-open core timing unless a concrete failure appears.
+
+## Present implementation (authoritative)
+
+- **Landed:** authenticated snapshot/command/events host; versioned hosted SSE;
+  production `/sessions/:sessionId` live-session (Participant),
+  `/operations`, `/transcript`; `/v1/sessions` gateway route;
+  authenticated-browser Worker (Development `deterministic_fake` only);
+  frozen timing at Attempt start (`0069`); `IHostedSessionExpirySweep` on Worker
+  loop; `LiveSessionLayout` / `StageBars` production donors.
+- **CI closed:** core timing + fixes on **`888eb91`** / **`33743544924`**; fixture
+  hard-end on **`b24f67c`** / **`33754337758`** (`DefaultHardEndAtUtc` →
+  `2099-12-31`).
+- **Still open (tracked):** live Compose API/Worker rebuild + recorded
+  server-owned expiry sweep proof; warning emission/history; multi-tab/device;
+  offline/reconnect; terminate/abort live; forced-colors/400%; distinct
+  backend/frontend/security-privacy/QA reviews; completion checklist;
+  durable current-state promotion; then mark `completed` and retire.
+
 2026-09-03 review of `ed47065` (keep `in-progress`): approve docs/task-state
 update recording timing + CI closure. Corrected: restored live API/Worker +
 `0069` expiry verification in remaining summary; fixed stale HEAD reference in
@@ -544,9 +572,9 @@ licenses, SBOM + grype, Gitleaks clean), OCI/OIDC smoke. Commit chain:
 `SessionPersistenceFixtures.InsertActiveAsync`; `5ed60c7` task-state only.
 No new P0/P1 timing regression. Proceed with remaining hosted-session QA/
 behavior closure; do not iterate core timing unless a concrete failure appears.
-**P2 deferred:** `DefaultHardEndAtUtc` uses `2026-12-31` (expires after that
-date); prefer distant deterministic boundary (e.g. 2099) or hard end relative to
-session start. Fixture auto-seed keeps unavailable-timing tests on
+~~**P2 deferred:** `DefaultHardEndAtUtc` uses `2026-12-31`~~ **Closed in
+`b24f67c`:** `2099-12-31` (was deferred at this review). Fixture auto-seed keeps
+unavailable-timing tests on
 `repository.InsertActiveAsync` or `seedDefaultFrozenTiming: false`
 (`HostedSessionTimingFairnessTests` unchanged).
 
@@ -688,18 +716,18 @@ to be the same authoritative Session string.
   `reason_code` was discarded (`_ = terminateReasonCode`); HTTP
   `TryReadEnvelope` was not equivalent to the closed command schema. Web CI
   failed on `set-state-in-effect` in Session chrono, transcript reveal, and
-  completing-seal. Task remains in-progress.
-- The missing boundary is transport and composition, not product meaning:
-  command variants, runtime state, Postgres coordinators, Worker processing,
-  and SSE replay exist, while the production snapshot/command host and SPA are
-  absent.
-- Current production SSE projects only Agent fragments and Agent completion.
-  It cannot by itself restore lifecycle, timing, Participant messages,
-  no-action, warning, or terminal state required by the approved Session UI.
-- The current production Session route is intentionally assigned to the
-  management shell and displays an unavailable ceremony. Activation must
-  establish the approved `live-session` production family before the route is
-  considered implemented.
+  completing-seal. **Remediated** in subsequent slices; see Present
+  implementation above.
+- **Historical (pre-land activation):** the missing boundary was transport and
+  composition, not product meaning — command variants, runtime state, Postgres
+  coordinators, Worker processing, and SSE replay existed while the production
+  snapshot/command host and SPA were absent. **Present:** host, hosted events,
+  live-session SPA, gateway route, and compose Worker are landed.
+- **Historical:** legacy production SSE projected only Agent fragments/completion.
+  **Present:** hosted events plus snapshot carry lifecycle, timing, and terminal
+  deltas required by the approved Session UI (legacy stream regression-protected).
+- **Historical:** Session route used management shell unavailable ceremony.
+  **Present:** approved `live-session` family on `/sessions/:sessionId`.
 - The Design Lab Session reducer and fixtures are simulation evidence only.
   Production state must be derived from the canonical snapshot, stable command
   outcomes, and authorized committed events.
@@ -761,13 +789,14 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | --- | --- | --- |
 | Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke (applied `0069`; Worker OCI built; expiry sweep not exercised). Follow-up docs-only runs **`33743559578`** (`5ed60c7`) and **`33748755541`** (`ed47065`) skipped implementation jobs correctly. |
 | Full Implementation CI on fixture hard-end (`b24f67c`) | complete | 2026-09-03: run **`33754337758`** green — changes, dotnet, web, oidc, supply-chain, oci-oidc-smoke (migration `0069` applied; Worker OCI built; expiry sweep not exercised). Documentation **`33754337878`** green. Does not satisfy live Compose expiry proof gap. |
+| Corrective retirement revert (`fb71087`) | complete | 2026-09-03: **approve** — restores task + accurate gaps. Documentation **`33756971896`**; Implementation **`33756971882`** (changes only; code jobs skipped). Full code gate unchanged (`b24f67c` / **`33754337758`**). |
+| Existing contract/runtime/host/frontend seam inventory | complete (present state) | **Landed:** command envelope + schema; snapshot/command host; versioned hosted SSE; production Session pages (`/sessions/:sessionId`, operations, transcript); `/v1/sessions` gateway; authenticated-browser Worker. Legacy unversioned SSE retained for regression. Design Lab donor adapted into production `LiveSessionLayout`. |
 | Review of `4ce0308` positive capture + env-gated preset | complete | Submissions timing tests; Runtime; web; superseded by `cd90e5d`/`888eb91` chain + full CI above. |
 | Review of `1126162` fail-closed + preset + Gitleaks fixes | confirmed prior pass | Sessions 531; HostedSessionTimingFairnessTests 5; gitleaks clean; Assessment HTTP negatives 24 passed. |
 | Review of `7de6983` P1 fixes (expiry pause sign, unbounded hard end, Activity warning contract) | confirmed for prior pass | 2026-09-03: Sessions 525; HostedSessionTimingFairnessTests 3; Runtime 336; AssessmentConfiguration 96; Postgres integration 384 — all passed. Demo baseline digest `1406e373…`. Activity HTTP create/read now carries explicit warning fields; seeds/fixtures author `900/300`. Unbounded + `HardEndAtUtc` projects hard-end boundary with warnings disabled. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Review-driven P1/P2 correctness (timing reconstruction, accommodations at start, warning fail-closed, UUID locator, transcript seed) | confirmed for prior pass | 2026-09-03 confirm: Sessions frozen-timing 8 after camelCase baseline parse; focused Sessions 48; web session 28. Live API rebuilt no-reseed. Participant Session `01a0654c-…ef4851` snapshot `timing.policy=unavailable`, remaining/budget null — cohort duration is 3600s with no frozen warning keys (`REQ-SESS-24`). Persist shape uses `fairnessDomains`/`domainKey`/`effectiveValue`. Expiry/warning-emission/multi-tab/offline/terminate-live/forced-colors/400% still open. |
 | Governing product/requirements/UI/architecture inventory | complete | Approved Text Session requirements v0.5, UI specification v1.0, runtime contract v0.5, design system v1.1, and current implementation seams rechecked 2026-09-03 |
 | Predecessor dependency and scope boundary | complete | Treated complete per implementation request; locator/Continue/notice/terminal sink consumed |
-| Existing contract/runtime/host/frontend seam inventory | complete for planning | 2026-09-03: command envelope C#/schema present; production SSE only; snapshot/command host, hosted event contract, production Session page, `/v1/sessions` gateway route, and authenticated-browser Worker service absent; Design Lab donor identified |
 | Requirement/AC-to-surface and risk mapping | complete for planning | Requirement-to-surface table in this task covers Participant, administrator, assigned Reviewer/historical actors, backend, frontend, security/privacy, operations, and QA boundaries |
 | `python3 scripts/check_docs.py` | complete | Passed 2026-09-03 after the state refresh; feature-catalog and documentation validation succeeded |
 | `git diff --check` | complete | Passed 2026-09-03 with no whitespace errors; direct trailing-whitespace scan of this tracked task file also passed |
