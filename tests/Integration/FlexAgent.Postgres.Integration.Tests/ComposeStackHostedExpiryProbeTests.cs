@@ -1,7 +1,5 @@
 using Dapper;
 using FlexAgent.Configuration;
-using FlexAgent.Configuration.Domain;
-using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -14,18 +12,18 @@ namespace FlexAgent.Postgres.Integration.Tests;
 /// <summary>
 /// Optional live probe against authenticated-browser Compose Postgres. Run via
 /// <c>build/scripts/probe-compose-hosted-expiry-sweep.sh</c> after API/Worker
-/// recreate. Uses the Compose Worker service actor and the same
-/// <see cref="PostgresHostedSessionExpirySweep"/> path the Worker loop invokes.
+/// recreate. Inserts a due Session and waits for the <em>running</em> Worker
+/// background loop to terminalize it; does not invoke
+/// <see cref="PostgresHostedSessionExpirySweep"/> from the test process.
 /// </summary>
 public sealed class ComposeStackHostedExpiryProbeTests
 {
     private const string ProbeEnabledVariable = "FLEXAGENT_COMPOSE_PROBE";
     private const string ProbeConnectionVariable = "FLEXAGENT_COMPOSE_PROBE_CONNECTION";
-    private static readonly Guid ComposeWorkerServiceActorId =
-        Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae");
+    private static readonly TimeSpan WorkerLoopWait = TimeSpan.FromSeconds(60);
 
     [Fact]
-    public async Task Compose_hosted_expiry_sweep_completes_due_active_session()
+    public async Task Compose_worker_loop_expiry_sweep_completes_due_active_session()
     {
         if (!string.Equals(
                 Environment.GetEnvironmentVariable(ProbeEnabledVariable),
@@ -42,11 +40,12 @@ public sealed class ComposeStackHostedExpiryProbeTests
         }
 
         var services = ConfigurationServiceCollection.Create(connectionString);
-        var organization = await SeedOrganizationAsync(services);
+        var probeContext = await ComposeProbeSubmissionSeed.SeedDueSessionAsync(
+            services,
+            TestContext.Current.CancellationToken);
         var repository = SessionPersistenceFixtures.RuntimeRepository();
-        var expiredBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var expiredStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
-        var expiredSession = SessionRuntime.CreateActive(expiredBinding, expiredStartedAt);
+        var expiredSession = SessionRuntime.CreateActive(probeContext.Binding, expiredStartedAt);
         var expiredHardEnd = DateTimeOffset.UtcNow.AddMinutes(-1);
         var expiredPolicy = new HostedFrozenTimingPolicy(
             HostedTimingReconstruction.Unbounded,
@@ -58,24 +57,24 @@ public sealed class ComposeStackHostedExpiryProbeTests
         {
             await SessionPersistenceFixtures.InsertActiveAsync(
                 repository,
-                expiredBinding.Ownership,
+                probeContext.Binding.Ownership,
                 expiredSession,
-                SessionPersistenceFixtures.Actor(organization.ActorId),
+                SessionPersistenceFixtures.Actor(probeContext.ParticipantActorId),
                 scope.Transaction,
                 TestContext.Current.CancellationToken,
                 frozenTiming: expiredPolicy,
                 seedDefaultFrozenTiming: false);
-            await BackdateSessionStartAsync(scope.Transaction, expiredBinding.Ownership, expiredStartedAt);
+            await BackdateSessionStartAsync(scope.Transaction, probeContext.Binding.Ownership, expiredStartedAt);
             await scope.CommitAsync(TestContext.Current.CancellationToken);
         }
 
-        var sweep = CreateComposeExpirySweep(services, repository);
-        var expiredCount = await sweep.ExpireDueAsync(TestContext.Current.CancellationToken);
-        Assert.True(expiredCount >= 1);
-
-        await using (var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken))
+        var deadline = DateTimeOffset.UtcNow.Add(WorkerLoopWait);
+        string lifecycle = "active";
+        while (DateTimeOffset.UtcNow < deadline)
         {
-            var lifecycle = await connection.QuerySingleAsync<string>(
+            await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            await using var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken);
+            lifecycle = await connection.QuerySingleAsync<string>(
                 """
                 SELECT lifecycle_state
                 FROM session_runtimes
@@ -84,11 +83,19 @@ public sealed class ComposeStackHostedExpiryProbeTests
                 """,
                 new
                 {
-                    expiredBinding.Ownership.OrganizationId,
-                    expiredBinding.Ownership.SessionId,
+                    probeContext.Binding.Ownership.OrganizationId,
+                    probeContext.Binding.Ownership.SessionId,
                 });
-            Assert.Equal("completed", lifecycle);
+            if (string.Equals(lifecycle, "completed", StringComparison.Ordinal))
+            {
+                break;
+            }
+        }
 
+        Assert.Equal("completed", lifecycle);
+
+        await using (var connection = await services.ConnectionAccessor.OpenConnectionAsync(TestContext.Current.CancellationToken))
+        {
             var terminalReason = await connection.QuerySingleOrDefaultAsync<string?>(
                 """
                 SELECT reason_category
@@ -100,64 +107,25 @@ public sealed class ComposeStackHostedExpiryProbeTests
                 """,
                 new
                 {
-                    expiredBinding.Ownership.OrganizationId,
-                    expiredBinding.Ownership.SessionId,
+                    probeContext.Binding.Ownership.OrganizationId,
+                    probeContext.Binding.Ownership.SessionId,
                 });
             Assert.Equal(TerminalReasonCategories.TimeExpiry, terminalReason);
+
+            var attemptStatus = await connection.QuerySingleAsync<string>(
+                """
+                SELECT status
+                FROM submissions_attempts
+                WHERE organization_id = @OrganizationId
+                  AND attempt_id = @AttemptId
+                """,
+                new
+                {
+                    probeContext.Binding.Ownership.OrganizationId,
+                    probeContext.Binding.Ownership.AttemptId,
+                });
+            Assert.Equal("completed", attemptStatus);
         }
-    }
-
-    private static PostgresHostedSessionExpirySweep CreateComposeExpirySweep(
-        ConfigurationServiceCollection.ServiceBundle services,
-        PostgresSessionRuntimeRepository repository) =>
-        new(
-            services.ConnectionAccessor,
-            new PostgresTrustedSessionBindingSource(services.ConnectionAccessor),
-            repository,
-            new PostgresHostedFrozenTimingDocumentSource(services.ConnectionAccessor),
-            new PostgresSessionLifecycleCoordinator(
-                services.ConnectionAccessor,
-                repository,
-                new ChangeSessionLifecycleHandler()),
-            new HostedSessionExpirySettings(
-                new TrustedRuntimeActor(ComposeWorkerServiceActorId, "worker.session_runtime"),
-                HostedSessionExpiryChannels.Service));
-
-    private static async Task<SeededOrganization> SeedOrganizationAsync(ConfigurationServiceCollection.ServiceBundle services)
-    {
-        var organizationId = Guid.NewGuid();
-        var actorId = Guid.NewGuid();
-        var sourceId = Guid.NewGuid();
-        var now = DateTimeOffset.UtcNow;
-
-        await using var connection = await services.ConnectionAccessor.OpenConnectionAsync();
-        await connection.ExecuteAsync(
-            """
-            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
-            INSERT INTO actors (id, created_at) VALUES (@ActorId, @CreatedAt);
-            INSERT INTO actor_organization_grants (
-                organization_id, actor_id, relationship_version, granted_action, created_at)
-            VALUES (
-                @OrganizationId, @ActorId, 1, @GrantedAction, @CreatedAt);
-            INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
-            VALUES (@SourceId, @OrganizationId, @SourceKind, @CreatedAt);
-            """,
-            new
-            {
-                OrganizationId = organizationId,
-                ActorId = actorId,
-                GrantedAction = AuthorizationActions.RegisterConfigurationSourceVersion,
-                SourceId = sourceId,
-                SourceKind = ConfigurationSourceKinds.SyntheticV1,
-                CreatedAt = now,
-            });
-
-        return new SeededOrganization(
-            organizationId,
-            actorId,
-            sourceId,
-            new TrustedActor(actorId, "synthetic.compose_probe"),
-            new OrganizationScope(organizationId));
     }
 
     private static Task BackdateSessionStartAsync(

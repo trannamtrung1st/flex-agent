@@ -101,25 +101,25 @@ public sealed class PostgresHostedSessionExpirySweep(
             return false;
         }
 
-        await using var scope = await PostgresTransactionScope.BeginAsync(
+        long version;
+        await using (var readScope = await PostgresTransactionScope.BeginAsync(
             connectionAccessor,
             IsolationLevel.RepeatableRead,
-            cancellationToken);
-        try
+            cancellationToken))
         {
             var session = await runtimeRepository.LoadSnapshotAsync(
                 binding.Ownership,
                 binding,
-                scope.Transaction,
+                readScope.Transaction,
                 cancellationToken);
             if (session is null)
             {
-                await scope.RollbackAsync(cancellationToken);
+                await readScope.RollbackAsync(cancellationToken);
                 return false;
             }
 
-            var observedAt = await runtimeRepository.ReadAuthoritativeUtcAsync(scope.Transaction, cancellationToken);
-            var startedAt = await scope.Transaction.Connection!.QuerySingleAsync<DateTimeOffset>(
+            var observedAt = await runtimeRepository.ReadAuthoritativeUtcAsync(readScope.Transaction, cancellationToken);
+            var startedAt = await readScope.Transaction.Connection!.QuerySingleAsync<DateTimeOffset>(
                 new CommandDefinition(
                     """
                     SELECT created_at
@@ -132,9 +132,10 @@ public sealed class PostgresHostedSessionExpirySweep(
                         session.Ownership.OrganizationId,
                         session.Ownership.SessionId,
                     },
-                    scope.Transaction,
+                    readScope.Transaction,
                     cancellationToken: cancellationToken));
-            await scope.CommitAsync(cancellationToken);
+            await readScope.RollbackAsync(cancellationToken);
+
             var policy = await frozenTiming.LoadAsync(
                 session.Ownership.OrganizationId,
                 session.Ownership.SessionId,
@@ -154,42 +155,41 @@ public sealed class PostgresHostedSessionExpirySweep(
                 return false;
             }
 
-            var commandId = $"sessioncommand.expiry.{session.Ownership.SessionId:N}";
-            var version = session.SessionVersion;
-            foreach (var transition in new[]
-                     {
-                         SessionLifecycleTransitions.BeginCompleting,
-                         SessionLifecycleTransitions.Complete,
-                     })
-            {
-                var step = await lifecycle.ChangeAsync(
-                    new ChangeSessionLifecycleCommand(
-                        settings.ServiceActor,
-                        binding.Ownership,
-                        version,
-                        transition,
-                        HostedSessionCommandCorrelation.ForCommandId(commandId),
-                        settings.SourceChannel,
-                        transition == SessionLifecycleTransitions.Complete
-                            ? TerminalReasonCategories.TimeExpiry
-                            : null),
-                    binding,
-                    cancellationToken);
-                if (!step.Succeeded && step.OutcomeCode != SessionLifecycleOutcomeCodes.Reconciled)
-                {
-                    return false;
-                }
+            version = session.SessionVersion;
+        }
 
-                version = step.SessionVersion;
+        var commandId = $"sessioncommand.expiry.{binding.Ownership.SessionId:N}";
+        foreach (var transition in new[]
+                 {
+                     SessionLifecycleTransitions.BeginCompleting,
+                     SessionLifecycleTransitions.Complete,
+                 })
+        {
+            var step = await lifecycle.ChangeAsync(
+                new ChangeSessionLifecycleCommand(
+                    settings.ServiceActor,
+                    binding.Ownership,
+                    version,
+                    transition,
+                    HostedSessionCommandCorrelation.ForCommandId(
+                        transition == SessionLifecycleTransitions.Complete
+                            ? $"{commandId}.complete"
+                            : commandId),
+                    settings.SourceChannel,
+                    transition == SessionLifecycleTransitions.Complete
+                        ? TerminalReasonCategories.TimeExpiry
+                        : null),
+                binding,
+                cancellationToken);
+            if (!step.Succeeded && step.OutcomeCode != SessionLifecycleOutcomeCodes.Reconciled)
+            {
+                return false;
             }
 
-            return true;
+            version = step.SessionVersion;
         }
-        catch
-        {
-            await scope.RollbackAsync(cancellationToken);
-            throw;
-        }
+
+        return true;
     }
 
     private sealed class DueRow

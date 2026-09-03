@@ -39,7 +39,7 @@ PROBE_CONNECTION="Host=postgres;Port=5432;Username=flexagent;Password=flexagent_
 
 SDK_IMAGE="mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71"
 
-echo "==> Live Compose probe: PostgresHostedSessionExpirySweep with Worker service actor"
+echo "==> Live Compose probe: running Worker loop must expire inserted due Session (test does not call ExpireDueAsync)"
 docker run --rm \
   --network "${NETWORK}" \
   -v "${ROOT}:/workspace" -w /workspace \
