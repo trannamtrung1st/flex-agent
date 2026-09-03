@@ -330,7 +330,10 @@ describe("hosted Session pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Transmit" }));
 
     await waitFor(() => expect(commandCalls).toBe(2));
-    const commandPosts = fetchMock.mock.calls.filter(([url]) => String(url).includes("/commands"));
+    const commandPosts = fetchMock.mock.calls.filter(([url]) => {
+      const href = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+      return href.includes("/commands");
+    });
     expect(commandPosts).toHaveLength(2);
     expect(screen.queryByText("This conversation is still the same Session. Send again.")).toBeNull();
   });
@@ -409,6 +412,41 @@ describe("hosted Session pages", () => {
 
     fireEvent.change(screen.getByRole("textbox", { name: "Compose reply" }), { target: { value: "Follow up" } });
     expect(screen.getByRole("button", { name: "Transmit" })).toBeEnabled();
+  });
+
+  it("clears considering work when SSE reports intentional no_action", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          session_version: 3,
+          activity: { work_state: "working", turn_id: "turn.1" },
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByText("Considering your reply…")).toBeVisible();
+
+    MockEventSource.instances[0]?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.agent.no_action.v1",
+      session_id: sessionId,
+      session_sequence: "5",
+      session_version: 4,
+      occurred_at: new Date().toISOString(),
+      payload: {
+        summary: "No further Agent output.",
+        work_state: "no_action",
+        resolution_category: "no_action",
+        turn_id: "turn.1",
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Considering your reply…")).toBeNull();
+      expect(screen.getByText("The Agent recorded no further output for this turn.")).toBeVisible();
+    });
   });
 
   it("retries a stale-version send on the same Session after refreshing the snapshot", async () => {

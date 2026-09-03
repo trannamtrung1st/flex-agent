@@ -24,6 +24,9 @@ public static class HostedSessionPermittedActions
 public static class HostedSessionEventTypes
 {
     public const string LifecycleChanged = "session.hosted.lifecycle.changed.v1";
+    public const string MessageAccepted = "session.hosted.message.accepted.v1";
+    public const string AgentWork = "session.hosted.agent.work.v1";
+    public const string AgentNoAction = "session.hosted.agent.no_action.v1";
     public const string AgentFragment = "session.hosted.agent.fragment.v1";
     public const string AgentComplete = "session.hosted.agent.complete.v1";
     public const string Terminal = "session.hosted.terminal.v1";
@@ -353,6 +356,19 @@ public static class HostedSessionEventProjector
 {
     public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterSequence)
     {
+        ArgumentNullException.ThrowIfNull(session);
+
+        foreach (var message in session.AgentMessages)
+        {
+            if (message.IsTerminal && message.SealedSessionSequence is null)
+            {
+                return new AuthorizedSessionEventReplayResult(
+                    false,
+                    SessionEventReplayOutcomeCodes.Reconcile,
+                    []);
+            }
+        }
+
         var baseline = AuthorizedSessionEventProjector.Project(session, afterSequence);
         if (!baseline.Succeeded)
         {
@@ -360,6 +376,9 @@ public static class HostedSessionEventProjector
         }
 
         var events = new List<AuthorizedSessionProjectionEvent>();
+        var sessionId = session.Ownership.SessionId.ToString("D");
+        AppendCommittedHostedEvents(session, sessionId, afterSequence, events);
+
         foreach (var evt in baseline.Events)
         {
             var hostedType = evt.EventType switch
@@ -391,7 +410,7 @@ public static class HostedSessionEventProjector
         {
             events.Add(new AuthorizedSessionProjectionEvent(
                 HostedSessionEventTypes.Terminal,
-                session.Ownership.SessionId.ToString("D"),
+                sessionId,
                 cutoff.ToString(CultureInfo.InvariantCulture),
                 HostedSessionSnapshotProjector.FormatUtc(session.LastCommittedAt),
                 "Session reached a terminal cutoff.",
@@ -403,6 +422,230 @@ public static class HostedSessionEventProjector
         events.Sort(static (left, right) =>
             long.Parse(left.SessionSequence, CultureInfo.InvariantCulture)
                 .CompareTo(long.Parse(right.SessionSequence, CultureInfo.InvariantCulture)));
-        return baseline with { Events = events };
+
+        var pageSize = session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
+            * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
+        var hasMore = events.Count > pageSize;
+        if (hasMore)
+        {
+            events = events.Take(pageSize).ToList();
+        }
+
+        return baseline with { Events = events, HasMore = hasMore };
     }
+
+    public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, sequence))
+        {
+            return true;
+        }
+
+        foreach (var record in session.ManifestRuntimeRecords)
+        {
+            if (record.SessionSequence == sequence)
+            {
+                return true;
+            }
+        }
+
+        foreach (var invocation in session.Invocations)
+        {
+            if (invocation.SessionSequence == sequence)
+            {
+                return true;
+            }
+
+            if (invocation.ValidationEffect?.EffectCommitSessionSequence == sequence)
+            {
+                return true;
+            }
+        }
+
+        foreach (var turn in session.Turns)
+        {
+            if (turn.CreatedSessionSequence == sequence)
+            {
+                return true;
+            }
+        }
+
+        return session.CutoffSequence == sequence;
+    }
+
+    private static void AppendCommittedHostedEvents(
+        SessionRuntime session,
+        string sessionId,
+        long afterSequence,
+        List<AuthorizedSessionProjectionEvent> events)
+    {
+        foreach (var record in session.ManifestRuntimeRecords.OrderBy(record => record.SessionSequence))
+        {
+            if (record.SessionSequence <= afterSequence)
+            {
+                continue;
+            }
+
+            if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TranscriptAppendV1, StringComparison.Ordinal))
+            {
+                AppendParticipantMessageAccepted(session, sessionId, record, events);
+                continue;
+            }
+
+            if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.ModelInvocationV1, StringComparison.Ordinal)
+                && !record.PayloadRef.ProtectedRef.EndsWith(".outcome", StringComparison.Ordinal))
+            {
+                AppendQueuedWorkFromAdmission(session, sessionId, record, events);
+            }
+        }
+
+        foreach (var invocation in session.Invocations)
+        {
+            if (!IsParticipantInvocation(invocation.Trigger))
+            {
+                continue;
+            }
+
+            var stableTurnId = invocation.Trigger.TurnId is null
+                ? null
+                : HostedSessionSnapshotProjector.ToStableId(invocation.Trigger.TurnId, "turn");
+
+            if (string.Equals(invocation.Status, AgentInvocationStatuses.ExecutionFailed, StringComparison.Ordinal)
+                && invocation.SessionSequence > afterSequence)
+            {
+                events.Add(CreateAgentWorkEvent(
+                    session,
+                    sessionId,
+                    invocation.SessionSequence,
+                    "failed",
+                    stableTurnId,
+                    "execution_failure",
+                    "Agent work did not finish."));
+                continue;
+            }
+
+            if (invocation.ValidationEffect?.EffectCommitSessionSequence is not { } effectSequence
+                || effectSequence <= afterSequence)
+            {
+                continue;
+            }
+
+            if (IsIntentionalNoAction(invocation))
+            {
+                events.Add(new AuthorizedSessionProjectionEvent(
+                    HostedSessionEventTypes.AgentNoAction,
+                    sessionId,
+                    effectSequence.ToString(CultureInfo.InvariantCulture),
+                    HostedSessionSnapshotProjector.FormatUtc(session.LastCommittedAt),
+                    "Agent recorded no further output for this turn.",
+                    TurnId: stableTurnId,
+                    WorkState: "no_action",
+                    ResolutionCategory: "no_action",
+                    SessionVersion: session.SessionVersion));
+                continue;
+            }
+
+            if (invocation.ValidationEffect.EffectOutcome == DecisionEffectOutcomes.Applied
+                && !HasPublishedAgentMessage(session, invocation.AgentInvocationId))
+            {
+                events.Add(CreateAgentWorkEvent(
+                    session,
+                    sessionId,
+                    effectSequence,
+                    "working",
+                    stableTurnId,
+                    "message_stream",
+                    "Agent response in progress."));
+            }
+        }
+    }
+
+    private static void AppendParticipantMessageAccepted(
+        SessionRuntime session,
+        string sessionId,
+        ManifestRuntimeRecord record,
+        List<AuthorizedSessionProjectionEvent> events)
+    {
+        var messageId = record.PayloadRef.ProtectedRef;
+        var transcriptItem = session.VisibleTranscript.FirstOrDefault(item =>
+            string.Equals(item.MessageId, messageId, StringComparison.Ordinal));
+        if (transcriptItem is null
+            || !string.Equals(transcriptItem.AuthorType, TranscriptAuthorTypes.Participant, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        events.Add(new AuthorizedSessionProjectionEvent(
+            HostedSessionEventTypes.MessageAccepted,
+            sessionId,
+            record.SessionSequence.ToString(CultureInfo.InvariantCulture),
+            HostedSessionSnapshotProjector.FormatUtc(record.OccurredAt),
+            "Participant message accepted.",
+            TurnId: string.IsNullOrWhiteSpace(transcriptItem.TurnId)
+                ? null
+                : HostedSessionSnapshotProjector.ToStableId(transcriptItem.TurnId, "turn"),
+            MessageId: HostedSessionSnapshotProjector.ToStableId(messageId, "msg"),
+            SessionVersion: session.SessionVersion));
+    }
+
+    private static void AppendQueuedWorkFromAdmission(
+        SessionRuntime session,
+        string sessionId,
+        ManifestRuntimeRecord record,
+        List<AuthorizedSessionProjectionEvent> events)
+    {
+        var invocationId = record.PayloadRef.ProtectedRef;
+        var invocation = session.Invocations.FirstOrDefault(candidate =>
+            string.Equals(candidate.AgentInvocationId, invocationId, StringComparison.Ordinal));
+        if (invocation is null || !IsParticipantInvocation(invocation.Trigger))
+        {
+            return;
+        }
+
+        var stableTurnId = invocation.Trigger.TurnId is null
+            ? null
+            : HostedSessionSnapshotProjector.ToStableId(invocation.Trigger.TurnId, "turn");
+        events.Add(CreateAgentWorkEvent(
+            session,
+            sessionId,
+            record.SessionSequence,
+            "queued",
+            stableTurnId,
+            null,
+            "Agent work queued."));
+    }
+
+    private static AuthorizedSessionProjectionEvent CreateAgentWorkEvent(
+        SessionRuntime session,
+        string sessionId,
+        long sessionSequence,
+        string workState,
+        string? turnId,
+        string? resolutionCategory,
+        string summary) =>
+        new(
+            HostedSessionEventTypes.AgentWork,
+            sessionId,
+            sessionSequence.ToString(CultureInfo.InvariantCulture),
+            HostedSessionSnapshotProjector.FormatUtc(session.LastCommittedAt),
+            summary,
+            TurnId: turnId,
+            WorkState: workState,
+            ResolutionCategory: resolutionCategory,
+            SessionVersion: session.SessionVersion);
+
+    private static bool IsParticipantInvocation(TrustedTrigger trigger) =>
+        string.Equals(trigger.TriggerFamily, RuntimeTriggerIdentifiers.ParticipantInputFamily, StringComparison.Ordinal)
+        && string.Equals(trigger.TriggerType, RuntimeTriggerIdentifiers.ParticipantMessageType, StringComparison.Ordinal);
+
+    private static bool IsIntentionalNoAction(AgentInvocation invocation) =>
+        invocation.Decision is not null
+        && string.Equals(invocation.Decision.DecisionType, RuntimeDecisionTypes.NoAction, StringComparison.Ordinal)
+        && invocation.ValidationEffect is { EffectOutcome: DecisionEffectOutcomes.NoDomainEffect };
+
+    private static bool HasPublishedAgentMessage(SessionRuntime session, string invocationId) =>
+        session.AgentMessages.Any(message =>
+            string.Equals(message.DrivingInvocationId, invocationId, StringComparison.Ordinal)
+            && message.Fragments.Count > 0);
 }

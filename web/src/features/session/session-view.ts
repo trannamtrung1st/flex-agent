@@ -220,6 +220,17 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     };
   }
 
+  if (
+    (event.event_type === "session.hosted.agent.work.v1" || event.event_type === "session.hosted.agent.fragment.v1")
+    && event.payload.work_state
+  ) {
+    next.activity = {
+      work_state: event.payload.work_state,
+      turn_id: event.payload.turn_id ?? snapshot.activity?.turn_id,
+      resolution_category: event.payload.resolution_category,
+    };
+  }
+
   if (event.event_type === "session.hosted.agent.fragment.v1" && event.payload.text_delta) {
     next.activity = {
       work_state: event.payload.work_state ?? "working",

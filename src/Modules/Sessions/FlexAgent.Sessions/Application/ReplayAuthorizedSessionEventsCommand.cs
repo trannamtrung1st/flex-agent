@@ -57,7 +57,7 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         {
             result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
         }
-        else if (!AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, afterSequence))
+        else if (!IsIssuedStreamCursor(session, afterSequence, command.UseHostedProjection))
         {
             result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
         }
@@ -104,4 +104,9 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         useHostedProjection
             ? HostedSessionEventProjector.Project(session, afterSequence)
             : AuthorizedSessionEventProjector.Project(session, afterSequence);
+
+    private static bool IsIssuedStreamCursor(SessionRuntime session, long sequence, bool useHostedProjection) =>
+        useHostedProjection
+            ? HostedSessionEventProjector.IsIssuedStreamCursor(session, sequence)
+            : AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, sequence);
 }

@@ -317,14 +317,18 @@ authorized by this plan because approved families and donors already exist.
   admission and commit, antiforgery for browser mutations, body/rate limits,
   `no-store`, safe status categories, expected Session version, scoped
   idempotency, required audit/outbox, and non-  disclosing `404` denial.
-- [x] Realtime red/green: implement the authorized hosted Session event
-  projection and `/v1/sessions/{sessionId}/events` mapping only for committed
-  UI-relevant deltas missing from the snapshot contract. Preserve cursor
-  validation, bounded replay/paging, duplicate suppression, gap reconciliation,
-  application-session/relationship revalidation, and terminal cutoff. Keep the
-  current unversioned SSE route and v1 projection regression-green. Never stream
-  hidden prompts, raw Decision envelopes, provider diagnostics, internal timer
-  requests, or   another actor's content.
+- [>] Realtime red/green: extend the authorized hosted Session event
+  projection and `/v1/sessions/{sessionId}/events` mapping for committed
+  UI-relevant deltas missing from the snapshot contract. **Partial (2026-09-03):**
+  hosted replay now stamps authoritative `session_version` and emits
+  message accepted, agent queued/working, no-action, failure, and agent
+  fragment/complete/terminal events from manifest and invocation state.
+  Lifecycle pause/resume, timing/warning, access/reconcile, and full
+  multi-device/offline matrices remain open; SSE reconnect refetches snapshot
+  on recovery. Preserve cursor validation, bounded replay/paging, duplicate
+  suppression, gap reconciliation, application-session/relationship
+  revalidation, and terminal cutoff. Keep the current unversioned SSE route
+  and v1 projection regression-green.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
   browser Compose profile with the documented image, migration dependency,
   database connectivity, bounded workload identity/delegation, health/readiness,
@@ -516,11 +520,13 @@ next send reused a stale `expected_session_version` and hit
 `409 trigger.admission.stale.version`. **Fix:** pass
 `UseHostedProjection: true` on the `/v1/sessions/{id}/events` subscribe
 path so replay uses `HostedSessionEventProjector`, stamping authoritative
-`session_version` and `work_state`. Legacy `/sessions/{id}/events`
-compatibility route unchanged. Frontend merge now preserves SSE transcript
-items ahead of a refetched snapshot sequence. **Evidence:** Sessions 533;
-Runtime 338; `session-view` vitest 10; `ProductionTextSessionPage` vitest
-14 (repeated-turn + refresh-while-working + stale-version retry).
+`session_version` and `work_state`. Follow-up pass extends hosted replay for
+message accepted, agent queued/working/no-action/failure, hosted cursor
+validation, SSE reconnect snapshot refetch, and regression tests. Lifecycle
+pause/resume/warning/access SSE remains open. Legacy `/sessions/{id}/events`
+compatibility route unchanged. Frontend merge preserves SSE transcript items
+ahead of a refetched snapshot sequence. **Evidence:** Sessions 535; Runtime
+338; session-view vitest 12; `ProductionTextSessionPage` vitest 15.
 
 Live candidate `:5274` Attempt 2 Session `01a0654c-…ef4851` (pre-fix):
 first send accepted; immediate second send 409 then 200 retry; transcript
@@ -869,7 +875,8 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | Running-Worker Compose expiry loop (`92b43fb`) | complete (local env-gated) | 2026-09-03 confirm: `probe-compose-hosted-expiry-sweep.sh` end-to-end green — migrate, API/Worker recreate, nginx restart, fairness 5/5, worker-loop probe 1/1 (~3s). Session `01a067b2-b631-7832-9383-04f252532c58` → `completed`, terminal `time_expiry`, Attempt `completed`. Not exercised in CI. |
 | 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
 | 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
-| Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; `Hosted_replay_stamps_authoritative_session_version_and_work_state`; hosted runtime asserts non-zero `session_version`; frontend repeated-turn + refresh-while-working + merge-ahead tests. Sessions 533; Runtime 338; session vitest 24. Live `:5274` re-verify still open. Task remains `in-progress`. |
+| Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; regression tests for version, repeated turn, refresh-while-working, stale retry. Sessions/Runtime/web vitest green locally. Live `:5274` re-verify still open. |
+| Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-03: projector emits message accepted, agent queued/working/no-action/failure plus fragment/complete/terminal; hosted cursor validation extended; reconnect refetches snapshot. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
 
 # Blockers
 

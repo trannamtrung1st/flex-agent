@@ -1,3 +1,4 @@
+using System.Globalization;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Tests.Domain;
@@ -266,5 +267,63 @@ public sealed class HostedSessionProjectionTests
         Assert.All(
             replay.Events.Where(evt => evt.EventType.Contains("agent", StringComparison.Ordinal)),
             evt => Assert.StartsWith("session.hosted.", evt.EventType, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Hosted_replay_emits_message_accepted_queued_work_and_no_action()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
+
+        var replay = HostedSessionEventProjector.Project(session, afterSequence: 0);
+
+        Assert.Contains(replay.Events, evt => evt.EventType == HostedSessionEventTypes.MessageAccepted);
+        Assert.Contains(
+            replay.Events,
+            evt => evt.EventType == HostedSessionEventTypes.AgentWork && evt.WorkState == "queued");
+        var noAction = Assert.Single(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentNoAction);
+        Assert.Equal("no_action", noAction.WorkState);
+        Assert.Equal("no_action", noAction.ResolutionCategory);
+        Assert.True(noAction.SessionVersion > 0);
+    }
+
+    [Fact]
+    public void Hosted_replay_after_cursor_omits_resolved_no_action()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        Assert.True(session.CompleteInvocation(
+            admitted.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.NoAction(admitted.Invocation.AgentInvocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
+
+        var noActionSequence = long.Parse(
+            Assert.Single(
+                HostedSessionEventProjector.Project(session, afterSequence: 0).Events,
+                evt => evt.EventType == HostedSessionEventTypes.AgentNoAction).SessionSequence,
+            CultureInfo.InvariantCulture);
+        var replay = HostedSessionEventProjector.Project(session, afterSequence: noActionSequence);
+
+        Assert.DoesNotContain(replay.Events, evt => evt.EventType == HostedSessionEventTypes.AgentNoAction);
+        Assert.True(HostedSessionEventProjector.IsIssuedStreamCursor(session, noActionSequence));
     }
 }

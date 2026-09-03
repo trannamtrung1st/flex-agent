@@ -259,6 +259,54 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.session_version).toBe(5);
   });
 
+  it("clears considering work when agent.work reports no_action", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: { ...snapshot, activity: { work_state: "working", turn_id: "turn.1" } },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.no_action.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:00:04Z",
+        payload: {
+          summary: "No further Agent output.",
+          work_state: "no_action",
+          resolution_category: "no_action",
+          turn_id: "turn.1",
+        },
+      },
+    });
+    expect(next.snapshot?.activity?.work_state).toBe("no_action");
+  });
+
+  it("applies another tab participant message acceptance from hosted SSE", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.message.accepted.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "13",
+        session_version: 4,
+        occurred_at: "2026-09-03T00:00:02Z",
+        payload: {
+          summary: "Participant message accepted.",
+          message_id: "msg.other.tab",
+          turn_id: "turn.other",
+        },
+      },
+    });
+    expect(next.snapshot?.transcript?.items).toHaveLength(1);
+    expect(next.snapshot?.transcript?.items[0]?.item_id).toBe("msg.other.tab");
+    expect(next.snapshot?.last_confirmed_sequence).toBe("13");
+  });
+
   it("does not let a stale snapshot rewind Session version on the same Session", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
       type: "snapshot",

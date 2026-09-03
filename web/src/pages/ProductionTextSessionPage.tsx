@@ -86,15 +86,32 @@ export function ProductionTextSessionPage() {
     }
   }, [snapshotQuery.data]);
 
+  const refetchSnapshotRef = useRef(snapshotQuery.refetch);
+  refetchSnapshotRef.current = snapshotQuery.refetch;
+
   useEffect(() => {
     if (apiState !== "ready" || !sessionId) {
       return;
     }
 
+    let reconnectPending = false;
     const source = new EventSource(`/v1/sessions/${sessionId}/events`);
     dispatch({ type: "connection", connection: "connecting" });
-    source.onopen = () => dispatch({ type: "connection", connection: "connected" });
-    source.onerror = () => dispatch({ type: "connection", connection: "reconnecting" });
+    source.onopen = () => {
+      dispatch({ type: "connection", connection: "connected" });
+      if (reconnectPending) {
+        reconnectPending = false;
+        void refetchSnapshotRef.current().then((result) => {
+          if (result.data) {
+            dispatch({ type: "snapshot", snapshot: result.data });
+          }
+        });
+      }
+    };
+    source.onerror = () => {
+      reconnectPending = true;
+      dispatch({ type: "connection", connection: "reconnecting" });
+    };
     source.onmessage = (message: MessageEvent<string>) => {
       try {
         const event = JSON.parse(message.data) as SessionHostedEventEnvelopeV1;
