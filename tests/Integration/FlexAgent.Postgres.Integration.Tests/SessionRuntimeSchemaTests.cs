@@ -41,6 +41,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_invocation_provider_attempts",
         "session_manifest_refs",
         "session_manifest_runtime_records",
+        "session_warning_occurrences",
     ];
 
     [Fact]

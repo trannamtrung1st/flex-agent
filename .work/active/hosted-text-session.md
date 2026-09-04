@@ -1457,3 +1457,25 @@ remain.
 | `pnpm verify:web` | green (695 production, 212 design-lab, 11 Playwright) |
 | `scripts/check_docs.py` | passed |
 | `git diff --check` / IDE diagnostics | clean |
+
+# Durable warning external review and CI follow-up (2026-09-04)
+
+External review accepted `cb9842e` for REQ-SESS-24 and `74d6213` as
+conservative accounting. Implementation run `33893189697` was blocked only by
+the static Session-table inventory omitting migration `0070`'s
+`session_warning_occurrences`.
+
+**Fix:** added `session_warning_occurrences` to
+`SessionRuntimeSchemaTests.RequiredSessionTables`.
+
+| Gate | Result |
+| --- | --- |
+| `Session_runtime_tables_exist_with_session_prefix` | passed |
+| `build/scripts/verify-dotnet.sh` | green: 1,955 total; 1,951 passed; 4 skipped; 0 failed; API + Worker publish passed |
+| Final confirmation: `pnpm verify:web` | green: 695 production, 212 design-lab, 11 Playwright |
+| Final confirmation: `scripts/check_docs.py` / `git diff --check` | passed / clean |
+
+**Disposition:** Realtime lifecycle, timing/warnings, and access/reconcile are
+implemented. **Do not retire** — commit/push this schema-inventory fix, obtain a
+full green Implementation run on its SHA, complete multi-device/offline live
+QA, promote `docs/current-state.md`, then run completion review.
