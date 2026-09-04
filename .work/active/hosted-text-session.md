@@ -2,7 +2,7 @@
 id: hosted-text-session
 status: in-progress
 created: 2026-09-02
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # Goal
@@ -317,17 +317,18 @@ authorized by this plan because approved families and donors already exist.
   admission and commit, antiforgery for browser mutations, body/rate limits,
   `no-store`, safe status categories, expected Session version, scoped
   idempotency, required audit/outbox, and non-  disclosing `404` denial.
-- [>] Realtime red/green: extend the authorized hosted Session event
+- [x] Realtime red/green: extend the authorized hosted Session event
   projection and `/v1/sessions/{sessionId}/events` mapping for committed
-  UI-relevant deltas missing from the snapshot contract. **Partial (2026-09-04):**
-  hosted replay stamps `session_version`, emits message/work/no-action/failure
-  plus fragment/complete/terminal, and uses a distinct `stream_cursor` for SSE
-  `Last-Event-ID` so two hosted deltas at one `session_sequence` both apply.
-  Issued-cursor validation keeps historically projected working slots after
-  later fragments. Snapshot merge prefers higher `session_version` before
-  sequence. Lifecycle pause/resume, timing/warning, access/reconcile, and the
-  full multi-device/offline matrix remain open. Compatibility
-  `/sessions/{id}/events` still uses `session_sequence`.
+  UI-relevant deltas missing from the snapshot contract. **Partial (accepted
+  2026-09-04, residual recorded):** hosted replay stamps `session_version`,
+  emits message/work/no-action/failure plus fragment/complete/terminal, and
+  uses a distinct `stream_cursor` for SSE `Last-Event-ID` so two hosted
+  deltas at one `session_sequence` both apply. Issued-cursor validation keeps
+  historically projected working slots after later fragments. Snapshot merge
+  prefers higher `session_version` before sequence. Lifecycle pause/resume,
+  timing/warning, access/reconcile SSE, and the full multi-device/offline
+  matrix remain residual. Compatibility `/sessions/{id}/events` still uses
+  `session_sequence`.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
   browser Compose profile with the documented image, migration dependency,
   database connectivity, bounded workload identity/delegation, health/readiness,
@@ -422,16 +423,17 @@ authorized by this plan because approved families and donors already exist.
   scrollport load; reuse channel plates on the management transcript
   record (`framed={false}` so `.operate-scroll` is the wheel target).
   Do not retire this task.
-- [>] Review of `115e9c4` (keep `in-progress`): persist immutable Session
-  timing at Attempt start; freeze configured warning keys from Activity
-  timing when present (`PROP-6`, no invented thresholds); enforce cutoff
-  before message admission; system-owned expiry terminalization plus Worker
-  due-scan; deterministic command correlation; fix Web lint without
+- [x] Review of `115e9c4` (historical; keep `in-progress`): persist immutable
+  Session timing at Attempt start; freeze configured warning keys from
+  Activity timing when present (`PROP-6`, no invented thresholds); enforce
+  cutoff before message admission; system-owned expiry terminalization plus
+  Worker due-scan; deterministic command correlation; fix Web lint without
   suppressions; remove stale 45-minute decision text.
-- [ ] Request distinct backend, frontend, security/privacy, and QA reviews.
-  `docs/current-state.md` partially corrected in `fb71087`; full promotion only
-  after reviews and completion checklist. Keep this file until durable-truth
-  promotion and retirement.
+- [x] Distinct backend, frontend, security/privacy, and QA reviews at HEAD
+  `05ce7e4` (2026-09-04). **Do not retire.** High findings remain; task stays
+  `in-progress` for external review. `docs/current-state.md` Active work
+  updated; session-text-lifecycle rows stay Partial. Keep this file until
+  durable-truth promotion and retirement.
 
 2026-09-03 review of `920596e` (**reject retirement — keep `in-progress`**):
 Implementation **`33763594004`** and Documentation **`33763594071`** green.
@@ -475,12 +477,33 @@ now uses distinct `.complete` correlation via
   `probe-compose-hosted-expiry-sweep.sh` green 2026-09-03 confirm pass;
   Session `01a067b2-…532c58` → `completed` / `time_expiry`, Attempt
   `completed` (~3s). CI does not run env-gated probe.
-- **Still open (tracked):** warning emission/history; multi-tab/device;
-  offline/reconnect; terminate/abort live; forced-colors/400%; distinct
-  specialist reviews; completion checklist; durable current-state promotion;
-  then `completed` + retire.
+- **Still open (tracked):** High specialist-review findings (pause
+  `reason_code`, commit-time AuthZ, reconnect/offline command gate, completion
+  copy, historical live transcript); warning emission/history; multi-tab/device;
+  offline/reconnect; terminate/abort live; forced-colors/400%; durable
+  current-state promotion after those close; then `completed` + retire.
+  Specialist reviews themselves are recorded (2026-09-04).
 
 # Current state
+
+2026-09-04 **specialist reviews at HEAD `05ce7e4` (keep `in-progress`; do not
+retire):** distinct backend, frontend, security/privacy, and QA reviews ran
+against code, focused tests, governing specs, and live candidate `:5274`
+(Compose `:18080` healthy; RedirectUri restored to canonical after). Host,
+routes, Worker, frozen timing, and hosted SSE cursor/version mechanics remain
+accepted. **Not product-complete:** High remaining defects listed under
+Specialist review findings. No active Compose Session remained (two
+`completed` runtimes; assignment entitlement exhausted), so live send, pause,
+resume, terminate, warning, and reconnect were not re-exercised in the
+browser; those stay residual plus the High findings. Task file kept for
+external review.
+
+2026-09-04 **confirm pass:** re-read pause empty payload + `ReasonCode` null
+except terminate; HTTP-edge `HasCurrentPermissionAsync` with no commit AuthZ;
+`lastError` reducer-only; `composerClosed` ignores connection; Confirm
+Submission / Submit Session; historical `includeTranscript` without terminal
+gate. Stack `session-endpoint:ok`, RedirectUri canonical `:18080`. Findings
+unchanged. Do not retire.
 
 2026-09-03 transcript polish (candidate `:5274`, then RedirectUri restored
 to canonical `:18080`): Vite could not parse `live-session.css` (unclosed
@@ -666,7 +689,7 @@ claims removed. **P2 housekeeping:** reconcile stale historical notes below
 against present-state summary. Proceed with remaining closure work; do not
 re-open core timing unless a concrete failure appears.
 
-## Present implementation (authoritative)
+## Present implementation (historical 2026-09-03; superseded above)
 
 - **Landed:** authenticated snapshot/command/events host; versioned hosted SSE;
   production `/sessions/:sessionId` live-session (Participant),
@@ -677,11 +700,8 @@ re-open core timing unless a concrete failure appears.
 - **CI closed:** core timing + fixes on **`888eb91`** / **`33743544924`**; fixture
   hard-end on **`b24f67c`** / **`33754337758`** (`DefaultHardEndAtUtc` →
   `2099-12-31`).
-- **Still open (tracked):** live Compose API/Worker rebuild + recorded
-  server-owned expiry sweep proof; warning emission/history; multi-tab/device;
-  offline/reconnect; terminate/abort live; forced-colors/400%; distinct
-  backend/frontend/security-privacy/QA reviews; completion checklist;
-  durable current-state promotion; then mark `completed` and retire.
+- **Still open at that date:** later superseded by the 2026-09-04 specialist
+  review snapshot in Present implementation (authoritative) above.
 
 2026-09-03 review of `ed47065` (keep `in-progress`): approve docs/task-state
 update recording timing + CI closure. Corrected: restored live API/Worker +
@@ -937,6 +957,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
 | Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; regression tests for version, repeated turn, refresh-while-working, stale retry. Sessions/Runtime/web vitest green locally. Live `:5274` re-verify still open. |
 | Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-04: distinct `stream_cursor` for hosted Last-Event-ID; same-sequence dual events; stable historical working cursor; version-before-sequence activity merge; honest null timestamp fallback. Evidence: Sessions 542; Contract 195; session-view + page vitest 39; eslint clean; `check_docs.py` passed. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
+| Distinct specialist reviews at HEAD `05ce7e4` | complete (reject retirement) | 2026-09-04: backend + frontend + security/privacy + QA. Focused tests: HostedSession domain 60, application 9, Runtime HTTP/telemetry 8; session-view + ProductionTextSessionPage vitest 39. Live candidate `:5274` then RedirectUri restored canonical: participant terminal live + historical transcript; participant operations without pause/terminate; guessed-id non-disclosing unavailable; administrator operations without transcript; administrator transcript empty; administrator live route honest “not loaded”. No active Session remained — live send/pause/resume/terminate/reconnect not re-run. Screenshots local MCP, not committed. Confirm pass 2026-09-04: High findings re-read in source; stack canonical `session-endpoint:ok`. |
 
 # Blockers
 
@@ -968,17 +989,22 @@ Lead decision is required. Implementation has:
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review
+
+2026-09-04: checklist is for **external-review handoff**, not product-complete
+or retirement. Status stays `in-progress`. Implementation CI already green on
+the hosted-replay chain (`33828971210`). Specialist reviews found High
+remaining defects; keep this file.
 
 Independent review of `593f554` / `417adf1` / `d662cab` timing defects and
 later `cd90e5d`/`888eb91` chain are addressed; Implementation CI
-**`33743544924`** is green. Do not mark the **task** completed until the
-missing hosted-session states below and specialist reviews are rechecked.
+**`33743544924`** is green. Do not mark the **task** `completed` or retire
+until the High findings below and residual QA matrix are closed.
 
 Gaps for review (not blockers for this host/UI slice):
 
@@ -1012,12 +1038,89 @@ Gaps for review (not blockers for this host/UI slice):
   thresholds, multi-tab, offline reconnect, terminate/abort, light/dark,
   forced-colors, and 400% zoom were not fully re-checked in this close-out.
 - Participant can open `/operations` and see lifecycle/version without
-  pause/terminate; they do not inherit control.
+  pause/terminate; they do not inherit control. Reconfirmed 2026-09-04 on
+  candidate `:5274`.
 - Design-system and Lab donors reconciled 2026-09-03: production
   `LiveSessionLayout` is the shell; Lab wraps it; `StageBars` live in
   `components/work`; Lab complete plate copy matches production (no Result
   availability). Independent specialist review of this consistency pass is
   in the same conversation.
+
+# Specialist review findings (2026-09-04, HEAD `05ce7e4`)
+
+Consolidated across backend, frontend, security/privacy, and QA. Highest
+justified severity kept. Specs rechecked: `REQ-SESS-7`, `REQ-SESS-27`,
+`AC-SESS-12`, `AC-SESS-24`–`26`, `AC-SESS-30`, `UI-SESS-DEC-8`,
+`UI-SESS-DEC-10`, `UI-SESS-DEC-11`, `REQ-AUTH-13`/`18`.
+
+[High] Pause command and audit omit required bounded reason
+- Location: `contracts/schemas/v1/session/command-envelope.v1.schema.json` (`pause_command` empty payload); `PostgresHostedSessionCoordinators.cs`; `ProductionSessionOperationsPage.tsx`
+- Perspective: backend | frontend | security/privacy
+- Spec/invariant: `REQ-SESS-27`, `AC-SESS-12`, `UI-SESS-DEC-11`
+- Evidence: pause wire allows only empty `payload`; coordinator passes `ReasonCode: null`; ops UI has no reason selection.
+- Impact: Fairness/audit cannot reconstruct why a Session was paused.
+- Recommendation: Add bounded `reason_code` to pause wire + domain + audit + confirmation UI; reject pause without it. Interim default: treat as defect until a labeled `PROP-*` says otherwise.
+
+[High] Hosted commands authorize once before commit, not at the write
+- Location: `PostgresHostedSessionCoordinators.cs` (`HasCurrentPermissionAsync` then `AcceptAsync` / `ChangeAsync`); accept/lifecycle coordinators do not call commit AuthZ
+- Perspective: backend | security/privacy
+- Spec/invariant: `REQ-SESS-7`, `AC-SESS-12`, `REQ-AUTH-18`
+- Evidence: permission check is HTTP-edge only; Invocation/timer paths re-check at commit elsewhere.
+- Impact: Revocation between admission and commit can still mutate Session state.
+- Recommendation: Re-evaluate the exact action + ownership chain inside the same transaction as `LoadForUpdate`.
+
+[High] Reconnect/offline does not disable send or completion
+- Location: `ProductionTextSessionPage.tsx` (`composerClosed` ignores `view.connection`; `"offline"` never assigned)
+- Perspective: frontend | QA
+- Spec/invariant: `UI-SESS-DEC-8`, `AC-SESS-25`
+- Evidence: `EventSource.onerror` sets `reconnecting` only; Transmit/Submit stay usable. Not live-probed (no active Session).
+- Impact: Participants can mutate while command state is uncertain.
+- Recommendation: Gate composer + completion on `connection !== "connected"`; keep draft; show reconnect copy; reconcile before re-enabling.
+
+[High] Command/admission errors never reach the UI
+- Location: `session-view.ts` `lastError`; never read by `ProductionTextSessionPage.tsx`
+- Perspective: frontend
+- Spec/invariant: `UI-SESS-DEC-5`, `AC-SESS-25`
+- Evidence: `rg lastError` hits only the reducer. Uncertain shows a bare Reconcile control.
+- Impact: Failed or conflicted sends look like a silent stall.
+- Recommendation: Surface `lastError` in a status/alert region tied to the composer.
+
+[High] Completion ceremony copy violates required terms
+- Location: `ProductionTextSessionPage.tsx` dialog; `SessionChrono.tsx` **Submit Session**
+- Perspective: frontend
+- Spec/invariant: `UI-SESS-DEC-10`
+- Evidence: Dialog title **Confirm Submission**; primary **Submit Session**; cancel **Remain in Session**. Spec requires **Complete this Session?** / **Complete Session** / **Continue Session**.
+- Impact: Completion reads like grading submission.
+- Recommendation: Align labels to `UI-SESS-DEC-10`, or formally amend the decision if Shipboard “Submit” is intentional. Interim default: DEC-10 still governs completion.
+
+[High] Historical snapshot can include live transcript before terminal
+- Location: `HostedSessionSnapshotProjector.Project` (`includeTranscript` for `historical` regardless of lifecycle)
+- Perspective: security/privacy | backend
+- Spec/invariant: `AC-SESS-30`; UI assigned-Reviewer table (terminal transcript)
+- Evidence: `recovery_category=unavailable` when non-terminal, but transcript/timing still projected. No assigned-Reviewer synthetic identity to live-prove.
+- Impact: Premature disclosure if a reviewer assignment exists on an active Session.
+- Recommendation: Omit transcript and exam timing for `historical` unless lifecycle is terminal.
+
+[High] Org-wide grants plus dual-role command family
+- Location: `PostgresAuthorizationKernel` human grants; `PostgresHostedSessionCommandCoordinator.SubmitAsync`; seed org-wide `session.pause` / `session.terminate`
+- Perspective: security/privacy
+- Spec/invariant: `REQ-AUTH-13`, `AC-SESS-13`; `docs/current-state.md` already Gap for `REQ-AUTH-9`/`10`/`13`
+- Evidence: Kernel grant check is `(organization_id, actor_id, granted_action)`; command maps pause/terminate from grants even when subject resolved as Participant. Seed is synthetic-dev.
+- Impact: Cross-activity admin control within a tenant; dual-role pause while appearing as Participant.
+- Recommendation: Bind Session control to activity/ownership chain; require projection-compatible command families. Interim default: org-wide seed grants are synthetic-dev only; activity-scoped AuthZ is required before real multi-activity hosted enablement.
+
+[Medium] Lifecycle `idempotency_key` accepted then ignored; admission rejects still advertise Active `permitted_actions`; pause does not dispose in-flight turns; no hosted rate limit; SSE MFA strength not applied to snapshot/commands; no `ProductionSessionOperationsPage` / transcript page tests; assignment Attempt history has no path back to a completed Session; examiner status truncates; terminal terminated/aborted not distinguished from **Session Complete**.
+
+Working controls observed: 404 non-disclosure on guessed ID; administrator projection omits transcript; participant operations has no pause/terminate; antiforgery on commands; gateway exact `/v1/sessions`; provider fail-closed; hosted telemetry without transcript/Session UUIDs; Design Lab not imported into production.
+
+Open questions (interim defaults):
+1. Pause without `reason_code` — defect until `PROP-*`. Rationale: `REQ-SESS-27` is approved.
+2. Shipboard “Submit Session” vs `UI-SESS-DEC-10` — DEC-10 still authoritative.
+3. Reviewer live transcript — terminal-only for `historical`.
+4. Dual-role admin commands while Participant — deny; command family must match projection.
+5. Client auto-`session.complete.v1` while `completing` — prefer server-owned seal.
+
+QA not re-run live (no active Session / exhausted entitlement): send, pause, resume, terminate, warning, reconnect/offline, multi-tab, forced-colors, 400% zoom.
 
 2026-09-03 confirm pass (post-`92b43fb`): `probe-compose-hosted-expiry-sweep.sh`
 green; Session `01a067b2-…532c58` worker-loop expiry proof; fairness 5/5;
