@@ -554,4 +554,161 @@ public sealed class HostedSessionProjectionTests
         Assert.All(snapshot.Transcript, item => Assert.Null(item.OccurredAt));
         Assert.DoesNotContain(snapshot.Transcript, item => item.OccurredAt == mutationTime);
     }
+
+    [Fact]
+    public void Hosted_replay_pages_through_agent_completion_after_many_fragments()
+    {
+        const int pageSize = 2;
+        const int fragmentCount = 2;
+        var session = CreateSessionWithReplayPageSize(pageSize);
+        var invocationId = ClaimParticipantPublication(session);
+        for (var ordinal = 1; ordinal <= fragmentCount; ordinal++)
+        {
+            Assert.True(session.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(invocationId, ordinal, $"f{ordinal}", "agen.page.1"),
+                SessionRuntimeTestFixtures.T0.AddSeconds(2 + ordinal)).Succeeded);
+        }
+
+        Assert.True(session.CompleteAgentResponseMessage(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(10)).Succeeded);
+
+        var collected = CollectHostedReplay(session);
+        Assert.Equal(fragmentCount, collected.Count(evt => evt.EventType == HostedSessionEventTypes.AgentFragment));
+        Assert.Contains(collected, evt => evt.EventType == HostedSessionEventTypes.AgentComplete);
+    }
+
+    [Fact]
+    public void Hosted_replay_second_page_returns_agent_complete_after_full_first_page()
+    {
+        const int pageSize = 2;
+        var session = CreateSessionWithReplayPageSize(pageSize);
+        var invocationId = ClaimParticipantPublication(session);
+        for (var ordinal = 1; ordinal <= pageSize; ordinal++)
+        {
+            Assert.True(session.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(invocationId, ordinal, $"f{ordinal}", "agen.page.2"),
+                SessionRuntimeTestFixtures.T0.AddSeconds(2 + ordinal)).Succeeded);
+        }
+
+        Assert.True(session.CompleteAgentResponseMessage(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(10)).Succeeded);
+
+        var workingCursor = FindCursorBeforeAgentStream(session);
+        var pageOne = HostedSessionEventProjector.Project(session, afterCursor: workingCursor);
+        Assert.True(pageOne.Succeeded);
+        Assert.True(pageOne.HasMore);
+        Assert.Equal(pageSize, pageOne.Events.Count);
+        Assert.All(pageOne.Events, evt => Assert.Equal(HostedSessionEventTypes.AgentFragment, evt.EventType));
+
+        var pageTwo = HostedSessionEventProjector.Project(
+            session,
+            afterCursor: HostedStreamCursors.Parse(pageOne.Events[^1].StreamCursor!));
+        Assert.True(pageTwo.Succeeded);
+        Assert.Contains(pageTwo.Events, evt => evt.EventType == HostedSessionEventTypes.AgentComplete);
+        Assert.False(pageTwo.HasMore);
+    }
+
+    [Fact]
+    public void Hosted_replay_preserves_second_in_flight_message_across_pages()
+    {
+        const int pageSize = 2;
+        var session = CreateSessionWithReplayPageSize(pageSize, maxInFlightStreamsPerSession: 2);
+        var firstInvocation = ClaimParticipantPublication(session, key: "1");
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(firstInvocation, 1, "first", "agen.dual.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(firstInvocation, SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+
+        var secondInvocation = ClaimParticipantPublication(
+            session,
+            key: "2",
+            admittedAt: SessionRuntimeTestFixtures.T0.AddSeconds(5));
+        for (var ordinal = 1; ordinal <= pageSize; ordinal++)
+        {
+            Assert.True(session.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(secondInvocation, ordinal, $"s2-{ordinal}", "agen.dual.2"),
+                SessionRuntimeTestFixtures.T0.AddSeconds(8 + ordinal)).Succeeded);
+        }
+
+        Assert.True(session.CompleteAgentResponseMessage(secondInvocation, SessionRuntimeTestFixtures.T0.AddSeconds(10)).Succeeded);
+
+        var collected = CollectHostedReplay(session);
+        var secondFragments = collected
+            .Where(evt => evt.EventType == HostedSessionEventTypes.AgentFragment
+                && evt.TextDelta?.StartsWith("s2-", StringComparison.Ordinal) == true)
+            .ToList();
+        Assert.Equal(pageSize, secondFragments.Count);
+        Assert.Contains(
+            collected,
+            evt => evt.EventType == HostedSessionEventTypes.AgentComplete
+                && evt.AgentMessageId == session.AgentMessages[1].MessageId);
+    }
+
+    private static SessionRuntime CreateSessionWithReplayPageSize(
+        int pageSize,
+        int maxInFlightStreamsPerSession = 1)
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            StreamingPublicationBounds = RuntimePolicyTestFixtures.CreateTestOnlyStreamingPublicationBounds() with
+            {
+                MaxFragmentCountPerMessage = pageSize,
+                MaxInFlightStreamsPerSession = maxInFlightStreamsPerSession,
+            },
+        };
+        return SessionRuntimeTestFixtures.CreateActiveSession(RuntimePolicyTestFixtures.ResolvePolicy(values));
+    }
+
+    private static long FindCursorBeforeAgentStream(SessionRuntime session)
+    {
+        var preamble = CollectHostedReplay(session)
+            .Where(evt => evt.EventType is not HostedSessionEventTypes.AgentFragment
+                and not HostedSessionEventTypes.AgentComplete)
+            .ToList();
+        Assert.NotEmpty(preamble);
+        return HostedStreamCursors.Parse(preamble[^1].StreamCursor);
+    }
+
+    private static List<AuthorizedSessionProjectionEvent> CollectHostedReplay(SessionRuntime session)
+    {
+        var collected = new List<AuthorizedSessionProjectionEvent>();
+        long cursor = 0;
+        AuthorizedSessionEventReplayResult replay;
+        do
+        {
+            replay = HostedSessionEventProjector.Project(session, cursor);
+            Assert.True(replay.Succeeded, replay.OutcomeCode);
+            collected.AddRange(replay.Events);
+            if (replay.Events.Count == 0)
+            {
+                break;
+            }
+
+            cursor = HostedStreamCursors.Parse(replay.Events[^1].StreamCursor);
+        }
+        while (replay.HasMore);
+
+        return collected;
+    }
+
+    private static string ClaimParticipantPublication(
+        SessionRuntime session,
+        string key = "1",
+        DateTimeOffset? admittedAt = null)
+    {
+        var authoritativeUtc = admittedAt ?? SessionRuntimeTestFixtures.T0;
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            $"msg.p.{key}",
+            $"turn.{key}",
+            $"slot.{key}",
+            $"trig.participant.{key}",
+            $"idem.p.{key}",
+            authoritativeUtc);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.EmitMessage(invocationId, turnId: $"turn.{key}", responseSlotId: $"slot.{key}"),
+            authoritativeUtc.AddSeconds(2)).PublicationPathClaimed);
+        return invocationId;
+    }
 }

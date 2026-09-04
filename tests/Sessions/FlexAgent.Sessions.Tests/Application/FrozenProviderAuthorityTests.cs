@@ -300,7 +300,7 @@ public sealed class FrozenProviderAuthorityProcessorTests
             "idem.opening.lease.throw",
             SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
-        var adapter = new BlockingControlPort();
+        var adapter = new CancellationAwaitingControlPort();
         adapter.Inner.EnqueueEnvelope(
             SessionRuntimeTestFixtures.Envelope(
                 invocationId,
@@ -444,6 +444,32 @@ public sealed class FrozenProviderAuthorityProcessorTests
             ModelContentStreamRequest request,
             CancellationToken cancellationToken) =>
             AsyncEnumerable.Empty<ModelContentEvent>();
+    }
+
+    private sealed class CancellationAwaitingControlPort : IModelExecutionPort
+    {
+        public DeterministicFakeModelExecutionAdapter Inner { get; } = new();
+
+        public async Task<ModelExecutionAttemptResult> ExecuteAsync(
+            ModelExecutionAttemptRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return new ModelExecutionFailed(ExecutionAttemptOutcomeCategories.Cancelled);
+            }
+
+            throw new InvalidOperationException("Provider execution completed without lease cancellation.");
+        }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            Inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
     }
 
     private sealed class BlockingControlPort : IModelExecutionPort

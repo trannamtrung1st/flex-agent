@@ -510,6 +510,17 @@ while Agent work is queued/working and while the post-accept snapshot
 refetch is in flight. A single `trigger.admission.stale.version` conflict
 refetches then retries the same message on the same Session locator.
 
+2026-09-04 **Review of `e3c641b` — hosted multi-page replay (keep `in-progress`)**:
+hosted projection now builds from unpaged agent events before hosted paging, so
+`agent.complete` survives beyond the compatibility page size; regression covers
+multi-page replay and a second in-flight message. `MaxEncodableSessionSequence`
+documents arithmetic cursor bounds. `FrozenProviderAuthorityProcessor` lease
+renewal test waits on cancellation instead of a fixed delay. **Evidence:**
+Sessions 545 (including `Hosted_replay_*` multi-page regressions);
+`FrozenProviderAuthorityProcessorTests.Lease_renewal_exception_cancels_the_in_flight_provider_call`;
+Contract 195; `session-view` vitest 23. Full Implementation CI re-run still
+open.
+
 2026-09-04 **Review of `3c2f664` — hosted stream cursor + version-first merge
 (keep `in-progress`)**: (1) hosted SSE `id` / replay `Last-Event-ID` is now
 `stream_cursor = session_sequence * 10 + slot`, so queued + accepted at the

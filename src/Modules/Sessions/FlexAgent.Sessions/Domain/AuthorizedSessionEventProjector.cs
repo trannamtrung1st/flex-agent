@@ -7,19 +7,44 @@ public static class AuthorizedSessionEventProjector
     public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterSequence)
     {
         ArgumentNullException.ThrowIfNull(session);
+        if (!TryBuildAgentEvents(session, afterSequence, out var events, out var outcomeCode))
+        {
+            return new AuthorizedSessionEventReplayResult(false, outcomeCode, []);
+        }
+
+        var pageSize = ReplayPageSize(session);
+        var hasMore = events.Count > pageSize;
+        if (hasMore)
+        {
+            events = events.Take(pageSize).ToList();
+        }
+
+        return new AuthorizedSessionEventReplayResult(
+            true,
+            SessionEventReplayOutcomeCodes.Succeeded,
+            events,
+            hasMore);
+    }
+
+    internal static bool TryBuildAgentEvents(
+        SessionRuntime session,
+        long afterSequence,
+        out List<AuthorizedSessionProjectionEvent> events,
+        out string outcomeCode)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        events = [];
+        outcomeCode = SessionEventReplayOutcomeCodes.Succeeded;
 
         foreach (var message in session.AgentMessages)
         {
             if (message.IsTerminal && message.SealedSessionSequence is null)
             {
-                return new AuthorizedSessionEventReplayResult(
-                    false,
-                    SessionEventReplayOutcomeCodes.Reconcile,
-                    []);
+                outcomeCode = SessionEventReplayOutcomeCodes.Reconcile;
+                return false;
             }
         }
 
-        var events = new List<AuthorizedSessionProjectionEvent>();
         var sessionId = session.Ownership.SessionId.ToString("D");
         foreach (var message in session.AgentMessages)
         {
@@ -64,20 +89,12 @@ public static class AuthorizedSessionEventProjector
             long.Parse(left.SessionSequence, CultureInfo.InvariantCulture)
                 .CompareTo(long.Parse(right.SessionSequence, CultureInfo.InvariantCulture)));
 
-        var pageSize = session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
-            * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
-        var hasMore = events.Count > pageSize;
-        if (hasMore)
-        {
-            events = events.Take(pageSize).ToList();
-        }
-
-        return new AuthorizedSessionEventReplayResult(
-            true,
-            SessionEventReplayOutcomeCodes.Succeeded,
-            events,
-            hasMore);
+        return true;
     }
+
+    internal static int ReplayPageSize(SessionRuntime session) =>
+        session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
+        * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
 
     public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
     {

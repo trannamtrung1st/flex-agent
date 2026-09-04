@@ -398,8 +398,7 @@ public static class HostedSessionEventProjector
             return new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
         }
 
-        var pageSize = session.Binding.Policy.StreamingPublicationBounds.MaxFragmentCountPerMessage
-            * Math.Max(1, session.Binding.Policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
+        var pageSize = AuthorizedSessionEventProjector.ReplayPageSize(session);
         var hasMore = events.Count > pageSize;
         if (hasMore)
         {
@@ -438,27 +437,16 @@ public static class HostedSessionEventProjector
     {
         events = [];
         baselineOutcome = SessionEventReplayOutcomeCodes.Succeeded;
-
-        foreach (var message in session.AgentMessages)
+        if (!AuthorizedSessionEventProjector.TryBuildAgentEvents(session, afterSequence: 0, out var agentEvents, out baselineOutcome))
         {
-            if (message.IsTerminal && message.SealedSessionSequence is null)
-            {
-                baselineOutcome = SessionEventReplayOutcomeCodes.Reconcile;
-                return false;
-            }
-        }
-
-        var baseline = AuthorizedSessionEventProjector.Project(session, afterSequence: 0);
-        baselineOutcome = baseline.OutcomeCode;
-        if (!baseline.Succeeded)
-        {
+            events = [];
             return false;
         }
 
         var sessionId = session.Ownership.SessionId.ToString("D");
         AppendCommittedHostedEvents(session, sessionId, events);
 
-        foreach (var evt in baseline.Events)
+        foreach (var evt in agentEvents)
         {
             var hostedType = evt.EventType switch
             {

@@ -545,7 +545,8 @@ other in-flight Invocations that still can recommend a replacement.
   `session_sequence` as domain metadata and `session_version` as optimistic-
   concurrency authority. Replay and SSE `id` / `Last-Event-ID` use a distinct
   monotonic `stream_cursor` allocated as
-  `session_sequence * 10 + stable_event_slot`. Compatibility
+  `session_sequence * 10 + stable_event_slot`, with encodable Session sequences
+  bounded by `(long.MaxValue - 9) / 10`. Compatibility
   `/sessions/{sessionId}/events` still uses `session_sequence` as the cursor.
 - Sequence gaps, an unknown cursor, projection lag, or uncertain message state
   trigger authoritative reconciliation rather than optimistic replay.
