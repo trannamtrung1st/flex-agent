@@ -1278,3 +1278,22 @@ Re-ran verification on the CI pause-reason fix before Implementation handoff.
 | `FlexAgent.Sessions.Tests` | 552 passed |
 | `scripts/check_docs.py` | passed |
 | Integration pause paths | only two call sites; both pass `administrator_pause` |
+
+# External re-review disposition (2026-09-04, `3d2c1a8` / `6ff75a9`)
+
+**`3d2c1a8`: ACCEPT.** Corrective pass — only the two stale Postgres integration
+pause paths updated with `ReasonCode: "administrator_pause"`.
+
+**`6ff75a9`: ACCEPT.** Accounting only; does not claim completion; keeps
+Realtime `[>]`, live QA, and durable promotion open.
+
+**Previous CI blocker:** fixed locally and correctly (not a production regression).
+
+**Implementation CI run `33856790502` on code-bearing SHA `3d2c1a8`:** at
+latest reviewer check `changes` and `oidc` green; `web` and `dotnet` still
+running; supply-chain/OCI downstream pending. Documentation CI on `3d2c1a8`
+already green. **`6ff75a9` does not clear dotnet** (`.work` only).
+
+**Next substantive work (in order):** Realtime lifecycle/timing/access SSE →
+live QA matrix → durable `docs/current-state.md` promotion → task completion
+review → retire task file.
