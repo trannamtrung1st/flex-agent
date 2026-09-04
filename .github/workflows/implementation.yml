@@ -106,7 +106,7 @@ jobs:
           fi
 
       - name: pnpm audit
-        run: pnpm audit --audit-level=high
+        run: bash build/scripts/run-pnpm-audit.sh high
 
       - name: License inventory
         run: |

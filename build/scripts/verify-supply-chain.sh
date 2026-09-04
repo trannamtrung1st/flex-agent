@@ -22,7 +22,7 @@ if grep -q "has the following vulnerable packages" "$ARTIFACTS/nuget-vulnerable.
 fi
 
 echo "==> pnpm audit"
-pnpm audit --audit-level=high
+bash build/scripts/run-pnpm-audit.sh high
 
 echo "==> License inventory"
 pnpm licenses list --json > "$ARTIFACTS/npm-licenses.json" || pnpm licenses ls --json > "$ARTIFACTS/npm-licenses.json"

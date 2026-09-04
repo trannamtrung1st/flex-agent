@@ -510,6 +510,18 @@ while Agent work is queued/working and while the post-accept snapshot
 refetch is in flight. A single `trigger.admission.stale.version` conflict
 refetches then retries the same message on the same Session locator.
 
+2026-09-04 **Review of `c654649` — hosted cursor/replay accepted (keep `in-progress`)**:
+external review accepted the unpaged-agent → hosted-paging fix, multi-page
+regressions, `MaxEncodableSessionSequence`, and deterministic lease-renewal
+cancellation. **Core `session_sequence` / `session_version` / `stream_cursor`
+mechanics are now sound** — no further cursor/replay correction pass. Remaining
+work shifts to lifecycle pause/resume SSE, warnings/timing/access/reconcile,
+multi-tab/device offline QA, live `:5274` verification, accessibility/extreme
+layout, and specialist reviews. **CI:** run **`33826694891`** green through
+dotnet/web/oidc/oci-oidc-smoke; supply-chain failed on transient `pnpm audit`
+registry timeout (not a dependency finding). Added `run-pnpm-audit.sh` retry for
+transient registry errors; re-run pending.
+
 2026-09-04 **Review of `e3c641b` — hosted multi-page replay (keep `in-progress`)**:
 hosted projection now builds from unpaged agent events before hosted paging, so
 `agent.complete` survives beyond the compatibility page size; regression covers
@@ -902,6 +914,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
+| Full Implementation CI on hosted replay (`c654649`) | in-progress | 2026-09-04: run **`33826694891`** — dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed on transient `pnpm audit` registry timeout (not a dependency finding). `run-pnpm-audit.sh` retry added; push re-run pending. |
 | Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke (applied `0069`; Worker OCI built; expiry sweep not exercised). Follow-up docs-only runs **`33743559578`** (`5ed60c7`) and **`33748755541`** (`ed47065`) skipped implementation jobs correctly. |
 | Full Implementation CI on fixture hard-end (`b24f67c`) | complete | 2026-09-03: run **`33754337758`** green — changes, dotnet, web, oidc, supply-chain, oci-oidc-smoke (migration `0069` applied; Worker OCI built; expiry sweep not exercised). Documentation **`33754337878`** green. Does not satisfy live Compose expiry proof gap. |
 | Corrective retirement revert (`fb71087`) | complete | 2026-09-03: **approve** — restores task + accurate gaps. Documentation **`33756971896`**; Implementation **`33756971882`** (changes only; code jobs skipped). Full code gate unchanged (`b24f67c` / **`33754337758`**). |
