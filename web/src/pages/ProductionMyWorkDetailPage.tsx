@@ -571,7 +571,11 @@ export function ProductionMyWorkDetailPage() {
         </Key>
       ) : null}
       {canContinue ? (
-        <Key variant="begin" to={`/sessions/${attempt?.active_session_id}`}>
+        <Key
+          variant="begin"
+          to={`/sessions/${attempt?.active_session_id}`}
+          linkState={{ enrollmentId }}
+        >
           Continue Attempt
         </Key>
       ) : null}

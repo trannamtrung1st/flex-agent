@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { FlexQueryProvider } from "../api/query-client";
@@ -98,11 +98,11 @@ function stubFetch(handler: (url: string, init?: RequestInit) => ReturnType<type
   return fetchMock;
 }
 
-function renderAt(path: string, page: ReactNode) {
+function renderAt(path: string, page: ReactNode, state?: unknown) {
   return render(
     <FlexQueryProvider>
       <ProductionApiProvider>
-        <MemoryRouter initialEntries={[path]}>
+        <MemoryRouter initialEntries={[{ pathname: path, state }]}>
           <Routes>
             <Route path="/sessions/:sessionId" element={page} />
             <Route path="/sessions/:sessionId/operations" element={page} />
@@ -144,6 +144,24 @@ describe("hosted Session pages", () => {
     expect(screen.queryByRole("region", { name: "Console feed" })).toBeNull();
     expect(document.querySelector(".layout-session__rail-scroll .readout-stack")).toBeTruthy();
     expect(document.querySelectorAll(".layout-session__rail-scroll .readout-stack")).toHaveLength(1);
+  });
+
+  it("shows a transcript empty plate before the first message", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        return jsonResponse(participantSnapshot({
+          transcript: { items: [], older_available: false },
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+
+    expect(await screen.findByRole("textbox", { name: "Compose reply" })).toBeEnabled();
+    expect(screen.getByText("Transcript clear")).toBeInTheDocument();
+    expect(screen.getByText("Compose your first reply below, then press Transmit.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Session turns").querySelectorAll(".turn")).toHaveLength(0);
   });
 
   it("closes send and completion while the event stream is reconnecting", async () => {
@@ -732,13 +750,50 @@ describe("hosted Session pages", () => {
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
 
     expect(await screen.findByRole("heading", { name: "Session Complete" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Return to Assignment" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to Assignment" })).toHaveAttribute("href", "/my-work");
     expect(document.getElementById("completeToAssignment")).toBeTruthy();
     expect(screen.getByText(/Sealed/)).toBeVisible();
     expect(document.querySelector(".complete-plate")).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
     expect(document.querySelector(".layout-session__composer")).toBeNull();
     expect(document.querySelector(".turn.is-active")).toBeNull();
+  });
+
+  it("returns to the assignment station when enrollment context is present", () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          lifecycle_state: "active",
+          permitted_actions: ["send_message", "complete_session", "reconcile"],
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />, { enrollmentId: "enr-1" });
+
+    expect(screen.queryByRole("link", { name: "Back to assignment" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Leave session" }));
+    const leaveDialog = screen.getByRole("dialog", { name: "Leave session" });
+    expect(within(leaveDialog).getByRole("link", { name: "Leave to assignment" })).toHaveAttribute("href", "/my-work/enr-1");
+  });
+
+  it("reuses stored enrollment context after refresh", async () => {
+    sessionStorage.setItem(`flex-agent:session-return-enrollment:${sessionId}`, "enr-1");
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`)) {
+        return jsonResponse(participantSnapshot({
+          lifecycle_state: "completed",
+          permitted_actions: ["view_transcript", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+
+    expect(await screen.findByRole("link", { name: "Return to Assignment" })).toHaveAttribute("href", "/my-work/enr-1");
+    sessionStorage.removeItem(`flex-agent:session-return-enrollment:${sessionId}`);
   });
 
   it("seals a stuck completing Session with the complete command", async () => {

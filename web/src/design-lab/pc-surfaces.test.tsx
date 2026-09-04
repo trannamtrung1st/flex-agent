@@ -325,7 +325,7 @@ describe("PC-08 session specimen", () => {
     expect(scroller!.contains(brand)).toBe(false);
     expect(brand!.querySelector(".rail-nav")).toBeTruthy();
     expect(scroller!.querySelector(".rail-nav")).toBeNull();
-    expect(within(brand as HTMLElement).getByRole("link", { name: "Back to assignment" })).toBeInTheDocument();
+    expect(within(brand as HTMLElement).queryByRole("link", { name: "Back to assignment" })).not.toBeInTheDocument();
     expect(within(brand as HTMLElement).getByRole("button", { name: "Leave session" })).toBeInTheDocument();
     expect(within(scroller as HTMLElement).getByRole("heading", { name: "Console Feed" })).toBeInTheDocument();
     expect(container.querySelector(".rail-scroll .protocol-plate")).toBeTruthy();

@@ -114,14 +114,6 @@ export function SessionPage() {
       mainRef={ledgerRef}
       brandExtras={
         <div className="rail-nav">
-          <Key
-            className="rail-back"
-            variant="quiet"
-            to={`/participant-journey?demo=${assignmentDemo}`}
-            ariaLabel="Back to assignment"
-          >
-            Assignment
-          </Key>
           <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
             Leave session
           </Key>

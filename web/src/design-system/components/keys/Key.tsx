@@ -24,6 +24,7 @@ export const Key = forwardRef<HTMLButtonElement, {
   truncate?: boolean;
   type?: "button" | "submit";
   to?: To;
+  linkState?: unknown;
   disabled?: boolean;
   onClick?: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
@@ -47,6 +48,7 @@ export const Key = forwardRef<HTMLButtonElement, {
   destructive,
   type = "button",
   to,
+  linkState,
   disabled,
   onClick,
   onKeyDown,
@@ -112,6 +114,7 @@ export const Key = forwardRef<HTMLButtonElement, {
           id={id}
           className={cls}
           to={to}
+          state={linkState}
           aria-disabled={disabled || undefined}
           tabIndex={disabled ? -1 : undefined}
           onClick={(event) => {

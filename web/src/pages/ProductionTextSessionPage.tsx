@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -35,6 +35,36 @@ function can(snapshot: SessionSnapshotV1 | null, action: SessionSnapshotV1["perm
   return snapshot?.permitted_actions.includes(action) ?? false;
 }
 
+type SessionLocationState = {
+  enrollmentId?: string;
+};
+
+function sessionEnrollmentStorageKey(sessionId: string) {
+  return `flex-agent:session-return-enrollment:${sessionId}`;
+}
+
+function readStoredEnrollmentId(sessionId: string) {
+  if (!sessionId) return undefined;
+  try {
+    return sessionStorage.getItem(sessionEnrollmentStorageKey(sessionId)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storeEnrollmentId(sessionId: string, enrollmentId: string) {
+  if (!sessionId || !enrollmentId) return;
+  try {
+    sessionStorage.setItem(sessionEnrollmentStorageKey(sessionId), enrollmentId);
+  } catch {
+    // Ignore quota or private-mode failures.
+  }
+}
+
+function assignmentReturnPath(enrollmentId: string | undefined) {
+  return enrollmentId ? `/my-work/${enrollmentId}` : "/my-work";
+}
+
 function examinerLine(snapshot: SessionSnapshotV1 | null, working: boolean, terminal: boolean) {
   if (terminal) {
     return "Your record is stored. This confirmation is not a score or Result.";
@@ -62,6 +92,10 @@ function examinerLine(snapshot: SessionSnapshotV1 | null, working: boolean, term
 
 export function ProductionTextSessionPage() {
   const { sessionId = "" } = useParams();
+  const location = useLocation();
+  const locationEnrollmentId = (location.state as SessionLocationState | null)?.enrollmentId;
+  const enrollmentId = locationEnrollmentId ?? readStoredEnrollmentId(sessionId);
+  const assignmentReturnTo = assignmentReturnPath(enrollmentId);
   const { apiState, fetchJson, shell } = useProductionApi();
   const client = useMemo(() => createProductionSessionClient(fetchJson), [fetchJson]);
   const [view, dispatch] = useReducer(sessionLiveReducer, emptySessionLiveView);
@@ -79,6 +113,12 @@ export function ProductionTextSessionPage() {
     queryFn: () => client.getSnapshot(sessionId),
     enabled: apiState === "ready" && sessionId.length > 0,
   });
+
+  useEffect(() => {
+    if (locationEnrollmentId) {
+      storeEnrollmentId(sessionId, locationEnrollmentId);
+    }
+  }, [locationEnrollmentId, sessionId]);
 
   useEffect(() => {
     if (snapshotQuery.data) {
@@ -358,9 +398,6 @@ export function ProductionTextSessionPage() {
       brandSuffix="Examination Console"
       brandExtras={(
         <div className="rail-nav">
-          <Key className="rail-back" variant="quiet" to="/my-work" ariaLabel="Back to assignment">
-            Assignment
-          </Key>
           <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
             Leave session
           </Key>
@@ -559,7 +596,7 @@ export function ProductionTextSessionPage() {
                 arrangement="split"
                 secondary={<Key onClick={() => setLeaveOpen(false)}>Remain in session</Key>}
                 primary={
-                  <Key variant="quiet" to="/my-work">
+                  <Key variant="quiet" to={assignmentReturnTo}>
                     Leave to assignment
                   </Key>
                 }
@@ -582,6 +619,12 @@ export function ProductionTextSessionPage() {
       <SessionTranscriptLedger
         items={items}
         label="Session turns"
+        empty={items.length === 0 && !terminal && !completing && !timeEnded ? {
+          label: "Transcript clear",
+          note: composerClosed
+            ? "No turns are recorded in this Session yet."
+            : "Compose your first reply below, then press Transmit.",
+        } : undefined}
         copyFor={(item) => revealed[item.item_id] ?? transcriptItemCopy(item)}
         turnState={(item, index) => {
           const copy = revealed[item.item_id] ?? transcriptItemCopy(item);
@@ -628,7 +671,7 @@ export function ProductionTextSessionPage() {
                 </p>
               ) : null}
               <div className="complete-keys">
-                <Key id="completeToAssignment" variant="begin" to="/my-work">
+                <Key id="completeToAssignment" variant="begin" to={assignmentReturnTo}>
                   <span>Return to Assignment</span>
                   <TransmitChevron />
                 </Key>
