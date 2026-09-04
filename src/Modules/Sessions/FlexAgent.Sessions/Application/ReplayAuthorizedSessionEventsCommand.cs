@@ -8,7 +8,8 @@ public sealed record ReplayAuthorizedSessionEventsCommand(
     TrustedRuntimeActor Actor,
     SessionOwnership Ownership,
     string? UntrustedLastEventId,
-    bool UseHostedProjection = false);
+    bool UseHostedProjection = false,
+    HostedSessionEventProjectionOptions? HostedProjectionOptions = null);
 
 public interface IReplayAuthorizedSessionEventsCoordinator
 {
@@ -51,13 +52,13 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         {
             result = malformed
                 ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
-                : Project(session, afterCursor: 0, command.UseHostedProjection);
+                : Project(session, afterCursor: 0, command.UseHostedProjection, command.HostedProjectionOptions);
         }
         else if (command.UseHostedProjection)
         {
             result = afterCursor < 1 || !HostedSessionEventProjector.IsIssuedStreamCursor(session, afterCursor)
                 ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
-                : HostedSessionEventProjector.Project(session, afterCursor);
+                : HostedSessionEventProjector.Project(session, afterCursor, command.HostedProjectionOptions);
         }
         else if (afterCursor < 1 || afterCursor > session.SessionSequence)
         {
@@ -106,8 +107,9 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
     private static AuthorizedSessionEventReplayResult Project(
         SessionRuntime session,
         long afterCursor,
-        bool useHostedProjection) =>
+        bool useHostedProjection,
+        HostedSessionEventProjectionOptions? hostedProjectionOptions = null) =>
         useHostedProjection
-            ? HostedSessionEventProjector.Project(session, afterCursor)
+            ? HostedSessionEventProjector.Project(session, afterCursor, hostedProjectionOptions)
             : AuthorizedSessionEventProjector.Project(session, afterCursor);
 }

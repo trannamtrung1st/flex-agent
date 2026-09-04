@@ -244,6 +244,80 @@ public sealed class HostedSessionProjectionTests
     }
 
     [Fact]
+    public void Hosted_replay_emits_lifecycle_pause_and_resume_from_timer_manifest()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var pauseAt = SessionRuntimeTestFixtures.T0.AddMinutes(5);
+        session.Pause(pauseAt);
+        var resumeAt = pauseAt.AddMinutes(2);
+        session.Resume(resumeAt);
+
+        var events = HostedSessionEventProjector.Project(session, afterCursor: 0).Events;
+
+        Assert.Contains(
+            events,
+            evt => evt.EventType == HostedSessionEventTypes.LifecycleChanged
+                && evt.LifecycleState == "paused");
+        Assert.Contains(
+            events,
+            evt => evt.EventType == HostedSessionEventTypes.LifecycleChanged
+                && evt.LifecycleState == "active");
+        Assert.All(
+            events.Where(evt => evt.EventType == HostedSessionEventTypes.LifecycleChanged),
+            evt => Assert.Equal(HostedStreamCursors.SlotLifecycle, HostedStreamCursors.Parse(evt.StreamCursor!) % HostedStreamCursors.SlotsPerSequence));
+    }
+
+    [Fact]
+    public void Hosted_replay_emits_timing_updated_when_projection_options_include_frozen_policy()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var started = SessionRuntimeTestFixtures.T0;
+        var pauseAt = started.AddMinutes(10);
+        session.Pause(pauseAt);
+        var options = new HostedSessionEventProjectionOptions(
+            started,
+            new HostedFrozenTimingPolicy(
+                HostedTimingReconstruction.Timed,
+                HostedSessionTiming.SyntheticDevelopmentActiveDurationSeconds,
+                [
+                    new HostedTimingWarningThreshold("approaching", 15 * 60),
+                    new HostedTimingWarningThreshold("imminent", 10 * 60),
+                ]),
+            pauseAt);
+
+        var events = HostedSessionEventProjector.Project(session, afterCursor: 0, options).Events;
+        var timing = Assert.Single(
+            events,
+            evt => evt.EventType == HostedSessionEventTypes.TimingUpdated
+                && evt.LifecycleState == "paused");
+
+        Assert.NotNull(timing.RemainingSeconds);
+        Assert.Equal(HostedStreamCursors.SlotTiming, HostedStreamCursors.Parse(timing.StreamCursor!) % HostedStreamCursors.SlotsPerSequence);
+    }
+
+    [Fact]
+    public void Hosted_replay_emits_completing_lifecycle_at_cutoff_sequence()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0);
+        session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddMinutes(1));
+
+        var lifecycle = Assert.Single(
+            HostedSessionEventProjector.Project(session, afterCursor: 0).Events,
+            evt => evt.EventType == HostedSessionEventTypes.LifecycleChanged
+                && evt.LifecycleState == "completing");
+
+        Assert.Equal(session.CutoffSequence!.Value.ToString(CultureInfo.InvariantCulture), lifecycle.SessionSequence);
+    }
+
+    [Fact]
     public void Snapshot_participant_assembles_agent_text_when_visible_row_has_no_inline_copy()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

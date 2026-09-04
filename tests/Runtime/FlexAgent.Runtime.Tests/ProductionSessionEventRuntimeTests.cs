@@ -298,6 +298,35 @@ public sealed class ProductionSessionEventRuntimeTests
     }
 
     [Fact]
+    public async Task Hosted_malformed_cursor_emits_reconcile_envelope_before_comment()
+    {
+        var harness = CreateHarness(replayOutcome: SessionEventReplayOutcomeCodes.Reconcile);
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/v1/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        request.Headers.TryAddWithoutValidation("Last-Event-ID", "not-a-sequence");
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var body = await ReadUntilClosedAsync(reader, cancellationToken);
+
+        Assert.Contains("session.hosted.reconcile.required.v1", body, StringComparison.Ordinal);
+        Assert.Contains(": reconcile", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-fragment", body, StringComparison.Ordinal);
+        Assert.True(harness.Handler.LastCommand?.UseHostedProjection);
+    }
+
+    [Fact]
     public async Task Held_connection_completes_after_revocation_revalidation()
     {
         var harness = CreateHarness(

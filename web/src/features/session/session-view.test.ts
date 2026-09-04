@@ -147,6 +147,109 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.transcript?.items[0]?.status).toBe("streaming");
   });
 
+  it("applies hosted timing updates to the snapshot chrono", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        timing: {
+          policy: "active_duration",
+          remaining_seconds: 1800,
+          warning_code: "none",
+          budget_seconds: 2700,
+        },
+      },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.timing.updated.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "20",
+        stream_cursor: "201",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:15:00Z",
+        payload: {
+          summary: "Session timing updated.",
+          lifecycle_state: "paused",
+          remaining_seconds: 1200,
+          warning_code: "approaching",
+        },
+      },
+    });
+
+    expect(next.snapshot?.timing?.remaining_seconds).toBe(1200);
+    expect(next.snapshot?.timing?.warning_code).toBe("approaching");
+    expect(next.snapshot?.timing?.pause_started_at).toBe("2026-09-03T00:15:00Z");
+  });
+
+  it("applies hosted lifecycle pause changes", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.lifecycle.changed.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "18",
+        stream_cursor: "181",
+        session_version: 5,
+        occurred_at: "2026-09-03T00:10:00Z",
+        payload: {
+          summary: "Session paused.",
+          lifecycle_state: "paused",
+        },
+      },
+    });
+
+    expect(next.snapshot?.lifecycle_state).toBe("paused");
+  });
+
+  it("maps hosted access revocation to sign-in recovery", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.access.changed.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "21",
+        stream_cursor: "211",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:20:00Z",
+        payload: {
+          summary: "Session access changed.",
+          access_state: "revoked",
+        },
+      },
+    });
+
+    expect(next.snapshot?.recovery_category).toBe("sign_in");
+  });
+
+  it("maps hosted reconcile required to snapshot reconciliation", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.reconcile.required.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "22",
+        stream_cursor: "221",
+        session_version: 6,
+        occurred_at: "2026-09-03T00:21:00Z",
+        payload: {
+          summary: "Session snapshot reconciliation required.",
+          recovery_category: "reconcile_snapshot",
+        },
+      },
+    });
+
+    expect(next.snapshot?.recovery_category).toBe("reconcile_snapshot");
+  });
+
   it("records no-action without inventing Agent text", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
     const next = sessionLiveReducer(withSnapshot, {

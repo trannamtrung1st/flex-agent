@@ -515,6 +515,8 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? AccessState = null,
     long SessionVersion = 0,
     string? ItemStatus = null,
+    int? RemainingSeconds = null,
+    string? WarningCode = null,
     string? StreamCursor = null);
 
 public sealed record AuthorizedSessionEventReplayResult(

@@ -32,3 +32,22 @@ it("renders conversation channel plates for historical items", () => {
   expect(ledger.querySelector(".turn.turn--agent")).toHaveTextContent("Agent");
   expect(screen.getByText("Hello examiner")).toBeVisible();
 });
+
+it("seats an empty plate when the live transcript has no turns yet", () => {
+  render(
+    <SessionTranscriptLedger
+      label="Session turns"
+      items={[]}
+      empty={{
+        label: "Transcript clear",
+        note: "Compose your first reply below, then press Transmit.",
+      }}
+    />,
+  );
+
+  const ledger = screen.getByLabelText("Session turns");
+  expect(ledger.querySelector(".ledger-empty .empty-plate")).toBeTruthy();
+  expect(screen.getByText("Transcript clear")).toBeVisible();
+  expect(screen.getByText("Compose your first reply below, then press Transmit.")).toBeVisible();
+  expect(ledger.querySelectorAll(".turn")).toHaveLength(0);
+});

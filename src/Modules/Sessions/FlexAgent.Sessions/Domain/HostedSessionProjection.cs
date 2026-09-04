@@ -24,13 +24,22 @@ public static class HostedSessionPermittedActions
 public static class HostedSessionEventTypes
 {
     public const string LifecycleChanged = "session.hosted.lifecycle.changed.v1";
+    public const string TimingUpdated = "session.hosted.timing.updated.v1";
+    public const string WarningIssued = "session.hosted.warning.issued.v1";
     public const string MessageAccepted = "session.hosted.message.accepted.v1";
     public const string AgentWork = "session.hosted.agent.work.v1";
     public const string AgentNoAction = "session.hosted.agent.no_action.v1";
     public const string AgentFragment = "session.hosted.agent.fragment.v1";
     public const string AgentComplete = "session.hosted.agent.complete.v1";
     public const string Terminal = "session.hosted.terminal.v1";
+    public const string AccessChanged = "session.hosted.access.changed.v1";
+    public const string ReconcileRequired = "session.hosted.reconcile.required.v1";
 }
+
+public sealed record HostedSessionEventProjectionOptions(
+    DateTimeOffset? SessionStartedAt = null,
+    HostedFrozenTimingPolicy? TimingPolicy = null,
+    DateTimeOffset? AuthoritativeUtc = null);
 
 public sealed record HostedTranscriptItem(
     string ItemId,
@@ -395,10 +404,13 @@ public static class HostedSessionSnapshotProjector
 
 public static class HostedSessionEventProjector
 {
-    public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterCursor)
+    public static AuthorizedSessionEventReplayResult Project(
+        SessionRuntime session,
+        long afterCursor,
+        HostedSessionEventProjectionOptions? projectionOptions = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!TryBuildHostedEvents(session, afterCursor, out var events, out var baselineOutcome))
+        if (!TryBuildHostedEvents(session, afterCursor, projectionOptions, out var events, out var baselineOutcome))
         {
             return new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
         }
@@ -418,7 +430,7 @@ public static class HostedSessionEventProjector
     public static string CurrentProjectedStreamCursor(SessionRuntime session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!TryBuildHostedEvents(session, afterCursor: 0, out var events, out _))
+        if (!TryBuildHostedEvents(session, afterCursor: 0, projectionOptions: null, out var events, out _))
         {
             return "0";
         }
@@ -437,6 +449,7 @@ public static class HostedSessionEventProjector
     private static bool TryBuildHostedEvents(
         SessionRuntime session,
         long afterCursor,
+        HostedSessionEventProjectionOptions? projectionOptions,
         out List<AuthorizedSessionProjectionEvent> events,
         out string baselineOutcome)
     {
@@ -449,7 +462,7 @@ public static class HostedSessionEventProjector
         }
 
         var sessionId = session.Ownership.SessionId.ToString("D");
-        AppendCommittedHostedEvents(session, sessionId, events);
+        AppendCommittedHostedEvents(session, sessionId, events, projectionOptions);
 
         foreach (var evt in agentEvents)
         {
@@ -572,15 +585,39 @@ public static class HostedSessionEventProjector
             issued.Add(HostedStreamCursors.Encode(cutoff, HostedStreamCursors.SlotTerminal));
         }
 
+        if (session.LifecycleState == SessionLifecycleState.Completing && session.CutoffSequence is { } completingCutoff)
+        {
+            issued.Add(HostedStreamCursors.Encode(
+                ResolveHostedSessionSequence(session, completingCutoff),
+                HostedStreamCursors.SlotLifecycle));
+        }
+
+        foreach (var record in session.ManifestRuntimeRecords)
+        {
+            if (!string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TimerEventV1, StringComparison.Ordinal)
+                || !TryGetTimerLifecycleQualifier(record.PayloadRef.ProtectedRef, out _))
+            {
+                continue;
+            }
+
+            issued.Add(HostedStreamCursors.Encode(ResolveHostedSessionSequence(session, record.SessionSequence), HostedStreamCursors.SlotLifecycle));
+            issued.Add(HostedStreamCursors.Encode(ResolveHostedSessionSequence(session, record.SessionSequence), HostedStreamCursors.SlotTiming));
+        }
+
         return issued;
     }
 
     private static void AppendCommittedHostedEvents(
         SessionRuntime session,
         string sessionId,
-        List<AuthorizedSessionProjectionEvent> events)
+        List<AuthorizedSessionProjectionEvent> events,
+        HostedSessionEventProjectionOptions? projectionOptions)
     {
-        foreach (var record in session.ManifestRuntimeRecords.OrderBy(record => record.SessionSequence))
+        var emittedLifecycle = new HashSet<string>(StringComparer.Ordinal);
+        var simulation = new HostedLifecycleSimulation(SessionLifecycleState.Active);
+        var previousWarningCode = "none";
+
+        foreach (var record in session.ManifestRuntimeRecords.OrderBy(record => record.ManifestSequence))
         {
             if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TranscriptAppendV1, StringComparison.Ordinal))
             {
@@ -592,6 +629,22 @@ public static class HostedSessionEventProjector
                 && !record.PayloadRef.ProtectedRef.EndsWith(".outcome", StringComparison.Ordinal))
             {
                 AppendQueuedWorkFromAdmission(session, sessionId, record, events);
+                continue;
+            }
+
+            if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TimerEventV1, StringComparison.Ordinal)
+                && TryGetTimerLifecycleQualifier(record.PayloadRef.ProtectedRef, out var qualifier))
+            {
+                AppendTimerLifecycleAndTiming(
+                    session,
+                    sessionId,
+                    record,
+                    qualifier,
+                    events,
+                    emittedLifecycle,
+                    simulation,
+                    projectionOptions,
+                    ref previousWarningCode);
             }
         }
 
@@ -655,6 +708,213 @@ public static class HostedSessionEventProjector
                     "Agent response in progress."));
             }
         }
+
+        if (session.LifecycleState == SessionLifecycleState.Completing && session.CutoffSequence is { } cutoffSequence)
+        {
+            AppendLifecycleEvent(
+                session,
+                sessionId,
+                ResolveHostedSessionSequence(session, cutoffSequence),
+                session.LastCommittedAt,
+                HostedSessionSnapshotProjector.MapLifecycle(SessionLifecycleState.Completing),
+                "Session is completing.",
+                events,
+                emittedLifecycle,
+                simulation,
+                projectionOptions,
+                ref previousWarningCode);
+        }
+    }
+
+    private sealed class HostedLifecycleSimulation
+    {
+        public HostedLifecycleSimulation(SessionLifecycleState lifecycleState)
+        {
+            LifecycleState = lifecycleState;
+        }
+
+        public SessionLifecycleState LifecycleState { get; private set; }
+
+        public int AccumulatedPausedSeconds { get; private set; }
+
+        public DateTimeOffset? OpenPauseStartedAt { get; private set; }
+
+        public void Pause(DateTimeOffset authoritativeUtc)
+        {
+            OpenPauseStartedAt = authoritativeUtc;
+            LifecycleState = SessionLifecycleState.Paused;
+        }
+
+        public void Resume(DateTimeOffset authoritativeUtc)
+        {
+            if (OpenPauseStartedAt is { } started)
+            {
+                AccumulatedPausedSeconds += Math.Max(
+                    0,
+                    (int)(authoritativeUtc - started).TotalSeconds);
+            }
+
+            OpenPauseStartedAt = null;
+            LifecycleState = SessionLifecycleState.Active;
+        }
+
+        public void Completing() => LifecycleState = SessionLifecycleState.Completing;
+    }
+
+    private static long ResolveHostedSessionSequence(ManifestRuntimeRecord record, SessionRuntime session) =>
+        record.SessionSequence >= 1
+            ? record.SessionSequence
+            : Math.Max(1, session.SessionVersion);
+
+    private static long ResolveHostedSessionSequence(SessionRuntime session, long sessionSequence) =>
+        sessionSequence >= 1
+            ? sessionSequence
+            : Math.Max(1, session.SessionVersion);
+
+    private static bool TryGetTimerLifecycleQualifier(string protectedRef, out string qualifier)
+    {
+        var separator = protectedRef.LastIndexOf('.');
+        if (separator < 0 || separator == protectedRef.Length - 1)
+        {
+            qualifier = string.Empty;
+            return false;
+        }
+
+        qualifier = protectedRef[(separator + 1)..];
+        return qualifier is "paused" or "resumed";
+    }
+
+    private static void AppendTimerLifecycleAndTiming(
+        SessionRuntime session,
+        string sessionId,
+        ManifestRuntimeRecord record,
+        string qualifier,
+        List<AuthorizedSessionProjectionEvent> events,
+        HashSet<string> emittedLifecycle,
+        HostedLifecycleSimulation simulation,
+        HostedSessionEventProjectionOptions? projectionOptions,
+        ref string previousWarningCode)
+    {
+        var lifecycleState = qualifier switch
+        {
+            "paused" => HostedSessionSnapshotProjector.MapLifecycle(SessionLifecycleState.Paused),
+            "resumed" => HostedSessionSnapshotProjector.MapLifecycle(SessionLifecycleState.Active),
+            _ => null,
+        };
+        if (lifecycleState is null)
+        {
+            return;
+        }
+
+        if (qualifier == "paused")
+        {
+            simulation.Pause(record.OccurredAt);
+        }
+        else
+        {
+            simulation.Resume(record.OccurredAt);
+        }
+
+        AppendLifecycleEvent(
+            session,
+            sessionId,
+            ResolveHostedSessionSequence(record, session),
+            record.OccurredAt,
+            lifecycleState,
+            qualifier == "paused"
+                ? "Session paused."
+                : "Session resumed.",
+            events,
+            emittedLifecycle,
+            simulation,
+            projectionOptions,
+            ref previousWarningCode);
+    }
+
+    private static void AppendLifecycleEvent(
+        SessionRuntime session,
+        string sessionId,
+        long sessionSequence,
+        DateTimeOffset occurredAt,
+        string lifecycleState,
+        string summary,
+        List<AuthorizedSessionProjectionEvent> events,
+        HashSet<string> emittedLifecycle,
+        HostedLifecycleSimulation simulation,
+        HostedSessionEventProjectionOptions? projectionOptions,
+        ref string previousWarningCode)
+    {
+        var lifecycleKey = $"{sessionSequence}:{lifecycleState}";
+        if (!emittedLifecycle.Add(lifecycleKey))
+        {
+            return;
+        }
+
+        if (lifecycleState == HostedSessionSnapshotProjector.MapLifecycle(SessionLifecycleState.Completing))
+        {
+            simulation.Completing();
+        }
+
+        events.Add(new AuthorizedSessionProjectionEvent(
+            HostedSessionEventTypes.LifecycleChanged,
+            sessionId,
+            sessionSequence.ToString(CultureInfo.InvariantCulture),
+            HostedSessionSnapshotProjector.FormatUtc(occurredAt),
+            summary,
+            LifecycleState: lifecycleState,
+            SessionVersion: session.SessionVersion,
+            StreamCursor: HostedStreamCursors.Wire(sessionSequence, HostedStreamCursors.SlotLifecycle)));
+
+        AppendTimingProjectionIfConfigured(
+            session,
+            sessionId,
+            sessionSequence,
+            occurredAt,
+            simulation,
+            projectionOptions,
+            events,
+            ref previousWarningCode);
+    }
+
+    private static void AppendTimingProjectionIfConfigured(
+        SessionRuntime session,
+        string sessionId,
+        long sessionSequence,
+        DateTimeOffset occurredAt,
+        HostedLifecycleSimulation simulation,
+        HostedSessionEventProjectionOptions? projectionOptions,
+        List<AuthorizedSessionProjectionEvent> events,
+        ref string previousWarningCode)
+    {
+        if (projectionOptions?.TimingPolicy is not { } timingPolicy)
+        {
+            return;
+        }
+
+        var startedAt = projectionOptions.SessionStartedAt ?? session.LastCommittedAt;
+        var authoritativeUtc = projectionOptions.AuthoritativeUtc ?? occurredAt;
+        var timing = HostedSessionTiming.Project(
+            simulation.LifecycleState,
+            startedAt,
+            occurredAt,
+            authoritativeUtc,
+            timingPolicy,
+            simulation.AccumulatedPausedSeconds,
+            simulation.OpenPauseStartedAt);
+
+        events.Add(new AuthorizedSessionProjectionEvent(
+            HostedSessionEventTypes.TimingUpdated,
+            sessionId,
+            sessionSequence.ToString(CultureInfo.InvariantCulture),
+            HostedSessionSnapshotProjector.FormatUtc(occurredAt),
+            "Session timing updated.",
+            LifecycleState: HostedSessionSnapshotProjector.MapLifecycle(simulation.LifecycleState),
+            RemainingSeconds: timing.RemainingSeconds,
+            WarningCode: timing.WarningCode,
+            SessionVersion: session.SessionVersion,
+            StreamCursor: HostedStreamCursors.Wire(sessionSequence, HostedStreamCursors.SlotTiming)));
+
+        previousWarningCode = timing.WarningCode ?? "none";
     }
 
     private static void AppendParticipantMessageAccepted(

@@ -8,7 +8,8 @@ namespace FlexAgent.Sessions.Infrastructure;
 public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     PostgresSessionRuntimeRepository runtimeRepository,
-    IReplayAuthorizedSessionEventsHandler replayHandler)
+    IReplayAuthorizedSessionEventsHandler replayHandler,
+    IHostedSessionFrozenTimingSource? frozenTimingSource = null)
     : IReplayAuthorizedSessionEventsCoordinator
 {
     public async Task<AuthorizedSessionEventReplayResult> ReplayAsync(
@@ -47,7 +48,18 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
                     []);
             }
 
-            var result = replayHandler.Handle(command, session);
+            var result = replayHandler.Handle(
+                command.UseHostedProjection
+                    ? command with
+                    {
+                        HostedProjectionOptions = await BuildHostedProjectionOptionsAsync(
+                            command,
+                            binding,
+                            session,
+                            cancellationToken),
+                    }
+                    : command,
+                session);
             await scope.CommitAsync(cancellationToken);
             return result;
         }
@@ -56,5 +68,27 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
             await scope.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task<HostedSessionEventProjectionOptions?> BuildHostedProjectionOptionsAsync(
+        ReplayAuthorizedSessionEventsCommand command,
+        TrustedSessionBinding binding,
+        SessionRuntime session,
+        CancellationToken cancellationToken)
+    {
+        if (frozenTimingSource is null)
+        {
+            return null;
+        }
+
+        var timingPolicy = await frozenTimingSource.LoadAsync(
+            command.Ownership.OrganizationId,
+            command.Ownership.SessionId,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        return new HostedSessionEventProjectionOptions(
+            session.LastCommittedAt,
+            timingPolicy,
+            DateTimeOffset.UtcNow);
     }
 }

@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 import type { SessionSnapshotTranscriptItemV1 } from "../../contracts/v1";
+import { EmptyPlate } from "../../design-system";
 import { transcriptItemCopy } from "../../features/session/useTranscriptReveal";
+
+export type SessionTranscriptLedgerEmpty = {
+  label: string;
+  note: string;
+};
 
 export function SessionTranscriptLedger({
   items,
   label,
   copyFor,
   turnState,
+  empty,
   children,
 }: {
   items: SessionSnapshotTranscriptItemV1[];
@@ -16,10 +23,16 @@ export function SessionTranscriptLedger({
     active?: boolean;
     arriving?: boolean;
   };
+  empty?: SessionTranscriptLedgerEmpty;
   children?: ReactNode;
 }) {
   return (
     <ol className="ledger" aria-label={label}>
+      {items.length === 0 && empty ? (
+        <li className="ledger-empty">
+          <EmptyPlate className="ledger-empty-plate" label={empty.label} note={empty.note} />
+        </li>
+      ) : null}
       {items.map((item, index) => {
         const copy = copyFor?.(item) ?? transcriptItemCopy(item);
         const state = turnState?.(item, index);

@@ -81,13 +81,13 @@ public static class SessionEventEndpointExtensions
         context.Response.Headers["X-Accel-Buffering"] = "no";
         context.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
+        var cursor = lastEventId;
         var replay = await handler.ReplayAsync(command, cancellationToken);
-        if (!await WriteReplayOrCompleteAsync(context, replay, hosted, cancellationToken))
+        if (!await WriteReplayOrCompleteAsync(context, replay, hosted, sessionId, cursor, cancellationToken))
         {
             return;
         }
 
-        var cursor = lastEventId;
         if (replay.Events.Count > 0)
         {
             cursor = HostedEventId(replay.Events[^1], hosted);
@@ -97,7 +97,7 @@ public static class SessionEventEndpointExtensions
         {
             command = command with { UntrustedLastEventId = cursor };
             replay = await handler.ReplayAsync(command, cancellationToken);
-            if (!await WriteReplayOrCompleteAsync(context, replay, hosted, cancellationToken))
+            if (!await WriteReplayOrCompleteAsync(context, replay, hosted, sessionId, cursor, cancellationToken))
             {
                 return;
             }
@@ -149,6 +149,16 @@ public static class SessionEventEndpointExtensions
                     || !HasRequiredAuthenticationStrength(context, reauthorization.Relationship)
                     || !MatchesBoundOrganization(context, reauthorization.OrganizationId))
                 {
+                    await WriteHostedTerminalSignalAsync(
+                        context,
+                        sessionId,
+                        hosted,
+                        HostedSessionEventTypes.AccessChanged,
+                        "Session access changed.",
+                        recoveryCategory: "sign_in",
+                        accessState: "revoked",
+                        HostedStreamCursors.Parse(cursor) + 1,
+                        cancellationToken);
                     await context.Response.WriteAsync(": access-revoked\n\n", cancellationToken);
                     await context.Response.Body.FlushAsync(cancellationToken);
                     return;
@@ -165,6 +175,20 @@ public static class SessionEventEndpointExtensions
                     replay = await handler.ReplayAsync(command, cancellationToken);
                     if (!replay.Succeeded)
                     {
+                        await WriteHostedTerminalSignalAsync(
+                            context,
+                            sessionId,
+                            hosted,
+                            IsDenied(replay.OutcomeCode)
+                                ? HostedSessionEventTypes.AccessChanged
+                                : HostedSessionEventTypes.ReconcileRequired,
+                            IsDenied(replay.OutcomeCode)
+                                ? "Session access changed."
+                                : "Session snapshot reconciliation required.",
+                            IsDenied(replay.OutcomeCode) ? null : "reconcile_snapshot",
+                            IsDenied(replay.OutcomeCode) ? "revoked" : null,
+                            HostedStreamCursors.Parse(cursor) + 1,
+                            cancellationToken);
                         var comment = IsDenied(replay.OutcomeCode)
                             ? ": access-revoked\n\n"
                             : ": reconcile\n\n";
@@ -201,6 +225,8 @@ public static class SessionEventEndpointExtensions
         HttpContext context,
         AuthorizedSessionEventReplayResult replay,
         bool hosted,
+        string sessionId,
+        string? cursor,
         CancellationToken cancellationToken)
     {
         if (replay.Succeeded)
@@ -209,10 +235,54 @@ public static class SessionEventEndpointExtensions
             return true;
         }
 
+        await WriteHostedTerminalSignalAsync(
+            context,
+            sessionId,
+            hosted,
+            IsDenied(replay.OutcomeCode)
+                ? HostedSessionEventTypes.AccessChanged
+                : HostedSessionEventTypes.ReconcileRequired,
+            IsDenied(replay.OutcomeCode)
+                ? "Session access changed."
+                : "Session snapshot reconciliation required.",
+            IsDenied(replay.OutcomeCode) ? null : "reconcile_snapshot",
+            IsDenied(replay.OutcomeCode) ? "revoked" : null,
+            HostedStreamCursors.Parse(cursor) + 1,
+            cancellationToken);
+
         var comment = IsDenied(replay.OutcomeCode) ? ": access-revoked\n\n" : ": reconcile\n\n";
         await context.Response.WriteAsync(comment, cancellationToken);
         await context.Response.Body.FlushAsync(cancellationToken);
         return false;
+    }
+
+    private static async Task WriteHostedTerminalSignalAsync(
+        HttpContext context,
+        string sessionId,
+        bool hosted,
+        string eventType,
+        string summary,
+        string? recoveryCategory,
+        string? accessState,
+        long streamCursor,
+        CancellationToken cancellationToken)
+    {
+        if (!hosted || streamCursor < 1)
+        {
+            return;
+        }
+
+        var sequence = Math.Max(1L, streamCursor / HostedStreamCursors.SlotsPerSequence);
+        var evt = new AuthorizedSessionProjectionEvent(
+            eventType,
+            sessionId,
+            sequence.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
+            summary,
+            RecoveryCategory: recoveryCategory,
+            AccessState: accessState,
+            StreamCursor: streamCursor.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await WriteEventsAsync(context, [evt], hosted: true, cancellationToken);
     }
 
     private static bool MatchesBoundOrganization(HttpContext context, Guid? organizationId)
@@ -322,6 +392,8 @@ public static class SessionEventEndpointExtensions
                     LifecycleState: evt.LifecycleState,
                     RecoveryCategory: evt.RecoveryCategory,
                     AccessState: evt.AccessState,
+                    RemainingSeconds: evt.RemainingSeconds,
+                    WarningCode: evt.WarningCode,
                     CutoffSequence: evt.CutoffSequence,
                     ItemStatus: evt.ItemStatus),
                 evt.StreamCursor),

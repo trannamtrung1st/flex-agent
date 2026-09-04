@@ -24,6 +24,8 @@ public static class HostedStreamCursors
     public const int SlotFragment = 5;
     public const int SlotComplete = 6;
     public const int SlotTerminal = 7;
+    public const int SlotLifecycle = 8;
+    public const int SlotTiming = 9;
 
     public static long Encode(long sessionSequence, int slot)
     {

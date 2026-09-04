@@ -324,9 +324,10 @@ authorized by this plan because approved families and donors already exist.
     (accepted 2026-09-04): `session_version` replay, distinct `stream_cursor`
     for SSE `Last-Event-ID`, issued-cursor validation, version-before-sequence
     snapshot merge.
-  - [ ] Lifecycle pause/resume SSE.
-  - [ ] Timing/warning SSE.
-  - [ ] Access/reconcile SSE.
+  - [x] Lifecycle pause/resume SSE.
+  - [>] Timing/warning SSE (`timing.updated` with embedded `warning_code`;
+    separate `warning.issued` awaits durable warning facts per REQ-SESS-24).
+  - [x] Access/reconcile SSE.
   - [ ] Multi-device/offline verification matrix.
   Compatibility `/sessions/{id}/events` still uses `session_sequence`.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
@@ -1315,3 +1316,34 @@ Implementation CI on `3d2c1a8`, then Realtime `[>]` SSE.
 | `scripts/check_docs.py` | passed |
 | Integration pause call sites (2) | both `administrator_pause` |
 | Implementation CI `33856790502` on `3d2c1a8` | not re-checked locally (no `gh` auth) |
+
+# Realtime SSE slice (2026-09-04, uncommitted)
+
+Extended hosted Session event projection and `/v1/sessions/{sessionId}/events`
+for lifecycle pause/resume, timing updates, and access/reconcile terminal
+signals. Client reducer merges `timing.updated`, `lifecycle.changed`,
+`access.changed`, and `reconcile.required` into snapshot recovery/timing state.
+
+| Surface | Change |
+| --- | --- |
+| `HostedSessionProjection` | Timer manifest pause/resume → `lifecycle.changed`; frozen timing policy → `timing.updated` with `remaining_seconds` / `warning_code`; cutoff → `completing` lifecycle; sequence fallback when manifest `session_sequence` is 0 |
+| `SessionEventEndpointExtensions` | Hosted `access.changed` / `reconcile.required` envelopes before SSE comments on replay failure, revalidation revocation, and poll failure |
+| `session-view.ts` | Reducer handlers for timing, lifecycle, access, reconcile hosted events |
+| `ProductionTextSessionPage` | Enrollment-aware return paths; transcript empty state |
+
+**Residual Realtime `[>]`:** separate durable `warning.issued` (REQ-SESS-24) when
+warning facts are persisted; multi-device/offline live QA matrix.
+
+**Focused verification (this pass):**
+
+| Gate | Result |
+| --- | --- |
+| `dotnet build` FlexAgent.Api | green |
+| `FlexAgent.Sessions.Tests` | 555 passed |
+| `FlexAgent.Runtime.Tests` | 339 passed (includes hosted reconcile envelope) |
+| `session-view.test.ts` | 27 passed |
+| `ProductionTextSessionPage.test.tsx` | green (vitest) |
+| `pnpm verify:web` | pending re-run after lint fix |
+
+**Next:** commit code-bearing SHA → Implementation CI → live QA matrix →
+durable `docs/current-state.md` promotion → task completion review.

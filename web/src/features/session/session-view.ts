@@ -387,6 +387,35 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     next.lifecycle_state = event.payload.lifecycle_state;
   }
 
+  if (
+    event.event_type === "session.hosted.timing.updated.v1"
+    || event.event_type === "session.hosted.warning.issued.v1"
+  ) {
+    next.timing = {
+      policy: snapshot.timing?.policy ?? "disabled",
+      remaining_seconds: event.payload.remaining_seconds ?? snapshot.timing?.remaining_seconds ?? null,
+      warning_code: event.payload.warning_code ?? snapshot.timing?.warning_code ?? "none",
+      budget_seconds: snapshot.timing?.budget_seconds ?? null,
+      pause_started_at: event.payload.lifecycle_state === "paused"
+        ? event.occurred_at
+        : event.payload.lifecycle_state === "active"
+          ? undefined
+          : snapshot.timing?.pause_started_at,
+    };
+  }
+
+  if (event.event_type === "session.hosted.reconcile.required.v1") {
+    next.recovery_category = event.payload.recovery_category ?? "reconcile_snapshot";
+  }
+
+  if (event.event_type === "session.hosted.access.changed.v1") {
+    if (event.payload.access_state === "revoked") {
+      next.recovery_category = "sign_in";
+    } else if (event.payload.access_state === "revalidate") {
+      next.recovery_category = "reconcile_snapshot";
+    }
+  }
+
   if (event.event_type === "session.hosted.agent.complete.v1") {
     next.activity = {
       work_state: event.payload.work_state ?? "idle",
