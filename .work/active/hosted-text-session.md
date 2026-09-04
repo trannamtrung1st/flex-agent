@@ -1438,7 +1438,7 @@ replay, workload-identity denial, and warning-failure/expiry independence;
 **Next:** multi-device/offline live QA → durable `docs/current-state.md`
 promotion → completion review.
 
-# Durable warning confirm pass (2026-09-04, HEAD pending)
+# Durable warning confirm pass (2026-09-04, `cb9842e`)
 
 Re-ran the reviewed REQ-SESS-24 warning slice before commit.
 
