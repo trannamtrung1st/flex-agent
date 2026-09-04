@@ -242,6 +242,48 @@ public sealed class ProductionSessionEventRuntimeTests
     }
 
     [Fact]
+    public async Task Hosted_events_route_serializes_exact_authorized_participant_message_text()
+    {
+        var harness = CreateHarness(sessionVersion: 7);
+        harness.Handler.Result = new AuthorizedSessionEventReplayResult(
+            true,
+            SessionEventReplayOutcomeCodes.Succeeded,
+            [
+                new AuthorizedSessionProjectionEvent(
+                    HostedSessionEventTypes.MessageAccepted,
+                    harness.SessionId.ToString("D"),
+                    "5",
+                    "2026-09-04T00:00:00Z",
+                    "Participant message accepted.",
+                    TurnId: "turn.synthetic.0001",
+                    MessageId: "msg.synthetic.0001",
+                    SessionVersion: 7,
+                    MessageText: "Exact text from durable storage.",
+                    StreamCursor: "51"),
+            ]);
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/v1/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var body = await ReadUntilReplayCompleteAsync(reader, cancellationToken);
+
+        Assert.Contains("session.hosted.message.accepted.v1", body, StringComparison.Ordinal);
+        Assert.Contains("\"message_text\":\"Exact text from durable storage.\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Compatibility_events_route_does_not_emit_session_version()
     {
         var harness = CreateHarness(sessionVersion: 6);

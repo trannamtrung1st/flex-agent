@@ -15,6 +15,25 @@
     "occurred_at",
     "payload"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "session.hosted.message.accepted.v1"
+          }
+        },
+        "required": ["event_type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["summary", "message_id", "message_text"]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
@@ -81,6 +100,11 @@
         },
         "message_id": {
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "message_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
         },
         "turn_id": {
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"

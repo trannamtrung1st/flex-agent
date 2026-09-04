@@ -1,3 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Text;
+
 namespace FlexAgent.Sessions.Domain;
 
 public enum SessionLifecycleState
@@ -494,6 +497,15 @@ public static class SessionEventReplayOutcomeCodes
     public const string OwnershipMismatch = "session_event_replay.ownership_mismatch";
 }
 
+public static class HostedSessionMessageBounds
+{
+    public const int MaxCharacters = 16384;
+
+    public static bool IsValid([NotNullWhen(true)] string? messageText) =>
+        !string.IsNullOrWhiteSpace(messageText)
+        && messageText.EnumerateRunes().Count() <= MaxCharacters;
+}
+
 public sealed record AuthorizedSessionProjectionEvent(
     string EventType,
     string SessionId,
@@ -515,6 +527,7 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? AccessState = null,
     long SessionVersion = 0,
     string? ItemStatus = null,
+    string? MessageText = null,
     int? RemainingSeconds = null,
     string? WarningCode = null,
     string? StreamCursor = null);

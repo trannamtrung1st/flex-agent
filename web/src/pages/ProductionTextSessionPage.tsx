@@ -137,33 +137,92 @@ export function ProductionTextSessionPage() {
     }
 
     let reconnectPending = false;
-    const source = new EventSource(`/v1/sessions/${sessionId}/events`);
-    dispatch({ type: "connection", connection: "connecting" });
-    source.onopen = () => {
-      dispatch({ type: "connection", connection: "connected" });
-      if (reconnectPending) {
-        reconnectPending = false;
+    let disposed = false;
+    let source: EventSource | null = null;
+    let sourceGeneration = 0;
+    let connectionEpoch = 0;
+
+    const connect = () => {
+      source?.close();
+      const generation = ++sourceGeneration;
+      const nextSource = new EventSource(`/v1/sessions/${sessionId}/events`);
+      source = nextSource;
+      nextSource.onopen = () => {
+        if (disposed || source !== nextSource || generation !== sourceGeneration || !navigator.onLine) {
+          return;
+        }
+        if (!reconnectPending) {
+          dispatch({ type: "connection", connection: "connected" });
+          return;
+        }
+        const openedEpoch = connectionEpoch;
         void refetchSnapshotRef.current().then((result) => {
-          if (result.data) {
+          if (
+            !disposed
+            && source === nextSource
+            && generation === sourceGeneration
+            && openedEpoch === connectionEpoch
+            && navigator.onLine
+            && result.data
+          ) {
             dispatch({ type: "snapshot", snapshot: result.data });
+            reconnectPending = false;
+            dispatch({ type: "connection", connection: "connected" });
           }
         });
-      }
+      };
+      nextSource.onerror = () => {
+        if (disposed || source !== nextSource || generation !== sourceGeneration) {
+          return;
+        }
+        connectionEpoch += 1;
+        reconnectPending = true;
+        setConfirmComplete(false);
+        dispatch({ type: "connection", connection: "reconnecting" });
+      };
+      nextSource.onmessage = (message: MessageEvent<string>) => {
+        if (disposed || source !== nextSource || generation !== sourceGeneration || !navigator.onLine) {
+          return;
+        }
+        try {
+          const event = JSON.parse(message.data) as SessionHostedEventEnvelopeV1;
+          dispatch({ type: "event", event });
+        } catch {
+          dispatch({ type: "error", message: "A Session update could not be applied. Refresh from the server." });
+        }
+      };
     };
-    source.onerror = () => {
+
+    const handleOffline = () => {
+      connectionEpoch += 1;
+      sourceGeneration += 1;
       reconnectPending = true;
       setConfirmComplete(false);
+      source?.close();
+      source = null;
+      dispatch({ type: "connection", connection: "offline" });
+    };
+    const handleOnline = () => {
+      connectionEpoch += 1;
+      reconnectPending = true;
       dispatch({ type: "connection", connection: "reconnecting" });
+      connect();
     };
-    source.onmessage = (message: MessageEvent<string>) => {
-      try {
-        const event = JSON.parse(message.data) as SessionHostedEventEnvelopeV1;
-        dispatch({ type: "event", event });
-      } catch {
-        dispatch({ type: "error", message: "A Session update could not be applied. Refresh from the server." });
-      }
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    if (navigator.onLine) {
+      dispatch({ type: "connection", connection: "connecting" });
+      connect();
+    } else {
+      handleOffline();
+    }
+    return () => {
+      disposed = true;
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      source?.close();
     };
-    return () => source.close();
   }, [apiState, sessionId]);
 
   const submit = useCallback(async (command: SessionCommandEnvelopeV1) => {
@@ -268,7 +327,7 @@ export function ProductionTextSessionPage() {
   const sendHeld = commandsBlocked;
   const timeEnded = sessionAtTimeBoundary(snapshot);
   const connectionReady = view.connection === "connected";
-  const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message") || !connectionReady;
+  const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message");
   const items = snapshot?.transcript?.items ?? [];
   const revealed = useTranscriptReveal(items, snapshot != null);
 
@@ -386,9 +445,11 @@ export function ProductionTextSessionPage() {
 
   const linkLabel = view.connection === "connected"
     ? "Link Nominal"
-    : view.connection === "reconnecting" || view.connection === "offline"
-      ? "Link Recovering"
-      : "Link Connecting";
+    : view.connection === "offline"
+      ? "Link Offline"
+      : view.connection === "reconnecting"
+        ? "Link Recovering"
+        : "Link Connecting";
 
   return (
     <TextSessionStation
@@ -414,7 +475,14 @@ export function ProductionTextSessionPage() {
               { term: "Participant", value: shell?.display_name?.trim() || "Participant" },
               { term: "Session", value: snapshot?.lifecycle_state ?? "loading" },
               { term: "Record", value: terminal ? "Preserved" : timeEnded ? "Closing" : "Open" },
-              { term: "Link", value: view.connection === "connected" ? "Nominal" : "Recovering" },
+              {
+                term: "Link",
+                value: view.connection === "connected"
+                  ? "Nominal"
+                  : view.connection === "offline"
+                    ? "Offline"
+                    : "Recovering",
+              },
             ]}
           />
           <ProtocolPlate label="Protocol" value="V1" />
@@ -426,7 +494,7 @@ export function ProductionTextSessionPage() {
             className="composer"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!snapshot || sendHeld || view.draft.trim().length === 0) {
+              if (!snapshot || sendHeld || !connectionReady || view.draft.trim().length === 0) {
                 return;
               }
               const idempotency = pendingIdempotency ?? createSessionIdempotencyKey();
@@ -450,7 +518,7 @@ export function ProductionTextSessionPage() {
               placeholder="Write your next message"
               autoComplete="off"
               spellCheck
-              disabled={sendBusy}
+              disabled={sendBusy || !connectionReady}
               value={view.draft}
               onChange={(event) => {
                 dispatch({ type: "draft", draft: event.target.value });
@@ -469,7 +537,7 @@ export function ProductionTextSessionPage() {
               variant="transmit"
               type="submit"
               waiting={view.sendState === "pending" || view.sendState === "checking"}
-              disabled={sendHeld || view.draft.trim().length === 0}
+              disabled={sendHeld || !connectionReady || view.draft.trim().length === 0}
             >
               <span>Transmit</span>
               {view.sendState === "pending" ? null : <TransmitChevron />}
@@ -611,9 +679,16 @@ export function ProductionTextSessionPage() {
           {view.lastError}
         </Alert>
       ) : null}
+      {view.updatedElsewhere ? (
+        <Alert variant="info" title="Session updated elsewhere">
+          This Session changed in another tab or device. The transcript and available actions now reflect the server-authoritative state.
+        </Alert>
+      ) : null}
       {!connectionReady && !terminal ? (
-        <Alert variant="warning" title="Reconnecting">
-          Reconnecting. Your Session and time have not been paused by this interruption. Sending and completion stay closed until the link is restored.
+        <Alert variant="warning" title={view.connection === "offline" ? "Offline" : "Reconnecting"}>
+          {view.connection === "offline"
+            ? "You cannot continue while disconnected. Your Session and time have not been paused by this connection issue. Your local draft is retained, and sending and completion stay closed."
+            : "Reconnecting. Your Session and time have not been paused by this interruption. Sending and completion stay closed until the link is restored."}
         </Alert>
       ) : null}
       <SessionTranscriptLedger

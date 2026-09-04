@@ -7,6 +7,16 @@ namespace FlexAgent.Sessions.Tests.Domain;
 public sealed class HostedSessionProjectionTests
 {
     [Fact]
+    public void Participant_message_bounds_count_unicode_scalar_characters()
+    {
+        var atLimit = string.Concat(Enumerable.Repeat("\U0001F642", HostedSessionMessageBounds.MaxCharacters));
+
+        Assert.True(HostedSessionMessageBounds.IsValid(atLimit));
+        Assert.False(HostedSessionMessageBounds.IsValid($"{atLimit}\U0001F642"));
+        Assert.False(HostedSessionMessageBounds.IsValid(" \t"));
+    }
+
+    [Fact]
     public void Participant_unavailable_timing_closes_send_and_complete()
     {
         var actions = SessionPermittedActionsProjector.Project(
@@ -465,7 +475,10 @@ public sealed class HostedSessionProjectionTests
 
         var replay = HostedSessionEventProjector.Project(session, afterCursor: 0);
 
-        Assert.Contains(replay.Events, evt => evt.EventType == HostedSessionEventTypes.MessageAccepted);
+        var accepted = Assert.Single(
+            replay.Events,
+            evt => evt.EventType == HostedSessionEventTypes.MessageAccepted);
+        Assert.Equal(SessionRuntimeTestFixtures.ParticipantMessageText, accepted.MessageText);
         Assert.Contains(
             replay.Events,
             evt => evt.EventType == HostedSessionEventTypes.AgentWork && evt.WorkState == "queued");

@@ -983,7 +983,8 @@ public static class HostedSessionEventProjector
         var transcriptItem = session.VisibleTranscript.FirstOrDefault(item =>
             string.Equals(item.MessageId, messageId, StringComparison.Ordinal));
         if (transcriptItem is null
-            || !string.Equals(transcriptItem.AuthorType, TranscriptAuthorTypes.Participant, StringComparison.Ordinal))
+            || !string.Equals(transcriptItem.AuthorType, TranscriptAuthorTypes.Participant, StringComparison.Ordinal)
+            || !HostedSessionMessageBounds.IsValid(transcriptItem.ExactUtf8Text))
         {
             return;
         }
@@ -998,6 +999,7 @@ public static class HostedSessionEventProjector
                 ? null
                 : HostedSessionSnapshotProjector.ToStableId(transcriptItem.TurnId, "turn"),
             MessageId: HostedSessionSnapshotProjector.ToStableId(messageId, "msg"),
+            MessageText: transcriptItem.ExactUtf8Text,
             SessionVersion: session.SessionVersion,
             StreamCursor: HostedStreamCursors.Wire(record.SessionSequence, HostedStreamCursors.SlotAccepted)));
     }

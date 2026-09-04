@@ -2,7 +2,7 @@
 id: hosted-text-session
 status: in-progress
 created: 2026-09-02
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # Goal
@@ -317,7 +317,7 @@ authorized by this plan because approved families and donors already exist.
   admission and commit, antiforgery for browser mutations, body/rate limits,
   `no-store`, safe status categories, expected Session version, scoped
   idempotency, required audit/outbox, and non-  disclosing `404` denial.
-- [>] Realtime red/green: extend the authorized hosted Session event
+- [x] Realtime red/green: extend the authorized hosted Session event
   projection and `/v1/sessions/{sessionId}/events` mapping for committed
   UI-relevant deltas missing from the snapshot contract.
   - [x] Hosted cursor/version/message/work/fragment/complete terminal core
@@ -328,7 +328,7 @@ authorized by this plan because approved families and donors already exist.
   - [x] Timing/warning SSE (`timing.updated` plus durable, unique,
     reconstructable `warning.issued` facts per REQ-SESS-24).
   - [x] Access/reconcile SSE.
-  - [ ] Multi-device/offline verification matrix.
+  - [x] Multi-device/offline verification matrix.
   Compatibility `/sessions/{id}/events` still uses `session_sequence`.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
   browser Compose profile with the documented image, migration dependency,
@@ -341,16 +341,18 @@ authorized by this plan because approved families and donors already exist.
   under its explicit opt-in and data boundary. Keep tools, voice, Dynamic
   memory, richer outputs, credentials in Compose, and unqualified Production
   providers disabled.
-- [-] Persistence and concurrency: add only required additive migration(s),
+- [x] Persistence and concurrency: add only required additive migration(s),
   constraints, indexes, and projections discovered by the contract tests.
   Prove transaction participation, immutable transcript/terminal history,
   Session-local ordering, one visible response publisher, message/command
   idempotency, timer/lifecycle races, Attempt mapping, process-loss recovery,
   and upgrade/rollback safety with PostgreSQL tests and fault injection.
-  Existing Session runtime migrations already persist participant
-  relationships at start; no new migration was required. Admin operations
-  resolve via current relationship or an org `session.operations.read` grant
-  bound to a Session that exists in that organization.
+  Existing Session runtime migrations persist participant relationships at
+  start; additive migrations through `0070` now also persist trigger/Invocation
+  state, provider evidence, and unique durable warning occurrences. Admin
+  operations resolve via current relationship or an org
+  `session.operations.read` grant bound to a Session that exists in that
+  organization.
 - [x] Frontend shell red/green: promote/adapt the approved `LiveSessionLayout`
   from the Component Deck/Design Lab donor into production-safe design-system
   code, add its production route-layout assignment, and replace the
@@ -1479,3 +1481,136 @@ the static Session-table inventory omitting migration `0070`'s
 implemented. **Do not retire** — commit/push this schema-inventory fix, obtain a
 full green Implementation run on its SHA, complete multi-device/offline live
 QA, promote `docs/current-state.md`, then run completion review.
+
+# Multi-device/offline live QA and fixes (2026-09-04)
+
+Authenticated canonical Compose QA against one active synthetic Session found
+and corrected two High reconnect defects:
+
+1. A Participant message accepted in a second tab arrived in the first tab
+   without its text. The authorized hosted `message.accepted` payload now
+   carries bounded `message_text` from durable transcript storage, and the
+   reducer materializes that exact text.
+2. Full browser offline state left the UI at **Link Nominal** with commands
+   available. The Session page now owns `offline`/`online` events, closes and
+   recreates the SSE source, distinguishes **Offline** from **Reconnecting**,
+   keeps commands closed, and restores them only after snapshot reconciliation.
+
+**Live matrix:** two same-actor tabs remained on one Session; a second-tab send
+appeared exactly once with exact text in both tabs; the untouched first-tab
+draft remained local. At full offline, the authorized transcript remained
+readable, the retained draft stayed visible in a disabled composer,
+**Transmit** was disabled, **Complete Session** was absent, and copy explicitly
+stated that Session time was not paused.
+Reconnect rebuilt the SSE source, refetched authoritative state, restored the
+same draft, and returned commands only at **Link Nominal**. Desktop, 390px, and
+320px (400% reflow equivalent) accessibility snapshots/screenshots were
+inspected with no horizontal overflow. Forced-colors emulation retained
+readable boundaries, status, controls, transcript roles, and accessible names.
+The only browser error was the expected SSE transport interruption induced by
+the test.
+
+| Gate | Result |
+| --- | --- |
+| Multi-device regression red | backend missing `MessageText`; reducer received `null` |
+| Offline regression red | no **Offline** state after browser transport loss |
+| Focused backend/contract/frontend tests | green |
+| `build/scripts/verify-dotnet.sh` | green: 1,955 total; 1,951 passed; 4 skipped; API + Worker publish passed |
+| `pnpm verify:web` | green: 696 production, 212 design-lab, 11 Playwright |
+| `scripts/check_docs.py` / `git diff --check` | passed / clean before promotion |
+
+**Disposition:** realtime lifecycle, timing/warnings, access/reconcile, and the
+multi-device/offline matrix are complete locally. Keep `in-progress` until this
+follow-up is committed, pushed, green in Implementation CI on its own SHA, and
+accepted by completion review; then retire this task file.
+
+# Completion-review remediation (2026-09-04)
+
+The completion review found one High reconnect race and five Medium evidence or
+contract gaps. This follow-up closes them locally:
+
+1. EventSource generation and connection-epoch guards prevent stale `onopen`
+   or snapshot callbacks from reopening commands after a newer error/offline
+   transition; a deferred-snapshot regression test covers the race.
+2. Offline keeps the retained draft visible in a disabled composer while send
+   and completion remain closed.
+3. Accepted-message SSE requires bounded `message_text` in the canonical JSON
+   Schema and TypeScript discriminated contract. The server uses one
+   Unicode-scalar bound for admission and projection, and the endpoint test
+   verifies exact SSE serialization from the authorized projection.
+4. A server-originated accepted message raises **Session updated elsewhere**,
+   materializes exactly once, and preserves the untouched local draft.
+5. Independent desktop and 390px mobile browser contexts verified exact
+   cross-context synchronization, one occurrence per context, local-draft
+   isolation, and no mobile horizontal overflow.
+6. Live 320px reflow and forced-colors screenshots/snapshots completed the
+   outstanding accessibility matrix.
+
+| Completion-review gate | Result |
+| --- | --- |
+| frontend reducer/page focused tests | 52 passed |
+| web typecheck / lint | passed / passed |
+| message-bound projection test | passed |
+| exact SSE endpoint serialization test | passed |
+| `FlexAgent.Contract.Tests` | 196 passed |
+| canonical schema fixture checks | passed |
+| IDE diagnostics / `git diff --check` | clean |
+
+**Remaining after this follow-up:** commit/push when requested, obtain green
+Implementation CI on that SHA, then completion-review acceptance and
+retirement. Local gates and current-state count promotion are recorded in
+`# Remaining-work continuation (2026-09-05)`.
+
+# Remaining-work continuation (2026-09-05)
+
+While Implementation CI continues on `1b7e218`, this pass reviewed and gated the
+uncommitted multi-device/offline + completion-review remediations.
+
+- `[x]` Final local repository gates and completion-review of the reconnect,
+  offline, and accepted-message-text follow-up.
+- `[>]` Commit/push the follow-up; obtain green Implementation CI on that SHA.
+- `[ ]` Independent completion-review acceptance after that SHA is green.
+- `[ ]` Retire this task file after promotion and required review.
+
+**Compile fix found in this pass:** `HostedSessionMessageBounds.IsValid` now
+uses `[NotNullWhen(true)]` so a validated `messageText` can be passed to
+`AcceptParticipantMessageCommand` without `CS8604`.
+
+**Completion review (this follow-up only):** no remaining High defect in the
+uncommitted reconnect/offline/accepted-message slice after the nullability
+fix. Commands stay closed while offline or reconnecting; EventSource
+generation/epoch guards drop stale snapshot reopen; accepted-message SSE
+requires bounded `message_text`; a second-tab accept materializes exact text
+and raises **Session updated elsewhere**. Isolation stays Session-scoped;
+projected text is the already-authorized durable transcript, not a new
+collection.
+
+Open question: JSON Schema `maxLength: 16384` may count UTF-16 units while
+`HostedSessionMessageBounds` counts Unicode scalars. **Interim default:** keep
+the schema as the conservative HTTP gate; use the rune helper as the server
+admission and projection bound. Not a `PROP-*` unless a supplementary-plane
+Participant message must be accepted at the schema edge.
+
+| Gate (2026-09-05 follow-up) | Result |
+| --- | --- |
+| `build/scripts/verify-dotnet.sh` | green: 1,958 total; 1,954 passed; 4 skipped; API + Worker publish passed |
+| `pnpm verify:web` | green: 698 production, 212 design-lab, 11 Playwright |
+| `scripts/check_docs.py` / `git diff --check` | passed / clean |
+| Focused session page + reducer tests | 52 passed |
+
+**Disposition:** keep `in-progress`. Do not retire on local gates alone. Next
+requested action is commit/push of this follow-up, then Implementation CI on
+its SHA and completion-review acceptance.
+
+# Confirm pass (2026-09-05, reconnect/offline follow-up)
+
+Re-ran the full local repository gates before commit.
+
+**Disposition:** ready to commit/push; keep `in-progress` until Implementation
+CI is green on this SHA and completion-review acceptance is recorded.
+
+| Gate (final confirm) | Result |
+| --- | --- |
+| `build/scripts/verify-dotnet.sh` | green: 1,958 total; 1,954 passed; 4 skipped; API + Worker publish passed |
+| `pnpm verify:web` | green: 698 production, 212 design-lab, 11 Playwright |
+| `scripts/check_docs.py` / `git diff --check` | passed / clean |

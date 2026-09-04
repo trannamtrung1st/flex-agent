@@ -389,6 +389,7 @@ public static class SessionEventEndpointExtensions
                     ResolutionCategory: evt.ResolutionCategory,
                     TurnId: evt.TurnId,
                     MessageId: evt.MessageId,
+                    MessageText: evt.MessageText,
                     LifecycleState: evt.LifecycleState,
                     RecoveryCategory: evt.RecoveryCategory,
                     AccessState: evt.AccessState,

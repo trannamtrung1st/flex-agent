@@ -120,7 +120,7 @@ fixture; default-off).
 
 ### Persistence
 
-`database/migrations/up/`: 63 SQL files through `0062` plus additive `0056a`.
+`database/migrations/up/`: 71 SQL files through `0070`, including additive `0056a`.
 Applied migrations are immutable; labels inside them are provenance only.
 
 ### Production UI routes and pages
@@ -173,7 +173,7 @@ synthetic pin is not production qualification.
 | Activities server-numbered paging and capability-aware table selection | Partial implemented | `REQ-ACT-43`–`REQ-ACT-46`, `UI-ACT-DEC-7`, `DS-DEC-12`–`DS-DEC-13`; numbered Activities list and page/matching table selection are in code and tests |
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
 | Submission intake / Attempt start | Partial implemented | Development atomic start, readiness, durable exact acknowledgments (`current_outcome` vs bindable), history, reconciliation, and **Continue Attempt** locator are complete and reviewed on `ec84274` ([Implementation 33703247493](https://github.com/trannamtrung1st/flex-agent/actions/runs/33703247493)); Production/Staging remain fail-closed; beyond-baseline retry grant (`REQ-SUBM-21`) remains a gap |
-| Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production `/sessions/:sessionId` live-session, `/operations`, `/transcript` landed; frozen timing at Attempt start (`0069`); Worker `IHostedSessionExpirySweep` on authenticated-browser Compose (Development `deterministic_fake` only). Production/Staging Worker stay fail-closed. Design-system `LiveSessionLayout` and work `StageBars` are production donors. Core timing + Implementation CI closed (`888eb91` / `33743544924`; `b24f67c` / `33754337758`; `920596e` / `33763594004`). **Running-Worker expiry-loop proof:** corrected in `92b43fb`; local confirm pass 2026-09-03 (`probe-compose-hosted-expiry-sweep.sh` green; Session `01a067b2-…532c58` → `completed` / `time_expiry`); env-gated probe skipped in CI. **Hosted SSE session version:** production `/v1/sessions/{id}/events` projects through `HostedSessionEventProjector` with authoritative `session_version` and partial committed-delta coverage (message accepted, agent work/no-action/failure, fragment/complete/terminal). Client merge preserves SSE-ahead transcript and resolved Agent activity; send and Submit Session stay blocked until the Agent turn closes (queued/working or streaming item) and post-accept reconciliation finishes; hosted SSE stamps transcript `occurred_at` on Agent fragment/complete. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix remain open. Reconnect refetches snapshot after SSE recovery. **2026-09-04 specialist reviews** at HEAD `05ce7e4` (`588d8a2`) recorded **seven** High remaining defects (see Specialist review findings in `.work/active/hosted-text-session.md`); realtime item stays partial. |
+| Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production `/sessions/:sessionId` live-session, `/operations`, `/transcript` landed; frozen timing at Attempt start (`0069`); durable append-only warning occurrences (`0070`); Worker timing, warning, and expiry sweeps on authenticated-browser Compose (Development `deterministic_fake` only). Production/Staging Worker stay fail-closed. Design-system `LiveSessionLayout` and work `StageBars` are production donors. Core timing + Implementation CI closed (`888eb91` / `33743544924`; `b24f67c` / `33754337758`; `920596e` / `33763594004`). **Running-Worker expiry-loop proof:** corrected in `92b43fb`; local confirm pass 2026-09-03 (`probe-compose-hosted-expiry-sweep.sh` green; Session `01a067b2-…532c58` → `completed` / `time_expiry`); env-gated probe skipped in CI. **Hosted realtime:** production `/v1/sessions/{id}/events` projects authoritative `session_version` plus distinct `stream_cursor` deltas for lifecycle, timing and reconstructable warnings, access/reconcile, exact accepted Participant message text, Agent work/no-action/failure, fragments/completion, and terminal state. Client merge preserves SSE-ahead transcript and resolved Agent activity; commands remain blocked while work or reconciliation is open. Authenticated canonical live QA on 2026-09-04 verified exact one-copy transcript synchronization across two same-actor tabs, local-draft isolation, explicit offline state, closed offline commands, no timer-pause claim, narrow reflow, and snapshot reconciliation before commands return after SSE recovery. Full local regression on the reconnect/offline follow-up was green on 2026-09-05 (1,958 .NET tests; 698 production web tests; 212 design-lab tests; 11 design-lab Playwright tests). The broader P0 Session specification remains partial where grouped rows above still include unimplemented product-wide requirements. |
 | Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
@@ -187,12 +187,11 @@ synthetic pin is not production qualification.
 
 ## Active work
 
-`.work/active/hosted-text-session.md` is `in-progress` (premature retirement in
-`920596e` reverted; running-Worker probe corrected in `92b43fb`; hosted SSE
-`session_version` projection corrected 2026-09-03; distinct backend / frontend /
-security-privacy / QA reviews recorded 2026-09-04 at HEAD `05ce7e4` in
-`588d8a2` — **seven** High findings remain; realtime item partial; do not
-retire). The Attempt-start predecessor is retired from
+`.work/active/hosted-text-session.md` is `in-progress`: hosted realtime and
+multi-device/offline work is locally complete after the 2026-09-05
+reconnect/offline follow-up. That follow-up still needs Implementation CI on
+its committed SHA and completion-review acceptance before retirement. The
+Attempt-start predecessor is retired from
 `.work/active` (recover from Git).
 `.work/active/text-interaction-controller-contract.md` is `planned` and not
 activated. Completed Participants cursor-pager, server-numbered pagination,

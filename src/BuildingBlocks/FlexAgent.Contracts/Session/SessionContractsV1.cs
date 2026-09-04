@@ -178,6 +178,7 @@ public sealed record SessionHostedEventPayloadV1(
     int? RemainingSeconds = null,
     string? WarningCode = null,
     string? MessageId = null,
+    string? MessageText = null,
     string? TurnId = null,
     string? WorkState = null,
     string? ResolutionCategory = null,

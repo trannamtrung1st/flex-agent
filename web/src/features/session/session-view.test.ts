@@ -464,11 +464,11 @@ describe("sessionLiveReducer", () => {
 
   it("applies another tab participant message acceptance from hosted SSE", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
-    const next = sessionLiveReducer(withSnapshot, {
-      type: "event",
+    const event = {
+      type: "event" as const,
       event: {
-        schema_version: "v1",
-        event_type: "session.hosted.message.accepted.v1",
+        schema_version: "v1" as const,
+        event_type: "session.hosted.message.accepted.v1" as const,
         session_id: snapshot.session_id,
         session_sequence: "13",
         session_version: 4,
@@ -477,12 +477,18 @@ describe("sessionLiveReducer", () => {
           summary: "Participant message accepted.",
           message_id: "msg.other.tab",
           turn_id: "turn.other",
+          message_text: "Message from another tab.",
         },
       },
-    });
+    };
+    const next = sessionLiveReducer(withSnapshot, event);
+    const duplicate = sessionLiveReducer(next, event);
     expect(next.snapshot?.transcript?.items).toHaveLength(1);
     expect(next.snapshot?.transcript?.items[0]?.item_id).toBe("msg.other.tab");
+    expect(next.snapshot?.transcript?.items[0]?.content).toBe("Message from another tab.");
     expect(next.snapshot?.last_confirmed_sequence).toBe("13");
+    expect(next.updatedElsewhere).toBe(true);
+    expect(duplicate).toBe(next);
   });
 
   it("does not let a stale snapshot rewind Session version on the same Session", () => {
@@ -779,6 +785,7 @@ describe("sessionLiveReducer", () => {
         payload: {
           summary: "Participant message accepted.",
           message_id: "msg.other.tab",
+          message_text: "Message from another tab.",
           turn_id: "turn.2",
         },
       },

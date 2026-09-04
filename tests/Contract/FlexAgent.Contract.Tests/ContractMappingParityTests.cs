@@ -653,6 +653,7 @@ public sealed class ContractMappingParityTests
                 new SessionHostedEventPayloadV1(
                     "Participant message accepted.",
                     MessageId: "msg.synthetic.0001",
+                    MessageText: "Synthetic participant answer.",
                     TurnId: "turn.synthetic.0001"),
                 "131"));
     }

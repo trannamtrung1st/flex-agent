@@ -266,7 +266,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
 
         if (commandType == "session.message.send.v1")
         {
-            if (string.IsNullOrWhiteSpace(messageText) || messageText.Length > 16384)
+            if (!HostedSessionMessageBounds.IsValid(messageText))
             {
                 return null;
             }

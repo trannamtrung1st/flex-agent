@@ -198,6 +198,7 @@ export interface SessionHostedEventPayloadV1 {
   remaining_seconds?: number | null;
   warning_code?: 'none' | 'approaching' | 'imminent';
   message_id?: string;
+  message_text?: string;
   turn_id?: string;
   work_state?: 'idle' | 'queued' | 'working' | 'no_action' | 'failed';
   resolution_category?: 'message_stream' | 'no_action' | 'suppressed_failure' | 'execution_failure';
@@ -225,16 +226,25 @@ export type SessionHostedEventTypeV1 =
   | 'session.hosted.access.changed.v1'
   | 'session.hosted.reconcile.required.v1';
 
-export interface SessionHostedEventEnvelopeV1 {
+type SessionHostedEventEnvelopeCommonV1 = {
   schema_version: SchemaVersionV1;
-  event_type: SessionHostedEventTypeV1;
   session_id: string;
   session_sequence: PositiveInt64WireString;
   stream_cursor?: PositiveInt64WireString;
   session_version: number;
   occurred_at: string;
-  payload: SessionHostedEventPayloadV1;
-}
+};
+
+export type SessionHostedEventEnvelopeV1 = SessionHostedEventEnvelopeCommonV1 & (
+  | {
+      event_type: 'session.hosted.message.accepted.v1';
+      payload: SessionHostedEventPayloadV1 & { message_id: string; message_text: string };
+    }
+  | {
+      event_type: Exclude<SessionHostedEventTypeV1, 'session.hosted.message.accepted.v1'>;
+      payload: SessionHostedEventPayloadV1;
+    }
+);
 
 export interface SessionStateEventEnvelopeV1 {
   schema_version: SchemaVersionV1;

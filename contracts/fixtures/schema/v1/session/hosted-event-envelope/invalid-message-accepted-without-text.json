@@ -9,7 +9,6 @@
   "payload": {
     "summary": "Participant message accepted.",
     "message_id": "msg.synthetic.0001",
-    "message_text": "Synthetic participant answer.",
     "turn_id": "turn.synthetic.0001"
   }
 }

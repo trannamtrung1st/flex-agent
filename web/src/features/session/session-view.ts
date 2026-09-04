@@ -11,6 +11,7 @@ export interface SessionLiveView {
   lastError: string | null;
   lastAcceptedSequence: string | null;
   lastStreamCursor: string | null;
+  updatedElsewhere: boolean;
 }
 
 export const emptySessionLiveView: SessionLiveView = {
@@ -21,6 +22,7 @@ export const emptySessionLiveView: SessionLiveView = {
   lastError: null,
   lastAcceptedSequence: null,
   lastStreamCursor: null,
+  updatedElsewhere: false,
 };
 
 /** Agent turn still open: queued/working activity or a streaming Agent transcript item. */
@@ -365,6 +367,9 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     }
   }
 
+  const updatedElsewhere = event.event_type === "session.hosted.message.accepted.v1"
+    && state.sendState === "idle"
+    && !snapshot.transcript?.items.some((item) => item.item_id === event.payload.message_id);
   const next: SessionSnapshotV1 = {
     ...snapshot,
     last_confirmed_sequence: laterSequence(snapshot.last_confirmed_sequence, event.session_sequence),
@@ -506,7 +511,7 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
         item_id: event.payload.message_id,
         author: "participant",
         status: "accepted",
-        content: null,
+        content: event.payload.message_text ?? null,
         sequence_start: event.session_sequence,
         sequence_end: event.session_sequence,
         occurred_at: event.occurred_at,
@@ -527,5 +532,6 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     lastStreamCursor: hasStreamCursor
       ? laterSequence(state.lastStreamCursor ?? "0", event.stream_cursor!)
       : laterSequence(state.lastStreamCursor ?? "0", event.session_sequence),
+    updatedElsewhere: state.updatedElsewhere || updatedElsewhere,
   };
 }

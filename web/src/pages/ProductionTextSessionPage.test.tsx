@@ -164,6 +164,37 @@ describe("hosted Session pages", () => {
     expect(screen.getByLabelText("Session turns").querySelectorAll(".turn")).toHaveLength(0);
   });
 
+  it("announces an exact Participant message synchronized from another tab", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        return jsonResponse(participantSnapshot());
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByRole("textbox", { name: "Compose reply" })).toBeVisible();
+
+    MockEventSource.instances[0]?.emit({
+      schema_version: "v1",
+      event_type: "session.hosted.message.accepted.v1",
+      session_id: sessionId,
+      session_sequence: "5",
+      stream_cursor: "51",
+      session_version: 3,
+      occurred_at: "2026-09-04T00:00:00Z",
+      payload: {
+        summary: "Participant message accepted.",
+        message_id: "msg.other.tab",
+        message_text: "Exact message from another tab.",
+        turn_id: "turn.other.tab",
+      },
+    });
+
+    expect(await screen.findByText("Exact message from another tab.")).toBeVisible();
+    expect(screen.getByText("Session updated elsewhere")).toBeVisible();
+  });
+
   it("closes send and completion while the event stream is reconnecting", async () => {
     stubFetch((url) => {
       if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
@@ -180,8 +211,68 @@ describe("hosted Session pages", () => {
     source?.onerror?.();
 
     expect(await screen.findByText(/Sending and completion stay closed/)).toBeVisible();
-    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
+  });
+
+  it("marks a fully offline Session, retains its local draft, and reconciles before restoring controls", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        return jsonResponse(participantSnapshot());
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    const composer = await screen.findByRole("textbox", { name: "Compose reply" });
+    fireEvent.change(composer, { target: { value: "Retain this local draft." } });
+
+    fireEvent(window, new window.Event("offline"));
+
+    expect(await screen.findByText("Offline", { selector: ".advisory-copy" })).toBeVisible();
+    expect(screen.getByText(/cannot continue while disconnected/i)).toBeVisible();
+    expect(within(screen.getByLabelText("Session instruments")).getByText("Offline")).toBeVisible();
+    expect(screen.getByLabelText("Connection status: Link Offline")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("Retain this local draft.");
+    expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
+
+    fireEvent(window, new window.Event("online"));
+
+    expect(await screen.findByLabelText("Connection status: Link Nominal")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Compose reply" })).toHaveValue("Retain this local draft.");
+    expect(MockEventSource.instances).toHaveLength(2);
+  });
+
+  it("does not let a stale reconnect snapshot reopen commands after a newer stream error", async () => {
+    let snapshotCalls = 0;
+    let resolveReconnect!: (value: Awaited<ReturnType<typeof jsonResponse>>) => void;
+    const reconnectResponse = new Promise<Awaited<ReturnType<typeof jsonResponse>>>((resolve) => {
+      resolveReconnect = resolve;
+    });
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        snapshotCalls += 1;
+        return snapshotCalls === 1 ? jsonResponse(participantSnapshot()) : reconnectResponse;
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByRole("button", { name: "Complete Session" })).toBeVisible();
+    const source = MockEventSource.instances.at(-1);
+    source?.onerror?.();
+    source?.onopen?.();
+    await waitFor(() => expect(snapshotCalls).toBe(2));
+
+    source?.onerror?.();
+    resolveReconnect(await jsonResponse(participantSnapshot({ session_version: 3 })));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sending and completion stay closed/)).toBeVisible();
+      expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
+    });
   });
 
   it("closes the completion confirmation when the event stream drops", async () => {
