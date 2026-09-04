@@ -1806,7 +1806,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 validatedVersion,
                 SessionLifecycleTransitions.Pause,
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                ReasonCode: "administrator_pause"),
             binding,
             CancellationToken);
         Assert.True(paused.Succeeded, paused.OutcomeCode);

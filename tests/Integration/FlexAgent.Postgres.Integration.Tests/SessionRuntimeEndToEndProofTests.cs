@@ -130,7 +130,8 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
                 await ReadVersionAsync(binding.Ownership),
                 SessionLifecycleTransitions.Pause,
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                ReasonCode: "administrator_pause"),
             binding,
             CancellationToken);
         Assert.True(paused.Succeeded, paused.OutcomeCode);

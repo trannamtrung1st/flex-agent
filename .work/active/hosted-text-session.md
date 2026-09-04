@@ -1238,3 +1238,28 @@ open.
 | `FlexAgent.Runtime.Tests` (hosted-session) | 8 passed |
 | `SessionHumanGrantScopeTests` | 2 passed |
 | `scripts/check_docs.py` | passed |
+
+# External re-review disposition (2026-09-04, `57ad0a1`)
+
+**PASS on the three `13cc2c5` follow-ups.** Reviewer accepted OpenAPI pause
+parity, `REQ-AUTH-13` activity-scoped human Session administration, and
+completion-dialog reconnect handling. **Do not retire** — Realtime `[>]`
+SSE, live QA matrix, full Implementation CI, and durable promotion remain.
+
+Implementation run `33855215762` on `57ad0a1` failed dotnet: two integration
+tests still called `SessionLifecycleTransitions.Pause` without
+`ReasonCode: "administrator_pause"`. Accounting-only `76d011d` did not rerun
+dotnet.
+
+# CI pause-reason fix (2026-09-04)
+
+| Test | Fix |
+| --- | --- |
+| `SessionRuntimeRepositoryTests.Effect_failed_retry_with_accepted_timer_reconciles_without_a_second_completion_audit` | pause command passes `ReasonCode: "administrator_pause"` |
+| `SessionRuntimeEndToEndProofTests.Readiness_through_completed_seal_exposes_eligible_handoff_and_blocks_post_cutoff_work` | pause command passes `ReasonCode: "administrator_pause"` |
+
+**Local verification:** both tests passed (Postgres integration).
+
+**Next:** full Implementation CI on new code-bearing SHA (dotnet →
+supply-chain → OCI); then Realtime `[>]` lifecycle/timing/access SSE,
+live QA matrix, durable promotion.
