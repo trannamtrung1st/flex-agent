@@ -1184,7 +1184,7 @@ cross-Activity human grant scope still open — org-wide `session.pause` could
 control another Activity's Session; (3) reconnect while completion dialog
 open left a silently no-op primary button.
 
-# Second closure pass (2026-09-04)
+# Second closure pass (2026-09-04, HEAD `57ad0a1`)
 
 | Reviewer item | Fix summary |
 | --- | --- |
@@ -1195,14 +1195,17 @@ open left a silently no-op primary button.
 
 **Still open:** Realtime `[>]` lifecycle pause/resume, timing/warning, access/
 reconcile SSE; live QA matrix (no active Session); full Implementation CI on
-final code-bearing SHA; durable promotion to `docs/current-state.md`.
+`57ad0a1`; durable promotion to `docs/current-state.md`.
 
 **Focused verification (this pass):**
 
 - `pnpm verify:web` green (OpenAPI parity + lint + vitest + build)
 - `FlexAgent.Sessions.Tests` 552 passed
+- `FlexAgent.Contract.Tests` 195 passed
+- `FlexAgent.Runtime.Tests` hosted-session filter 8 passed
 - `SessionHumanGrantScopeTests` 2 passed (Postgres integration)
 - `ProductionTextSessionPage` vitest 18 passed (includes reconnect + completion-dialog edge)
+- `scripts/check_docs.py` passed
 
 **Prior pass verification (`13cc2c5`):**
 
@@ -1210,3 +1213,28 @@ final code-bearing SHA; durable promotion to `docs/current-state.md`.
 - `FlexAgent.Contract.Tests` 195 passed
 - `FlexAgent.Runtime.Tests` hosted-session filter 8 passed
 - `web` vitest `ProductionTextSessionPage` + `session-view` 40 passed
+
+# Confirm pass (2026-09-04, HEAD `57ad0a1`)
+
+Re-ran the second-closure verification matrix on the pushed code-bearing SHA
+before external re-review handoff.
+
+**Disposition:** ready for external re-review on OpenAPI parity, `REQ-AUTH-13`,
+and completion-dialog reconnect; **do not retire** — Realtime `[>]` SSE work,
+live QA matrix, Implementation CI on `57ad0a1`, and durable promotion remain
+open.
+
+| Reviewer item (`13cc2c5`) | Status at `57ad0a1` |
+| --- | --- |
+| OpenAPI `reason_code` parity | Closed — `SessionPauseCommandV1` matches canonical schema |
+| `REQ-AUTH-13` cross-Activity human admin | Closed — kernel stewardship + integration negatives |
+| Reconnect + open completion dialog | Closed — dialog cleared on `EventSource` error + vitest |
+
+| Gate (2026-09-04 confirm) | Result |
+| --- | --- |
+| `pnpm verify:web` | green |
+| `FlexAgent.Sessions.Tests` | 552 passed |
+| `FlexAgent.Contract.Tests` | 195 passed |
+| `FlexAgent.Runtime.Tests` (hosted-session) | 8 passed |
+| `SessionHumanGrantScopeTests` | 2 passed |
+| `scripts/check_docs.py` | passed |
