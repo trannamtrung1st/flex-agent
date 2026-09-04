@@ -226,7 +226,8 @@ export function ProductionTextSessionPage() {
   const sendBusy = view.sendState !== "idle";
   const sendHeld = commandsBlocked;
   const timeEnded = sessionAtTimeBoundary(snapshot);
-  const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message");
+  const connectionReady = view.connection === "connected";
+  const composerClosed = terminal || completing || paused || timeEnded || !can(snapshot, "send_message") || !connectionReady;
   const items = snapshot?.transcript?.items ?? [];
   const revealed = useTranscriptReveal(items, snapshot != null);
 
@@ -493,7 +494,7 @@ export function ProductionTextSessionPage() {
           </section>
           <SessionChrono
             snapshot={snapshot}
-            canSubmit={can(snapshot, "complete_session") && !terminal && !timeEnded && !commandsBlocked}
+            canSubmit={can(snapshot, "complete_session") && !terminal && !timeEnded && !commandsBlocked && connectionReady}
             onSubmit={() => setConfirmComplete(true)}
           />
         </>
@@ -507,17 +508,17 @@ export function ProductionTextSessionPage() {
             id="confirmDialog"
           >
             <DialogPlate width="wide">
-              <DialogPlateHead title="Confirm Submission" titleId="confirmTitle" />
+              <DialogPlateHead title="Complete this Session?" titleId="confirmTitle" />
               <DialogPlateBody>
                 <p>
-                  This ends the Session and transmits your examination record. You will not be able to add further replies.
+                  This ends the Session and records your examination transcript. You will not be able to add further replies.
                 </p>
               </DialogPlateBody>
               <DialogPlateFooter
                 arrangement="split"
                 secondary={
                   <Key id="confirmCancel" onClick={() => setConfirmComplete(false)}>
-                    Remain in Session
+                    Continue Session
                   </Key>
                 }
                 primary={
@@ -525,7 +526,7 @@ export function ProductionTextSessionPage() {
                     id="confirmSubmit"
                     variant="transmit"
                     onClick={() => {
-                      if (!snapshot || commandsBlocked) return;
+                      if (!snapshot || commandsBlocked || !connectionReady) return;
                       setConfirmComplete(false);
                       void submit({
                         schema_version: "v1",
@@ -538,7 +539,7 @@ export function ProductionTextSessionPage() {
                       });
                     }}
                   >
-                    <span>Submit Session</span>
+                    <span>Complete Session</span>
                     <TransmitChevron />
                   </Key>
                 }
@@ -567,6 +568,16 @@ export function ProductionTextSessionPage() {
         </>
       )}
     >
+      {view.lastError ? (
+        <Alert variant="danger" title="Session command not confirmed">
+          {view.lastError}
+        </Alert>
+      ) : null}
+      {!connectionReady && !terminal ? (
+        <Alert variant="warning" title="Reconnecting">
+          Reconnecting. Your Session and time have not been paused by this interruption. Sending and completion stay closed until the link is restored.
+        </Alert>
+      ) : null}
       <SessionTranscriptLedger
         items={items}
         label="Session turns"

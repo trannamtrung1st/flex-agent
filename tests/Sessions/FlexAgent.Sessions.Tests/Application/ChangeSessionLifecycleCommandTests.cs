@@ -299,7 +299,27 @@ public sealed class ChangeSessionLifecycleCommandTests
             expectedVersion ?? session.SessionVersion,
             transition,
             Guid.Parse("44444444-4444-4444-4444-444444444444"),
-            "application.test");
+            "application.test",
+            transition switch
+            {
+                SessionLifecycleTransitions.Pause => "administrator_pause",
+                SessionLifecycleTransitions.Terminate => "administrator_stop",
+                _ => null,
+            });
+
+    [Fact]
+    public void Pause_without_reason_is_denied()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var result = new ChangeSessionLifecycleHandler().Handle(
+            CreateCommand(session, SessionLifecycleTransitions.Pause) with { ReasonCode = null },
+            session,
+            SessionRuntimeTestFixtures.T0.AddMinutes(1));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(SessionLifecycleOutcomeCodes.Denied, result.OutcomeCode);
+        Assert.Equal(SessionLifecycleState.Active, session.LifecycleState);
+    }
 
     private static string ClaimParticipantPublication(SessionRuntime session)
     {

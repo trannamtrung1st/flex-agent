@@ -132,7 +132,7 @@ public sealed class ContractMappingParityTests
                 locator,
                 4,
                 null,
-                new EmptyCommandPayloadV1()));
+                new PauseCommandPayloadV1("administrator_pause")));
 
         ValidateDto(
             schemas,

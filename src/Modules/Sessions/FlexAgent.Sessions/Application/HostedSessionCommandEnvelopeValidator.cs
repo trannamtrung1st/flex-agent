@@ -9,6 +9,7 @@ public readonly record struct HostedSessionCommandEnvelope(
     string IdempotencyKey,
     int ExpectedSessionVersion,
     string? MessageText,
+    string? PauseReasonCode,
     string? TerminateReasonCode);
 
 public static class HostedSessionCommandEnvelopeValidator
@@ -74,18 +75,25 @@ public static class HostedSessionCommandEnvelopeValidator
         }
 
         string? messageText = null;
-        string? reason = null;
+        string? pauseReason = null;
+        string? terminateReason = null;
         if (commandType == "session.message.send.v1"
             && root.TryGetProperty("payload", out var sendPayload)
             && sendPayload.TryGetProperty("message_text", out var text))
         {
             messageText = text.GetString();
         }
+        else if (commandType == "session.pause.v1"
+            && root.TryGetProperty("payload", out var pausePayload)
+            && pausePayload.TryGetProperty("reason_code", out var pauseReasonEl))
+        {
+            pauseReason = pauseReasonEl.GetString();
+        }
         else if (commandType == "session.terminate.v1"
             && root.TryGetProperty("payload", out var terminatePayload)
             && terminatePayload.TryGetProperty("reason_code", out var reasonEl))
         {
-            reason = reasonEl.GetString();
+            terminateReason = reasonEl.GetString();
         }
 
         envelope = new HostedSessionCommandEnvelope(
@@ -94,7 +102,8 @@ public static class HostedSessionCommandEnvelopeValidator
             idempotency,
             expectedVersion,
             messageText,
-            reason);
+            pauseReason,
+            terminateReason);
         return true;
     }
 

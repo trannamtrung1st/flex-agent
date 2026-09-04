@@ -84,11 +84,12 @@ public sealed class UnhostedHostedSessionCommandCoordinator : IHostedSessionComm
         string idempotencyKey,
         long expectedSessionVersion,
         string? messageText,
+        string? pauseReasonCode,
         string? terminateReasonCode,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(actor);
-        _ = (routeSessionId, commandType, commandId, idempotencyKey, expectedSessionVersion, messageText, terminateReasonCode, cancellationToken);
+        _ = (routeSessionId, commandType, commandId, idempotencyKey, expectedSessionVersion, messageText, pauseReasonCode, terminateReasonCode, cancellationToken);
         return Task.FromResult<HostedSessionCommandResult?>(
             new HostedSessionCommandResult(false, "rejected", "session.denied", "none", []));
     }
@@ -129,6 +130,7 @@ public interface IHostedSessionCommandCoordinator
         string idempotencyKey,
         long expectedSessionVersion,
         string? messageText,
+        string? pauseReasonCode,
         string? terminateReasonCode,
         CancellationToken cancellationToken = default);
 }

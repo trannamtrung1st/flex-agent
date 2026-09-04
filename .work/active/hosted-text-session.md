@@ -1147,3 +1147,40 @@ page/CSS returned no hits. Remaining-time chrono verified on candidate
 `:5274` after API rebuild: desktop examiner shows Time remaining digits plus
 gauge; narrow stacks examiner above transcript/composer. RedirectUri restored
 to canonical `:18080`.
+
+# External review disposition (2026-09-04, HEAD `f80c111`)
+
+**CHANGES REQUIRED — DO NOT RETIRE.** Reviewer treated `f80c111` as
+accounting-only after specialist review at `05ce7e4`; seven High findings
+remained open with no code-bearing fix commits.
+
+# Closure pass (2026-09-04)
+
+Addresses the seven High findings from specialist review at `05ce7e4`
+(recorded in `588d8a2` / external review `f80c111`).
+
+| High finding | Fix summary |
+| --- | --- |
+| Pause `reason_code` | `pause_payload.reason_code` on wire; validator/coordinator/lifecycle handler require reason; ops UI bounded reason select; audit `ReasonCode` on pause |
+| Commit-time AuthZ | `SessionHostedCommandCommitAuthorization` reauthorizes in accept/lifecycle coordinators before commit |
+| Reconnect gates send/complete | `connection !== "connected"` closes composer + Complete Session; reconnect alert copy per `UI-SESS-DEC-8` |
+| `lastError` surfaced | Danger alert when `view.lastError` set |
+| Completion copy | `Complete this Session?` / `Complete Session` / `Continue Session` per `UI-SESS-DEC-10` |
+| Historical transcript gate | `historical` projection omits transcript/timing unless lifecycle terminal |
+| Dual-role / projection AuthZ | `HostedSessionCommandAdmission` requires projection-compatible relationship + `permitted_actions` |
+
+**Partial on org-wide activity scope:** kernel grants remain org-scoped
+(synthetic-dev seed); command admission now denies admin commands when subject
+relationship is Participant and requires server-derived `permitted_actions`.
+Full activity-scoped human grants remain a documented gap (`REQ-AUTH-13`).
+
+**Still open:** Realtime `[>]` lifecycle pause/resume, timing/warning, access/
+reconcile SSE; live QA matrix (no active Session); full Implementation CI on
+final code-bearing SHA; durable promotion to `docs/current-state.md`.
+
+**Focused verification (this pass):**
+
+- `FlexAgent.Sessions.Tests` 552 passed
+- `FlexAgent.Contract.Tests` 195 passed
+- `FlexAgent.Runtime.Tests` hosted-session filter 8 passed
+- `web` vitest `ProductionTextSessionPage` + `session-view` 40 passed

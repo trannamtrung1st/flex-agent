@@ -94,13 +94,37 @@ public sealed class HostedSessionCommandEnvelopeValidatorTests
               "idempotency_key": "idem-synthetic-0099",
               "session_locator": { "session_id": "{{sessionId:D}}" },
               "expected_session_version": 3,
-              "payload": {}
+              "payload": { "reason_code": "administrator_pause" }
             }
             """);
 
         Assert.True(HostedSessionCommandEnvelopeValidator.IsCanonicalSchemaValid(utf8));
         using var document = System.Text.Json.JsonDocument.Parse(utf8);
-        Assert.True(HostedSessionCommandEnvelopeValidator.TryRead(document.RootElement, sessionId, out _));
+        Assert.True(HostedSessionCommandEnvelopeValidator.TryRead(document.RootElement, sessionId, out var envelope));
+        Assert.Equal("administrator_pause", envelope.PauseReasonCode);
+    }
+
+    [Fact]
+    public void Http_pause_without_reason_code_is_rejected()
+    {
+        var sessionId = Guid.Parse("55555555-5555-4555-8555-555555555555");
+        using var document = System.Text.Json.JsonDocument.Parse(
+            $$"""
+            {
+              "schema_version": "v1",
+              "command_type": "session.pause.v1",
+              "command_id": "cmd.synthetic.0099",
+              "idempotency_key": "idem-synthetic-0099",
+              "session_locator": { "session_id": "{{sessionId:D}}" },
+              "expected_session_version": 3,
+              "payload": {}
+            }
+            """);
+
+        Assert.False(HostedSessionCommandEnvelopeValidator.TryRead(
+            document.RootElement,
+            sessionId,
+            out _));
     }
 
     [Fact]

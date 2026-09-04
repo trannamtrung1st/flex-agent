@@ -66,6 +66,12 @@ public sealed class ChangeSessionLifecycleHandler(ISessionRuntimeTelemetry? tele
                         break;
                     }
 
+                    if (string.IsNullOrWhiteSpace(command.ReasonCode))
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.Denied, session);
+                        break;
+                    }
+
                     session.Pause(authoritativeUtc);
                     result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
                     break;

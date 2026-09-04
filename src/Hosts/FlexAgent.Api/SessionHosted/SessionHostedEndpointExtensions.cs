@@ -92,6 +92,7 @@ public static class SessionHostedEndpointExtensions
             envelope.IdempotencyKey,
             envelope.ExpectedSessionVersion,
             envelope.MessageText,
+            envelope.PauseReasonCode,
             envelope.TerminateReasonCode,
             context.RequestAborted);
         if (outcome is null)

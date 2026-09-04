@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -12,7 +13,8 @@ public sealed class PostgresAcceptParticipantMessageCoordinator(
     PostgresSessionRuntimeRepository runtimeRepository,
     IAcceptParticipantMessageHandler acceptHandler,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null)
+    IOutboxItemWriter? outboxItemWriter = null,
+    ICommitAuthorizationKernel? authorizationKernel = null)
 {
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
@@ -133,6 +135,24 @@ public sealed class PostgresAcceptParticipantMessageCoordinator(
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.StaleVersion, null, null);
+            }
+
+            if (authorizationKernel is not null)
+            {
+                var commitDecision = await SessionHostedCommandCommitAuthorization.ReauthorizeAsync(
+                    authorizationKernel,
+                    command.Actor,
+                    command.Ownership,
+                    "session.message.send.v1",
+                    command.CorrelationId,
+                    command.SourceChannel,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!commitDecision.IsPermitted)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.Denied, null, null);
+                }
             }
 
             await SessionRuntimePersistenceAudit.WriteAsync(

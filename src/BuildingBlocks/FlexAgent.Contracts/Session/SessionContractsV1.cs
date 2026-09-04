@@ -25,6 +25,8 @@ public sealed record MessageSendPayloadV1(string MessageText);
 
 public sealed record TerminateCommandPayloadV1(string ReasonCode);
 
+public sealed record PauseCommandPayloadV1(string ReasonCode);
+
 public sealed record SessionMessageSendCommandV1(
     string SchemaVersion,
     string CommandType,
@@ -43,7 +45,7 @@ public sealed record SessionPauseCommandV1(
     SessionLocatorV1 SessionLocator,
     int ExpectedSessionVersion,
     string? ClientLastSeenSequence,
-    EmptyCommandPayloadV1 Payload) : ISessionCommandEnvelopeV1;
+    PauseCommandPayloadV1 Payload) : ISessionCommandEnvelopeV1;
 
 public sealed record SessionResumeCommandV1(
     string SchemaVersion,

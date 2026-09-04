@@ -29,6 +29,7 @@ export function ProductionSessionOperationsPage() {
   const { apiState, fetchJson } = useProductionApi();
   const client = useMemo(() => createProductionSessionClient(fetchJson), [fetchJson]);
   const [pending, setPending] = useState<"pause" | "resume" | "terminate" | null>(null);
+  const [pauseReason, setPauseReason] = useState("administrator_pause");
   const [error, setError] = useState<string | null>(null);
 
   const snapshotQuery = useQuery({
@@ -101,8 +102,20 @@ export function ProductionSessionOperationsPage() {
               <p>
                 {pending === "terminate"
                   ? "Termination is final and records an administrator terminal reason."
-                  : "This changes operational state only. It does not load transcript content."}
+                  : pending === "pause"
+                    ? "Select a bounded pause reason. This changes operational state only and does not load transcript content."
+                    : "This changes operational state only. It does not load transcript content."}
               </p>
+              {pending === "pause" ? (
+                <label>
+                  Pause reason
+                  <select value={pauseReason} onChange={(event) => setPauseReason(event.target.value)}>
+                    <option value="administrator_pause">Administrator pause</option>
+                    <option value="safety_concern">Safety concern</option>
+                    <option value="technical_issue">Technical issue</option>
+                  </select>
+                </label>
+              ) : null}
             </DialogPlateBody>
             <DialogPlateFooter>
               <Key variant="quiet" onClick={() => setPending(null)}>Cancel</Key>
@@ -127,7 +140,7 @@ export function ProductionSessionOperationsPage() {
                           idempotency_key: createSessionIdempotencyKey(),
                           session_locator: { session_id: sessionId },
                           expected_session_version: snapshot.session_version,
-                          payload: {},
+                          payload: { reason_code: pauseReason },
                         }
                       : {
                           schema_version: "v1",

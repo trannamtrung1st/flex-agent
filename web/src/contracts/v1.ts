@@ -18,6 +18,10 @@ export interface TerminateCommandPayloadV1 {
   reason_code: string;
 }
 
+export interface PauseCommandPayloadV1 {
+  reason_code: string;
+}
+
 export type EmptyCommandPayloadV1 = Record<string, never>;
 
 interface SessionCommandEnvelopeCoreV1 {
@@ -36,7 +40,7 @@ export interface SessionMessageSendCommandV1 extends SessionCommandEnvelopeCoreV
 
 export interface SessionPauseCommandV1 extends SessionCommandEnvelopeCoreV1 {
   command_type: 'session.pause.v1';
-  payload: EmptyCommandPayloadV1;
+  payload: PauseCommandPayloadV1;
 }
 
 export interface SessionResumeCommandV1 extends SessionCommandEnvelopeCoreV1 {

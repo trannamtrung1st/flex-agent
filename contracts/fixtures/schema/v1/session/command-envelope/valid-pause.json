@@ -7,5 +7,7 @@
     "session_id": "sess.synthetic.0001"
   },
   "expected_session_version": 4,
-  "payload": {}
+  "payload": {
+    "reason_code": "administrator_pause"
+  }
 }

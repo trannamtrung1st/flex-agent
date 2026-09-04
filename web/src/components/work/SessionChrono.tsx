@@ -122,7 +122,7 @@ export function SessionChrono({
         <StageBars stage={stages.stage} total={stages.total} complete={terminal} />
         {canSubmit ? (
           <Key id="submitOpen" disabled={terminal} onClick={onSubmit}>
-            Submit Session
+            Complete Session
           </Key>
         ) : null}
       </div>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Tests.Domain;
@@ -105,6 +106,65 @@ public sealed class HostedSessionProjectionTests
         Assert.Null(snapshot.AgentDisplayName);
         Assert.Equal("disabled", snapshot.TimingPolicy);
         Assert.Null(snapshot.RemainingSeconds);
+    }
+
+    [Fact]
+    public void Historical_non_terminal_omits_transcript_and_timing()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Historical,
+            DateTimeOffset.Parse("2026-09-03T00:00:00Z"));
+
+        Assert.Empty(snapshot.Transcript);
+        Assert.Equal("disabled", snapshot.TimingPolicy);
+        Assert.Null(snapshot.RemainingSeconds);
+        Assert.Equal("unavailable", snapshot.RecoveryCategory);
+    }
+
+    [Fact]
+    public void Historical_terminal_includes_transcript()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        Assert.True(SessionRuntimeTestFixtures.AdmitParticipant(
+            session,
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0).Succeeded);
+        var handler = new ChangeSessionLifecycleHandler();
+        Assert.True(handler.Handle(
+            new ChangeSessionLifecycleCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                session.SessionVersion,
+                SessionLifecycleTransitions.BeginCompleting,
+                Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                "application.test"),
+            session,
+            DateTimeOffset.Parse("2026-09-03T00:01:00Z")).Succeeded);
+        Assert.True(handler.Handle(
+            new ChangeSessionLifecycleCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                session.SessionVersion,
+                SessionLifecycleTransitions.Complete,
+                Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                "application.test",
+                TerminalReasonCategories.ParticipantCompleted),
+            session,
+            DateTimeOffset.Parse("2026-09-03T00:02:00Z")).Succeeded);
+
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Historical,
+            DateTimeOffset.Parse("2026-09-03T00:03:00Z"));
+
+        Assert.NotEmpty(snapshot.Transcript);
+        Assert.Equal("none", snapshot.RecoveryCategory);
     }
 
     [Fact]

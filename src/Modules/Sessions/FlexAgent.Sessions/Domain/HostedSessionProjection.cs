@@ -186,8 +186,13 @@ public static class HostedSessionSnapshotProjector
         HostedFrozenTimingPolicy? timingPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        var includeTranscript = projectionKind is HostedSessionProjectionKinds.Participant
-            or HostedSessionProjectionKinds.Historical;
+        var includeTranscript = projectionKind switch
+        {
+            HostedSessionProjectionKinds.Participant => true,
+            HostedSessionProjectionKinds.Historical =>
+                SessionPermittedActionsProjector.IsTerminal(session.LifecycleState),
+            _ => false,
+        };
         var transcript = includeTranscript ? ProjectTranscript(session) : [];
         var recovery = projectionKind == HostedSessionProjectionKinds.Historical
             && !SessionPermittedActionsProjector.IsTerminal(session.LifecycleState)

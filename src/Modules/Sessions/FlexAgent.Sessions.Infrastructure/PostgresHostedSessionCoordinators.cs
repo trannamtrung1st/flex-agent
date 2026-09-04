@@ -130,6 +130,7 @@ public sealed class PostgresHostedSessionCommandCoordinator(
         string idempotencyKey,
         long expectedSessionVersion,
         string? messageText,
+        string? pauseReasonCode,
         string? terminateReasonCode,
         CancellationToken cancellationToken = default)
     {
@@ -177,6 +178,15 @@ public sealed class PostgresHostedSessionCommandCoordinator(
         var projectionKind = HostedSessionRelationships.ProjectionKind(subject.Relationship);
         var live = await snapshots.GetAsync(actor, routeSessionId, cancellationToken);
         if (!live.Found || live.Snapshot is null)
+        {
+            return Denied();
+        }
+
+        if (!HostedSessionCommandAdmission.IsPermitted(
+                commandType,
+                projectionKind,
+                subject.Relationship,
+                live.Snapshot.PermittedActions))
         {
             return Denied();
         }
@@ -277,7 +287,12 @@ public sealed class PostgresHostedSessionCommandCoordinator(
                     transition,
                     HostedSessionCommandCorrelation.ForCommandId(commandId),
                     "http.session_command",
-                    transition == SessionLifecycleTransitions.Terminate ? terminateReasonCode : null),
+                    transition switch
+                    {
+                        SessionLifecycleTransitions.Terminate => terminateReasonCode,
+                        SessionLifecycleTransitions.Pause => pauseReasonCode,
+                        _ => null,
+                    }),
                 binding,
                 cancellationToken);
             last = MapLifecycle(step, projectionKind);

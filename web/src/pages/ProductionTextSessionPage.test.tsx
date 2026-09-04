@@ -133,7 +133,7 @@ describe("hosted Session pages", () => {
     expect(await screen.findByText("Hello examiner")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Compose reply" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Transmit" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Submit Session" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Complete Session" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Time Remaining" })).toBeVisible();
     expect(screen.getByRole("timer")).toHaveTextContent("00:40:00");
     expect(screen.getByText("55555555…555555")).toBeVisible();
@@ -144,6 +144,26 @@ describe("hosted Session pages", () => {
     expect(screen.queryByRole("region", { name: "Console feed" })).toBeNull();
     expect(document.querySelector(".layout-session__rail-scroll .readout-stack")).toBeTruthy();
     expect(document.querySelectorAll(".layout-session__rail-scroll .readout-stack")).toHaveLength(1);
+  });
+
+  it("closes send and completion while the event stream is reconnecting", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        return jsonResponse(participantSnapshot());
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByRole("textbox", { name: "Compose reply" })).toBeVisible();
+
+    const source = MockEventSource.instances.at(-1);
+    source?.onerror?.();
+    source?.onerror?.();
+
+    expect(await screen.findByText(/Sending and completion stay closed/)).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
   });
 
   it("conceals a denied Session without offering the composer", async () => {
@@ -258,7 +278,7 @@ describe("hosted Session pages", () => {
     expect(document.querySelector(".agent-core.is-thinking")).toBeTruthy();
   });
 
-  it("hides Submit Session while an Agent turn is still open", async () => {
+  it("hides Complete Session while an Agent turn is still open", async () => {
     stubFetch((url) => {
       if (url.includes(`/v1/sessions/${sessionId}`)) {
         return jsonResponse(participantSnapshot({
@@ -270,7 +290,7 @@ describe("hosted Session pages", () => {
 
     renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
     expect(await screen.findByText("Considering your reply…")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Submit Session" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
 
     MockEventSource.instances[0]?.emit({
       schema_version: "v1",
@@ -287,7 +307,7 @@ describe("hosted Session pages", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Submit Session" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Complete Session" })).toBeVisible();
     });
   });
 
@@ -659,7 +679,7 @@ describe("hosted Session pages", () => {
     expect(await screen.findByRole("heading", { name: "Checking Session end" })).toBeVisible();
     await waitFor(() => expect(reconcileStarted).toBe(true));
     expect(screen.queryByRole("textbox", { name: "Compose reply" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Submit Session" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
     expect(screen.getByText("2 of 2")).toBeVisible();
 
     await waitFor(() => {

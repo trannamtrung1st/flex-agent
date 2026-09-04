@@ -1,3 +1,4 @@
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -12,7 +13,8 @@ public sealed class PostgresSessionLifecycleCoordinator(
     IChangeSessionLifecycleHandler lifecycleHandler,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null,
-    ISessionRuntimeTelemetry? telemetry = null)
+    ISessionRuntimeTelemetry? telemetry = null,
+    ICommitAuthorizationKernel? authorizationKernel = null)
 {
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
@@ -88,6 +90,28 @@ public sealed class PostgresSessionLifecycleCoordinator(
                     SessionLifecycleOutcomeCodes.StaleVersion,
                     session.LifecycleState,
                     session.SessionVersion);
+            }
+
+            if (authorizationKernel is not null)
+            {
+                var commitDecision = await SessionHostedCommandCommitAuthorization.ReauthorizeLifecycleAsync(
+                    authorizationKernel,
+                    command.Actor,
+                    command.Ownership,
+                    command.Transition,
+                    command.CorrelationId,
+                    command.SourceChannel,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!commitDecision.IsPermitted)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    return new SessionLifecycleChangeResult(
+                        false,
+                        SessionLifecycleOutcomeCodes.Denied,
+                        session.LifecycleState,
+                        session.SessionVersion);
+                }
             }
 
             await SessionRuntimePersistenceAudit.WriteAsync(
