@@ -517,10 +517,9 @@ cancellation. **Core `session_sequence` / `session_version` / `stream_cursor`
 mechanics are now sound** — no further cursor/replay correction pass. Remaining
 work shifts to lifecycle pause/resume SSE, warnings/timing/access/reconcile,
 multi-tab/device offline QA, live `:5274` verification, accessibility/extreme
-layout, and specialist reviews. **CI:** run **`33826694891`** green through
-dotnet/web/oidc/oci-oidc-smoke; supply-chain failed on transient `pnpm audit`
-registry timeout (not a dependency finding). Added `run-pnpm-audit.sh` retry for
-transient registry errors; re-run pending.
+layout, and specialist reviews. **CI:** run **`33826694891`** green through dotnet/web/oidc/oci-oidc-smoke; supply-chain failed on
+transient `pnpm audit` registry timeout (not a dependency finding). `run-pnpm-audit.sh`
+retry landed in **`698e33c`**; run **`33828971210`** fully green (supply-chain included).
 
 2026-09-04 **Review of `e3c641b` — hosted multi-page replay (keep `in-progress`)**:
 hosted projection now builds from unpaged agent events before hosted paging, so
