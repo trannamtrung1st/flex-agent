@@ -1263,3 +1263,18 @@ dotnet.
 **Next:** full Implementation CI on new code-bearing SHA (dotnet →
 supply-chain → OCI); then Realtime `[>]` lifecycle/timing/access SSE,
 live QA matrix, durable promotion.
+
+# Confirm pass (2026-09-04, HEAD `3d2c1a8`)
+
+Re-ran verification on the CI pause-reason fix before Implementation handoff.
+
+**Disposition:** code-bearing SHA `3d2c1a8` ready for full Implementation CI;
+**do not retire** — Realtime `[>]`, live QA, durable promotion remain.
+
+| Gate (2026-09-04 confirm) | Result |
+| --- | --- |
+| `SessionRuntimeRepositoryTests.Effect_failed_retry…` | passed |
+| `SessionRuntimeEndToEndProofTests.Readiness_through_completed_seal…` | passed |
+| `FlexAgent.Sessions.Tests` | 552 passed |
+| `scripts/check_docs.py` | passed |
+| Integration pause paths | only two call sites; both pass `administrator_pause` |
