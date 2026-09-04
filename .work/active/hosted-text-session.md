@@ -913,7 +913,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Full Implementation CI on hosted replay (`c654649`) | in-progress | 2026-09-04: run **`33826694891`** — dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed on transient `pnpm audit` registry timeout (not a dependency finding). `run-pnpm-audit.sh` retry added; push re-run pending. |
+| Full Implementation CI on hosted replay (`c654649` / `698e33c`) | complete | 2026-09-04: **`33826694891`** (`c654649`) — dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed on transient `pnpm audit` timeout. **`698e33c`** adds registry retry; run **`33828971210`** fully green. |
 | Full Implementation CI on timing + CI-fix chain (`888eb91`) | complete | 2026-09-03: run **`33743544924`** green — dotnet, web, oidc, supply-chain (Gitleaks clean), oci-oidc-smoke (applied `0069`; Worker OCI built; expiry sweep not exercised). Follow-up docs-only runs **`33743559578`** (`5ed60c7`) and **`33748755541`** (`ed47065`) skipped implementation jobs correctly. |
 | Full Implementation CI on fixture hard-end (`b24f67c`) | complete | 2026-09-03: run **`33754337758`** green — changes, dotnet, web, oidc, supply-chain, oci-oidc-smoke (migration `0069` applied; Worker OCI built; expiry sweep not exercised). Documentation **`33754337878`** green. Does not satisfy live Compose expiry proof gap. |
 | Corrective retirement revert (`fb71087`) | complete | 2026-09-03: **approve** — restores task + accurate gaps. Documentation **`33756971896`**; Implementation **`33756971882`** (changes only; code jobs skipped). Full code gate unchanged (`b24f67c` / **`33754337758`**). |
