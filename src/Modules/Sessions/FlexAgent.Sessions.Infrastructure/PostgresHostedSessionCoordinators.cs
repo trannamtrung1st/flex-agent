@@ -85,6 +85,29 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
+            var warningOccurrences = (await scope.Transaction.Connection!.QueryAsync<HostedSessionWarningOccurrence>(
+                new CommandDefinition(
+                    """
+                    SELECT warning_threshold_id AS WarningThresholdId,
+                           warning_code AS WarningCode,
+                           remaining_seconds_threshold AS RemainingSecondsThreshold,
+                           due_at AS DueAt,
+                           committed_at AS CommittedAt,
+                           session_sequence AS SessionSequence,
+                           remaining_seconds_at_commit AS RemainingSecondsAtCommit,
+                           delivery_status AS DeliveryStatus
+                    FROM session_warning_occurrences
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    ORDER BY session_sequence
+                    """,
+                    new
+                    {
+                        session.Ownership.OrganizationId,
+                        session.Ownership.SessionId,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken))).AsList();
             await scope.CommitAsync(cancellationToken);
             var frozenTiming = frozenTimingSource is null
                 ? HostedFrozenTimingPolicy.UnavailablePolicy
@@ -101,7 +124,8 @@ public sealed class PostgresHostedSessionSnapshotQuery(
                     projectionKind,
                     observedAt,
                     startedAt,
-                    frozenTiming));
+                    frozenTiming,
+                    warningOccurrences));
         }
         catch
         {

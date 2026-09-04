@@ -325,8 +325,8 @@ authorized by this plan because approved families and donors already exist.
     for SSE `Last-Event-ID`, issued-cursor validation, version-before-sequence
     snapshot merge.
   - [x] Lifecycle pause/resume SSE.
-  - [>] Timing/warning SSE (`timing.updated` with embedded `warning_code`;
-    separate `warning.issued` awaits durable warning facts per REQ-SESS-24).
+  - [x] Timing/warning SSE (`timing.updated` plus durable, unique,
+    reconstructable `warning.issued` facts per REQ-SESS-24).
   - [x] Access/reconcile SSE.
   - [ ] Multi-device/offline verification matrix.
   Compatibility `/sessions/{id}/events` still uses `session_sequence`.
@@ -1331,8 +1331,7 @@ signals. Client reducer merges `timing.updated`, `lifecycle.changed`,
 | `session-view.ts` | Reducer handlers for timing, lifecycle, access, reconcile hosted events |
 | `ProductionTextSessionPage` | Enrollment-aware return paths; transcript empty state |
 
-**Residual Realtime `[>]`:** separate durable `warning.issued` (REQ-SESS-24) when
-warning facts are persisted; multi-device/offline live QA matrix.
+**Residual Realtime `[>]`:** multi-device/offline live QA matrix.
 
 **Focused verification (this pass):**
 
@@ -1348,7 +1347,7 @@ warning facts are persisted; multi-device/offline live QA matrix.
 **Next:** Implementation CI on code-bearing SHA → live QA matrix → durable
 `docs/current-state.md` promotion → task completion review.
 
-# Confirm pass (2026-09-04, HEAD pending)
+# Confirm pass (2026-09-04, `b4d3a69`)
 
 Re-ran verification after Realtime SSE slice (`53e57ef`) and follow-up
 design-lab digest/e2e fixes.
@@ -1369,3 +1368,92 @@ design-lab digest/e2e fixes.
 | --- | --- |
 | `copied-styles.test.ts` digest | `participant-session.css` ledger-empty styles from `53e57ef` |
 | `surfaces.spec.ts` scroller height | reliable rail overflow assertion after single leave path |
+
+# Durable warning issuance (2026-09-04, uncommitted)
+
+Implemented the remaining REQ-SESS-24 warning-history slice without deriving
+authority from the client or SSE connection.
+
+| Surface | Change |
+| --- | --- |
+| `0070_session_warning_occurrences.sql` | append-only warning occurrences keyed by `(organization_id, session_id, warning_threshold_id)` with ownership FK, unique Session sequence, threshold, due/commit UTC, remaining time, and issued/late status |
+| `PostgresHostedSessionExpirySweep` | worker evaluates frozen warning thresholds against authoritative active-duration/hard-end time, locks the Session, rechecks due state, allocates one Session sequence/version, and atomically commits `session.warning.issued` plus its occurrence |
+| Hosted event/snapshot projection | reconstructs `session.hosted.warning.issued.v1` from durable occurrences; warning cursors are valid reconnect cursors and contribute to `last_confirmed_stream_cursor` |
+| Replay/snapshot coordinators | load warning history within the Session-scoped read transaction |
+
+**TDD evidence:**
+
+- Red: warning projector test failed to compile before the occurrence contract;
+  Postgres test failed with `42P01` before migration `0070`.
+- Green: concurrent warning sweeps commit one occurrence, a repeated sweep
+  remains duplicate-safe, a warning crossed before pause is still recorded
+  late while later active-time thresholds remain frozen, history survives
+  reload, hosted replay emits one warning, and replay after its cursor succeeds
+  without re-emission.
+
+**Verification so far:**
+
+| Gate | Result |
+| --- | --- |
+| FlexAgent.Api build | green, 0 warnings |
+| warning projection test | 1 passed |
+| warning persistence/replay integration | 1 passed |
+| `HostedSessionTimingFairnessTests` | 6 passed |
+| migration upgrade from `0001` through `0070` | passed |
+| `FlexAgent.Architecture.Tests` | 59 passed |
+| `FlexAgent.Sessions.Tests` | 556 passed |
+| `FlexAgent.Runtime.Tests` | 339 passed |
+| `FlexAgent.Contract.Tests` | 195 passed |
+| `session-view.test.ts` | 28 passed (durable warning + duplicate cursor coverage) |
+| `MigrationUpgradeTests` | 55 passed |
+| `pnpm verify:web` | green (695 production, 212 design-lab, 11 Playwright) |
+| `scripts/check_docs.py` | passed |
+
+## Warning consistency review (2026-09-04)
+
+Backend and security/privacy review found and closed three warning-sweep issues:
+
+1. `due_at` is now recomputed under the Session row lock, so a pause/resume
+   committed after candidate discovery cannot leave stale warning history.
+2. PostgreSQL pause accumulation now truncates each closed interval exactly as
+   the canonical runtime does; sub-second intervals cannot shift warning order.
+3. Warning-specific scan/commit failures are logged and isolated from expiry,
+   preserving the terminal boundary required by REQ-SESS-24. The discovery
+   connection is released before per-warning transactions to avoid constrained
+   connection-pool stalls.
+4. Warning commit now revalidates the configured worker workload identity and,
+   for OAuth profiles, its current service-principal binding inside the
+   transaction; a mismatched workload cannot issue warning history.
+
+Isolation remains organization + Session scoped, backed by the complete
+ownership FK. Occurrences are append-only, contain no transcript or participant
+content, and are unique per frozen threshold.
+
+**Review verification:** FlexAgent.Api build green with 0 warnings;
+`HostedSessionTimingFairnessTests` 6 passed, including concurrent uniqueness,
+paused late issuance, canonical sub-second pause accounting, reconstructable
+replay, workload-identity denial, and warning-failure/expiry independence;
+`git diff --check` and IDE diagnostics clean.
+
+**Next:** multi-device/offline live QA → durable `docs/current-state.md`
+promotion → completion review.
+
+# Durable warning confirm pass (2026-09-04, HEAD pending)
+
+Re-ran the reviewed REQ-SESS-24 warning slice before commit.
+
+**Disposition:** ready for Implementation CI; **do not retire** —
+multi-device/offline live QA, current-state promotion, and completion review
+remain.
+
+| Gate (final confirm) | Result |
+| --- | --- |
+| FlexAgent.Api build | green, 0 warnings |
+| `FlexAgent.Sessions.Tests` | 556 passed |
+| `FlexAgent.Runtime.Tests` | 339 passed |
+| `HostedSessionTimingFairnessTests` | 6 passed |
+| `MigrationUpgradeTests` | 55 passed |
+| `FlexAgent.Contract.Tests` | 195 passed |
+| `pnpm verify:web` | green (695 production, 212 design-lab, 11 Playwright) |
+| `scripts/check_docs.py` | passed |
+| `git diff --check` / IDE diagnostics | clean |

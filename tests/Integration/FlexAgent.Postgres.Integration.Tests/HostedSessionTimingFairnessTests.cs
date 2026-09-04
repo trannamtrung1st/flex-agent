@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -158,7 +159,12 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
             await scope.CommitAsync(CancellationToken);
         }
 
-        var sweep = CreateExpirySweep(organization.ActorId, repository);
+        var sweep = CreateExpirySweep(
+            organization.ActorId,
+            repository,
+            new SyntheticConfiguredActorWorkloadIdentitySource(organization.ActorId));
+        sweep.BeforeWarningCommitAsync = () =>
+            throw new InvalidOperationException("synthetic warning persistence failure");
         var expiredCount = await sweep.ExpireDueAsync(CancellationToken);
         Assert.True(expiredCount >= 1);
 
@@ -363,9 +369,170 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
         Assert.Equal("completed", lifecycle);
     }
 
+    [Fact]
+    public async Task Expiry_sweep_records_each_due_warning_once_with_reconstructable_history()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var repository = SessionPersistenceFixtures.RuntimeRepository();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-50);
+        var session = SessionRuntime.CreateActive(binding, startedAt);
+        var policy = new HostedFrozenTimingPolicy(
+            HostedTimingReconstruction.Timed,
+            3600,
+            [
+                new HostedTimingWarningThreshold("approaching", 900),
+                new HostedTimingWarningThreshold("imminent", 300),
+            ],
+            DateTimeOffset.UtcNow.AddHours(2));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken);
+            await InsertFrozenTimingAsync(scope.Transaction, binding.Ownership, policy);
+            await BackdateSessionStartAsync(scope.Transaction, binding.Ownership, startedAt);
+            var pausedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+            await scope.Transaction.Connection!.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE session_runtimes
+                    SET lifecycle_state = 'paused',
+                        last_committed_at = @PausedAt
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    """,
+                    new
+                    {
+                        binding.Ownership.OrganizationId,
+                        binding.Ownership.SessionId,
+                        PausedAt = pausedAt,
+                    },
+                    scope.Transaction,
+                    cancellationToken: CancellationToken));
+            await InsertOpenPauseIntervalAsync(
+                scope.Transaction,
+                binding.Ownership,
+                pausedAt);
+            await InsertClosedPauseIntervalAsync(
+                scope.Transaction,
+                binding.Ownership,
+                startedAt.AddMinutes(1),
+                startedAt.AddMinutes(1).AddMilliseconds(800));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var deniedSweep = CreateExpirySweep(
+            organization.ActorId,
+            repository,
+            new SyntheticConfiguredActorWorkloadIdentitySource(Guid.NewGuid()));
+        await deniedSweep.ExpireDueAsync(CancellationToken);
+        await using (var deniedConnection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            Assert.Equal(
+                0,
+                await deniedConnection.ExecuteScalarAsync<int>(
+                    """
+                    SELECT COUNT(*)
+                    FROM session_warning_occurrences
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId
+                    """,
+                    new
+                    {
+                        binding.Ownership.OrganizationId,
+                        binding.Ownership.SessionId,
+                    }));
+        }
+
+        var sweep = CreateExpirySweep(
+            organization.ActorId,
+            repository,
+            new SyntheticConfiguredActorWorkloadIdentitySource(organization.ActorId));
+        await Task.WhenAll(
+            sweep.ExpireDueAsync(CancellationToken),
+            sweep.ExpireDueAsync(CancellationToken));
+        await sweep.ExpireDueAsync(CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var warnings = (await connection.QueryAsync<WarningOccurrenceRow>(
+            """
+            SELECT warning_threshold_id AS WarningThresholdId,
+                   warning_code AS WarningCode,
+                   remaining_seconds_threshold AS RemainingSecondsThreshold,
+                   due_at AS DueAt,
+                   committed_at AS CommittedAt,
+                   session_sequence AS SessionSequence,
+                   remaining_seconds_at_commit AS RemainingSecondsAtCommit,
+                   delivery_status AS DeliveryStatus
+            FROM session_warning_occurrences
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+            ORDER BY session_sequence
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+            })).AsList();
+
+        var warning = Assert.Single(warnings);
+        Assert.Equal("approaching", warning.WarningThresholdId);
+        Assert.Equal("approaching", warning.WarningCode);
+        Assert.Equal(900, warning.RemainingSecondsThreshold);
+        Assert.True(warning.DueAt <= warning.CommittedAt);
+        Assert.InRange(
+            warning.DueAt,
+            startedAt.AddSeconds(2700).AddSeconds(-1),
+            startedAt.AddSeconds(2700).AddSeconds(1));
+        Assert.Equal(1, warning.SessionSequence);
+        Assert.InRange(warning.RemainingSecondsAtCommit, 0, 900);
+        Assert.Equal("late", warning.DeliveryStatus);
+
+        var replay = await new PostgresReplayAuthorizedSessionEventsCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new ReplayAuthorizedSessionEventsHandler(),
+            new PostgresHostedFrozenTimingDocumentSource(Fixture.Services.ConnectionAccessor)).ReplayAsync(
+            new ReplayAuthorizedSessionEventsCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                null,
+                UseHostedProjection: true),
+            binding,
+            CancellationToken);
+        var warningEvent = Assert.Single(
+            replay.Events,
+            item => item.EventType == HostedSessionEventTypes.WarningIssued);
+        Assert.Equal("approaching", warningEvent.WarningCode);
+        Assert.Equal(warning.RemainingSecondsAtCommit, warningEvent.RemainingSeconds);
+
+        var resumed = await new PostgresReplayAuthorizedSessionEventsCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new ReplayAuthorizedSessionEventsHandler(),
+            new PostgresHostedFrozenTimingDocumentSource(Fixture.Services.ConnectionAccessor)).ReplayAsync(
+            new ReplayAuthorizedSessionEventsCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                warningEvent.StreamCursor,
+                UseHostedProjection: true),
+            binding,
+            CancellationToken);
+        Assert.True(resumed.Succeeded);
+        Assert.DoesNotContain(
+            resumed.Events,
+            item => item.EventType == HostedSessionEventTypes.WarningIssued);
+    }
+
     private PostgresHostedSessionExpirySweep CreateExpirySweep(
         Guid actorId,
-        PostgresSessionRuntimeRepository repository) =>
+        PostgresSessionRuntimeRepository repository,
+        IAuthenticatedWorkloadContextSource? workloadIdentity = null) =>
         new(
             Fixture.Services.ConnectionAccessor,
             new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
@@ -377,7 +544,8 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
                 new ChangeSessionLifecycleHandler()),
             new HostedSessionExpirySettings(
                 SessionPersistenceFixtures.Actor(actorId),
-                HostedSessionExpiryChannels.Service));
+                HostedSessionExpiryChannels.Service),
+            workloadIdentity: workloadIdentity);
 
     private static Task InsertClosedPauseIntervalAsync(
         NpgsqlTransaction transaction,
@@ -418,6 +586,46 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
                     PauseId = Guid.CreateVersion7(),
                     StartedAt = pauseStartedAt,
                     EndedAt = pauseEndedAt,
+                },
+                transaction));
+
+    private static Task InsertOpenPauseIntervalAsync(
+        NpgsqlTransaction transaction,
+        SessionOwnership ownership,
+        DateTimeOffset pauseStartedAt) =>
+        transaction.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_pause_intervals (
+                    organization_id,
+                    activity_id,
+                    participant_id,
+                    attempt_id,
+                    session_id,
+                    pause_id,
+                    started_at,
+                    ended_at,
+                    last_committed_at)
+                VALUES (
+                    @OrganizationId,
+                    @ActivityId,
+                    @ParticipantId,
+                    @AttemptId,
+                    @SessionId,
+                    @PauseId,
+                    @StartedAt,
+                    NULL,
+                    @StartedAt)
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    PauseId = Guid.CreateVersion7(),
+                    StartedAt = pauseStartedAt,
                 },
                 transaction));
 
@@ -480,4 +688,14 @@ public sealed class HostedSessionTimingFairnessTests(PostgresIntegrationFixture 
                     Document = HostedSessionFrozenTiming.ToDocumentJson(policy),
                 },
                 transaction));
+
+    private sealed record WarningOccurrenceRow(
+        string WarningThresholdId,
+        string WarningCode,
+        int RemainingSecondsThreshold,
+        DateTimeOffset DueAt,
+        DateTimeOffset CommittedAt,
+        long SessionSequence,
+        int RemainingSecondsAtCommit,
+        string DeliveryStatus);
 }

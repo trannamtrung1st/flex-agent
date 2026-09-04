@@ -1,7 +1,9 @@
 using System.Data;
+using Dapper;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
+using Npgsql;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
@@ -54,8 +56,7 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
                     {
                         HostedProjectionOptions = await BuildHostedProjectionOptionsAsync(
                             command,
-                            binding,
-                            session,
+                            scope.Transaction,
                             cancellationToken),
                     }
                     : command,
@@ -72,8 +73,7 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
 
     private async Task<HostedSessionEventProjectionOptions?> BuildHostedProjectionOptionsAsync(
         ReplayAuthorizedSessionEventsCommand command,
-        TrustedSessionBinding binding,
-        SessionRuntime session,
+        NpgsqlTransaction transaction,
         CancellationToken cancellationToken)
     {
         if (frozenTimingSource is null)
@@ -86,9 +86,48 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
             command.Ownership.SessionId,
             DateTimeOffset.UtcNow,
             cancellationToken);
+        var startedAt = await transaction.Connection!.QuerySingleAsync<DateTimeOffset>(
+            new CommandDefinition(
+                """
+                SELECT created_at
+                FROM session_runtimes
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                """,
+                new
+                {
+                    command.Ownership.OrganizationId,
+                    command.Ownership.SessionId,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        var warningOccurrences = (await transaction.Connection!.QueryAsync<HostedSessionWarningOccurrence>(
+            new CommandDefinition(
+                """
+                SELECT warning_threshold_id AS WarningThresholdId,
+                       warning_code AS WarningCode,
+                       remaining_seconds_threshold AS RemainingSecondsThreshold,
+                       due_at AS DueAt,
+                       committed_at AS CommittedAt,
+                       session_sequence AS SessionSequence,
+                       remaining_seconds_at_commit AS RemainingSecondsAtCommit,
+                       delivery_status AS DeliveryStatus
+                FROM session_warning_occurrences
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                ORDER BY session_sequence
+                """,
+                new
+                {
+                    command.Ownership.OrganizationId,
+                    command.Ownership.SessionId,
+                },
+                transaction,
+                cancellationToken: cancellationToken))).AsList();
         return new HostedSessionEventProjectionOptions(
-            session.LastCommittedAt,
+            startedAt,
             timingPolicy,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            warningOccurrences);
     }
 }

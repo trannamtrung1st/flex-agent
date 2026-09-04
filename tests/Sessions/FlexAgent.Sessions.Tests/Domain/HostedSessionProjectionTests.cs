@@ -296,6 +296,48 @@ public sealed class HostedSessionProjectionTests
     }
 
     [Fact]
+    public void Hosted_replay_emits_each_durable_warning_occurrence_once()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var committedAt = SessionRuntimeTestFixtures.T0.AddMinutes(30);
+        var options = new HostedSessionEventProjectionOptions(
+            WarningOccurrences:
+            [
+                new HostedSessionWarningOccurrence(
+                    "approaching",
+                    "approaching",
+                    900,
+                    committedAt.AddSeconds(-2),
+                    committedAt,
+                    1,
+                    898,
+                    "issued"),
+            ]);
+
+        var warning = Assert.Single(
+            HostedSessionEventProjector.Project(session, afterCursor: 0, options).Events,
+            evt => evt.EventType == HostedSessionEventTypes.WarningIssued);
+
+        Assert.Equal("1", warning.SessionSequence);
+        Assert.Equal("approaching", warning.WarningCode);
+        Assert.Equal(898, warning.RemainingSeconds);
+        Assert.Equal(
+            HostedStreamCursors.SlotTiming,
+            HostedStreamCursors.Parse(warning.StreamCursor!) % HostedStreamCursors.SlotsPerSequence);
+        Assert.True(HostedSessionEventProjector.IsIssuedStreamCursor(
+            session,
+            HostedStreamCursors.Parse(warning.StreamCursor!),
+            options));
+        var snapshot = HostedSessionSnapshotProjector.Project(
+            session,
+            HostedSessionProjectionKinds.Participant,
+            committedAt,
+            timingPolicy: HostedFrozenTimingPolicy.UnboundedPolicy,
+            warningOccurrences: options.WarningOccurrences);
+        Assert.Equal(warning.StreamCursor, snapshot.LastConfirmedStreamCursor);
+    }
+
+    [Fact]
     public void Hosted_replay_emits_completing_lifecycle_at_cutoff_sequence()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

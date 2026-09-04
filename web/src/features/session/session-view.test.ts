@@ -184,6 +184,43 @@ describe("sessionLiveReducer", () => {
     expect(next.snapshot?.timing?.pause_started_at).toBe("2026-09-03T00:15:00Z");
   });
 
+  it("applies a durable hosted warning occurrence once by stream cursor", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        timing: {
+          policy: "active_duration",
+          remaining_seconds: 1000,
+          warning_code: "none",
+          budget_seconds: 2700,
+        },
+      },
+    });
+    const warning = {
+      schema_version: "v1" as const,
+      event_type: "session.hosted.warning.issued.v1" as const,
+      session_id: snapshot.session_id,
+      session_sequence: "21",
+      stream_cursor: "219",
+      session_version: 7,
+      occurred_at: "2026-09-03T00:20:00Z",
+      payload: {
+        summary: "Session time warning issued.",
+        remaining_seconds: 898,
+        warning_code: "approaching" as const,
+      },
+    };
+
+    const warned = sessionLiveReducer(withSnapshot, { type: "event", event: warning });
+    const duplicate = sessionLiveReducer(warned, { type: "event", event: warning });
+
+    expect(warned.snapshot?.timing?.remaining_seconds).toBe(898);
+    expect(warned.snapshot?.timing?.warning_code).toBe("approaching");
+    expect(warned.snapshot?.last_confirmed_stream_cursor).toBe("219");
+    expect(duplicate).toBe(warned);
+  });
+
   it("applies hosted lifecycle pause changes", () => {
     const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
     const next = sessionLiveReducer(withSnapshot, {

@@ -39,7 +39,18 @@ public static class HostedSessionEventTypes
 public sealed record HostedSessionEventProjectionOptions(
     DateTimeOffset? SessionStartedAt = null,
     HostedFrozenTimingPolicy? TimingPolicy = null,
-    DateTimeOffset? AuthoritativeUtc = null);
+    DateTimeOffset? AuthoritativeUtc = null,
+    IReadOnlyList<HostedSessionWarningOccurrence>? WarningOccurrences = null);
+
+public sealed record HostedSessionWarningOccurrence(
+    string WarningThresholdId,
+    string WarningCode,
+    int RemainingSecondsThreshold,
+    DateTimeOffset DueAt,
+    DateTimeOffset CommittedAt,
+    long SessionSequence,
+    int RemainingSecondsAtCommit,
+    string DeliveryStatus);
 
 public sealed record HostedTranscriptItem(
     string ItemId,
@@ -192,7 +203,8 @@ public static class HostedSessionSnapshotProjector
         string projectionKind,
         DateTimeOffset authoritativeUtc,
         DateTimeOffset? startedAt = null,
-        HostedFrozenTimingPolicy? timingPolicy = null)
+        HostedFrozenTimingPolicy? timingPolicy = null,
+        IReadOnlyList<HostedSessionWarningOccurrence>? warningOccurrences = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         var includeTranscript = projectionKind switch
@@ -268,7 +280,13 @@ public static class HostedSessionSnapshotProjector
             includeTranscript ? timing.WarningCode : "none",
             includeTranscript ? timing.PauseStartedAt : null,
             includeTranscript ? timing.BudgetSeconds : null,
-            HostedSessionEventProjector.CurrentProjectedStreamCursor(session));
+            HostedSessionEventProjector.CurrentProjectedStreamCursor(
+                session,
+                new HostedSessionEventProjectionOptions(
+                    startedAt,
+                    timingPolicy,
+                    authoritativeUtc,
+                    warningOccurrences)));
     }
 
     public static string MapLifecycle(SessionLifecycleState state) =>
@@ -427,10 +445,12 @@ public static class HostedSessionEventProjector
             : new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
     }
 
-    public static string CurrentProjectedStreamCursor(SessionRuntime session)
+    public static string CurrentProjectedStreamCursor(
+        SessionRuntime session,
+        HostedSessionEventProjectionOptions? projectionOptions = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!TryBuildHostedEvents(session, afterCursor: 0, projectionOptions: null, out var events, out _))
+        if (!TryBuildHostedEvents(session, afterCursor: 0, projectionOptions, out var events, out _))
         {
             return "0";
         }
@@ -440,10 +460,13 @@ public static class HostedSessionEventProjector
             : events.Max(evt => HostedStreamCursors.Parse(evt.StreamCursor)).ToString(CultureInfo.InvariantCulture);
     }
 
-    public static bool IsIssuedStreamCursor(SessionRuntime session, long cursor)
+    public static bool IsIssuedStreamCursor(
+        SessionRuntime session,
+        long cursor,
+        HostedSessionEventProjectionOptions? projectionOptions = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return EnumerateIssuedStreamCursors(session).Contains(cursor);
+        return EnumerateIssuedStreamCursors(session, projectionOptions).Contains(cursor);
     }
 
     private static bool TryBuildHostedEvents(
@@ -463,6 +486,7 @@ public static class HostedSessionEventProjector
 
         var sessionId = session.Ownership.SessionId.ToString("D");
         AppendCommittedHostedEvents(session, sessionId, events, projectionOptions);
+        AppendWarningOccurrences(session, sessionId, events, projectionOptions);
 
         foreach (var evt in agentEvents)
         {
@@ -519,7 +543,9 @@ public static class HostedSessionEventProjector
         return true;
     }
 
-    private static IReadOnlySet<long> EnumerateIssuedStreamCursors(SessionRuntime session)
+    private static IReadOnlySet<long> EnumerateIssuedStreamCursors(
+        SessionRuntime session,
+        HostedSessionEventProjectionOptions? projectionOptions)
     {
         var issued = new HashSet<long>();
         foreach (var record in session.ManifestRuntimeRecords)
@@ -604,7 +630,37 @@ public static class HostedSessionEventProjector
             issued.Add(HostedStreamCursors.Encode(ResolveHostedSessionSequence(session, record.SessionSequence), HostedStreamCursors.SlotTiming));
         }
 
+        foreach (var warning in projectionOptions?.WarningOccurrences ?? [])
+        {
+            issued.Add(HostedStreamCursors.Encode(warning.SessionSequence, HostedStreamCursors.SlotTiming));
+        }
+
         return issued;
+    }
+
+    private static void AppendWarningOccurrences(
+        SessionRuntime session,
+        string sessionId,
+        List<AuthorizedSessionProjectionEvent> events,
+        HostedSessionEventProjectionOptions? projectionOptions)
+    {
+        foreach (var warning in (projectionOptions?.WarningOccurrences ?? [])
+                     .GroupBy(item => item.WarningThresholdId, StringComparer.Ordinal)
+                     .Select(group => group.OrderBy(item => item.SessionSequence).First()))
+        {
+            events.Add(new AuthorizedSessionProjectionEvent(
+                HostedSessionEventTypes.WarningIssued,
+                sessionId,
+                warning.SessionSequence.ToString(CultureInfo.InvariantCulture),
+                HostedSessionSnapshotProjector.FormatUtc(warning.CommittedAt),
+                "Session time warning issued.",
+                RemainingSeconds: warning.RemainingSecondsAtCommit,
+                WarningCode: warning.WarningCode,
+                SessionVersion: session.SessionVersion,
+                StreamCursor: HostedStreamCursors.Wire(
+                    warning.SessionSequence,
+                    HostedStreamCursors.SlotTiming)));
+        }
     }
 
     private static void AppendCommittedHostedEvents(
