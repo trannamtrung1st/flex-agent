@@ -1317,7 +1317,7 @@ Implementation CI on `3d2c1a8`, then Realtime `[>]` SSE.
 | Integration pause call sites (2) | both `administrator_pause` |
 | Implementation CI `33856790502` on `3d2c1a8` | not re-checked locally (no `gh` auth) |
 
-# Realtime SSE slice (2026-09-04, uncommitted)
+# Realtime SSE slice (2026-09-04, HEAD `53e57ef`)
 
 Extended hosted Session event projection and `/v1/sessions/{sessionId}/events`
 for lifecycle pause/resume, timing updates, and access/reconcile terminal
@@ -1343,7 +1343,29 @@ warning facts are persisted; multi-device/offline live QA matrix.
 | `FlexAgent.Runtime.Tests` | 339 passed (includes hosted reconcile envelope) |
 | `session-view.test.ts` | 27 passed |
 | `ProductionTextSessionPage.test.tsx` | green (vitest) |
-| `pnpm verify:web` | pending re-run after lint fix |
+| `pnpm verify:web` | green |
 
-**Next:** commit code-bearing SHA → Implementation CI → live QA matrix →
-durable `docs/current-state.md` promotion → task completion review.
+**Next:** Implementation CI on code-bearing SHA → live QA matrix → durable
+`docs/current-state.md` promotion → task completion review.
+
+# Confirm pass (2026-09-04, HEAD pending)
+
+Re-ran verification after Realtime SSE slice (`53e57ef`) and follow-up
+design-lab digest/e2e fixes.
+
+**Disposition:** ready for Implementation CI; **do not retire** — durable
+`warning.issued` (REQ-SESS-24), multi-device/offline live QA, and
+`docs/current-state.md` promotion remain.
+
+| Gate (2026-09-04 confirm) | Result |
+| --- | --- |
+| `dotnet build` FlexAgent.Api | green |
+| `FlexAgent.Sessions.Tests` | 555 passed |
+| `FlexAgent.Runtime.Tests` | 339 passed |
+| `pnpm verify:web` | green |
+| `scripts/check_docs.py` | passed |
+
+| Follow-up in this commit | Purpose |
+| --- | --- |
+| `copied-styles.test.ts` digest | `participant-session.css` ledger-empty styles from `53e57ef` |
+| `surfaces.spec.ts` scroller height | reliable rail overflow assertion after single leave path |

@@ -240,7 +240,8 @@ test("session left-rail brand stays seated while instruments scroll", async ({ p
   await expect(scroller.locator(".rail-nav")).toHaveCount(0);
 
   await scroller.evaluate((el) => {
-    el.style.height = "180px";
+    el.style.height = "96px";
+    el.style.maxHeight = "96px";
   });
   const overflow = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
   expect(overflow).toBeGreaterThan(20);
