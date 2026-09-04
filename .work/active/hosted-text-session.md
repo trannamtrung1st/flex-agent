@@ -317,18 +317,18 @@ authorized by this plan because approved families and donors already exist.
   admission and commit, antiforgery for browser mutations, body/rate limits,
   `no-store`, safe status categories, expected Session version, scoped
   idempotency, required audit/outbox, and non-  disclosing `404` denial.
-- [x] Realtime red/green: extend the authorized hosted Session event
+- [>] Realtime red/green: extend the authorized hosted Session event
   projection and `/v1/sessions/{sessionId}/events` mapping for committed
-  UI-relevant deltas missing from the snapshot contract. **Partial (accepted
-  2026-09-04, residual recorded):** hosted replay stamps `session_version`,
-  emits message/work/no-action/failure plus fragment/complete/terminal, and
-  uses a distinct `stream_cursor` for SSE `Last-Event-ID` so two hosted
-  deltas at one `session_sequence` both apply. Issued-cursor validation keeps
-  historically projected working slots after later fragments. Snapshot merge
-  prefers higher `session_version` before sequence. Lifecycle pause/resume,
-  timing/warning, access/reconcile SSE, and the full multi-device/offline
-  matrix remain residual. Compatibility `/sessions/{id}/events` still uses
-  `session_sequence`.
+  UI-relevant deltas missing from the snapshot contract.
+  - [x] Hosted cursor/version/message/work/fragment/complete terminal core
+    (accepted 2026-09-04): `session_version` replay, distinct `stream_cursor`
+    for SSE `Last-Event-ID`, issued-cursor validation, version-before-sequence
+    snapshot merge.
+  - [ ] Lifecycle pause/resume SSE.
+  - [ ] Timing/warning SSE.
+  - [ ] Access/reconcile SSE.
+  - [ ] Multi-device/offline verification matrix.
+  Compatibility `/sessions/{id}/events` still uses `session_sequence`.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
   browser Compose profile with the documented image, migration dependency,
   database connectivity, bounded workload identity/delegation, health/readiness,
@@ -477,14 +477,20 @@ now uses distinct `.complete` correlation via
   `probe-compose-hosted-expiry-sweep.sh` green 2026-09-03 confirm pass;
   Session `01a067b2-…532c58` → `completed` / `time_expiry`, Attempt
   `completed` (~3s). CI does not run env-gated probe.
-- **Still open (tracked):** High specialist-review findings (pause
-  `reason_code`, commit-time AuthZ, reconnect/offline command gate, completion
-  copy, historical live transcript); warning emission/history; multi-tab/device;
+- **Still open (tracked):** all High specialist-review findings listed under
+  Specialist review findings; warning emission/history; multi-tab/device;
   offline/reconnect; terminate/abort live; forced-colors/400%; durable
   current-state promotion after those close; then `completed` + retire.
   Specialist reviews themselves are recorded (2026-09-04).
 
 # Current state
+
+2026-09-04 **review of `588d8a2` follow-up (keep `in-progress`; do not
+retire):** accept specialist-review record; correct state accounting — restore
+Realtime to `[>]` with nested accepted core vs residual SSE/QA sub-items; roll
+up **all seven** High findings by reference (not a shortened five-item list);
+rename `# Completion` to **External-review handoff checklist**. No
+implementation rollback.
 
 2026-09-04 **specialist reviews at HEAD `05ce7e4` (keep `in-progress`; do not
 retire):** distinct backend, frontend, security/privacy, and QA reviews ran
@@ -987,7 +993,7 @@ Lead decision is required. Implementation has:
   verification targets; and
 - distinct implementation and independent-review stages.
 
-# Completion
+# External-review handoff checklist
 
 - [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
@@ -996,10 +1002,11 @@ Lead decision is required. Implementation has:
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Task state is safe and complete for external review
 
-2026-09-04: checklist is for **external-review handoff**, not product-complete
-or retirement. Status stays `in-progress`. Implementation CI already green on
-the hosted-replay chain (`33828971210`). Specialist reviews found High
-remaining defects; keep this file.
+2026-09-04: this checklist is **external-review handoff only**, not
+product-complete or retirement. Status stays `in-progress`. Implementation CI
+already green on the hosted-replay chain (`33828971210`). Live send/pause/
+resume/terminate/warning/reconnect and other QA matrix items were not re-run.
+Specialist reviews found seven High remaining defects; keep this file.
 
 Independent review of `593f554` / `417adf1` / `d662cab` timing defects and
 later `cd90e5d`/`888eb91` chain are addressed; Implementation CI
