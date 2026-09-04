@@ -164,6 +164,7 @@ export interface SessionSnapshotV1 {
   transcript?: SessionTranscriptPageV1;
   activity?: SessionActivityProjectionV1;
   command_reconciliation?: SessionCommandReconciliationV1;
+  last_confirmed_stream_cursor?: NonnegativeInt64WireString;
 }
 
 export interface SessionCommandOutcomeV1 {
@@ -225,6 +226,7 @@ export interface SessionHostedEventEnvelopeV1 {
   event_type: SessionHostedEventTypeV1;
   session_id: string;
   session_sequence: PositiveInt64WireString;
+  stream_cursor?: PositiveInt64WireString;
   session_version: number;
   occurred_at: string;
   payload: SessionHostedEventPayloadV1;

@@ -319,16 +319,15 @@ authorized by this plan because approved families and donors already exist.
   idempotency, required audit/outbox, and non-  disclosing `404` denial.
 - [>] Realtime red/green: extend the authorized hosted Session event
   projection and `/v1/sessions/{sessionId}/events` mapping for committed
-  UI-relevant deltas missing from the snapshot contract. **Partial (2026-09-03):**
-  hosted replay now stamps authoritative `session_version` and emits
-  message accepted, agent queued/working, no-action, failure, and agent
-  fragment/complete/terminal events from manifest and invocation state.
-  Lifecycle pause/resume, timing/warning, access/reconcile, and full
-  multi-device/offline matrices remain open; SSE reconnect refetches snapshot
-  on recovery. Preserve cursor validation, bounded replay/paging, duplicate
-  suppression, gap reconciliation, application-session/relationship
-  revalidation, and terminal cutoff. Keep the current unversioned SSE route
-  and v1 projection regression-green.
+  UI-relevant deltas missing from the snapshot contract. **Partial (2026-09-04):**
+  hosted replay stamps `session_version`, emits message/work/no-action/failure
+  plus fragment/complete/terminal, and uses a distinct `stream_cursor` for SSE
+  `Last-Event-ID` so two hosted deltas at one `session_sequence` both apply.
+  Issued-cursor validation keeps historically projected working slots after
+  later fragments. Snapshot merge prefers higher `session_version` before
+  sequence. Lifecycle pause/resume, timing/warning, access/reconcile, and the
+  full multi-device/offline matrix remain open. Compatibility
+  `/sessions/{id}/events` still uses `session_sequence`.
 - [x] Worker/runtime integration: add the existing Worker to the authenticated-
   browser Compose profile with the documented image, migration dependency,
   database connectivity, bounded workload identity/delegation, health/readiness,
@@ -510,6 +509,17 @@ Same-Session follow-up send no longer surfaces
 while Agent work is queued/working and while the post-accept snapshot
 refetch is in flight. A single `trigger.admission.stale.version` conflict
 refetches then retries the same message on the same Session locator.
+
+2026-09-04 **Review of `3c2f664` — hosted stream cursor + version-first merge
+(keep `in-progress`)**: (1) hosted SSE `id` / replay `Last-Event-ID` is now
+`stream_cursor = session_sequence * 10 + slot`, so queued + accepted at the
+same Session sequence are both applied; (2) historically issued working
+cursors stay valid after the first fragment; (3) snapshot merge prefers
+higher `session_version` before sequence (`working` V8/S15 → `failed` V9/S15);
+(4) missing item occurrence metadata stays null instead of
+`LastCommittedAt`. Compatibility `/sessions/{id}/events` still uses
+`session_sequence`. Lifecycle pause/resume/warning/access SSE and the
+multi-device/offline matrix remain open.
 
 2026-09-03 **P1 turn-close gating + transcript timestamps (keep `in-progress`)**:
 Agent transcript items from hosted SSE now carry `occurred_at` on
@@ -903,7 +913,7 @@ artifact; add a `Proposed`/`PROP-*` item when consequential.
 | 2026-09-03 confirm pass (post-`92b43fb`) | complete | Stack `session-endpoint:ok`; `probe-compose-hosted-expiry-sweep.sh` green (fairness 5/5, worker-loop 1/1); `ProductionTextSessionPage` vitest 12/12; `check_docs.py` passed. Re-run ~21:40 UTC+7 same result. Task remains `in-progress` (QA matrix + specialist reviews open). |
 | 2026-09-03 confirm pass (P2 cleanup) | complete | `probe-compose-hosted-expiry-sweep.sh` green after api/worker health + session-endpoint readiness fix (fairness 5/5, worker-loop 1/1); correlation tests 3/3; vitest 12/12; `check_docs.py` passed. Task remains `in-progress`. |
 | Hosted SSE authoritative `session_version` + repeated-turn regression | complete | 2026-09-03: `HostedSessionEventProjector` wired on `/v1/sessions/{id}/events`; regression tests for version, repeated turn, refresh-while-working, stale retry. Sessions/Runtime/web vitest green locally. Live `:5274` re-verify still open. |
-| Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-03: projector emits message accepted, agent queued/working/no-action/failure plus fragment/complete/terminal; hosted cursor validation tightened to emitted sequences only; reconnect refetches snapshot; snapshot transcript timestamps stable across refresh; `item_status` on agent complete. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
+| Hosted SSE committed-delta expansion (message/work/no-action/failure) | partial | 2026-09-04: distinct `stream_cursor` for hosted Last-Event-ID; same-sequence dual events; stable historical working cursor; version-before-sequence activity merge; honest null timestamp fallback. Evidence: Sessions 542; Contract 195; session-view + page vitest 39; eslint clean; `check_docs.py` passed. Lifecycle pause/resume/warning/access SSE and full offline/multi-tab matrix still open. Task remains `in-progress`. |
 
 # Blockers
 

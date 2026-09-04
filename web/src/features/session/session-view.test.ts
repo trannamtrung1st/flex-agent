@@ -611,6 +611,69 @@ describe("sessionLiveReducer", () => {
     }, "idle")).toBe(false);
   });
 
+  it("applies two hosted events that share one Session sequence", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, { type: "snapshot", snapshot });
+    const queued = sessionLiveReducer(withSnapshot, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.agent.work.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "20",
+        stream_cursor: "200",
+        session_version: 8,
+        occurred_at: "2026-09-03T00:00:20Z",
+        payload: { summary: "Agent work queued.", work_state: "queued", turn_id: "turn.2" },
+      },
+    });
+    const accepted = sessionLiveReducer(queued, {
+      type: "event",
+      event: {
+        schema_version: "v1",
+        event_type: "session.hosted.message.accepted.v1",
+        session_id: snapshot.session_id,
+        session_sequence: "20",
+        stream_cursor: "201",
+        session_version: 8,
+        occurred_at: "2026-09-03T00:00:20Z",
+        payload: {
+          summary: "Participant message accepted.",
+          message_id: "msg.other.tab",
+          turn_id: "turn.2",
+        },
+      },
+    });
+    expect(queued.snapshot?.activity?.work_state).toBe("queued");
+    expect(accepted.snapshot?.activity?.work_state).toBe("queued");
+    expect(accepted.snapshot?.transcript?.items[0]?.item_id).toBe("msg.other.tab");
+    expect(accepted.snapshot?.last_confirmed_sequence).toBe("20");
+    expect(accepted.lastStreamCursor).toBe("201");
+  });
+
+  it("lets a higher-version same-sequence snapshot replace working with failed", () => {
+    const withSnapshot = sessionLiveReducer(emptySessionLiveView, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 8,
+        last_confirmed_sequence: "15",
+        activity: { work_state: "working", turn_id: "turn.1" },
+      },
+    });
+    const next = sessionLiveReducer(withSnapshot, {
+      type: "snapshot",
+      snapshot: {
+        ...snapshot,
+        session_version: 9,
+        last_confirmed_sequence: "15",
+        activity: { work_state: "failed", turn_id: "turn.1", resolution_category: "execution_failure" },
+      },
+    });
+    expect(next.snapshot?.activity?.work_state).toBe("failed");
+    expect(next.snapshot?.session_version).toBe(9);
+    expect(sessionAgentTurnOpen(next.snapshot)).toBe(false);
+  });
+
   it("detects post-send reconciliation from queued Agent work", () => {
     expect(sessionPostSendReconciled({
       ...snapshot,

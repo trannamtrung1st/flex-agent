@@ -43,6 +43,9 @@
     "last_confirmed_sequence": {
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/nonnegative_int64_wire_string"
     },
+    "last_confirmed_stream_cursor": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/nonnegative_int64_wire_string"
+    },
     "cutoff_sequence": {
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
     },

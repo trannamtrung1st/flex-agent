@@ -10,6 +10,7 @@
     "event_type",
     "session_id",
     "session_sequence",
+    "stream_cursor",
     "session_version",
     "occurred_at",
     "payload"
@@ -42,6 +43,9 @@
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     },
     "session_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+    },
+    "stream_cursor": {
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
     },
     "session_version": {

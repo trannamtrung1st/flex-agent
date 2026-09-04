@@ -514,7 +514,8 @@ public sealed record AuthorizedSessionProjectionEvent(
     string? RecoveryCategory = null,
     string? AccessState = null,
     long SessionVersion = 0,
-    string? ItemStatus = null);
+    string? ItemStatus = null,
+    string? StreamCursor = null);
 
 public sealed record AuthorizedSessionEventReplayResult(
     bool Succeeded,

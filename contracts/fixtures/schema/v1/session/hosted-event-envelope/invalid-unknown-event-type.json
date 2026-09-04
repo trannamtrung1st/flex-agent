@@ -3,6 +3,7 @@
   "event_type": "session.agent.fragment.v1",
   "session_id": "55555555-5555-4555-8555-555555555555",
   "session_sequence": "14",
+  "stream_cursor": "145",
   "session_version": 4,
   "occurred_at": "2026-09-03T00:00:03Z",
   "payload": {

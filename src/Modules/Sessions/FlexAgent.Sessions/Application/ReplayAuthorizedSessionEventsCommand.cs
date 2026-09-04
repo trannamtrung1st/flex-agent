@@ -47,23 +47,29 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
         {
             result = Denied(SessionEventReplayOutcomeCodes.OwnershipMismatch);
         }
-        else if (!TryParseCursor(command.UntrustedLastEventId, out var afterSequence, out var malformed))
+        else if (!TryParseCursor(command.UntrustedLastEventId, out var afterCursor, out var malformed))
         {
             result = malformed
                 ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
-                : Project(session, afterSequence: 0, command.UseHostedProjection);
+                : Project(session, afterCursor: 0, command.UseHostedProjection);
         }
-        else if (afterSequence < 1 || afterSequence > session.SessionSequence)
+        else if (command.UseHostedProjection)
+        {
+            result = afterCursor < 1 || !HostedSessionEventProjector.IsIssuedStreamCursor(session, afterCursor)
+                ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
+                : HostedSessionEventProjector.Project(session, afterCursor);
+        }
+        else if (afterCursor < 1 || afterCursor > session.SessionSequence)
         {
             result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
         }
-        else if (!IsIssuedStreamCursor(session, afterSequence, command.UseHostedProjection))
+        else if (!AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, afterCursor))
         {
             result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
         }
         else
         {
-            result = Project(session, afterSequence, command.UseHostedProjection);
+            result = AuthorizedSessionEventProjector.Project(session, afterCursor);
         }
 
         var labels = SessionRuntimeTelemetryRecording.Labels(
@@ -99,14 +105,9 @@ public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetr
 
     private static AuthorizedSessionEventReplayResult Project(
         SessionRuntime session,
-        long afterSequence,
+        long afterCursor,
         bool useHostedProjection) =>
         useHostedProjection
-            ? HostedSessionEventProjector.Project(session, afterSequence)
-            : AuthorizedSessionEventProjector.Project(session, afterSequence);
-
-    private static bool IsIssuedStreamCursor(SessionRuntime session, long sequence, bool useHostedProjection) =>
-        useHostedProjection
-            ? HostedSessionEventProjector.IsIssuedStreamCursor(session, sequence)
-            : AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, sequence);
+            ? HostedSessionEventProjector.Project(session, afterCursor)
+            : AuthorizedSessionEventProjector.Project(session, afterCursor);
 }

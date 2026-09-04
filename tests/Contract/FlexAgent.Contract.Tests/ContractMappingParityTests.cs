@@ -653,7 +653,8 @@ public sealed class ContractMappingParityTests
                 new SessionHostedEventPayloadV1(
                     "Participant message accepted.",
                     MessageId: "msg.synthetic.0001",
-                    TurnId: "turn.synthetic.0001")));
+                    TurnId: "turn.synthetic.0001"),
+                "131"));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

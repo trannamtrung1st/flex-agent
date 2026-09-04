@@ -10,6 +10,7 @@ export interface SessionLiveView {
   connection: SessionConnectionState;
   lastError: string | null;
   lastAcceptedSequence: string | null;
+  lastStreamCursor: string | null;
 }
 
 export const emptySessionLiveView: SessionLiveView = {
@@ -19,6 +20,7 @@ export const emptySessionLiveView: SessionLiveView = {
   connection: "connecting",
   lastError: null,
   lastAcceptedSequence: null,
+  lastStreamCursor: null,
 };
 
 /** Agent turn still open: queued/working activity or a streaming Agent transcript item. */
@@ -90,7 +92,14 @@ export type SessionLiveAction =
 export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAction): SessionLiveView {
   switch (action.type) {
     case "snapshot":
-      return { ...state, snapshot: mergeAuthoritativeSnapshot(state.snapshot, action.snapshot) };
+      return {
+        ...state,
+        snapshot: mergeAuthoritativeSnapshot(state.snapshot, action.snapshot),
+        lastStreamCursor: laterOptionalCursor(
+          state.lastStreamCursor,
+          action.snapshot.last_confirmed_stream_cursor ?? null,
+        ),
+      };
     case "event":
       return applyHostedEvent(state, action.event);
     case "draft":
@@ -120,6 +129,9 @@ export function sessionLiveReducer(state: SessionLiveView, action: SessionLiveAc
 }
 
 function snapshotIsStale(previous: SessionSnapshotV1, incoming: SessionSnapshotV1): boolean {
+  if (incoming.session_version > previous.session_version) {
+    return false;
+  }
   if (previous.session_version > incoming.session_version) {
     return true;
   }
@@ -154,6 +166,12 @@ function mergeActivity(
   const nextResolved = next.work_state === "idle"
     || next.work_state === "no_action"
     || next.work_state === "failed";
+  if (incoming.session_version > previous.session_version) {
+    return next;
+  }
+  if (incoming.session_version < previous.session_version) {
+    return prior;
+  }
   const priorSequence = Number(previous.last_confirmed_sequence);
   const nextSequence = Number(incoming.last_confirmed_sequence);
   const sequenceComparable = Number.isFinite(priorSequence) && Number.isFinite(nextSequence);
@@ -224,6 +242,16 @@ function mergeTranscriptItem(
   return merged;
 }
 
+function laterOptionalCursor(left: string | null, right: string | null): string | null {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return laterSequence(left, right);
+}
+
 function laterSequence(left: string, right: string): string {
   const leftNumber = Number(left);
   const rightNumber = Number(right);
@@ -267,6 +295,10 @@ function mergeAuthoritativeSnapshot(
     ...incoming,
     session_version: Math.max(previous.session_version, incoming.session_version),
     last_confirmed_sequence: laterSequence(previous.last_confirmed_sequence, incoming.last_confirmed_sequence),
+    last_confirmed_stream_cursor: laterOptionalCursor(
+      previous.last_confirmed_stream_cursor ?? null,
+      incoming.last_confirmed_stream_cursor ?? null,
+    ) ?? undefined,
     activity: mergeActivity(previous, incoming, incomingStale),
   };
   const priorItems = previous.transcript?.items ?? [];
@@ -318,15 +350,27 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     return state;
   }
 
-  const nextSequence = Number(event.session_sequence);
-  const current = Number(snapshot.last_confirmed_sequence);
-  if (!Number.isFinite(nextSequence) || nextSequence <= current) {
-    return state;
+  const streamCursor = Number(event.stream_cursor);
+  const hasStreamCursor = Number.isFinite(streamCursor) && Boolean(event.stream_cursor);
+  if (hasStreamCursor) {
+    const applied = Number(state.lastStreamCursor ?? snapshot.last_confirmed_stream_cursor ?? "0");
+    if (Number.isFinite(applied) && streamCursor <= applied) {
+      return state;
+    }
+  } else {
+    const nextSequence = Number(event.session_sequence);
+    const current = Number(snapshot.last_confirmed_sequence);
+    if (!Number.isFinite(nextSequence) || nextSequence <= current) {
+      return state;
+    }
   }
 
   const next: SessionSnapshotV1 = {
     ...snapshot,
-    last_confirmed_sequence: event.session_sequence,
+    last_confirmed_sequence: laterSequence(snapshot.last_confirmed_sequence, event.session_sequence),
+    last_confirmed_stream_cursor: hasStreamCursor
+      ? laterSequence(snapshot.last_confirmed_stream_cursor ?? "0", event.stream_cursor!)
+      : snapshot.last_confirmed_stream_cursor,
     session_version: Math.max(event.session_version ?? 0, snapshot.session_version),
     lifecycle_state: event.payload.lifecycle_state ?? snapshot.lifecycle_state,
     activity: event.payload.work_state
@@ -448,5 +492,11 @@ function applyHostedEvent(state: SessionLiveView, event: SessionHostedEventEnvel
     };
   }
 
-  return { ...state, snapshot: next };
+  return {
+    ...state,
+    snapshot: next,
+    lastStreamCursor: hasStreamCursor
+      ? laterSequence(state.lastStreamCursor ?? "0", event.stream_cursor!)
+      : laterSequence(state.lastStreamCursor ?? "0", event.session_sequence),
+  };
 }

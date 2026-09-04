@@ -182,7 +182,9 @@ public static class SessionHostedEndpointExtensions
                 snapshot.TimingBudgetSeconds),
             submission,
             transcript,
-            new SessionActivityProjectionV1(snapshot.ActivityWorkState, snapshot.ActivityTurnId, null));
+            new SessionActivityProjectionV1(snapshot.ActivityWorkState, snapshot.ActivityTurnId, null),
+            CommandReconciliation: null,
+            LastConfirmedStreamCursor: snapshot.LastConfirmedStreamCursor);
     }
 
     private static TimeSpan StopwatchElapsed(long started) =>

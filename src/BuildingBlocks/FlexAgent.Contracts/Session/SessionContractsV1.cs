@@ -153,7 +153,8 @@ public sealed record SessionSnapshotV1(
     SessionBoundSubmissionSummaryV1? BoundSubmission = null,
     SessionTranscriptPageV1? Transcript = null,
     SessionActivityProjectionV1? Activity = null,
-    SessionCommandReconciliationV1? CommandReconciliation = null);
+    SessionCommandReconciliationV1? CommandReconciliation = null,
+    string? LastConfirmedStreamCursor = null);
 
 public sealed record SessionCommandOutcomeV1(
     string SchemaVersion,
@@ -195,4 +196,5 @@ public sealed record SessionHostedEventEnvelopeV1(
     string SessionSequence,
     int SessionVersion,
     string OccurredAt,
-    SessionHostedEventPayloadV1 Payload);
+    SessionHostedEventPayloadV1 Payload,
+    string? StreamCursor = null);

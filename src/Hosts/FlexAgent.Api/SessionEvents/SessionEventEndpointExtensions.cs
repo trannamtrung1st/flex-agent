@@ -90,7 +90,7 @@ public static class SessionEventEndpointExtensions
         var cursor = lastEventId;
         if (replay.Events.Count > 0)
         {
-            cursor = replay.Events[^1].SessionSequence;
+            cursor = HostedEventId(replay.Events[^1], hosted);
         }
 
         while (replay.HasMore)
@@ -104,7 +104,7 @@ public static class SessionEventEndpointExtensions
 
             if (replay.Events.Count > 0)
             {
-                cursor = replay.Events[^1].SessionSequence;
+                cursor = HostedEventId(replay.Events[^1], hosted);
             }
         }
 
@@ -176,7 +176,7 @@ public static class SessionEventEndpointExtensions
                     await WriteEventsAsync(context, replay.Events, hosted, cancellationToken);
                     if (replay.Events.Count > 0)
                     {
-                        cursor = replay.Events[^1].SessionSequence;
+                        cursor = HostedEventId(replay.Events[^1], hosted);
                     }
 
                     if (!replay.HasMore)
@@ -260,7 +260,7 @@ public static class SessionEventEndpointExtensions
         foreach (var evt in events)
         {
             var json = hosted ? SerializeHosted(evt) : SerializeCompatibility(evt);
-            await context.Response.WriteAsync($"id: {evt.SessionSequence}\n", cancellationToken);
+            await context.Response.WriteAsync($"id: {HostedEventId(evt, hosted)}\n", cancellationToken);
             await context.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
         }
 
@@ -323,9 +323,15 @@ public static class SessionEventEndpointExtensions
                     RecoveryCategory: evt.RecoveryCategory,
                     AccessState: evt.AccessState,
                     CutoffSequence: evt.CutoffSequence,
-                    ItemStatus: evt.ItemStatus)),
+                    ItemStatus: evt.ItemStatus),
+                evt.StreamCursor),
             JsonOptions);
     }
+
+    private static string HostedEventId(AuthorizedSessionProjectionEvent evt, bool hosted) =>
+        hosted && !string.IsNullOrWhiteSpace(evt.StreamCursor)
+            ? evt.StreamCursor
+            : evt.SessionSequence;
 
     private static TimeSpan SubscribeElapsed(long started) =>
         TimeSpan.FromSeconds((System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency);

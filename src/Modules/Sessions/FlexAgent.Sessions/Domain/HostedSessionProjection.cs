@@ -62,7 +62,8 @@ public sealed record HostedSessionSnapshot(
     int? RemainingSeconds = null,
     string? WarningCode = "none",
     string? PauseStartedAt = null,
-    int? TimingBudgetSeconds = null);
+    int? TimingBudgetSeconds = null,
+    string LastConfirmedStreamCursor = "0");
 
 public static class SessionPermittedActionsProjector
 {
@@ -252,7 +253,8 @@ public static class HostedSessionSnapshotProjector
             includeTranscript ? timing.RemainingSeconds : null,
             includeTranscript ? timing.WarningCode : "none",
             includeTranscript ? timing.PauseStartedAt : null,
-            includeTranscript ? timing.BudgetSeconds : null);
+            includeTranscript ? timing.BudgetSeconds : null,
+            HostedSessionEventProjector.CurrentProjectedStreamCursor(session));
     }
 
     public static string MapLifecycle(SessionLifecycleState state) =>
@@ -278,17 +280,15 @@ public static class HostedSessionSnapshotProjector
             if (item.AuthorType == TranscriptAuthorTypes.Participant)
             {
                 var append = FindTranscriptAppendRecord(session, item.MessageId);
-                var sequence = append?.SessionSequence ?? Math.Max(1, session.SessionSequence);
+                var sequence = append?.SessionSequence ?? 1;
                 items.Add(new HostedTranscriptItem(
                     ToStableId(item.MessageId, "msg"),
                     "participant",
                     item.ExactUtf8Text is null ? "unavailable" : "accepted",
-                    Math.Max(1, sequence).ToString(CultureInfo.InvariantCulture),
-                    Math.Max(1, sequence).ToString(CultureInfo.InvariantCulture),
+                    sequence.ToString(CultureInfo.InvariantCulture),
+                    sequence.ToString(CultureInfo.InvariantCulture),
                     item.ExactUtf8Text,
-                    append is null
-                        ? FormatUtc(session.LastCommittedAt)
-                        : FormatUtc(append.OccurredAt),
+                    append is null ? null : FormatUtc(append.OccurredAt),
                     string.IsNullOrWhiteSpace(item.TurnId) ? null : ToStableId(item.TurnId, "turn")));
                 continue;
             }
@@ -307,9 +307,9 @@ public static class HostedSessionSnapshotProjector
                 "agent",
                 content is null ? "unavailable" : "accepted",
                 "1",
-                Math.Max(1, session.SessionSequence).ToString(CultureInfo.InvariantCulture),
+                "1",
                 content,
-                FormatUtc(session.LastCommittedAt),
+                null,
                 string.IsNullOrWhiteSpace(item.TurnId) ? null : ToStableId(item.TurnId, "turn")));
         }
 
@@ -390,10 +390,10 @@ public static class HostedSessionSnapshotProjector
 
 public static class HostedSessionEventProjector
 {
-    public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterSequence)
+    public static AuthorizedSessionEventReplayResult Project(SessionRuntime session, long afterCursor)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!TryBuildHostedEvents(session, afterSequence, out var events, out var baselineOutcome))
+        if (!TryBuildHostedEvents(session, afterCursor, out var events, out var baselineOutcome))
         {
             return new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
         }
@@ -411,21 +411,28 @@ public static class HostedSessionEventProjector
             : new AuthorizedSessionEventReplayResult(false, baselineOutcome, []);
     }
 
-    public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
+    public static string CurrentProjectedStreamCursor(SessionRuntime session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!TryBuildHostedEvents(session, afterSequence: 0, out var events, out _))
+        if (!TryBuildHostedEvents(session, afterCursor: 0, out var events, out _))
         {
-            return false;
+            return "0";
         }
 
-        return events.Any(evt =>
-            long.Parse(evt.SessionSequence, CultureInfo.InvariantCulture) == sequence);
+        return events.Count == 0
+            ? "0"
+            : events.Max(evt => HostedStreamCursors.Parse(evt.StreamCursor)).ToString(CultureInfo.InvariantCulture);
+    }
+
+    public static bool IsIssuedStreamCursor(SessionRuntime session, long cursor)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return EnumerateIssuedStreamCursors(session).Contains(cursor);
     }
 
     private static bool TryBuildHostedEvents(
         SessionRuntime session,
-        long afterSequence,
+        long afterCursor,
         out List<AuthorizedSessionProjectionEvent> events,
         out string baselineOutcome)
     {
@@ -441,7 +448,7 @@ public static class HostedSessionEventProjector
             }
         }
 
-        var baseline = AuthorizedSessionEventProjector.Project(session, afterSequence);
+        var baseline = AuthorizedSessionEventProjector.Project(session, afterSequence: 0);
         baselineOutcome = baseline.OutcomeCode;
         if (!baseline.Succeeded)
         {
@@ -449,7 +456,7 @@ public static class HostedSessionEventProjector
         }
 
         var sessionId = session.Ownership.SessionId.ToString("D");
-        AppendCommittedHostedEvents(session, sessionId, afterSequence, events);
+        AppendCommittedHostedEvents(session, sessionId, events);
 
         foreach (var evt in baseline.Events)
         {
@@ -464,6 +471,10 @@ public static class HostedSessionEventProjector
                 continue;
             }
 
+            var sequence = long.Parse(evt.SessionSequence, CultureInfo.InvariantCulture);
+            var slot = hostedType == HostedSessionEventTypes.AgentComplete
+                ? HostedStreamCursors.SlotComplete
+                : HostedStreamCursors.SlotFragment;
             events.Add(evt with
             {
                 EventType = hostedType,
@@ -473,11 +484,11 @@ public static class HostedSessionEventProjector
                     : hostedType == HostedSessionEventTypes.AgentFragment
                     ? "working"
                     : evt.WorkState,
+                StreamCursor = HostedStreamCursors.Wire(sequence, slot),
             });
         }
 
         if (session.CutoffSequence is { } cutoff
-            && cutoff > afterSequence
             && SessionPermittedActionsProjector.IsTerminal(session.LifecycleState))
         {
             events.Add(new AuthorizedSessionProjectionEvent(
@@ -488,29 +499,96 @@ public static class HostedSessionEventProjector
                 "Session reached a terminal cutoff.",
                 CutoffSequence: cutoff.ToString(CultureInfo.InvariantCulture),
                 LifecycleState: HostedSessionSnapshotProjector.MapLifecycle(session.LifecycleState),
-                SessionVersion: session.SessionVersion));
+                SessionVersion: session.SessionVersion,
+                StreamCursor: HostedStreamCursors.Wire(cutoff, HostedStreamCursors.SlotTerminal)));
         }
 
         events.Sort(static (left, right) =>
-            long.Parse(left.SessionSequence, CultureInfo.InvariantCulture)
-                .CompareTo(long.Parse(right.SessionSequence, CultureInfo.InvariantCulture)));
+            HostedStreamCursors.Parse(left.StreamCursor)
+                .CompareTo(HostedStreamCursors.Parse(right.StreamCursor)));
+        events = events
+            .Where(evt => HostedStreamCursors.Parse(evt.StreamCursor) > afterCursor)
+            .ToList();
 
         return true;
+    }
+
+    private static IReadOnlySet<long> EnumerateIssuedStreamCursors(SessionRuntime session)
+    {
+        var issued = new HashSet<long>();
+        foreach (var record in session.ManifestRuntimeRecords)
+        {
+            if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TranscriptAppendV1, StringComparison.Ordinal))
+            {
+                issued.Add(HostedStreamCursors.Encode(record.SessionSequence, HostedStreamCursors.SlotAccepted));
+                continue;
+            }
+
+            if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.ModelInvocationV1, StringComparison.Ordinal)
+                && !record.PayloadRef.ProtectedRef.EndsWith(".outcome", StringComparison.Ordinal))
+            {
+                issued.Add(HostedStreamCursors.Encode(record.SessionSequence, HostedStreamCursors.SlotQueued));
+            }
+        }
+
+        foreach (var invocation in session.Invocations)
+        {
+            if (!IsParticipantInvocation(invocation.Trigger))
+            {
+                continue;
+            }
+
+            if (string.Equals(invocation.Status, AgentInvocationStatuses.ExecutionFailed, StringComparison.Ordinal))
+            {
+                issued.Add(HostedStreamCursors.Encode(invocation.SessionSequence, HostedStreamCursors.SlotFailed));
+            }
+
+            if (invocation.ValidationEffect?.EffectCommitSessionSequence is not { } effectSequence)
+            {
+                continue;
+            }
+
+            if (IsIntentionalNoAction(invocation))
+            {
+                issued.Add(HostedStreamCursors.Encode(effectSequence, HostedStreamCursors.SlotNoAction));
+                continue;
+            }
+
+            if (invocation.ValidationEffect.EffectOutcome == DecisionEffectOutcomes.Applied)
+            {
+                issued.Add(HostedStreamCursors.Encode(effectSequence, HostedStreamCursors.SlotWorking));
+            }
+        }
+
+        foreach (var message in session.AgentMessages)
+        {
+            foreach (var fragment in message.Fragments)
+            {
+                issued.Add(HostedStreamCursors.Encode(fragment.SessionSequence, HostedStreamCursors.SlotFragment));
+            }
+
+            if (message.IsTerminal && message.SealedSessionSequence is { } sealSequence)
+            {
+                issued.Add(HostedStreamCursors.Encode(sealSequence, HostedStreamCursors.SlotComplete));
+            }
+        }
+
+        if (session.CutoffSequence is { } cutoff
+            && SessionPermittedActionsProjector.IsTerminal(session.LifecycleState))
+        {
+            issued.Add(HostedStreamCursors.Encode(cutoff, HostedStreamCursors.SlotTerminal));
+        }
+
+        return issued;
     }
 
     private static void AppendCommittedHostedEvents(
         SessionRuntime session,
         string sessionId,
-        long afterSequence,
         List<AuthorizedSessionProjectionEvent> events)
     {
         foreach (var record in session.ManifestRuntimeRecords.OrderBy(record => record.SessionSequence))
         {
-            if (record.SessionSequence <= afterSequence)
-            {
-                continue;
-            }
-
             if (string.Equals(record.RecordType, ManifestRuntimeRecordTypes.TranscriptAppendV1, StringComparison.Ordinal))
             {
                 AppendParticipantMessageAccepted(session, sessionId, record, events);
@@ -535,13 +613,13 @@ public static class HostedSessionEventProjector
                 ? null
                 : HostedSessionSnapshotProjector.ToStableId(invocation.Trigger.TurnId, "turn");
 
-            if (string.Equals(invocation.Status, AgentInvocationStatuses.ExecutionFailed, StringComparison.Ordinal)
-                && invocation.SessionSequence > afterSequence)
+            if (string.Equals(invocation.Status, AgentInvocationStatuses.ExecutionFailed, StringComparison.Ordinal))
             {
                 events.Add(CreateAgentWorkEvent(
                     session,
                     sessionId,
                     invocation.SessionSequence,
+                    HostedStreamCursors.SlotFailed,
                     "failed",
                     stableTurnId,
                     "execution_failure",
@@ -549,8 +627,7 @@ public static class HostedSessionEventProjector
                 continue;
             }
 
-            if (invocation.ValidationEffect?.EffectCommitSessionSequence is not { } effectSequence
-                || effectSequence <= afterSequence)
+            if (invocation.ValidationEffect?.EffectCommitSessionSequence is not { } effectSequence)
             {
                 continue;
             }
@@ -566,7 +643,8 @@ public static class HostedSessionEventProjector
                     TurnId: stableTurnId,
                     WorkState: "no_action",
                     ResolutionCategory: "no_action",
-                    SessionVersion: session.SessionVersion));
+                    SessionVersion: session.SessionVersion,
+                    StreamCursor: HostedStreamCursors.Wire(effectSequence, HostedStreamCursors.SlotNoAction)));
                 continue;
             }
 
@@ -577,6 +655,7 @@ public static class HostedSessionEventProjector
                     session,
                     sessionId,
                     effectSequence,
+                    HostedStreamCursors.SlotWorking,
                     "working",
                     stableTurnId,
                     "message_stream",
@@ -610,7 +689,8 @@ public static class HostedSessionEventProjector
                 ? null
                 : HostedSessionSnapshotProjector.ToStableId(transcriptItem.TurnId, "turn"),
             MessageId: HostedSessionSnapshotProjector.ToStableId(messageId, "msg"),
-            SessionVersion: session.SessionVersion));
+            SessionVersion: session.SessionVersion,
+            StreamCursor: HostedStreamCursors.Wire(record.SessionSequence, HostedStreamCursors.SlotAccepted)));
     }
 
     private static void AppendQueuedWorkFromAdmission(
@@ -634,6 +714,7 @@ public static class HostedSessionEventProjector
             session,
             sessionId,
             record.SessionSequence,
+            HostedStreamCursors.SlotQueued,
             "queued",
             stableTurnId,
             null,
@@ -644,6 +725,7 @@ public static class HostedSessionEventProjector
         SessionRuntime session,
         string sessionId,
         long sessionSequence,
+        int slot,
         string workState,
         string? turnId,
         string? resolutionCategory,
@@ -657,7 +739,8 @@ public static class HostedSessionEventProjector
             TurnId: turnId,
             WorkState: workState,
             ResolutionCategory: resolutionCategory,
-            SessionVersion: session.SessionVersion);
+            SessionVersion: session.SessionVersion,
+            StreamCursor: HostedStreamCursors.Wire(sessionSequence, slot));
 
     private static bool IsParticipantInvocation(TrustedTrigger trigger) =>
         string.Equals(trigger.TriggerFamily, RuntimeTriggerIdentifiers.ParticipantInputFamily, StringComparison.Ordinal)

@@ -539,6 +539,14 @@ other in-flight Invocations that still can recommend a replacement.
 - `Last-Event-ID` or an explicit last-seen sequence is an untrusted cursor. The
   API verifies it belongs to the loaded Session, returns current state plus the
   authorized delta, and paginates older history when needed.
+- Hosted UI stream (`/v1/sessions/{sessionId}/events`): one `session_sequence`
+  may project multiple committed hosted events (for example Participant
+  transcript append and Invocation admission). Those events still carry
+  `session_sequence` as domain metadata and `session_version` as optimistic-
+  concurrency authority. Replay and SSE `id` / `Last-Event-ID` use a distinct
+  monotonic `stream_cursor` allocated as
+  `session_sequence * 10 + stable_event_slot`. Compatibility
+  `/sessions/{sessionId}/events` still uses `session_sequence` as the cursor.
 - Sequence gaps, an unknown cursor, projection lag, or uncertain message state
   trigger authoritative reconciliation rather than optimistic replay.
 - Bounded polling returns the same query projection and cursor semantics; it is

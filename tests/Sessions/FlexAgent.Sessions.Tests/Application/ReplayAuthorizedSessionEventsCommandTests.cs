@@ -306,6 +306,32 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
                 or AuthorizedSessionEventTypes.AgentComplete);
     }
 
+    [Fact]
+    public void Hosted_replay_accepts_issued_stream_cursor_greater_than_session_sequence()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hello examiner", "agen.hosted.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        var fragment = Assert.Single(
+            HostedSessionEventProjector.Project(session, afterCursor: 0).Events,
+            evt => evt.EventType == HostedSessionEventTypes.AgentFragment);
+        var streamCursor = fragment.StreamCursor;
+        Assert.True(HostedStreamCursors.Parse(streamCursor) > session.SessionSequence);
+
+        var result = new ReplayAuthorizedSessionEventsHandler().Handle(
+            new ReplayAuthorizedSessionEventsCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                UntrustedLastEventId: streamCursor,
+                UseHostedProjection: true),
+            session);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.DoesNotContain(result.Events, evt => evt.EventType == HostedSessionEventTypes.AgentFragment);
+    }
+
     private static string ClaimParticipantPublication(SessionRuntime session, string key = "1")
     {
         var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
