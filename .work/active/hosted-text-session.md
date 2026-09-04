@@ -1174,11 +1174,37 @@ Addresses the seven High findings from specialist review at `05ce7e4`
 relationship is Participant and requires server-derived `permitted_actions`.
 Full activity-scoped human grants remain a documented gap (`REQ-AUTH-13`).
 
+# External review disposition (2026-09-04, HEAD `13cc2c5`)
+
+**CHANGES REQUIRED — DO NOT RETIRE.** Reviewer accepted direction on six of
+seven High findings but blocked sign-off on: (1) OpenAPI pause-contract parity
+(`SessionPauseCommandV1.payload.reason_code` missing from
+`contracts/projections/openapi.v3.1.yaml`; web CI red); (2) `REQ-AUTH-13`
+cross-Activity human grant scope still open — org-wide `session.pause` could
+control another Activity's Session; (3) reconnect while completion dialog
+open left a silently no-op primary button.
+
+# Second closure pass (2026-09-04)
+
+| Reviewer item | Fix summary |
+| --- | --- |
+| OpenAPI pause parity | `SessionPauseCommandV1` pause payload requires `reason_code` with min/max length |
+| `REQ-AUTH-13` human Session admin | `SessionHumanGrantScopeValidation` in kernel: administrative session actions require activity stewardship (`assessment_activity_revisions.actor_id`) or explicit `session_actor_relationships` administrator row; ownership chain validated against `session_runtimes`; administrator subject resolution joins activity revision steward |
+| Reconnect + completion dialog | `setConfirmComplete(false)` on EventSource `onerror`; vitest regression |
+| Cross-Activity negative coverage | `SessionHumanGrantScopeTests` integration: steward A denied pause/terminate on Activity B session; steward permitted on own Activity |
+
 **Still open:** Realtime `[>]` lifecycle pause/resume, timing/warning, access/
 reconcile SSE; live QA matrix (no active Session); full Implementation CI on
 final code-bearing SHA; durable promotion to `docs/current-state.md`.
 
 **Focused verification (this pass):**
+
+- `pnpm verify:web` green (OpenAPI parity + lint + vitest + build)
+- `FlexAgent.Sessions.Tests` 552 passed
+- `SessionHumanGrantScopeTests` 2 passed (Postgres integration)
+- `ProductionTextSessionPage` vitest 18 passed (includes reconnect + completion-dialog edge)
+
+**Prior pass verification (`13cc2c5`):**
 
 - `FlexAgent.Sessions.Tests` 552 passed
 - `FlexAgent.Contract.Tests` 195 passed

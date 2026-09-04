@@ -112,6 +112,7 @@ export function ProductionTextSessionPage() {
     };
     source.onerror = () => {
       reconnectPending = true;
+      setConfirmComplete(false);
       dispatch({ type: "connection", connection: "reconnecting" });
     };
     source.onmessage = (message: MessageEvent<string>) => {

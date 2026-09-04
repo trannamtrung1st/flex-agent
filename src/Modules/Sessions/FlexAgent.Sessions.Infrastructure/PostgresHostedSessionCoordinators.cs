@@ -425,11 +425,20 @@ public sealed class PostgresHostedSessionSubjectSource(
             runtime.organization_id,
             runtime.participant_id
         FROM session_runtimes AS runtime
+        INNER JOIN assessment_activities AS activity
+            ON activity.organization_id = runtime.organization_id
+           AND activity.activity_id = runtime.activity_id
+        INNER JOIN assessment_activity_revisions AS revision
+            ON revision.organization_id = activity.organization_id
+           AND revision.activity_id = activity.activity_id
+           AND revision.revision_id = activity.current_revision_id
         INNER JOIN actor_organization_grants AS grants
             ON grants.organization_id = runtime.organization_id
            AND grants.actor_id = @ActorId
            AND grants.granted_action = 'session.operations.read'
-        WHERE runtime.session_id = @SessionId;
+           AND grants.revoked_at IS NULL
+        WHERE runtime.session_id = @SessionId
+          AND revision.actor_id = @ActorId;
         """;
 
     public async Task<SessionEventSubject?> ResolveCurrentAsync(

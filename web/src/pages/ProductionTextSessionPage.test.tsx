@@ -166,6 +166,30 @@ describe("hosted Session pages", () => {
     expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
   });
 
+  it("closes the completion confirmation when the event stream drops", async () => {
+    stubFetch((url) => {
+      if (url.includes(`/v1/sessions/${sessionId}`) && !url.includes("/commands")) {
+        return jsonResponse(participantSnapshot());
+      }
+      return jsonResponse({ error: "unexpected" }, 500);
+    });
+
+    renderAt(`/sessions/${sessionId}`, <ProductionTextSessionPage />);
+    expect(await screen.findByRole("button", { name: "Complete Session" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Complete Session" }));
+    expect(await screen.findByRole("heading", { name: "Complete this Session?" })).toBeVisible();
+
+    const source = MockEventSource.instances.at(-1);
+    source?.onerror?.();
+    source?.onerror?.();
+
+    expect(await screen.findByText(/Sending and completion stay closed/)).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Complete this Session?" })).toBeNull();
+    });
+    expect(screen.queryByRole("button", { name: "Complete Session" })).toBeNull();
+  });
+
   it("conceals a denied Session without offering the composer", async () => {
     stubFetch((url) => {
       if (url.includes(`/v1/sessions/${sessionId}`)) {

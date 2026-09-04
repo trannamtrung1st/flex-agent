@@ -675,7 +675,12 @@ components:
             payload:
               type: object
               additionalProperties: false
-              maxProperties: 0
+              required: [reason_code]
+              properties:
+                reason_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
     SessionResumeCommandV1:
       allOf:
         - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'

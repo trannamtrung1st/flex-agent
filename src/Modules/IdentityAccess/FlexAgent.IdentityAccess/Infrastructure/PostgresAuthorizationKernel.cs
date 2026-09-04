@@ -163,6 +163,16 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
                 return AuthorizationDecision.Deny(AuthorizationReasonCodes.DeniedNoGrant);
             }
 
+            var scopeDecision = await SessionHumanGrantScopeValidation.ValidateAsync(
+                request,
+                connection,
+                transaction,
+                cancellationToken);
+            if (scopeDecision is not null)
+            {
+                return scopeDecision;
+            }
+
             return AuthorizationDecision.Permit(
                 grant.relationship_version,
                 authorizationReferenceType: AuthorizationReferenceTypes.ActorOrganizationGrant,
