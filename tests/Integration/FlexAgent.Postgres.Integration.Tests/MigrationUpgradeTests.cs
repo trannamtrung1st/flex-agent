@@ -88,6 +88,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0068ScriptName = "0068_session_runtime_pause_intervals.sql";
     private const string Current0069ScriptName = "0069_session_frozen_timing.sql";
     private const string Current0070ScriptName = "0070_session_warning_occurrences.sql";
+    private const string Current0071ScriptName = "0071_configuration_source_payloads.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -4043,9 +4044,16 @@ public sealed class MigrationUpgradeTests
         string connectionString,
         params string[] expectedScripts)
     {
-        if (expectedScripts.LastOrDefault() == Current0069ScriptName)
+        if (expectedScripts.LastOrDefault() is Current0069ScriptName or Current0070ScriptName)
         {
-            expectedScripts = [.. expectedScripts, Current0070ScriptName];
+            if (expectedScripts.LastOrDefault() == Current0069ScriptName)
+            {
+                expectedScripts = [.. expectedScripts, Current0070ScriptName, Current0071ScriptName];
+            }
+            else if (!expectedScripts.Contains(Current0071ScriptName))
+            {
+                expectedScripts = [.. expectedScripts, Current0071ScriptName];
+            }
         }
 
         await using var connection = new NpgsqlConnection(connectionString);

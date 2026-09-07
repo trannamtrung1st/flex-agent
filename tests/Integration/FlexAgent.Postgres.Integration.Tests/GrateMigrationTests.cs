@@ -35,6 +35,7 @@ public sealed class GrateMigrationTests(PostgresIntegrationFixture fixture) : Po
         var tablesAfter = await ListApplicationTablesAsync(connection);
         Assert.Equal(tablesBefore.OrderBy(t => t), tablesAfter.OrderBy(t => t));
         Assert.Contains("configuration_source_versions", tablesAfter);
+        Assert.Contains("configuration_source_payloads", tablesAfter);
         Assert.Contains("submissions_accommodations", tablesAfter);
         Assert.Contains("submissions_accommodation_facts", tablesAfter);
     }

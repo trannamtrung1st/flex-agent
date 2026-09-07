@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-replacement.v1.schema.json",
+  "title": "Evaluation replacement v1",
+  "description": "Append-only replacement lineage. Never overwrites the predecessor or switches the Review candidate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lineage_id",
+    "predecessor_evaluation_id",
+    "successor_request_id",
+    "successor_evaluation_id",
+    "reason",
+    "actor_type",
+    "actor_id",
+    "occurred_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "lineage_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "predecessor_evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "successor_request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "successor_evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "actor_type": {
+      "type": "string",
+      "enum": ["human", "service"]
+    },
+    "actor_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "occurred_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    }
+  }
+}

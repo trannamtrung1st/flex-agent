@@ -60,6 +60,42 @@ public sealed class P0ResolvedSessionConfigurationResolverTests
             P0ResolvedSessionConfigurationResolver.Resolve(request).OutcomeCode);
     }
 
+    [Fact]
+    public void Resolve_requires_rubric_evaluation_source()
+    {
+        var digest = new string('c', 64);
+        var withoutRubric = new[]
+        {
+            Source("organization_policy", digest),
+            Source("agent", digest),
+            Source("harness", digest),
+            Source("workflow", digest),
+            Source("model_deployment", digest),
+            Source("task_submission", digest),
+            Source("capability", digest),
+        };
+        var request = Request() with
+        {
+            BaselineSources = withoutRubric,
+            RevalidatedSources = withoutRubric,
+        };
+        Assert.Equal(
+            ResolvedConfigurationOutcomeCodes.MissingSource,
+            P0ResolvedSessionConfigurationResolver.Resolve(request).OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_freezes_exact_rubric_and_model_binding_not_profile_name_alone()
+    {
+        var result = P0ResolvedSessionConfigurationResolver.Resolve(Request());
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Contains("\"source_key\":\"rubric_evaluation\"", result.Value!.CanonicalJson, StringComparison.Ordinal);
+        Assert.Contains($"\"model_profile_id\":\"{result.Value.ModelDeployment.ProfileId}\"", result.Value.CanonicalJson, StringComparison.Ordinal);
+        Assert.Contains($"\"model_profile_digest\":\"{result.Value.ModelDeployment.ProfileDigest}\"", result.Value.CanonicalJson, StringComparison.Ordinal);
+        Assert.Contains($"\"credential_binding_reference\":\"{result.Value.ModelDeployment.CredentialBindingReference}\"", result.Value.CanonicalJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("latest", result.Value.CanonicalJson, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static P0ResolvedConfigurationRequest Request()
     {
         var policy = RuntimePolicyTestFixtures.ResolveEnabledTimerPolicy();
@@ -92,6 +128,7 @@ public sealed class P0ResolvedSessionConfigurationResolverTests
             Source("model_deployment", digest),
             Source("task_submission", digest),
             Source("capability", digest),
+            Source("rubric_evaluation", digest),
         ];
     }
 

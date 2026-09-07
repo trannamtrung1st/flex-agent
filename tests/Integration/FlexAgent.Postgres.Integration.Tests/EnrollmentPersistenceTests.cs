@@ -1439,6 +1439,11 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                         Compatibility = source.CompatibilityKey,
                         EffectiveValues = """{"ref":"seeded"}""",
                     });
+                await PostgresIntegrationFixture.InsertRubricPayloadIfRequiredAsync(
+                    connection,
+                    seeded.OrganizationId,
+                    source,
+                    CancellationToken);
             }
         }
 

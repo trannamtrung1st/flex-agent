@@ -1,0 +1,28 @@
+{
+  "schema_version": "v1",
+  "work_id": "ework.synthetic.0001",
+  "request_id": "ereq.synthetic.0001",
+  "request_kind": "initial",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "frozen_input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "procedure_ref": {
+    "source_id": "src.rubric.synthetic",
+    "source_version": "srcver.rubric.synthetic",
+    "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "evaluator_registry_version": "evalreg.builtin.v1",
+  "delegation_ref": "deleg.eval.synthetic",
+  "state": "queued",
+  "attempt_ordinal": 1,
+  "available_at": "2026-09-07T00:00:00Z",
+  "lease_expires_at": null,
+  "timeout": "PT2M",
+  "max_attempts": 3,
+  "failure_category": null
+}

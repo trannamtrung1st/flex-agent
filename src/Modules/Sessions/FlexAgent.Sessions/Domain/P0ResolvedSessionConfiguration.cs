@@ -71,6 +71,7 @@ public static class P0ResolvedSessionConfigurationResolver
         "model_deployment",
         "task_submission",
         "capability",
+        "rubric_evaluation",
     ];
 
     public static P0ResolvedConfigurationResult Resolve(P0ResolvedConfigurationRequest request)

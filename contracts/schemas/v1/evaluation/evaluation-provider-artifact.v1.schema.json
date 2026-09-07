@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-provider-artifact.v1.schema.json",
+  "title": "Evaluation provider artifact v1",
+  "description": "Internal protected provider request/response references. Never carries raw model bodies, credentials, or hidden prompts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "request_id",
+    "attempt_ordinal",
+    "ownership",
+    "model_profile_id",
+    "model_profile_version",
+    "model_profile_digest",
+    "credential_binding_reference",
+    "request_ref",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "artifact_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "attempt_ordinal": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "model_profile_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "model_profile_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "model_profile_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "credential_binding_reference": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "request_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    },
+    "response_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "timeout", "schema_invalid"]
+    },
+    "failure_category": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "provider_timeout",
+            "provider_unavailable",
+            "schema_invalid",
+            "authorization_denied"
+          ]
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

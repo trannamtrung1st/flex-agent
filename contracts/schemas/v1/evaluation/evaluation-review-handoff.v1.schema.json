@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-review-handoff.v1.schema.json",
+  "title": "Evaluation review handoff v1",
+  "description": "Non-releasing Review handoff published at Evaluation completion. Does not create a decision, Result, Release, or assignment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "evaluation_id",
+    "ownership",
+    "case_state",
+    "initial_candidate_recorded",
+    "occurred_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "handoff_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "case_state": {
+      "type": "string",
+      "const": "evaluation_available"
+    },
+    "initial_candidate_recorded": {
+      "type": "boolean"
+    },
+    "initial_candidate_reason": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "occurred_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    }
+  }
+}

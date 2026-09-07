@@ -119,6 +119,18 @@ const representativeMappings = [
     schemaComponent: "SessionHostedEventEnvelopeV1",
     schemaPath: "schemas/v1/session/hosted-event-envelope.v1.schema.json",
   },
+  {
+    schemaComponent: "ReviewWorkItemV1",
+    schemaPath: "schemas/v1/review/review-work-item.v1.schema.json",
+  },
+  {
+    schemaComponent: "ReviewCaseReadV1",
+    schemaPath: "schemas/v1/review/review-case-read.v1.schema.json",
+  },
+  {
+    schemaComponent: "ReviewCriterionReadV1",
+    schemaPath: "schemas/v1/review/review-criterion-read.v1.schema.json",
+  },
 ];
 
 const commandVariantMappings = [

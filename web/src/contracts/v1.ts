@@ -448,3 +448,109 @@ export interface MyWorkAssignmentV1 {
   summary_available: boolean;
   permitted_actions: string[];
 }
+
+export interface ReviewWorkItemV1 {
+  schema_version: SchemaVersionV1;
+  review_case_id: string;
+  evaluation_id?: string;
+  evaluation_processing_state:
+    | 'awaiting'
+    | 'queued'
+    | 'running'
+    | 'retryable_failure'
+    | 'review_required'
+    | 'completed';
+  assignment_state: 'assigned' | 'revoked';
+  integrity_state: 'intact' | 'lower_precision' | 'integrity_changed' | 'lawfully_unavailable';
+  campaign_label?: string | null;
+  task_label?: string | null;
+  participant_label?: string | null;
+  internal_evaluation_notice: 'Internal Evaluation · Not a released Result';
+  updated_at: string;
+  time_zone_id: string;
+  next_action: 'open_review' | 'none';
+}
+
+export interface ReviewCriterionSummaryV1 {
+  criterion_id: string;
+  display_label: string;
+  evaluator_mode: 'deterministic' | 'agent_assisted' | 'agent_judgment';
+  evaluator_mode_label?: 'Rule-based' | 'Agent-assisted' | 'Agent judgment';
+  status:
+    | 'unavailable'
+    | 'satisfied'
+    | 'not_satisfied'
+    | 'insufficient_evidence'
+    | 'not_applicable'
+    | 'conflict';
+}
+
+export interface ReviewCaseReadV1 {
+  schema_version: SchemaVersionV1;
+  review_case_id: string;
+  evaluation_id?: string;
+  evaluation_processing_state:
+    | 'awaiting'
+    | 'queued'
+    | 'running'
+    | 'retryable_failure'
+    | 'review_required'
+    | 'completed';
+  assignment_state: 'assigned' | 'revoked';
+  integrity_state: 'intact' | 'lower_precision' | 'integrity_changed' | 'lawfully_unavailable';
+  candidate_state?: 'none' | 'selected' | 'replacement_available' | 'stale';
+  internal_evaluation_notice: 'Internal Evaluation · Not a released Result';
+  processing_notice?: string | null;
+  campaign_label?: string | null;
+  task_label?: string | null;
+  participant_label?: string | null;
+  procedure_label?: string | null;
+  completed_at?: string | null;
+  criterion_summaries: ReviewCriterionSummaryV1[];
+  updated_at: string;
+  time_zone_id: string;
+}
+
+export interface ReviewEvidenceReferenceV1 {
+  evidence_id: string;
+  source_type: string;
+  precision: 'exact_range' | 'stable_segment' | 'whole_item';
+  verification_state: 'verified' | 'degraded' | 'failed';
+}
+
+export interface ReviewCriterionReadV1 {
+  schema_version: SchemaVersionV1;
+  review_case_id: string;
+  evaluation_id: string;
+  criterion_id: string;
+  criterion_version: string;
+  display_label: string;
+  evaluator_mode: 'deterministic' | 'agent_assisted' | 'agent_judgment';
+  evaluator_mode_label: 'Rule-based' | 'Agent-assisted' | 'Agent judgment';
+  status:
+    | 'unavailable'
+    | 'satisfied'
+    | 'not_satisfied'
+    | 'insufficient_evidence'
+    | 'not_applicable'
+    | 'conflict';
+  score?: number | string | null;
+  confidence?: string | null;
+  uncertainty: string[];
+  rationale?: string | null;
+  provisional_feedback?: string | null;
+  evidence_references: ReviewEvidenceReferenceV1[];
+  internal_evaluation_notice: 'Internal Evaluation · Not a released Result';
+}
+
+export interface ReviewEvidenceOpenV1 {
+  schema_version: SchemaVersionV1;
+  review_case_id: string;
+  evaluation_id: string;
+  evidence_id: string;
+  locator: EvidenceLocatorV1;
+  availability: 'available' | 'denied' | 'unavailable' | 'integrity_changed' | 'lower_precision';
+  display_text?: string | null;
+  unavailability_notice?: string | null;
+  internal_evaluation_notice: 'Internal Evaluation · Not a released Result';
+}

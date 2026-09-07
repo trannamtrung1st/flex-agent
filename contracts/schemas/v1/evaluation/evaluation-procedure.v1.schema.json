@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-procedure.v1.schema.json",
+  "title": "Evaluation procedure v1",
+  "description": "Bounded frozen evaluation-procedure document. Owns exact criteria, one evaluator mode each, Evidence policy, evaluator bindings, aggregation, and failure behavior. Does not invent a universal score, threshold, confidence scale, or aggregation rule.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "procedure_schema",
+    "procedure_id",
+    "procedure_version",
+    "criteria",
+    "aggregation",
+    "insufficiency_behavior",
+    "not_applicable_behavior",
+    "conflict_behavior",
+    "retry_bounds",
+    "resource_bounds",
+    "review_policy_ref",
+    "replacement_policy_ref",
+    "lifecycle_policy_ref"
+  ],
+  "properties": {
+    "procedure_schema": {
+      "type": "string",
+      "const": "evaluation-procedure.v1"
+    },
+    "procedure_id": {
+      "$ref": "#/$defs/evaluation_stable_id"
+    },
+    "procedure_version": {
+      "$ref": "#/$defs/evaluation_stable_id"
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/criterion"
+      }
+    },
+    "aggregation": {
+      "$ref": "#/$defs/aggregation"
+    },
+    "insufficiency_behavior": {
+      "type": "string",
+      "enum": [
+        "complete_insufficient_and_block_aggregation",
+        "complete_insufficient_and_continue"
+      ]
+    },
+    "not_applicable_behavior": {
+      "type": "string",
+      "enum": [
+        "exclude_from_aggregation",
+        "treat_as_satisfied"
+      ]
+    },
+    "conflict_behavior": {
+      "type": "string",
+      "enum": [
+        "review_required_preserve_deterministic_fact",
+        "reject_agent_claim"
+      ]
+    },
+    "retry_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "backoff", "attempt_timeout"],
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "backoff": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "attempt_timeout": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        }
+      }
+    },
+    "resource_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elapsed_timeout",
+        "max_evidence_items",
+        "max_provider_output_bytes"
+      ],
+      "properties": {
+        "elapsed_timeout": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "max_evidence_items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "max_provider_output_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        }
+      }
+    },
+    "review_policy_ref": {
+      "$ref": "#/$defs/evaluation_stable_id"
+    },
+    "replacement_policy_ref": {
+      "$ref": "#/$defs/evaluation_stable_id"
+    },
+    "lifecycle_policy_ref": {
+      "$ref": "#/$defs/evaluation_stable_id"
+    }
+  },
+  "$defs": {
+    "evaluation_stable_id": {
+      "allOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        {
+          "not": {
+            "pattern": "(^|[._-])(latest|current)([._-]|$)"
+          }
+        }
+      ]
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "criterion_version",
+        "display_label",
+        "evaluator_mode",
+        "permitted_statuses",
+        "score_field",
+        "confidence_field",
+        "uncertainty_categories",
+        "evidence_requirements",
+        "rationale_max_unicode_scalars",
+        "provisional_feedback_permitted"
+      ],
+      "properties": {
+        "criterion_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "criterion_version": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "display_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "evaluator_mode": {
+          "type": "string",
+          "enum": ["deterministic", "agent_assisted", "agent_judgment"]
+        },
+        "permitted_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "satisfied",
+              "not_satisfied",
+              "insufficient_evidence",
+              "not_applicable",
+              "conflict"
+            ]
+          }
+        },
+        "score_field": {
+          "$ref": "#/$defs/score_field"
+        },
+        "confidence_field": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_kind", "permitted_values"],
+          "properties": {
+            "field_kind": {
+              "const": "qualitative"
+            },
+            "permitted_values": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              }
+            }
+          }
+        },
+        "uncertainty_categories": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "evidence_requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_items",
+            "maximum_items",
+            "permitted_source_types",
+            "whole_item_fallback_permitted"
+          ],
+          "properties": {
+            "minimum_items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 32
+            },
+            "maximum_items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32
+            },
+            "permitted_source_types": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "submission.direct_text",
+                  "submission.text_attachment",
+                  "session.transcript_item",
+                  "session.work_trace",
+                  "configuration.fact",
+                  "manifest.fact",
+                  "deterministic.fact"
+                ]
+              }
+            },
+            "whole_item_fallback_permitted": {
+              "type": "boolean"
+            }
+          }
+        },
+        "deterministic_evaluator": {
+          "$ref": "#/$defs/deterministic_evaluator"
+        },
+        "agent_io": {
+          "$ref": "#/$defs/agent_io"
+        },
+        "rationale_max_unicode_scalars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4000
+        },
+        "provisional_feedback_permitted": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evaluator_mode": {
+                "const": "deterministic"
+              }
+            },
+            "required": ["evaluator_mode"]
+          },
+          "then": {
+            "required": ["deterministic_evaluator"],
+            "not": {
+              "required": ["agent_io"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluator_mode": {
+                "const": "agent_assisted"
+              }
+            },
+            "required": ["evaluator_mode"]
+          },
+          "then": {
+            "required": ["deterministic_evaluator", "agent_io"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evaluator_mode": {
+                "const": "agent_judgment"
+              }
+            },
+            "required": ["evaluator_mode"]
+          },
+          "then": {
+            "required": ["agent_io"],
+            "not": {
+              "required": ["deterministic_evaluator"]
+            }
+          }
+        }
+      ]
+    },
+    "score_field": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_kind"],
+          "properties": {
+            "field_kind": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_kind", "minimum", "maximum"],
+          "properties": {
+            "field_kind": {
+              "const": "integer_range"
+            },
+            "minimum": {
+              "type": "integer",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "maximum": {
+              "type": "integer",
+              "minimum": -1000000,
+              "maximum": 1000000
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_kind", "permitted_values"],
+          "properties": {
+            "field_kind": {
+              "const": "enumerated_decision"
+            },
+            "permitted_values": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      ]
+    },
+    "aggregation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation_kind"],
+          "properties": {
+            "aggregation_kind": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation_kind"],
+          "properties": {
+            "aggregation_kind": {
+              "const": "all_required_satisfied"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation_kind"],
+          "properties": {
+            "aggregation_kind": {
+              "const": "integer_sum"
+            }
+          }
+        }
+      ]
+    },
+    "deterministic_evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_id",
+        "evaluator_version",
+        "evaluator_digest",
+        "operation",
+        "input_schema_id",
+        "output_schema_id",
+        "canonicalization_procedure",
+        "configuration_digest",
+        "dependency_digest",
+        "cpu_time_limit",
+        "elapsed_time_limit",
+        "memory_limit_bytes",
+        "output_limit_bytes",
+        "network_egress",
+        "executable_selection"
+      ],
+      "properties": {
+        "evaluator_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "evaluator_version": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "evaluator_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "exact_compare",
+            "schema_validate",
+            "citation_validate",
+            "bounded_calculation",
+            "rubric_aggregate"
+          ]
+        },
+        "input_schema_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "output_schema_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "canonicalization_procedure": {
+          "type": "string",
+          "const": "jcs-sha256-v1"
+        },
+        "configuration_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "dependency_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "cpu_time_limit": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "elapsed_time_limit": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "memory_limit_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 268435456
+        },
+        "output_limit_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "network_egress": {
+          "type": "string",
+          "const": "prohibited"
+        },
+        "executable_selection": {
+          "type": "string",
+          "const": "prohibited"
+        }
+      }
+    },
+    "agent_io": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_schema_id",
+        "output_schema_id",
+        "max_context_unicode_scalars"
+      ],
+      "properties": {
+        "input_schema_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "output_schema_id": {
+          "$ref": "#/$defs/evaluation_stable_id"
+        },
+        "max_context_unicode_scalars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        }
+      }
+    }
+  }
+}

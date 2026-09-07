@@ -413,6 +413,115 @@ paths:
             text/event-stream:
               schema:
                 $ref: '#/components/schemas/SessionHostedEventEnvelopeV1'
+  /v1/review/work:
+    get:
+      operationId: listAssignedReviewWork
+      responses:
+        '200':
+          description: Assigned Review work list. Internal Evaluation is not a released Result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [schema_version, items, has_more]
+                properties:
+                  schema_version:
+                    type: string
+                    const: v1
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReviewWorkItemV1'
+                  next_cursor:
+                    type: [string, 'null']
+                  has_more:
+                    type: boolean
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v1/review/cases/{reviewCaseId}:
+    get:
+      operationId: getAssignedReviewCase
+      parameters:
+        - name: reviewCaseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assigned Review case Evaluation inspection. Internal Evaluation is not a released Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCaseReadV1'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v1/review/cases/{reviewCaseId}/criteria/{criterionId}:
+    get:
+      operationId: getAssignedReviewCriterion
+      parameters:
+        - name: reviewCaseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: criterionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assigned Review criterion inspection. Internal Evaluation is not a released Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCriterionReadV1'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v1/review/cases/{reviewCaseId}/evidence/{evidenceId}:
+    get:
+      operationId: openAssignedReviewEvidence
+      parameters:
+        - name: reviewCaseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: evidenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Independently reauthorized Evidence open. Internal Evaluation is not a released Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewEvidenceOpenV1'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
 components:
   schemas:
     EnrollmentAssignCommandV1:
@@ -552,6 +661,14 @@ components:
       $ref: '../schemas/v1/session/command-outcome.v1.schema.json'
     SessionHostedEventEnvelopeV1:
       $ref: '../schemas/v1/session/hosted-event-envelope.v1.schema.json'
+    ReviewWorkItemV1:
+      $ref: '../schemas/v1/review/review-work-item.v1.schema.json'
+    ReviewCaseReadV1:
+      $ref: '../schemas/v1/review/review-case-read.v1.schema.json'
+    ReviewCriterionReadV1:
+      $ref: '../schemas/v1/review/review-criterion-read.v1.schema.json'
+    ReviewEvidenceOpenV1:
+      $ref: '../schemas/v1/review/review-evidence-open.v1.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

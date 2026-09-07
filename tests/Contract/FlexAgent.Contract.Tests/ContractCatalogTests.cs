@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(41, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(55, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(5, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(47, schemas.Count);
+        Assert.Equal(61, schemas.Count);
     }
 
     [Theory]
@@ -86,6 +86,11 @@ public sealed class ContractCatalogTests
         Assert.Contains("SessionSnapshotV1", content, StringComparison.Ordinal);
         Assert.Contains("SessionCommandOutcomeV1", content, StringComparison.Ordinal);
         Assert.Contains("SessionHostedEventEnvelopeV1", content, StringComparison.Ordinal);
+        Assert.Contains("ReviewWorkItemV1", content, StringComparison.Ordinal);
+        Assert.Contains("ReviewCaseReadV1", content, StringComparison.Ordinal);
+        Assert.Contains("ReviewCriterionReadV1", content, StringComparison.Ordinal);
+        Assert.Contains("ReviewEvidenceOpenV1", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("EvaluationWorkV1", content, StringComparison.Ordinal);
         Assert.Contains("/v1/sessions/{sessionId}", content, StringComparison.Ordinal);
         Assert.Contains("/v1/sessions/{sessionId}/commands", content, StringComparison.Ordinal);
         Assert.Contains("/v1/sessions/{sessionId}/events", content, StringComparison.Ordinal);
@@ -122,6 +127,10 @@ public sealed class ContractCatalogTests
             ["SessionSnapshotV1"] = "../schemas/v1/session/snapshot.v1.schema.json",
             ["SessionCommandOutcomeV1"] = "../schemas/v1/session/command-outcome.v1.schema.json",
             ["SessionHostedEventEnvelopeV1"] = "../schemas/v1/session/hosted-event-envelope.v1.schema.json",
+            ["ReviewWorkItemV1"] = "../schemas/v1/review/review-work-item.v1.schema.json",
+            ["ReviewCaseReadV1"] = "../schemas/v1/review/review-case-read.v1.schema.json",
+            ["ReviewCriterionReadV1"] = "../schemas/v1/review/review-criterion-read.v1.schema.json",
+            ["ReviewEvidenceOpenV1"] = "../schemas/v1/review/review-evidence-open.v1.schema.json",
         };
         foreach (var (component, relativeSchema) in required)
         {

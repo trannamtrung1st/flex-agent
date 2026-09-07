@@ -258,4 +258,36 @@ public sealed class ReadinessEvaluatorTests
             issue.Category == AssessmentSourceCategories.Memory
             && issue.ReasonCode == AssessmentFailureCodes.WrongScope);
     }
+
+    [Fact]
+    public void Missing_rubric_payload_blocks_readiness()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var sources = AssessmentFixtures.PermittedSources();
+        sources[5] = sources[5] with { CanonicalPayloadPresent = false };
+
+        var result = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, sources, true, DeploymentEnvironments.Development));
+
+        Assert.True(result.HasBlocker);
+        Assert.Contains(result.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.RubricEvaluation
+            && issue.ReasonCode == AssessmentFailureCodes.UnavailableSource);
+    }
+
+    [Fact]
+    public void Invalid_rubric_procedure_blocks_readiness()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var sources = AssessmentFixtures.PermittedSources();
+        sources[5] = sources[5] with { EvaluationProcedureReady = false };
+
+        var result = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, sources, true, DeploymentEnvironments.Development));
+
+        Assert.True(result.HasBlocker);
+        Assert.Contains(result.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.RubricEvaluation
+            && issue.ReasonCode == AssessmentFailureCodes.InvalidProcedure);
+    }
 }

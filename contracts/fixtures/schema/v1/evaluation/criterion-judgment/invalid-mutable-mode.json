@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "judgment_id": "jdg.synthetic.0001",
+  "evaluation_id": "eval.synthetic.0001",
+  "criterion_id": "crit.objective.word-count",
+  "criterion_version": "crit.objective.word-count.v1",
+  "evaluator_mode": "latest",
+  "status": "satisfied",
+  "confidence": "high",
+  "uncertainty": [],
+  "rationale": "The verified word count is inside the frozen range.",
+  "evidence_ids": ["evid.synthetic.0001"]
+}

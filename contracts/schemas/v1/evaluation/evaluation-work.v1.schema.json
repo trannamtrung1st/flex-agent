@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-work.v1.schema.json",
+  "title": "Evaluation work v1",
+  "description": "Internal durable Evaluation work/lease envelope. Contains no human credential or source content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_id",
+    "request_id",
+    "request_kind",
+    "ownership",
+    "frozen_input_digest",
+    "procedure_ref",
+    "evaluator_registry_version",
+    "delegation_ref",
+    "state",
+    "attempt_ordinal",
+    "available_at",
+    "timeout",
+    "max_attempts"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "work_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "request_kind": {
+      "type": "string",
+      "enum": ["initial", "replacement"]
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "frozen_input_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "procedure_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/source_reference"
+    },
+    "evaluator_registry_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "delegation_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "claimed",
+        "running",
+        "validating",
+        "completing",
+        "completed",
+        "failed_retryable",
+        "failed_review_required",
+        "cancelled"
+      ]
+    },
+    "attempt_ordinal": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+    },
+    "available_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "lease_expires_at": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "timeout": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+    },
+    "failure_category": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "provider_timeout",
+            "provider_unavailable",
+            "schema_invalid",
+            "citation_invalid",
+            "conflict",
+            "resource_exhausted",
+            "authorization_denied",
+            "source_unavailable",
+            "audit_unavailable",
+            "integrity_failure"
+          ]
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

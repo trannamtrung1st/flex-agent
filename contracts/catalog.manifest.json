@@ -209,6 +209,76 @@
       "category": "session_hosted_event_envelope",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/hosted-event-envelope.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/session/hosted-event-envelope"
+    },
+    {
+      "category": "evaluation_procedure",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-procedure.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-procedure"
+    },
+    {
+      "category": "evaluation_request",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-request.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-request"
+    },
+    {
+      "category": "evaluation_work",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-work.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-work"
+    },
+    {
+      "category": "deterministic_invocation",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/deterministic-invocation.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/deterministic-invocation"
+    },
+    {
+      "category": "evaluation_provider_artifact",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-provider-artifact.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-provider-artifact"
+    },
+    {
+      "category": "criterion_judgment",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/criterion-judgment.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/criterion-judgment"
+    },
+    {
+      "category": "evaluation_artifact",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation"
+    },
+    {
+      "category": "evaluation_annotation",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-annotation.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-annotation"
+    },
+    {
+      "category": "evaluation_replacement",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-replacement.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-replacement"
+    },
+    {
+      "category": "evaluation_review_handoff",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-review-handoff.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-review-handoff"
+    },
+    {
+      "category": "review_work_item",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/review/review-work-item.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/review/review-work-item"
+    },
+    {
+      "category": "review_case_read",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/review/review-case-read.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/review/review-case-read"
+    },
+    {
+      "category": "review_criterion_read",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/review/review-criterion-read.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/review/review-criterion-read"
+    },
+    {
+      "category": "review_evidence_open",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/review/review-evidence-open.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/review/review-evidence-open"
     }
   ],
   "digest_schemas": [

@@ -1,0 +1,26 @@
+{
+  "schema_version": "v1",
+  "evaluation_id": "eval.synthetic.0001",
+  "request_id": "ereq.synthetic.0001",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "procedure_ref": {
+    "source_id": "src.rubric.synthetic",
+    "source_version": "srcver.rubric.synthetic",
+    "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "configuration_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "manifest_seal_procedure_id": "manifest-jcs-sha256-v2",
+  "evidence_set_id": "eset.synthetic.0001",
+  "evidence_set_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "criterion_ids": ["crit.objective.word-count"],
+  "aggregate_status": "released",
+  "completed_at": "2026-09-07T00:01:00Z",
+  "creation_service_id": "evaluation-service"
+}

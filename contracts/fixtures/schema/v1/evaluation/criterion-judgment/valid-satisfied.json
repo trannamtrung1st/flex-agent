@@ -1,0 +1,16 @@
+{
+  "schema_version": "v1",
+  "judgment_id": "jdg.synthetic.0001",
+  "evaluation_id": "eval.synthetic.0001",
+  "criterion_id": "crit.objective.word-count",
+  "criterion_version": "crit.objective.word-count.v1",
+  "evaluator_mode": "deterministic",
+  "status": "satisfied",
+  "score": null,
+  "confidence": "high",
+  "uncertainty": ["evaluator_bound"],
+  "rationale": "The verified word count is inside the frozen range.",
+  "provisional_feedback": null,
+  "evidence_ids": ["evid.synthetic.0001"],
+  "deterministic_invocation_id": "dinv.synthetic.0001"
+}

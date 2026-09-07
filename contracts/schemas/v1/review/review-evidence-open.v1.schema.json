@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/review/review-evidence-open.v1.schema.json",
+  "title": "Review Evidence open v1",
+  "description": "Independently reauthorized Evidence source open for an assigned reviewer. Content is inert displayed text, never an access token.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_case_id",
+    "evaluation_id",
+    "evidence_id",
+    "locator",
+    "availability",
+    "display_text",
+    "internal_evaluation_notice"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "review_case_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/uuid"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evidence_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "locator": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json"
+    },
+    "availability": {
+      "type": "string",
+      "enum": [
+        "available",
+        "denied",
+        "unavailable",
+        "integrity_changed",
+        "lower_precision"
+      ]
+    },
+    "display_text": {
+      "type": ["string", "null"],
+      "maxLength": 16384
+    },
+    "unavailability_notice": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "internal_evaluation_notice": {
+      "type": "string",
+      "const": "Internal Evaluation · Not a released Result"
+    }
+  }
+}

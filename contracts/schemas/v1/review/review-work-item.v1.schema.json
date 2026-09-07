@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/review/review-work-item.v1.schema.json",
+  "title": "Review work item v1",
+  "description": "Assigned-reviewer list projection. Read-only Evaluation processing status without Human revision, decision, Result, or Release actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_case_id",
+    "evaluation_processing_state",
+    "assignment_state",
+    "integrity_state",
+    "internal_evaluation_notice",
+    "updated_at",
+    "time_zone_id",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "review_case_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/uuid"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluation_processing_state": {
+      "type": "string",
+      "enum": [
+        "awaiting",
+        "queued",
+        "running",
+        "retryable_failure",
+        "review_required",
+        "completed"
+      ]
+    },
+    "assignment_state": {
+      "type": "string",
+      "enum": ["assigned", "revoked"]
+    },
+    "integrity_state": {
+      "type": "string",
+      "enum": [
+        "intact",
+        "lower_precision",
+        "integrity_changed",
+        "lawfully_unavailable"
+      ]
+    },
+    "campaign_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "task_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "participant_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "internal_evaluation_notice": {
+      "type": "string",
+      "const": "Internal Evaluation · Not a released Result"
+    },
+    "updated_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "time_zone_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "next_action": {
+      "type": "string",
+      "enum": ["open_review", "none"]
+    }
+  }
+}

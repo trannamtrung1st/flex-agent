@@ -1,0 +1,11 @@
+{
+  "schema_version": "v1",
+  "lineage_id": "elin.synthetic.0001",
+  "predecessor_evaluation_id": "eval.synthetic.0001",
+  "successor_request_id": "ereq.synthetic.0002",
+  "successor_evaluation_id": "eval.synthetic.0002",
+  "reason": "authorized.correction",
+  "actor_type": "service",
+  "actor_id": "evaluation-service",
+  "occurred_at": "2026-09-07T00:03:00Z"
+}

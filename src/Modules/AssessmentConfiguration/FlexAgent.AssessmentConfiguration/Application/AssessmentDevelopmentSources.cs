@@ -17,10 +17,15 @@ public static class AssessmentDevelopmentSources
     public static ExactSourceRef ReviewRelease { get; } = Ref(11);
 
     public static ExactSourceRef Ref(byte n) =>
-        new(
-            Guid.Parse($"22222222-2222-2222-2222-2222222222{n:D2}"),
-            Guid.Parse($"33333333-3333-3333-3333-3333333333{n:D2}"),
-            new string((char)('a' + n), 64));
+        n == 6
+            ? new(
+                Guid.Parse("22222222-2222-2222-2222-222222222206"),
+                Guid.Parse("33333333-3333-3333-3333-333333333316"),
+                "8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2")
+            : new(
+                Guid.Parse($"22222222-2222-2222-2222-2222222222{n:D2}"),
+                Guid.Parse($"33333333-3333-3333-3333-3333333333{n:D2}"),
+                new string((char)('a' + n), 64));
 
     public static IReadOnlyList<TrustedSourceDescriptor> ForOrganization(Guid organizationId) =>
     [

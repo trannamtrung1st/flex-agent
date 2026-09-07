@@ -2,6 +2,7 @@ using System.Text.Json;
 using Dapper;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Domain;
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
@@ -311,12 +312,19 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
                 d.capability_direct_deployment_enabled,
                 d.production_eligible,
                 d.transactionally_revalidatable,
-                d.effective_values
+                d.effective_values,
+                (p.source_version_id IS NOT NULL) AS canonical_payload_present,
+                CASE WHEN d.category = 'rubric_evaluation' THEN p.canonical_utf8 END AS canonical_utf8
             FROM configuration_source_readiness_descriptors d
             INNER JOIN configuration_source_versions v
                 ON v.organization_id = d.organization_id
                AND v.configuration_source_id = d.configuration_source_id
                AND v.id = d.version_id
+            LEFT JOIN configuration_source_payloads p
+                ON p.organization_id = d.organization_id
+               AND p.configuration_source_id = d.configuration_source_id
+               AND p.source_version_id = d.version_id
+               AND p.content_digest = v.content_digest
             WHERE d.organization_id = @OrganizationId
               AND d.lifecycle_state = 'available'
               AND d.transactionally_revalidatable = TRUE
@@ -365,15 +373,22 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
                 d.capability_direct_deployment_enabled,
                 d.production_eligible,
                 d.transactionally_revalidatable,
-                d.effective_values
+                d.effective_values,
+                (p.source_version_id IS NOT NULL) AS canonical_payload_present,
+                CASE WHEN d.category = 'rubric_evaluation' THEN p.canonical_utf8 END AS canonical_utf8
             FROM configuration_source_readiness_descriptors d
             INNER JOIN configuration_source_versions v
                 ON v.organization_id = d.organization_id
                AND v.configuration_source_id = d.configuration_source_id
                AND v.id = d.version_id
+            LEFT JOIN configuration_source_payloads p
+                ON p.organization_id = d.organization_id
+               AND p.configuration_source_id = d.configuration_source_id
+               AND p.source_version_id = d.version_id
+               AND p.content_digest = v.content_digest
             WHERE d.organization_id = @OrganizationId
               AND d.version_id = ANY(@VersionIds)
-            FOR SHARE
+            FOR SHARE OF d, v
             """;
 
         IEnumerable<DescriptorRow> rows;
@@ -399,8 +414,14 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
         return rows.Select(ToDescriptor).ToArray();
     }
 
-    private static TrustedSourceDescriptor ToDescriptor(DescriptorRow row) =>
-        new(
+    private static TrustedSourceDescriptor ToDescriptor(DescriptorRow row)
+    {
+        var payloadPresent = row.CanonicalPayloadPresent;
+        var procedureReady = row.Category != AssessmentSourceCategories.RubricEvaluation
+            || (payloadPresent
+                && row.CanonicalUtf8 is { Length: > 0 }
+                && EvaluationProcedureDocumentParser.TryParse(row.CanonicalUtf8, out _, out _));
+        return new TrustedSourceDescriptor(
             row.OrganizationId,
             row.SourceId,
             row.VersionId,
@@ -420,7 +441,10 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
             JsonSerializer.Deserialize<Dictionary<string, string>>(row.EffectiveValues)
                 ?? new Dictionary<string, string>(),
             row.TransactionallyRevalidatable,
-            row.ProductionEligible);
+            row.ProductionEligible,
+            payloadPresent,
+            procedureReady);
+    }
 
     private sealed record DescriptorRow(
         Guid OrganizationId,
@@ -439,7 +463,9 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
         bool CapabilityDirectDeploymentEnabled,
         bool ProductionEligible,
         bool TransactionallyRevalidatable,
-        string EffectiveValues);
+        string EffectiveValues,
+        bool CanonicalPayloadPresent,
+        byte[]? CanonicalUtf8);
 }
 
 public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventWriter)

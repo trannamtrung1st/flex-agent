@@ -48,6 +48,9 @@
           "FlexAgent.Postgres": "[1.0.0, )"
         }
       },
+      "flexagent.contracts": {
+        "type": "Project"
+      },
       "flexagent.identityaccess": {
         "type": "Project",
         "dependencies": {

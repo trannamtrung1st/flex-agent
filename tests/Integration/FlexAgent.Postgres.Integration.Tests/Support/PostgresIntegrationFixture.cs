@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Dapper;
+using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.Configuration;
 using FlexAgent.Configuration.Domain;
 using FlexAgent.IdentityAccess.Domain;
@@ -135,6 +136,51 @@ public sealed class PostgresIntegrationFixture : IAsyncLifetime
 
     public static string MinimalStableDomainDigest =>
         "ac061086af2a5869dbbfe45ee45b48204e163865186664c49c9874d6de961c13";
+
+    public static byte[] LoadP0SyntheticEvaluationProcedureCanonicalUtf8()
+    {
+        var hex = File.ReadAllText(
+            Path.Combine(
+                FindRepositoryRoot(),
+                "contracts",
+                "fixtures",
+                "jcs",
+                "evaluation-procedure-jcs-sha256-v1",
+                "p0-text-synthetic",
+                "canonical.utf8.hex")).Trim();
+        return Convert.FromHexString(hex);
+    }
+
+    public static async Task InsertRubricPayloadIfRequiredAsync(
+        NpgsqlConnection connection,
+        Guid organizationId,
+        TrustedSourceDescriptor source,
+        CancellationToken cancellationToken)
+    {
+        if (source.Category != AssessmentSourceCategories.RubricEvaluation)
+        {
+            return;
+        }
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO configuration_source_payloads (
+                    organization_id, configuration_source_id, source_version_id, content_digest, canonical_utf8, created_at)
+                VALUES (
+                    @OrganizationId, @SourceId, @VersionId, @ContentDigest, @CanonicalUtf8, CLOCK_TIMESTAMP())
+                ON CONFLICT DO NOTHING;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    source.SourceId,
+                    source.VersionId,
+                    source.ContentDigest,
+                    CanonicalUtf8 = LoadP0SyntheticEvaluationProcedureCanonicalUtf8(),
+                },
+                cancellationToken: cancellationToken));
+    }
 
     private static string FindRepositoryRoot()
     {

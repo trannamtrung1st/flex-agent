@@ -187,6 +187,27 @@ public static class ReadinessEvaluator
             return;
         }
 
+        if (category == AssessmentSourceCategories.RubricEvaluation)
+        {
+            if (!match.CanonicalPayloadPresent)
+            {
+                issues.Add(Block(
+                    category,
+                    AssessmentFailureCodes.UnavailableSource,
+                    "Select a rubric version that still has its canonical evaluation-procedure payload."));
+                return;
+            }
+
+            if (!match.EvaluationProcedureReady)
+            {
+                issues.Add(Block(
+                    category,
+                    AssessmentFailureCodes.InvalidProcedure,
+                    "Select a rubric whose frozen procedure, evaluator bindings, and bounds are valid."));
+                return;
+            }
+        }
+
         if (context.Environment == DeploymentEnvironments.Production && !match.ProductionEligible)
         {
             issues.Add(Block(

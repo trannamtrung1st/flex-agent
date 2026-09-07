@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/review/review-case-read.v1.schema.json",
+  "title": "Review case read v1",
+  "description": "Assigned-record Evaluation inspection projection. Human revision, decision, Result, and Release remain absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_case_id",
+    "evaluation_processing_state",
+    "assignment_state",
+    "integrity_state",
+    "internal_evaluation_notice",
+    "criterion_summaries",
+    "updated_at",
+    "time_zone_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "review_case_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/uuid"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluation_processing_state": {
+      "type": "string",
+      "enum": [
+        "awaiting",
+        "queued",
+        "running",
+        "retryable_failure",
+        "review_required",
+        "completed"
+      ]
+    },
+    "assignment_state": {
+      "type": "string",
+      "enum": ["assigned", "revoked"]
+    },
+    "integrity_state": {
+      "type": "string",
+      "enum": [
+        "intact",
+        "lower_precision",
+        "integrity_changed",
+        "lawfully_unavailable"
+      ]
+    },
+    "candidate_state": {
+      "type": "string",
+      "enum": ["none", "selected", "replacement_available", "stale"]
+    },
+    "internal_evaluation_notice": {
+      "type": "string",
+      "const": "Internal Evaluation · Not a released Result"
+    },
+    "processing_notice": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "campaign_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "task_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "participant_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "procedure_label": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "completed_at": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "criterion_summaries": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion_id", "display_label", "evaluator_mode", "status"],
+        "properties": {
+          "criterion_id": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+          },
+          "display_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "evaluator_mode": {
+            "type": "string",
+            "enum": ["deterministic", "agent_assisted", "agent_judgment"]
+          },
+          "evaluator_mode_label": {
+            "type": "string",
+            "enum": ["Rule-based", "Agent-assisted", "Agent judgment"]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "satisfied",
+              "not_satisfied",
+              "insufficient_evidence",
+              "not_applicable",
+              "conflict"
+            ]
+          }
+        }
+      }
+    },
+    "updated_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "time_zone_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}

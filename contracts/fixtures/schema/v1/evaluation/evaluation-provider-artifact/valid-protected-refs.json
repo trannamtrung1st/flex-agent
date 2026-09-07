@@ -1,0 +1,27 @@
+{
+  "schema_version": "v1",
+  "artifact_id": "eart.synthetic.0001",
+  "request_id": "ereq.synthetic.0001",
+  "attempt_ordinal": 1,
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "model_profile_id": "model.synthetic.fake",
+  "model_profile_version": "model.synthetic.fake.v1",
+  "model_profile_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "credential_binding_reference": "cred.bind.synthetic",
+  "request_ref": {
+    "protected_ref": "prot.eval.req.0001",
+    "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "response_ref": {
+    "protected_ref": "prot.eval.res.0001",
+    "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "outcome": "succeeded",
+  "failure_category": null
+}

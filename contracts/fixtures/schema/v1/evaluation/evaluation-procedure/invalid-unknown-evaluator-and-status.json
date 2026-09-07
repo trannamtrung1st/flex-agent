@@ -1,0 +1,58 @@
+{
+  "procedure_schema": "evaluation-procedure.v1",
+  "procedure_id": "evalproc.p0.text.synthetic",
+  "procedure_version": "evalproc.p0.text.synthetic.v1",
+  "criteria": [
+    {
+      "criterion_id": "crit.objective.word-count",
+      "criterion_version": "crit.objective.word-count.v1",
+      "display_label": "Response length is within the required range",
+      "evaluator_mode": "deterministic",
+      "permitted_statuses": ["invented_status"],
+      "score_field": { "field_kind": "none" },
+      "confidence_field": {
+        "field_kind": "qualitative",
+        "permitted_values": ["low", "high"]
+      },
+      "uncertainty_categories": ["source_gap"],
+      "evidence_requirements": {
+        "minimum_items": 1,
+        "maximum_items": 4,
+        "permitted_source_types": ["submission.direct_text"],
+        "whole_item_fallback_permitted": true
+      },
+      "deterministic_evaluator": {
+        "evaluator_id": "eval.builtin.bounded-calc",
+        "evaluator_version": "eval.builtin.bounded-calc.v1",
+        "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "operation": "unrestricted_script",
+        "input_schema_id": "eval.builtin.bounded-calc.input.v1",
+        "output_schema_id": "eval.builtin.bounded-calc.output.v1",
+        "canonicalization_procedure": "jcs-sha256-v1",
+        "configuration_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "dependency_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cpu_time_limit": "PT5S",
+        "elapsed_time_limit": "PT10S",
+        "memory_limit_bytes": 16777216,
+        "output_limit_bytes": 4096,
+        "network_egress": "prohibited",
+        "executable_selection": "prohibited"
+      },
+      "rationale_max_unicode_scalars": 500,
+      "provisional_feedback_permitted": false
+    }
+  ],
+  "aggregation": { "aggregation_kind": "none" },
+  "insufficiency_behavior": "complete_insufficient_and_block_aggregation",
+  "not_applicable_behavior": "exclude_from_aggregation",
+  "conflict_behavior": "reject_agent_claim",
+  "retry_bounds": { "max_attempts": 1, "backoff": "PT30S", "attempt_timeout": "PT2M" },
+  "resource_bounds": {
+    "elapsed_timeout": "PT2M",
+    "max_evidence_items": 8,
+    "max_provider_output_bytes": 1024
+  },
+  "review_policy_ref": "review.policy.assigned-inspection.v1",
+  "replacement_policy_ref": "eval.replacement.authorized-predecessor.v1",
+  "lifecycle_policy_ref": "lifecycle.activity-closure-365d.v1"
+}

@@ -380,6 +380,57 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Selectable_sources_mark_rubric_payload_ready_without_parsing_other_source_bytes()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var catalog = new PostgresAssessmentSourceCatalog(Fixture.Services.ConnectionAccessor);
+        var before = await catalog.ListSelectableAsync(
+            harness.OrganizationId,
+            DeploymentEnvironments.Development,
+            CancellationToken);
+
+        var rubric = Assert.Single(before, source => source.Category == AssessmentSourceCategories.RubricEvaluation);
+        Assert.True(rubric.CanonicalPayloadPresent);
+        Assert.True(rubric.EvaluationProcedureReady);
+
+        var agent = Assert.Single(before, source => source.Category == AssessmentSourceCategories.Agent);
+        Assert.False(agent.CanonicalPayloadPresent);
+        Assert.True(agent.EvaluationProcedureReady);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO configuration_source_payloads (
+                    organization_id, configuration_source_id, source_version_id,
+                    content_digest, canonical_utf8, created_at)
+                VALUES (
+                    @OrganizationId, @SourceId, @VersionId, @ContentDigest, @CanonicalUtf8, CLOCK_TIMESTAMP());
+                """,
+                new
+                {
+                    harness.OrganizationId,
+                    agent.SourceId,
+                    agent.VersionId,
+                    agent.ContentDigest,
+                    CanonicalUtf8 = PostgresIntegrationFixture.LoadMinimalStableDomainCanonicalUtf8(),
+                },
+                cancellationToken: CancellationToken));
+
+        var after = await catalog.ListSelectableAsync(
+            harness.OrganizationId,
+            DeploymentEnvironments.Development,
+            CancellationToken);
+        var agentAfter = Assert.Single(after, source => source.Category == AssessmentSourceCategories.Agent);
+        var rubricAfter = Assert.Single(after, source => source.Category == AssessmentSourceCategories.RubricEvaluation);
+
+        Assert.True(agentAfter.CanonicalPayloadPresent);
+        Assert.True(agentAfter.EvaluationProcedureReady);
+        Assert.True(rubricAfter.CanonicalPayloadPresent);
+        Assert.True(rubricAfter.EvaluationProcedureReady);
+    }
+
+    [Fact]
     public async Task Http_activate_after_revoke_does_not_disclose_an_existing_baseline()
     {
         var harness = await SeedReadyHarnessAsync();
@@ -1160,6 +1211,11 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                     Compatibility = source.CompatibilityKey,
                     EffectiveValues = """{"ref":"seeded"}""",
                 });
+            await PostgresIntegrationFixture.InsertRubricPayloadIfRequiredAsync(
+                connection,
+                organizationId,
+                source,
+                CancellationToken);
         }
     }
 

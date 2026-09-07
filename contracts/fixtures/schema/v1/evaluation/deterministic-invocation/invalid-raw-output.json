@@ -1,0 +1,28 @@
+{
+  "schema_version": "v1",
+  "invocation_id": "dinv.synthetic.0001",
+  "request_id": "ereq.synthetic.0001",
+  "criterion_id": "crit.objective.word-count",
+  "criterion_version": "crit.objective.word-count.v1",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "evaluator_id": "eval.builtin.bounded-calc",
+  "evaluator_version": "eval.builtin.bounded-calc.v1",
+  "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configuration_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "dependency_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "canonical_input_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "cpu_time_limit": "PT5S",
+  "elapsed_time_limit": "PT10S",
+  "memory_limit_bytes": 16777216,
+  "output_limit_bytes": 4096,
+  "started_at": "2026-09-07T00:00:01Z",
+  "finished_at": "2026-09-07T00:00:02Z",
+  "outcome": "succeeded",
+  "output_text": "raw evaluator output must stay in a protected reference"
+}

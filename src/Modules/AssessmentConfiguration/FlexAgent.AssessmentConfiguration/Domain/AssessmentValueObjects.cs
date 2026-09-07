@@ -208,7 +208,9 @@ public sealed record TrustedSourceDescriptor(
     CapabilityBounds Capabilities,
     IReadOnlyDictionary<string, string> EffectiveValues,
     bool TransactionallyRevalidatable,
-    bool ProductionEligible)
+    bool ProductionEligible,
+    bool CanonicalPayloadPresent = true,
+    bool EvaluationProcedureReady = true)
 {
     public bool Matches(ExactSourceRef reference) =>
         SourceId == reference.SourceId

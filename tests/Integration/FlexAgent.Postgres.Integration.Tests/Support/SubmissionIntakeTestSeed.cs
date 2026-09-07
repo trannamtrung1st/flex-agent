@@ -75,6 +75,11 @@ internal static class SubmissionIntakeTestSeed
                         Compatibility = source.CompatibilityKey,
                         EffectiveValues = """{"ref":"seeded"}""",
                     });
+                await PostgresIntegrationFixture.InsertRubricPayloadIfRequiredAsync(
+                    connection,
+                    seeded.OrganizationId,
+                    source,
+                    cancellationToken);
             }
         }
 

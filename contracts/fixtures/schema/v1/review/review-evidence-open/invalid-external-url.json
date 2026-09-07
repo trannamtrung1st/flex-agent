@@ -1,0 +1,40 @@
+{
+  "schema_version": "v1",
+  "review_case_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+  "evaluation_id": "eval.synthetic.0001",
+  "evidence_id": "evid.synthetic.0001",
+  "locator": {
+    "locator_schema": "evidence-locator.v1",
+    "source_type": "submission.direct_text",
+    "source_ref": {
+      "source_id": "sub.item.synthetic",
+      "source_version": "subver.synthetic.0001"
+    },
+    "ownership_ref": {
+      "organization_id": "org.synthetic.0001",
+      "activity_id": "act.synthetic.0001",
+      "participant_id": "part.synthetic.0001",
+      "attempt_id": "att.synthetic.0001",
+      "session_id": "sess.synthetic.0001",
+      "evaluation_id": "eval.synthetic.0001"
+    },
+    "location": {
+      "location_type": "whole_item",
+      "item_id": "sub.item.synthetic"
+    },
+    "precision": "whole_item",
+    "integrity": {
+      "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "adapter_version": "locator-adapter.v1",
+      "verification_state": "verified"
+    },
+    "created_by": {
+      "service_id": "evaluation-service",
+      "invocation_id": "inv.synthetic.0004"
+    }
+  },
+  "availability": "available",
+  "display_text": "Synthetic accepted Submission text.",
+  "internal_evaluation_notice": "Internal Evaluation · Not a released Result",
+  "external_url": "https://example.invalid/auto-fetch"
+}

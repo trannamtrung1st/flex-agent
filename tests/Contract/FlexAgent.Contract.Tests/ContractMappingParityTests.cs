@@ -4,6 +4,7 @@ using FlexAgent.Contracts.Audit;
 using FlexAgent.Contracts.Enrollment;
 using FlexAgent.Contracts.Evidence;
 using FlexAgent.Contracts.Manifest;
+using FlexAgent.Contracts.Review;
 using FlexAgent.Contracts.Session;
 using FlexAgent.Contracts.Submission;
 using FlexAgent.Contracts.Transport;
@@ -98,6 +99,13 @@ public sealed class ContractMappingParityTests
         Assert.Contains("SessionSnapshotV1", exported);
         Assert.Contains("SessionCommandOutcomeV1", exported);
         Assert.Contains("SessionHostedEventEnvelopeV1", exported);
+        Assert.Contains("ReviewWorkItemV1", exported);
+        Assert.Contains("ReviewCaseReadV1", exported);
+        Assert.Contains("ReviewCriterionReadV1", exported);
+        Assert.Contains("ReviewEvidenceOpenV1", exported);
+        Assert.Contains("EvaluationProcedureV1", exported);
+        Assert.Contains("EvaluationRequestV1", exported);
+        Assert.Contains("EvaluationWorkV1", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -656,6 +664,24 @@ public sealed class ContractMappingParityTests
                     MessageText: "Synthetic participant answer.",
                     TurnId: "turn.synthetic.0001"),
                 "131"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/review/review-work-item.v1.schema.json",
+            new ReviewWorkItemV1(
+                "v1",
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"),
+                "completed",
+                "assigned",
+                "intact",
+                "Internal Evaluation · Not a released Result",
+                "2026-09-07T00:01:00Z",
+                "America/New_York",
+                "open_review",
+                "eval.synthetic.0001",
+                "P0 text assessment",
+                "Written response",
+                "Participant 1"));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

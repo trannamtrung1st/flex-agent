@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/deterministic-invocation.v1.schema.json",
+  "title": "Deterministic invocation v1",
+  "description": "Internal append-only deterministic evaluator invocation provenance. Output content stays in a protected reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "invocation_id",
+    "request_id",
+    "criterion_id",
+    "criterion_version",
+    "ownership",
+    "evaluator_id",
+    "evaluator_version",
+    "evaluator_digest",
+    "configuration_digest",
+    "dependency_digest",
+    "canonical_input_digest",
+    "cpu_time_limit",
+    "elapsed_time_limit",
+    "memory_limit_bytes",
+    "output_limit_bytes",
+    "started_at",
+    "finished_at",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "evaluator_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluator_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluator_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "configuration_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "dependency_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "canonical_input_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "input_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    },
+    "output_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    },
+    "cpu_time_limit": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    },
+    "elapsed_time_limit": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    },
+    "memory_limit_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 268435456
+    },
+    "output_limit_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1048576
+    },
+    "started_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "finished_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "timeout", "resource_exhausted", "invalid_output"]
+    },
+    "failure_category": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "provider_timeout",
+            "schema_invalid",
+            "resource_exhausted",
+            "integrity_failure",
+            "source_unavailable"
+          ]
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

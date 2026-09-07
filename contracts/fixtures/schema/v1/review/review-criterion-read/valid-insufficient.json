@@ -1,0 +1,25 @@
+{
+  "schema_version": "v1",
+  "review_case_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+  "evaluation_id": "eval.synthetic.0001",
+  "criterion_id": "crit.judgment.quality",
+  "criterion_version": "crit.judgment.quality.v1",
+  "display_label": "Explanation quality matches the rubric",
+  "evaluator_mode": "agent_judgment",
+  "evaluator_mode_label": "Agent judgment",
+  "status": "insufficient_evidence",
+  "score": null,
+  "confidence": "low",
+  "uncertainty": ["source_gap"],
+  "rationale": "The Submission does not contain the required explanation.",
+  "provisional_feedback": null,
+  "evidence_references": [
+    {
+      "evidence_id": "evid.synthetic.0001",
+      "source_type": "submission.direct_text",
+      "precision": "whole_item",
+      "verification_state": "verified"
+    }
+  ],
+  "internal_evaluation_notice": "Internal Evaluation · Not a released Result"
+}

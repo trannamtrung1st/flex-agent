@@ -1,0 +1,15 @@
+{
+  "schema_version": "v1",
+  "review_case_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+  "evaluation_id": "eval.synthetic.0001",
+  "evaluation_processing_state": "completed",
+  "assignment_state": "assigned",
+  "integrity_state": "intact",
+  "campaign_label": "P0 text assessment",
+  "task_label": "Written response",
+  "participant_label": "Participant 1",
+  "internal_evaluation_notice": "Internal Evaluation · Not a released Result",
+  "updated_at": "2026-09-07T00:01:00Z",
+  "time_zone_id": "America/New_York",
+  "next_action": "open_review"
+}

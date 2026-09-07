@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "review_case_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+  "evaluation_processing_state": "completed",
+  "assignment_state": "assigned",
+  "integrity_state": "intact",
+  "internal_evaluation_notice": "Internal Evaluation · Not a released Result",
+  "criterion_summaries": [],
+  "updated_at": "2026-09-07T00:01:00Z",
+  "time_zone_id": "America/New_York",
+  "decision_action": "approve_unchanged"
+}

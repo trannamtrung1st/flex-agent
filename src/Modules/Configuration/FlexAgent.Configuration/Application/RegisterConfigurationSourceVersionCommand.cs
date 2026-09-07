@@ -21,3 +21,19 @@ public interface IRegisterConfigurationSourceVersionHandler
         RegisterConfigurationSourceVersionCommand command,
         CancellationToken cancellationToken = default);
 }
+
+public interface IProtectedConfigurationSourcePayloadReader
+{
+    Task<ConfigurationSourcePayload?> GetPayloadForVersionAsync(
+        Guid organizationId,
+        Guid configurationSourceId,
+        Guid sourceVersionId,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record ConfigurationSourcePayload(
+    Guid OrganizationId,
+    Guid ConfigurationSourceId,
+    Guid SourceVersionId,
+    string ContentDigest,
+    byte[] CanonicalUtf8);

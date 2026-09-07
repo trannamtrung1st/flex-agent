@@ -288,6 +288,7 @@ public sealed class GatedP0SessionStartPort(
         "model_deployment",
         "task_submission",
         "capability",
+        "rubric_evaluation",
     ];
 
     private static async Task<(
@@ -403,6 +404,7 @@ public sealed class GatedP0SessionStartPort(
             new ResolvedSourceReference("model_deployment", StableId("model_deployment", baselineId), StableId("model_deployment.version", baselineId), digest),
             new ResolvedSourceReference("task_submission", StableId("task_submission", baselineId), StableId("task_submission.version", baselineId), digest),
             new ResolvedSourceReference("capability", StableId("capability", baselineId), StableId("capability.version", baselineId), digest),
+            new ResolvedSourceReference("rubric_evaluation", StableId("rubric_evaluation", baselineId), StableId("rubric_evaluation.version", baselineId), digest),
         ];
     }
 

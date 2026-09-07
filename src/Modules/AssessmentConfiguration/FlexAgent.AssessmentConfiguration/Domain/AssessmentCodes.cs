@@ -112,6 +112,7 @@ public static class AssessmentFailureCodes
     public const string MissingException = "assessment.missing_exception";
     public const string AuditUnavailable = "assessment.audit_unavailable";
     public const string TransactionOwnerMissing = "assessment.transaction_owner_missing";
+    public const string InvalidProcedure = "assessment.invalid_procedure";
     public const string NotReady = "assessment.not_ready";
     public const string IdempotencyConflict = "assessment.idempotency_conflict";
     public const string ConcurrentActivation = "assessment.concurrent_activation";

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/criterion-judgment.v1.schema.json",
+  "title": "Criterion judgment v1",
+  "description": "Immutable per-criterion judgment recorded at Evaluation completion. Contains no hidden reasoning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "judgment_id",
+    "evaluation_id",
+    "criterion_id",
+    "criterion_version",
+    "evaluator_mode",
+    "status",
+    "confidence",
+    "uncertainty",
+    "rationale",
+    "evidence_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "judgment_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluator_mode": {
+      "type": "string",
+      "enum": ["deterministic", "agent_assisted", "agent_judgment"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "satisfied",
+        "not_satisfied",
+        "insufficient_evidence",
+        "not_applicable",
+        "conflict"
+      ]
+    },
+    "score": {
+      "oneOf": [
+        { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+        { "type": "string", "minLength": 1, "maxLength": 64 },
+        { "type": "null" }
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "uncertainty": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "provisional_feedback": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 2000 },
+        { "type": "null" }
+      ]
+    },
+    "evidence_ids": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+      }
+    },
+    "deterministic_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    }
+  }
+}

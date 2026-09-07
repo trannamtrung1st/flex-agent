@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "annotation_id": "eann.synthetic.0001",
+  "evaluation_id": "eval.synthetic.0001",
+  "evidence_id": "evid.synthetic.0001",
+  "kind": "source_integrity_changed",
+  "disposition": "attention_required",
+  "reason": "source.digest.drifted",
+  "actor_type": "service",
+  "actor_id": "evaluation-service",
+  "occurred_at": "2026-09-07T00:02:00Z"
+}

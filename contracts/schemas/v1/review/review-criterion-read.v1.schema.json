@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/review/review-criterion-read.v1.schema.json",
+  "title": "Review criterion read v1",
+  "description": "Assigned-reviewer criterion inspection. Evidence references are locators, not copied source content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_case_id",
+    "evaluation_id",
+    "criterion_id",
+    "criterion_version",
+    "display_label",
+    "evaluator_mode",
+    "evaluator_mode_label",
+    "status",
+    "confidence",
+    "uncertainty",
+    "rationale",
+    "evidence_references",
+    "internal_evaluation_notice"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "review_case_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/uuid"
+    },
+    "evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "display_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "evaluator_mode": {
+      "type": "string",
+      "enum": ["deterministic", "agent_assisted", "agent_judgment"]
+    },
+    "evaluator_mode_label": {
+      "type": "string",
+      "enum": ["Rule-based", "Agent-assisted", "Agent judgment"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unavailable",
+        "satisfied",
+        "not_satisfied",
+        "insufficient_evidence",
+        "not_applicable",
+        "conflict"
+      ]
+    },
+    "score": {
+      "oneOf": [
+        { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+        { "type": "string", "minLength": 1, "maxLength": 64 },
+        { "type": "null" }
+      ]
+    },
+    "confidence": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "uncertainty": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "rationale": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "provisional_feedback": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 2000 },
+        { "type": "null" }
+      ]
+    },
+    "evidence_references": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "source_type", "precision", "verification_state"],
+        "properties": {
+          "evidence_id": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "submission.direct_text",
+              "submission.text_attachment",
+              "session.transcript_item",
+              "session.work_trace",
+              "configuration.fact",
+              "manifest.fact",
+              "deterministic.fact"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "enum": ["exact_range", "stable_segment", "whole_item"]
+          },
+          "verification_state": {
+            "type": "string",
+            "enum": ["verified", "degraded", "failed"]
+          }
+        }
+      }
+    },
+    "internal_evaluation_notice": {
+      "type": "string",
+      "const": "Internal Evaluation · Not a released Result"
+    }
+  }
+}

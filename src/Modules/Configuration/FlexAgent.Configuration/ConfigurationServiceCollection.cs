@@ -35,6 +35,8 @@ public static class ConfigurationServiceCollection
             connectionAccessor,
             auditWriter,
             outboxWriter);
+        IProtectedConfigurationSourcePayloadReader payloadReader =
+            new PostgresProtectedConfigurationSourcePayloadReader(versionRepository);
 
         return new ServiceBundle(
             connectionAccessor,
@@ -42,7 +44,8 @@ public static class ConfigurationServiceCollection
             versionRepository,
             idempotencyRepository,
             new PostgresGrantRepository(connectionAccessor),
-            handler);
+            handler,
+            payloadReader);
     }
 
     public sealed record ServiceBundle(
@@ -51,5 +54,6 @@ public static class ConfigurationServiceCollection
         PostgresConfigurationSourceVersionRepository VersionRepository,
         PostgresConfigurationSourceVersionIdempotencyRepository IdempotencyRepository,
         PostgresGrantRepository GrantRepository,
-        IRegisterConfigurationSourceVersionHandler RegisterHandler);
+        IRegisterConfigurationSourceVersionHandler RegisterHandler,
+        IProtectedConfigurationSourcePayloadReader PayloadReader);
 }

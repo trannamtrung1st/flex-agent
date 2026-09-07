@@ -174,6 +174,25 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 createdAt);
 
             var inserted = await versionRepository.TryInsertAsync(row, scope.Transaction, cancellationToken);
+            if (inserted is not null)
+            {
+                var payload = await versionRepository.TryInsertPayloadAsync(
+                    new ConfigurationSourcePayloadRow(
+                        inserted.OrganizationId,
+                        inserted.ConfigurationSourceId,
+                        inserted.Id,
+                        inserted.ContentDigest,
+                        command.CanonicalUtf8Content.ToArray(),
+                        inserted.CreatedAt),
+                    scope.Transaction,
+                    cancellationToken);
+                if (payload is null)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    throw new InvalidOperationException("Configuration source payload insert did not produce an authoritative row.");
+                }
+            }
+
             var authoritativeRow = inserted ?? await versionRepository.GetByDigestAsync(
                 command.Organization.OrganizationId,
                 command.ConfigurationSourceId,

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-request.v1.schema.json",
+  "title": "Evaluation request v1",
+  "description": "Internal immutable Evaluation request identity. Initial requests bind a handoff plus frozen-input digest. Replacement requests additionally bind one predecessor and authorized reason. Contains no source content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "request_kind",
+    "ownership",
+    "handoff_id",
+    "manifest_seal_procedure_id",
+    "frozen_input_digest",
+    "procedure_ref",
+    "idempotency_key",
+    "delegation_ref",
+    "state"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "request_kind": {
+      "type": "string",
+      "enum": ["initial", "replacement"]
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "handoff_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "manifest_seal_procedure_id": {
+      "type": "string",
+      "enum": ["manifest-jcs-sha256-v1", "manifest-jcs-sha256-v2"]
+    },
+    "frozen_input_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "procedure_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/source_reference"
+    },
+    "predecessor_evaluation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "replacement_reason": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "delegation_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "validating",
+        "completing",
+        "completed",
+        "failed_retryable",
+        "failed_review_required",
+        "cancelled"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "request_kind": { "const": "replacement" }
+        },
+        "required": ["request_kind"]
+      },
+      "then": {
+        "required": ["predecessor_evaluation_id", "replacement_reason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "request_kind": { "const": "initial" }
+        },
+        "required": ["request_kind"]
+      },
+      "then": {
+        "not": {
+          "required": ["predecessor_evaluation_id"]
+        }
+      }
+    }
+  ]
+}

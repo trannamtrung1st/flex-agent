@@ -15,6 +15,14 @@ public sealed record ConfigurationSourceVersionRow(
     string IdempotencyKey,
     DateTime CreatedAt);
 
+public sealed record ConfigurationSourcePayloadRow(
+    Guid OrganizationId,
+    Guid ConfigurationSourceId,
+    Guid SourceVersionId,
+    string ContentDigest,
+    byte[] CanonicalUtf8,
+    DateTime CreatedAt);
+
 public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnectionAccessor connectionAccessor)
 {
     private const string SelectByDigestSql = """
@@ -110,6 +118,45 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
           AND id = @ConfigurationSourceId;
         """;
 
+    private const string InsertPayloadSql = """
+        INSERT INTO configuration_source_payloads (
+            organization_id,
+            configuration_source_id,
+            source_version_id,
+            content_digest,
+            canonical_utf8,
+            created_at)
+        VALUES (
+            @OrganizationId,
+            @ConfigurationSourceId,
+            @SourceVersionId,
+            @ContentDigest,
+            @CanonicalUtf8,
+            @CreatedAt)
+        ON CONFLICT ON CONSTRAINT uq_configuration_source_payloads_digest DO NOTHING
+        RETURNING
+            organization_id AS OrganizationId,
+            configuration_source_id AS ConfigurationSourceId,
+            source_version_id AS SourceVersionId,
+            content_digest AS ContentDigest,
+            canonical_utf8 AS CanonicalUtf8,
+            created_at AS CreatedAt;
+        """;
+
+    private const string SelectPayloadSql = """
+        SELECT
+            organization_id AS OrganizationId,
+            configuration_source_id AS ConfigurationSourceId,
+            source_version_id AS SourceVersionId,
+            content_digest AS ContentDigest,
+            canonical_utf8 AS CanonicalUtf8,
+            created_at AS CreatedAt
+        FROM configuration_source_payloads
+        WHERE organization_id = @OrganizationId
+          AND configuration_source_id = @ConfigurationSourceId
+          AND source_version_id = @SourceVersionId;
+        """;
+
     public async Task<bool> SourceExistsInOrganizationAsync(
         Guid organizationId,
         Guid configurationSourceId,
@@ -181,6 +228,34 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
     {
         return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourceVersionRow>(
             new CommandDefinition(InsertSql, row, transaction, cancellationToken: cancellationToken));
+    }
+
+    public async Task<ConfigurationSourcePayloadRow?> TryInsertPayloadAsync(
+        ConfigurationSourcePayloadRow row,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourcePayloadRow>(
+            new CommandDefinition(InsertPayloadSql, row, transaction, cancellationToken: cancellationToken));
+    }
+
+    public async Task<ConfigurationSourcePayloadRow?> GetPayloadForVersionAsync(
+        Guid organizationId,
+        Guid configurationSourceId,
+        Guid sourceVersionId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<ConfigurationSourcePayloadRow>(
+            new CommandDefinition(
+                SelectPayloadSql,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ConfigurationSourceId = configurationSourceId,
+                    SourceVersionId = sourceVersionId,
+                },
+                cancellationToken: cancellationToken));
     }
 
     public async Task<IReadOnlyList<ConfigurationSourceVersionRow>> ListForSourceAsync(
