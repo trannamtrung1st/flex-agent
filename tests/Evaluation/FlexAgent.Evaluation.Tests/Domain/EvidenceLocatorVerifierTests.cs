@@ -1,5 +1,5 @@
+using System.Text;
 using System.Text.Json;
-using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Tests.Domain;
@@ -83,6 +83,24 @@ public sealed class EvidenceLocatorVerifierTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Invalid_utf8_byte_boundary_is_rejected()
+    {
+        var source = "a😀b"u8.ToArray();
+        var midScalarDigest = EvidenceTextSourceNormalizer.DigestUtf8(source[1..2]);
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-submission-byte-range.json")));
+        var locator = MutateIntegrity(
+            MutateByteRange(document.RootElement, startInclusive: 1, endExclusive: 2, midScalarDigest),
+            EvidenceTextSourceNormalizer.DigestUtf8(source));
+        var context = BuildSubmissionContext(locator, source, EvidenceTextSourceNormalizer.DigestUtf8(source));
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("location.utf8_boundary", result.Field);
     }
 
     [Fact]
@@ -230,6 +248,59 @@ public sealed class EvidenceLocatorVerifierTests
 
         _ = sourceDigest;
         return new byte[256];
+    }
+
+    private static JsonElement MutateByteRange(
+        JsonElement locator,
+        int startInclusive,
+        int endExclusive,
+        string excerptDigest)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in locator.EnumerateObject())
+            {
+                if (property.NameEquals("location"))
+                {
+                    writer.WritePropertyName("location");
+                    writer.WriteStartObject();
+                    foreach (var locationProperty in property.Value.EnumerateObject())
+                    {
+                        if (locationProperty.NameEquals("start_inclusive"))
+                        {
+                            writer.WriteNumber("start_inclusive", startInclusive);
+                            continue;
+                        }
+
+                        if (locationProperty.NameEquals("end_exclusive"))
+                        {
+                            writer.WriteNumber("end_exclusive", endExclusive);
+                            continue;
+                        }
+
+                        if (locationProperty.NameEquals("excerpt_digest"))
+                        {
+                            writer.WriteString("excerpt_digest", excerptDigest);
+                            continue;
+                        }
+
+                        locationProperty.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
     }
 
     private static JsonElement MutateExcerptDigest(JsonElement locator, string excerptDigest)

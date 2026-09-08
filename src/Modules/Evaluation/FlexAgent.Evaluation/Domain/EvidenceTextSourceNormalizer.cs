@@ -27,6 +27,13 @@ public static class EvidenceTextSourceNormalizer
         }
 
         var excerpt = source[startInclusive..endExclusive];
+        if (!IsValidUtf8Range(source.Span, startInclusive, endExclusive))
+        {
+            return EvaluationDecision<ReadOnlyMemory<byte>>.Fail(
+                EvaluationFailureCodes.CitationIntegrity,
+                "location.utf8_boundary");
+        }
+
         if (!string.Equals(DigestUtf8(excerpt.Span), expectedExcerptDigest, StringComparison.Ordinal))
         {
             return EvaluationDecision<ReadOnlyMemory<byte>>.Fail(
@@ -91,6 +98,29 @@ public static class EvidenceTextSourceNormalizer
         lines.Add(text[start..]);
         return lines;
     }
+
+    private static bool IsValidUtf8Range(ReadOnlySpan<byte> source, int startInclusive, int endExclusive)
+    {
+        if (!IsUtf8Boundary(source, startInclusive) || !IsUtf8Boundary(source, endExclusive))
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = StrictUtf8.GetString(source[startInclusive..endExclusive]);
+            return true;
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsUtf8Boundary(ReadOnlySpan<byte> source, int index) =>
+        index == 0
+        || index == source.Length
+        || (source[index] & 0xC0) != 0x80;
 
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,

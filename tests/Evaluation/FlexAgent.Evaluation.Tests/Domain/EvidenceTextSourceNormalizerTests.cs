@@ -43,4 +43,62 @@ public sealed class EvidenceTextSourceNormalizerTests
         Assert.True(result.Succeeded);
         Assert.Equal("two\nthree"u8.ToArray(), result.Value.ToArray());
     }
+
+    [Fact]
+    public void Byte_range_rejects_mid_two_byte_scalar()
+    {
+        var source = "aéb"u8.ToArray();
+
+        var result = EvidenceTextSourceNormalizer.TryExtractUtf8ByteRange(
+            source,
+            startInclusive: 2,
+            endExclusive: 3,
+            EvidenceTextSourceNormalizer.DigestUtf8(source[2..3]));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("location.utf8_boundary", result.Field);
+    }
+
+    [Fact]
+    public void Byte_range_rejects_mid_three_byte_scalar()
+    {
+        var source = "a€b"u8.ToArray();
+
+        var result = EvidenceTextSourceNormalizer.TryExtractUtf8ByteRange(
+            source,
+            startInclusive: 2,
+            endExclusive: 3,
+            EvidenceTextSourceNormalizer.DigestUtf8(source[2..3]));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("location.utf8_boundary", result.Field);
+    }
+
+    [Fact]
+    public void Byte_range_rejects_mid_four_byte_scalar()
+    {
+        var source = "a😀b"u8.ToArray();
+
+        var result = EvidenceTextSourceNormalizer.TryExtractUtf8ByteRange(
+            source,
+            startInclusive: 2,
+            endExclusive: 3,
+            EvidenceTextSourceNormalizer.DigestUtf8(source[2..3]));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("location.utf8_boundary", result.Field);
+    }
+
+    [Fact]
+    public void Byte_range_accepts_whole_scalar_boundaries()
+    {
+        var source = "aéb"u8.ToArray();
+        var excerpt = source[1..3];
+        var digest = EvidenceTextSourceNormalizer.DigestUtf8(excerpt);
+
+        var result = EvidenceTextSourceNormalizer.TryExtractUtf8ByteRange(source, 1, 3, digest);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(excerpt.ToArray(), result.Value.ToArray());
+    }
 }

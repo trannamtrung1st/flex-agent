@@ -540,6 +540,9 @@ approved layout families and donors already exist.
   range from model text.
   Verifier records `lower_precision` when `PermitWholeItemFallback` is set and
   finer range verification fails; procedure gating at completion remains open.
+  Review follow-up on `437401b`: Session owner port now requires authoritative
+  participant admission sequences (no `COALESCE(..., 0)`), and byte-range
+  normalization rejects non-boundary UTF-8 slices.
 - [>] Canonicalize and seal ordered Evidence items with
   `evidence-set-jcs-sha256-v1`; verify the existing fixture and add ordering,
   duplicate, drift, and tamper fixtures.
