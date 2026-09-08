@@ -4,6 +4,7 @@ status: in-progress
 created: 2026-09-07
 updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
+phase3_review: approved-13fd2f3-4e2fb53
 ---
 
 # Goal
@@ -852,9 +853,9 @@ approved layout families and donors already exist.
 Activated on 2026-09-07 at `15ae379` (`main` / `origin/main`). Phase 1 frozen-
 input prerequisites are implemented and approved on `b728d71`. Phase 2 added
 the Evaluation module, architecture boundaries, domain validators, and
-fail-closed admission. Phase 3 is in progress: migration `0072`, persistence
-admission, inbox/reconciliation, and durable work recovery are implemented but
-completion/lifecycle fault matrices remain before the phase can close.
+fail-closed admission. Phase 3 core persistence/admission/recovery is approved
+on `13fd2f3` with hardening follow-up on `4e2fb53`; completion/lifecycle fault
+matrices remain before the phase can close.
 
 - Catalog family is present (procedure/request/work/artifact/review-read).
   Internal work/provider/protected-artifact contracts stay out of OpenAPI/TS.
@@ -905,11 +906,10 @@ completion/lifecycle fault matrices remain before the phase can close.
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: close remaining Phase 3 schema-integrity follow-ups from security
-  review (`0073` composite annotation/audit keys; expired final-attempt
-  exhaustion), then finish completion-race, ordinary artifact
-  mutation/deletion, and authorized hold-aware lifecycle disposition. Do not
-  resolve evaluator/model identity by profile name.
+- Next: finish the remaining Phase 3 completion-race, ordinary artifact
+  mutation/deletion, and authorized hold-aware lifecycle disposition matrix.
+  Do not resolve evaluator/model identity by profile name. Do not weaken the
+  fail-closed physical lifecycle-disposal boundary to finish faster.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -991,14 +991,11 @@ The only other active task is `text-interaction-controller-contract`
   authorized execution boundary and hold/audit fault tests; rationale:
   PostgreSQL custom settings are caller-settable and are not sufficient
   lifecycle authority.
-- Phase 3 security review (`a317bff5`) found no Blocker/High, three Medium
-  schema-integrity gaps. Current `0072` already binds deterministic/provider
-  artifacts and Review handoffs through request/invocation composite FKs.
-  Remaining valid gaps: dispositions can cite another Evaluation's
-  annotation in the same Organization, and lifecycle disposition events cite
-  `audit_events` by global `event_id` only. Additive `0073` closes those
-  without editing frozen `0072`. Expired final-attempt leases that never
-  complete are also exhausted on the next claim scan so work cannot strand.
+- Combined Phase 3 review on 2026-09-08 approved `13fd2f3` (core
+  persistence/admission/durable recovery) and `4e2fb53` (security-review
+  hardening) together: 0 Blocker / 0 High / 0 new Medium; no corrective
+  commit required. GitHub combined-status endpoint returned no status records
+  for either SHA, so CI green was not independently verified from that endpoint.
 
 # Readiness review
 
@@ -1049,8 +1046,9 @@ interim default and rationale in the owning authority before proceeding.
 | Second cross-cutting readiness review | complete | Backend ownership/concurrency/contracts, frontend route/state/accessibility/security, and security/privacy trust boundaries reviewed on 2026-09-07; corrections recorded under Readiness review |
 | Focused red-green-refactor evidence | Phase 2 review-fix complete | Ownership/aggregation red (11 failing cases: mixed parent-chain Evidence accepted; `not_satisfied` → `insufficient_evidence`) then green |
 | Contract/JCS and architecture tests | Phase 2 review-fix complete | `FlexAgent.Evaluation.Tests` 51 passed; `EvaluationContractCatalogTests` 4; `ContractCatalogTests` valid/invalid fixtures 185; `python3 scripts/check_docs.py` passed |
-| Phase 3 frozen-input and persistence red/green | in progress | Observed red: missing `0072` tables/indexes/triggers (3 failures) and missing canonical frozen-input digester (compile failure). Green: `FlexAgent.Evaluation.Tests` 54 passed; Evaluation schema 3 passed; admission/inbox/idempotency/audit/cross-scope/delegation/claim/retry/recovery 11 passed |
-| Phase 3 security-review schema follow-up | in progress | Red: disposition cited another Evaluation annotation; lifecycle event cited another Organization's audit; uniqueness 5 vs 7; expired final attempt stayed `claimed`/`running`. Green: additive `0073` composite annotation/audit keys plus matching succeeded-audit trigger; claim scan exhausts expired final attempts. Schema/provenance 6 passed; admission+schema+provenance+Grate 30 passed before the schema-test split |
+| Phase 3 frozen-input and persistence red/green | approved core | `13fd2f3`: `0072`, frozen-input digest, admission/inbox/reconciliation, durable work claim/retry/recovery. Focused: Evaluation domain 54; schema 3; admission/recovery 11; architecture 65; Grate 13 |
+| Phase 3 security-review schema follow-up | approved hardening | `4e2fb53`: additive `0073` composite annotation/audit provenance; expired final-attempt exhaustion on claim scan. Focused schema/provenance/admission 18 passed |
+| Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required. Phase 3 not closed: completion-race matrix, immutable-artifact mutation/delete verification, authorized hold-aware lifecycle disposition remain |
 | Phase 3 migration and architecture regression | in progress | `GrateToolMigrationTests` 13 passed; full `FlexAgent.Architecture.Tests` 65 passed; edited-file lints clean. One concurrent-build cache warning was transient and the sequential rerun was green |
 | PostgreSQL migration/fault/concurrency/isolation tests | Phase 1 focused complete | Payload persist 7; Assessment activation 22; Enrollment 30; Attempt-start 7; Grate smoke 2; `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` 1. Full `MigrationUpgradeTests` class not re-run |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
