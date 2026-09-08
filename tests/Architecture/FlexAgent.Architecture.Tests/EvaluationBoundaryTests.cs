@@ -36,7 +36,10 @@ public sealed class EvaluationBoundaryTests
             .Or()
             .ResideInNamespaceContaining(".Application")
             .ShouldNot()
-            .HaveDependencyOnAny(ArchitectureTestSupport.ForbiddenPersistencePrefixes)
+            .HaveDependencyOnAny(
+                ArchitectureTestSupport.ForbiddenPersistencePrefixes
+                    .Append("FlexAgent.Postgres")
+                    .ToArray())
             .GetResult();
 
         Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));

@@ -193,7 +193,7 @@ public static class SessionRuntimeOutboxEventTypes
     public const string AgentMessageSealed = "session.agent.message.sealed";
     public const string LifecycleChanged = "session.lifecycle.changed";
     public const string ManifestSealed = "session.manifest.sealed";
-    public const string EvaluationHandoffRecorded = "session.evaluation_handoff.recorded";
+    public const string EvaluationHandoffRecorded = "session.evaluation_handoff.recorded.v1";
 }
 
 public static class DurableSessionWorkTypes

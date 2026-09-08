@@ -251,6 +251,20 @@
       "flexagent.contracts": {
         "type": "Project"
       },
+      "flexagent.evaluation": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.CanonicalJson": "[1.0.0, )",
+          "FlexAgent.Contracts": "[1.0.0, )"
+        }
+      },
+      "flexagent.evaluation.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Evaluation": "[1.0.0, )",
+          "FlexAgent.Postgres": "[1.0.0, )"
+        }
+      },
       "flexagent.identityaccess": {
         "type": "Project",
         "dependencies": {
@@ -274,6 +288,7 @@
       "flexagent.sessions.infrastructure": {
         "type": "Project",
         "dependencies": {
+          "FlexAgent.Evaluation": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Postgres": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )"

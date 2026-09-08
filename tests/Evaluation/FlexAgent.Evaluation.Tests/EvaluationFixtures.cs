@@ -11,6 +11,8 @@ internal static class EvaluationFixtures
 
     public static string ManifestDigest { get; } = new string('d', 64);
 
+    public static string TerminalSealDigest { get; } = new string('f', 64);
+
     public static string SubmissionDigest { get; } = new string('e', 64);
 
     public static EvaluationOwnership Ownership() =>
@@ -47,10 +49,16 @@ internal static class EvaluationFixtures
 
     public static EvaluationDecision<FrozenInputIdentity> CreateFrozenInput() =>
         FrozenInputIdentity.TryCreate(
-            Guid.Parse("11111111-1111-4111-8111-111111111111"),
+            "handoff.synthetic.0001",
             Ownership(),
+            Guid.Parse("11111111-1111-4111-8111-111111111112"),
+            "completed",
+            42,
             "manifest-jcs-sha256-v2",
+            TerminalSealDigest,
+            Guid.Parse("11111111-1111-4111-8111-111111111113"),
             ConfigurationDigest,
+            Guid.Parse("11111111-1111-4111-8111-111111111114"),
             ManifestDigest,
             Rubric(),
             Submission(),

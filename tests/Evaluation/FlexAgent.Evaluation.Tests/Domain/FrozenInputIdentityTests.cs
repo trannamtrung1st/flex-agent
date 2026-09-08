@@ -11,9 +11,35 @@ public sealed class FrozenInputIdentityTests
         var result = EvaluationFixtures.CreateFrozenInput();
 
         Assert.True(result.Succeeded);
-        Assert.Equal(EvaluationFixtures.RubricDigest, result.Value!.Rubric.ContentDigest);
+        Assert.Equal("handoff.synthetic.0001", result.Value!.HandoffId);
+        Assert.Equal(EvaluationFixtures.RubricDigest, result.Value.Rubric.ContentDigest);
         Assert.Equal("mdl.p0.text.synthetic", result.Value.Model.ProfileId);
         Assert.Equal("manifest-jcs-sha256-v2", result.Value.ManifestSealProcedureId);
+    }
+
+    [Fact]
+    public void Mutable_handoff_alias_is_rejected()
+    {
+        var result = FrozenInputIdentity.TryCreate(
+            "handoff.latest",
+            EvaluationFixtures.Ownership(),
+            Guid.NewGuid(),
+            "completed",
+            42,
+            "manifest-jcs-sha256-v2",
+            EvaluationFixtures.TerminalSealDigest,
+            Guid.NewGuid(),
+            EvaluationFixtures.ConfigurationDigest,
+            Guid.NewGuid(),
+            EvaluationFixtures.ManifestDigest,
+            EvaluationFixtures.Rubric(),
+            EvaluationFixtures.Submission(),
+            "evalreg.p0.v1",
+            EvaluationFixtures.Model(),
+            "lifecycle.activity-closure-365d.v1");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.MutableAlias, result.OutcomeCode);
     }
 
     [Fact]
@@ -40,10 +66,16 @@ public sealed class FrozenInputIdentityTests
             Guid.NewGuid(),
             new string('b', 64)).Value!;
         var result = FrozenInputIdentity.TryCreate(
-            Guid.NewGuid(),
+            "handoff.synthetic.invalid-rubric",
             ownership,
+            Guid.NewGuid(),
+            "completed",
+            42,
             "manifest-jcs-sha256-v2",
+            EvaluationFixtures.TerminalSealDigest,
+            Guid.NewGuid(),
             EvaluationFixtures.ConfigurationDigest,
+            Guid.NewGuid(),
             EvaluationFixtures.ManifestDigest,
             agent,
             EvaluationFixtures.Submission(),

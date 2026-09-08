@@ -30,9 +30,6 @@ internal static class ArchitectureTestSupport
     internal static readonly string[] ForbiddenEvaluationPrefixes =
     [
         "Microsoft.AspNetCore",
-        "Npgsql",
-        "Dapper",
-        "FlexAgent.Postgres",
         "OpenAI",
         "AWSSDK",
         "FlexAgent.Api",

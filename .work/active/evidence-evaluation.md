@@ -445,44 +445,44 @@ approved layout families and donors already exist.
 
 ## Phase 3 — Add persistence, admission, durable work, and recovery
 
-- [ ] Allocate the next available additive migrations at activation (currently
+- [x] Allocate the next available additive migrations at activation (currently
   `0072+`) for Evaluation requests,
   idempotency/input identities, invocation attempts, deterministic attempts,
   durable work/leases, protected provider artifacts/references, Evidence items,
   Evidence sets/seals, criterion judgments, Evaluations, lineage,
   annotations/dispositions, manifest references, required audit/outbox, and
   minimal Review-handoff interoperability records.
-- [ ] Use complete Organization/Activity/Participant/Attempt/Session parent
+- [x] Use complete Organization/Activity/Participant/Attempt/Session parent
   columns and composite keys/foreign keys where they prevent cross-scope
   binding. Add unique constraints for initial request input identity,
   request-attempt ordinal, one authoritative completion, Evidence ownership,
   exact criterion set, and replacement predecessor lineage.
-- [ ] Protect completed artifacts, Evidence sets/items, criterion judgments,
+- [>] Protect completed artifacts, Evidence sets/items, criterion judgments,
   terminal attempts, and lineage against ordinary update/delete. Isolate
   mutable current disposition and claim state from immutable history, and
   provide only the approved, auditable lifecycle-disposition mechanism needed
   for expiry/hold processing; normal repositories and service actors cannot
   bypass immutability, while lifecycle policy is not made impossible by an
   unconditional database trigger.
-- [ ] Red: PostgreSQL tests for cross-tenant/Activity/Participant/Attempt/
+- [>] Red: PostgreSQL tests for cross-tenant/Activity/Participant/Attempt/
   Session foreign-key attacks, invalid terminal state/cutoff/seal/configuration,
   duplicate admission, conflicting idempotency, completion races, mutation,
   deletion, audit outage, lost response, expired lease, and restart recovery.
-- [ ] Version the Session-owned `session.evaluation_handoff.recorded` delivery
+- [x] Version the Session-owned `session.evaluation_handoff.recorded` delivery
   contract and consume it through a durable Evaluation inbox. Treat the event
   only as a wake-up/locator: load the authoritative handoff through a narrow
   Session owner port, then admit idempotently. Add a bounded cursor-based
   reconciliation scan so a missed/delayed delivery cannot strand an eligible
   handoff. Accept only exact eligible `Completed` handoffs and verify the
   terminal/manifest seal before protected input materialization.
-- [ ] Compute a canonical frozen-input digest over the handoff, ownership,
+- [x] Compute a canonical frozen-input digest over the handoff, ownership,
   terminal/cutoff/seal, resolved configuration/manifest, exact rubric/
   procedure, Submission binding, evaluator registry, model binding, and
   lifecycle policy. Use it with the handoff identity for admission idempotency.
-- [ ] Admit the request, work row, safe status, required audit/outbox, and
+- [x] Admit the request, work row, safe status, required audit/outbox, and
   idempotent response in one primary-store transaction. Ineligible handoffs
   create no model/evaluator disclosure and no completed Evaluation.
-- [ ] Implement bounded claim/renew/release/retry/exhaustion semantics with
+- [x] Implement bounded claim/renew/release/retry/exhaustion semantics with
   authoritative database time, positive backoff/timeout/attempt bounds,
   per-Organization concurrency/backlog limits and fair claim partitioning, and
   stable non-content failure categories. One Organization, activity,
@@ -852,8 +852,9 @@ approved layout families and donors already exist.
 Activated on 2026-09-07 at `15ae379` (`main` / `origin/main`). Phase 1 frozen-
 input prerequisites are implemented and approved on `b728d71`. Phase 2 added
 the Evaluation module, architecture boundaries, domain validators, and
-fail-closed admission. Evaluation processing, persistence, Worker, APIs, and
-Review UI remain unimplemented.
+fail-closed admission. Phase 3 is in progress: migration `0072`, persistence
+admission, inbox/reconciliation, and durable work recovery are implemented but
+completion/lifecycle fault matrices remain before the phase can close.
 
 - Catalog family is present (procedure/request/work/artifact/review-read).
   Internal work/provider/protected-artifact contracts stay out of OpenAPI/TS.
@@ -885,16 +886,28 @@ Review UI remain unimplemented.
   `FrozenModelIdentity` requires exact profile id/version/digest plus
   credential binding; names and `latest`/`current` aliases fail as
   `evaluation.unqualified_model`.
-- Infrastructure is fail-closed (`ProcessingEnabled = false`;
+- Infrastructure remains host-fail-closed (`ProcessingEnabled = false`;
   `DisabledEvaluationAdmission` returns `evaluation.processing_disabled`). No
-  host, SQL, or provider adapter is wired. Application owner ports exist for
-  the Session handoff snapshot and protected canonical procedure bytes.
+  host or provider adapter is wired. `0072` now owns Evaluation requests,
+  attempts, durable work, protected artifact references, Evidence/completion
+  records, lineage, annotations/dispositions, manifest references, and the
+  minimal Review handoff.
 - Phase 2 review on `f412926` required two Mediums before `0072`: Evidence
   ownership equality and a distinct `requirements_not_satisfied` aggregate.
   Those are now encoded in domain validators, `evaluation.v1`, and negative
   parent-chain tests.
-- Next: Phase 3 persistence, admission, durable work, and recovery on additive
-  migration `0072`. Do not resolve evaluator/model identity by profile name.
+- Session emits `session.evaluation_handoff.recorded.v1`; the delivery handler
+  reloads through the Session-owned port, stores a duplicate-safe durable inbox,
+  and supports a bounded tuple-cursor reconciliation scan.
+- Admission computes `evaluation-frozen-input-jcs-sha256-v1`, then commits the
+  request, work, audit, and outbox atomically. Equivalent retries reconcile;
+  conflicting idempotency inputs and ineligible/cross-scope bindings fail
+  closed. Durable work has positive bounds, Organization backlog locking,
+  Organization-aware fair claims, leases, renewal, retry, exhaustion, and
+  expired-lease recovery.
+- Next: finish the Phase 3 completion-race, artifact mutation/deletion, and
+  auditable hold-aware lifecycle disposition matrix. Do not resolve
+  evaluator/model identity by profile name.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -963,6 +976,19 @@ The only other active task is `text-interaction-controller-contract`
 - Evidence set creation requires an expected `EvaluationOwnership`; mixed
   parent-chain items and completion against a different frozen-request
   ownership fail as `evaluation.incomplete_ownership`.
+- Phase 3 integration exposed a Phase 2 persistence mismatch: the Session-owned
+  handoff identity is a contract `stable_id`/database `TEXT`, not a UUID.
+  `FrozenInputIdentity` now preserves that exact string and separately carries
+  terminal-record id, terminal state/cutoff/seal, configuration id/digest, and
+  manifest id/digest. This prevents treating the terminal seal digest as the
+  resolved manifest digest.
+- Phase 3 lifecycle disposal remains fail-closed. Migration `0072` records
+  holds and immutable disposition events but exposes no session-variable or
+  ordinary-service bypass around artifact immutability. Interim default:
+  physical disposal stays denied until the lifecycle path has a separately
+  authorized execution boundary and hold/audit fault tests; rationale:
+  PostgreSQL custom settings are caller-settable and are not sufficient
+  lifecycle authority.
 
 # Readiness review
 
@@ -1013,6 +1039,8 @@ interim default and rationale in the owning authority before proceeding.
 | Second cross-cutting readiness review | complete | Backend ownership/concurrency/contracts, frontend route/state/accessibility/security, and security/privacy trust boundaries reviewed on 2026-09-07; corrections recorded under Readiness review |
 | Focused red-green-refactor evidence | Phase 2 review-fix complete | Ownership/aggregation red (11 failing cases: mixed parent-chain Evidence accepted; `not_satisfied` → `insufficient_evidence`) then green |
 | Contract/JCS and architecture tests | Phase 2 review-fix complete | `FlexAgent.Evaluation.Tests` 51 passed; `EvaluationContractCatalogTests` 4; `ContractCatalogTests` valid/invalid fixtures 185; `python3 scripts/check_docs.py` passed |
+| Phase 3 frozen-input and persistence red/green | in progress | Observed red: missing `0072` tables/indexes/triggers (3 failures) and missing canonical frozen-input digester (compile failure). Green: `FlexAgent.Evaluation.Tests` 54 passed; Evaluation schema 3 passed; admission/inbox/idempotency/audit/cross-scope/delegation/claim/retry/recovery 11 passed |
+| Phase 3 migration and architecture regression | in progress | `GrateToolMigrationTests` 13 passed; full `FlexAgent.Architecture.Tests` 65 passed; edited-file lints clean. One concurrent-build cache warning was transient and the sequential rerun was green |
 | PostgreSQL migration/fault/concurrency/isolation tests | Phase 1 focused complete | Payload persist 7; Assessment activation 22; Enrollment 30; Attempt-start 7; Grate smoke 2; `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` 1. Full `MigrationUpgradeTests` class not re-run |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

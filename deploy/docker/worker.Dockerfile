@@ -5,7 +5,9 @@ WORKDIR /src
 
 COPY FlexAgent.slnx global.json Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
 COPY src/BuildingBlocks/FlexAgent.CanonicalJson/ src/BuildingBlocks/FlexAgent.CanonicalJson/
+COPY src/BuildingBlocks/FlexAgent.Contracts/ src/BuildingBlocks/FlexAgent.Contracts/
 COPY src/Infrastructure/FlexAgent.Postgres/ src/Infrastructure/FlexAgent.Postgres/
+COPY src/Modules/Evaluation/FlexAgent.Evaluation/ src/Modules/Evaluation/FlexAgent.Evaluation/
 COPY src/Modules/IdentityAccess/FlexAgent.IdentityAccess/ src/Modules/IdentityAccess/FlexAgent.IdentityAccess/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/

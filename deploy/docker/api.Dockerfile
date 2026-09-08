@@ -10,6 +10,7 @@ COPY src/Infrastructure/FlexAgent.Postgres/ src/Infrastructure/FlexAgent.Postgre
 COPY src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/ src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/
 COPY src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/ src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/
 COPY src/Modules/Configuration/FlexAgent.Configuration/ src/Modules/Configuration/FlexAgent.Configuration/
+COPY src/Modules/Evaluation/FlexAgent.Evaluation/ src/Modules/Evaluation/FlexAgent.Evaluation/
 COPY src/Modules/IdentityAccess/FlexAgent.IdentityAccess/ src/Modules/IdentityAccess/FlexAgent.IdentityAccess/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/

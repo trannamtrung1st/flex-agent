@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.Contracts\FlexAgent.Contracts.csproj" />
   </ItemGroup>
 

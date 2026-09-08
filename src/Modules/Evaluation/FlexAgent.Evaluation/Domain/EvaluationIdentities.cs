@@ -104,10 +104,16 @@ public sealed record FrozenModelIdentity(
 }
 
 public sealed record FrozenInputIdentity(
-    Guid HandoffId,
+    string HandoffId,
     EvaluationOwnership Ownership,
+    Guid TerminalRecordId,
+    string TerminalState,
+    long CutoffSequence,
     string ManifestSealProcedureId,
+    string TerminalSealDigest,
+    Guid ConfigurationId,
     string ConfigurationDigest,
+    Guid ManifestId,
     string ManifestDigest,
     ExactSourceIdentity Rubric,
     ExactSourceIdentity Submission,
@@ -116,10 +122,16 @@ public sealed record FrozenInputIdentity(
     string LifecyclePolicyRef)
 {
     public static EvaluationDecision<FrozenInputIdentity> TryCreate(
-        Guid handoffId,
+        string handoffId,
         EvaluationOwnership ownership,
+        Guid terminalRecordId,
+        string terminalState,
+        long cutoffSequence,
         string manifestSealProcedureId,
+        string terminalSealDigest,
+        Guid configurationId,
         string configurationDigest,
+        Guid manifestId,
         string manifestDigest,
         ExactSourceIdentity rubric,
         ExactSourceIdentity submission,
@@ -127,9 +139,15 @@ public sealed record FrozenInputIdentity(
         FrozenModelIdentity model,
         string lifecyclePolicyRef)
     {
-        if (handoffId == Guid.Empty
+        if (!EvaluationIdentity.IsStableId(handoffId)
+            || terminalRecordId == Guid.Empty
+            || terminalState != "completed"
+            || cutoffSequence < 0
             || (manifestSealProcedureId is not ("manifest-jcs-sha256-v1" or "manifest-jcs-sha256-v2"))
+            || !EvaluationIdentity.IsSha256Hex(terminalSealDigest)
+            || configurationId == Guid.Empty
             || !EvaluationIdentity.IsSha256Hex(configurationDigest)
+            || manifestId == Guid.Empty
             || !EvaluationIdentity.IsSha256Hex(manifestDigest)
             || !EvaluationIdentity.IsStableId(evaluatorRegistryVersion)
             || !EvaluationIdentity.IsStableId(lifecyclePolicyRef))
@@ -142,7 +160,8 @@ public sealed record FrozenInputIdentity(
             return EvaluationDecision<FrozenInputIdentity>.Fail(EvaluationFailureCodes.InvalidField, "rubric");
         }
 
-        if (EvaluationIdentity.ContainsMutableAlias(evaluatorRegistryVersion)
+        if (EvaluationIdentity.ContainsMutableAlias(handoffId)
+            || EvaluationIdentity.ContainsMutableAlias(evaluatorRegistryVersion)
             || EvaluationIdentity.ContainsMutableAlias(lifecyclePolicyRef)
             || EvaluationIdentity.ContainsMutableAlias(submission.SourceKey))
         {
@@ -153,8 +172,14 @@ public sealed record FrozenInputIdentity(
             new FrozenInputIdentity(
                 handoffId,
                 ownership,
+                terminalRecordId,
+                terminalState,
+                cutoffSequence,
                 manifestSealProcedureId,
+                terminalSealDigest,
+                configurationId,
                 configurationDigest,
+                manifestId,
                 manifestDigest,
                 rubric,
                 submission,
