@@ -34,6 +34,26 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Session_evidence_source_materializes_safe_configuration_and_manifest_facts()
+    {
+        var prepared = await CreatePreparedAsync();
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle!.ConfigurationFact);
+        Assert.NotNull(bundle.ManifestFact);
+        Assert.Equal(
+            EvaluationEvidenceSourceIdentity.ConfigurationFactSourceId(prepared.Request.FrozenInput.ConfigurationId),
+            bundle.ConfigurationFact!.SourceId);
+        Assert.Equal(
+            EvaluationEvidenceSourceIdentity.ManifestFactSourceId(prepared.Request.FrozenInput.ManifestId),
+            bundle.ManifestFact!.SourceId);
+        Assert.Equal(
+            EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(prepared.Request.FrozenInput.ConfigurationDigest),
+            bundle.ConfigurationFact.SourceVersion);
+    }
+
+    [Fact]
     public async Task Participant_transcript_before_cutoff_is_materialized_with_admitted_sequence()
     {
         var prepared = await CreatePreparedAsync();

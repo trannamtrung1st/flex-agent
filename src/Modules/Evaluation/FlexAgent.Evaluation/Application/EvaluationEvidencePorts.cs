@@ -4,7 +4,9 @@ namespace FlexAgent.Evaluation.Application;
 
 public sealed record EvaluationSessionEvidenceBundle(
     EvaluationHandoffSnapshot Handoff,
-    IReadOnlyList<EvaluationSessionTranscriptMaterial> TranscriptItemsAtOrBeforeCutoff);
+    IReadOnlyList<EvaluationSessionTranscriptMaterial> TranscriptItemsAtOrBeforeCutoff,
+    EvaluationSafeFactProjection? ConfigurationFact = null,
+    EvaluationSafeFactProjection? ManifestFact = null);
 
 public interface IEvaluationSessionEvidenceSource
 {

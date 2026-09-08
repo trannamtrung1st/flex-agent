@@ -124,8 +124,98 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                 System.Text.Encoding.UTF8.GetBytes(row.exact_utf8_text)))
             .ToArray();
 
-        return new EvaluationSessionEvidenceBundle(handoff, items);
+        var configurationFact = await LoadConfigurationFactAsync(
+            connection,
+            handoff,
+            cancellationToken);
+        if (configurationFact is null)
+        {
+            return null;
+        }
+
+        var manifestFact = await LoadManifestFactAsync(
+            connection,
+            handoff,
+            cancellationToken);
+        if (manifestFact is null)
+        {
+            return null;
+        }
+
+        return new EvaluationSessionEvidenceBundle(handoff, items, configurationFact, manifestFact);
     }
+
+    private static async Task<EvaluationSafeFactProjection?> LoadConfigurationFactAsync(
+        Npgsql.NpgsqlConnection connection,
+        EvaluationHandoffSnapshot handoff,
+        CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<ConfigurationJsonRow>(
+            new CommandDefinition(
+                """
+                SELECT configuration_digest, canonical_json
+                FROM session_resolved_configurations
+                WHERE organization_id = @OrganizationId
+                  AND configuration_id = @ConfigurationId
+                  AND configuration_digest = @ConfigurationDigest;
+                """,
+                new
+                {
+                    handoff.Ownership.OrganizationId,
+                    ConfigurationId = handoff.ConfigurationId,
+                    ConfigurationDigest = handoff.ConfigurationDigest,
+                },
+                cancellationToken: cancellationToken));
+        if (row is null)
+        {
+            return null;
+        }
+
+        var projection = EvaluationSafeFactProjector.TryBuildConfigurationFact(
+            handoff.ConfigurationId,
+            row.configuration_digest,
+            System.Text.Encoding.UTF8.GetBytes(row.canonical_json));
+        return projection.Succeeded ? projection.Value : null;
+    }
+
+    private static async Task<EvaluationSafeFactProjection?> LoadManifestFactAsync(
+        Npgsql.NpgsqlConnection connection,
+        EvaluationHandoffSnapshot handoff,
+        CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<ManifestJsonRow>(
+            new CommandDefinition(
+                """
+                SELECT manifest_digest, canonical_json
+                FROM session_initial_manifests
+                WHERE organization_id = @OrganizationId
+                  AND manifest_id = @ManifestId
+                  AND configuration_id = @ConfigurationId
+                  AND manifest_digest = @ManifestDigest;
+                """,
+                new
+                {
+                    handoff.Ownership.OrganizationId,
+                    ManifestId = handoff.ManifestId,
+                    ConfigurationId = handoff.ConfigurationId,
+                    ManifestDigest = handoff.ManifestDigest,
+                },
+                cancellationToken: cancellationToken));
+        if (row is null)
+        {
+            return null;
+        }
+
+        var projection = EvaluationSafeFactProjector.TryBuildManifestFact(
+            handoff.ManifestId,
+            row.manifest_digest,
+            System.Text.Encoding.UTF8.GetBytes(row.canonical_json));
+        return projection.Succeeded ? projection.Value : null;
+    }
+
+    private sealed record ConfigurationJsonRow(string configuration_digest, string canonical_json);
+
+    private sealed record ManifestJsonRow(string manifest_digest, string canonical_json);
 
     private sealed record TranscriptRow(
         string message_id,

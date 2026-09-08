@@ -9,6 +9,7 @@ phase3_ci_review: approved-3c0c1c3-4a2a86a
 phase3_fault_matrix: approved-909c624
 phase3_status: complete
 phase4_status: in-progress
+phase4_foundation: approved-437401b-2461466
 ---
 
 # Goal
@@ -503,15 +504,16 @@ approved layout families and donors already exist.
   must scope before materialization and return stable protected references plus
   digests, not unrestricted tables.
   `IEvaluationSessionEvidenceSource` + `PostgresEvaluationSessionEvidenceSource`
-  load the authoritative handoff and cutoff-scoped transcript items; safe
-  configuration/manifest fact materialization remains open.
+  load the authoritative handoff, cutoff-scoped transcript items, and safe
+  configuration/manifest fact projections bound to handoff digests.
 - [>] Add Submission-owned delegated-service ports for the exact bound accepted
   versions/items and protected object bytes. Reauthorize ownership/status/
   binding before each disclosure; reject failed, quarantined, rejected, later,
   unbound, or mutable material.
   `IEvaluationSubmissionEvidenceSource` +
   `PostgresEvaluationSubmissionEvidenceSource` require completed Attempt scope
-  and exact artifact bytes via `IArtifactStore`; integration coverage pending.
+  and exact artifact bytes via `IArtifactStore`; integration coverage green for
+  bound-item load, wrong-session rejection, and missing-artifact negatives.
 - [>] Normalize P0 text sources to source-native units without losing exact
   bytes: Unicode-scalar/line and UTF-8 byte ranges for direct text/text files;
   stable transcript message/fragment/update/notice IDs and offsets at/before
@@ -533,8 +535,10 @@ approved layout families and donors already exist.
   Evaluation records; retrieve exact content from the owning source on an
   authorized Evidence open.
   `EvidenceLocatorVerifier` + digest computer verify structure, ownership,
-  source material, location bounds, and adapter version; completion wiring and
-  persistence of locator metadata remain open.
+  source material, location bounds, and adapter version;
+  `EvidenceLocatorCompletionVerifier` + `EvidenceLocatorCompletionService` wire
+  completion-time batch verification and `SealedEvidenceItemReference` output;
+  persistence of locator metadata remains open.
 - [>] Implement honest whole-artifact fallback only when the source cannot
   verify a finer location, carrying explicit lower precision. Never infer a
   range from model text.
@@ -933,18 +937,21 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: finish Phase 4 owner-port integration coverage, completion-time locator
-  re-verification wiring, and remaining negative matrix cases (work-trace,
-  deterministic facts, later-alias invariance). Phase 3 is complete through
+- Next: remaining Phase 4 negative matrix (work-trace, later-alias invariance,
+  seal drift/reorder fixtures), procedure gating for whole-item fallback at
+  completion, and locator-metadata persistence. Phase 3 is complete through
   `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
-- Phase 4 (in progress): Session/Submission owner ports,
-  `EvidenceTextSourceNormalizer`, `EvidenceLocatorDigestComputer`,
-  `EvidenceLocatorVerifier`, and `EvidenceSetSealComputer` domain slice.
-  Verification: `FlexAgent.Evaluation.Tests` 75 passed; architecture tests 65
-  passed; `EvaluationSessionEvidenceSourceTests` added (requires local Postgres
-  integration fixture).
+- Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
+  0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
+  participant material via authoritative `admitted_session_sequence`; UTF-8
+  byte ranges require scalar boundaries and strict decode. Integration negatives
+  cover post-cutoff, orphan, cancelled, and handoff/runtime drift cases.
+  Verification: `FlexAgent.Evaluation.Tests` 80 passed; architecture 65 passed;
+  `verify-dotnet.sh` green. Hosted CI not independently observed. Phase 4
+  remains in progress: work-trace sources, broader negative matrix,
+  seal/invariance fixtures, and locator-metadata persistence at completion.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -1093,6 +1100,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 fault matrix (`0074` + `0075`) | approved | Developer review on `909c624`: 0 Blocker / 0 High / 0 Medium. Hold/disposal serialization, lifecycle-executor boundary, delegation proof, role/delegation/race negatives. Confirmation: Evaluation integration 39 passed; `verify-dotnet.sh` / `verify-web.sh` / docs green. Hosted CI not independently observed |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
+| Phase 4 slice (safe facts, completion verifier, submission port integration) | in-progress | `EvaluationSafeFactProjector`, session bundle fact materialization, `EvidenceLocatorCompletionVerifier`/`EvidenceLocatorCompletionService`, submission port integration tests. `FlexAgent.Evaluation.Tests` 84 passed; session/submission Postgres integration 10 passed; architecture 65 passed. Hosted CI not independently observed |
+| Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
 | Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | pending | Required during UI implementation; keep local artifacts under `.playwright-mcp/` unless deliberately committed |

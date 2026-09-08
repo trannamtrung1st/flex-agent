@@ -14,6 +14,15 @@ public static class EvaluationEvidenceSourceIdentity
         protectedRef.StartsWith("rev.", StringComparison.Ordinal)
             ? protectedRef
             : $"rev.{protectedRef}";
+
+    public static string ConfigurationFactSourceId(Guid configurationId) =>
+        $"cfg.{configurationId:N}";
+
+    public static string ManifestFactSourceId(Guid manifestId) =>
+        $"mfst.{manifestId:N}";
+
+    public static string DigestBoundSourceVersion(string contentDigest) =>
+        $"rev.{contentDigest}";
 }
 
 public sealed record EvidenceLocatorVerificationContext(

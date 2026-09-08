@@ -3,6 +3,7 @@ using System.Text.Json;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
+using FlexAgent.Submissions.Application;
 using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests.Support;
@@ -30,11 +31,17 @@ internal static class EvaluationPersistenceTestSeed
         var manifestId = Guid.CreateVersion7();
         var submissionId = Guid.CreateVersion7();
         var submissionVersionId = Guid.CreateVersion7();
+        var submissionItemId = Guid.CreateVersion7();
+        var submissionArtifactId = Guid.CreateVersion7();
         var delegationId = Guid.CreateVersion7();
         var configurationDigest = new string('c', 64);
         var manifestDigest = new string('d', 64);
         var terminalSealDigest = new string('f', 64);
         var submissionDigest = new string('e', 64);
+        const string boundSubmissionText = "bound submission evidence text";
+        var boundSubmissionItemDigest = Digest(boundSubmissionText);
+        var boundSubmissionArtifactObjectKey =
+            $"org/{harness.OrganizationId:D}/{submissionArtifactId:D}";
         var handoffId = $"handoff.eval.{key}";
 
         await using var connection = await fixture.Services.ConnectionAccessor
@@ -85,6 +92,22 @@ internal static class EvaluationPersistenceTestSeed
                 },
             },
         });
+        var initialManifestJson = JsonSerializer.Serialize(new
+        {
+            manifest_id = manifestId.ToString("D"),
+            configuration_id = configurationId.ToString("D"),
+            configuration_digest = configurationDigest,
+            provenance = new[]
+            {
+                new
+                {
+                    source_key = "rubric_evaluation",
+                    source_id = rubric.configuration_source_id.ToString("D"),
+                    source_version_id = rubric.source_version_id.ToString("D"),
+                    content_digest = rubric.content_digest,
+                },
+            },
+        });
 
         await connection.ExecuteAsync(
             new CommandDefinition(
@@ -113,8 +136,12 @@ internal static class EvaluationPersistenceTestSeed
                     SubmissionId = submissionId,
                     SubmissionVersionId = submissionVersionId,
                     SubmissionDigest = submissionDigest,
+                    SubmissionItemId = submissionItemId,
+                    BoundSubmissionItemDigest = boundSubmissionItemDigest,
+                    BoundSubmissionByteCount = System.Text.Encoding.UTF8.GetByteCount(boundSubmissionText),
+                    BoundSubmissionArtifactObjectKey = boundSubmissionArtifactObjectKey,
                     ResolvedConfigurationJson = resolvedConfigurationJson,
-                    InitialManifestJson = "{}",
+                    InitialManifestJson = initialManifestJson,
                     HandoffId = handoffId,
                     WorkerActorId = workerActorId,
                     DelegationId = delegationId,
@@ -167,8 +194,64 @@ internal static class EvaluationPersistenceTestSeed
             request,
             delegationId,
             workerActorId,
-            Authority);
+            Authority,
+            new BoundSubmissionEvidenceSeed(
+                submissionItemId,
+                submissionVersionId,
+                boundSubmissionItemDigest,
+                boundSubmissionArtifactObjectKey,
+                System.Text.Encoding.UTF8.GetBytes(boundSubmissionText)));
     }
+
+    internal static async Task<(PreparedEvaluation Prepared, InMemoryArtifactStore Artifacts)> PrepareBoundSubmissionEvidenceAsync(
+        PostgresIntegrationFixture fixture,
+        string key,
+        CancellationToken cancellationToken)
+    {
+        var prepared = await CreateAsync(fixture, key, cancellationToken);
+        var artifacts = new InMemoryArtifactStore();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        var put = await artifacts.PutAsync(
+            new ArtifactPutRequest(
+                ownership.OrganizationId,
+                new ArtifactObjectKey(prepared.BoundSubmission.ArtifactObjectKey),
+                prepared.BoundSubmission.Content,
+                ContentType: "text/plain; charset=utf-8",
+                ConditionalCreate: true),
+            cancellationToken);
+        if (!put.Succeeded || put.Reference is null)
+        {
+            throw new InvalidOperationException(put.OutcomeCode);
+        }
+
+        await using var connection = await fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_accepted_version_items (
+                organization_id, version_id, item_id, category, filename, byte_count, content_digest,
+                artifact_object_key, artifact_version_id)
+            VALUES (
+                @OrganizationId, @VersionId, @ItemId, 'direct_text', NULL,
+                @ByteCount, @ContentDigest, @ArtifactObjectKey, @ArtifactVersionId);
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                VersionId = prepared.BoundSubmission.VersionId,
+                ItemId = prepared.BoundSubmission.ItemId,
+                ByteCount = prepared.BoundSubmission.Content.Length,
+                ContentDigest = prepared.BoundSubmission.ContentDigest,
+                ArtifactObjectKey = prepared.BoundSubmission.ArtifactObjectKey,
+                ArtifactVersionId = put.Reference.VersionId.Value,
+            });
+
+        return (prepared, artifacts);
+    }
+
+    private static string Digest(string text) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
 
     internal static async Task<Guid> InsertCompletedEvaluationAsync(
         NpgsqlConnection connection,
@@ -351,13 +434,21 @@ internal static class EvaluationPersistenceTestSeed
             clock_timestamp() + interval '1 hour', NULL, 1);
         """;
 
+    internal sealed record BoundSubmissionEvidenceSeed(
+        Guid ItemId,
+        Guid VersionId,
+        string ContentDigest,
+        string ArtifactObjectKey,
+        byte[] Content);
+
     internal sealed record PreparedEvaluation(
         PostgresEvaluationAdmissionStore Admission,
         PostgresEvaluationDurableWorkStore Work,
         EvaluationRequest Request,
         Guid DelegationId,
         Guid WorkerActorId,
-        EvaluationAdmissionAuthority Authority)
+        EvaluationAdmissionAuthority Authority,
+        BoundSubmissionEvidenceSeed BoundSubmission)
     {
         public AdmitEvaluationCommand Command() => new(
             Request,
