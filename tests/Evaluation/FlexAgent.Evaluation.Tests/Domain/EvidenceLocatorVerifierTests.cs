@@ -179,6 +179,61 @@ public sealed class EvidenceLocatorVerifierTests
     }
 
     [Fact]
+    public void Line_range_beyond_content_is_rejected()
+    {
+        var content = "line1\nline2\nline3\n"u8.ToArray();
+        var sourceDigest = EvidenceTextSourceNormalizer.DigestUtf8(content);
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-submission-line-range.json")));
+        var locator = MutateIntegrity(
+            MutateLineRange(document.RootElement, startLineInclusive: 2, endLineInclusive: 5),
+            sourceDigest);
+        var context = BuildSubmissionContext(locator, content, sourceDigest);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("location.end_line_inclusive", result.Field);
+    }
+
+    [Fact]
+    public void Configuration_json_pointer_outside_safe_projection_is_rejected()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-configuration-json-pointer.json")));
+        var locator = MutateJsonPointer(document.RootElement, "/hidden_prompt");
+        var context = BuildContextForFixture(locator);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+        Assert.Equal("location.json_pointer", result.Field);
+    }
+
+    [Fact]
+    public void Missing_submission_material_is_rejected()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-submission-byte-range.json")));
+        var locator = document.RootElement;
+        var context = BuildSubmissionContext(
+            locator,
+            new byte[256],
+            locator.GetProperty("integrity").GetProperty("source_digest").GetString()!);
+        context = context with
+        {
+            SubmissionItemsBySourceId = new Dictionary<string, EvaluationSubmissionMaterial>(StringComparer.Ordinal),
+        };
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
     public void Work_trace_whole_item_verifies_against_matching_material()
     {
         using var document = JsonDocument.Parse(
@@ -214,6 +269,43 @@ public sealed class EvidenceLocatorVerifierTests
 
         using var mutated = JsonDocument.Parse(stream.ToArray());
         return mutated.RootElement.Clone();
+    }
+
+    private static JsonElement MutateJsonPointer(JsonElement locator, string jsonPointer)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in locator.EnumerateObject())
+            {
+                if (property.NameEquals("location"))
+                {
+                    writer.WritePropertyName("location");
+                    writer.WriteStartObject();
+                    foreach (var locationProperty in property.Value.EnumerateObject())
+                    {
+                        if (locationProperty.NameEquals("json_pointer"))
+                        {
+                            writer.WriteString("json_pointer", jsonPointer);
+                            continue;
+                        }
+
+                        locationProperty.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
     }
 
     private static EvidenceLocatorVerificationContext BuildContextForFixture(

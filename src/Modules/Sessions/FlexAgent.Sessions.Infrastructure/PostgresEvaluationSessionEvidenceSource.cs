@@ -79,11 +79,11 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                   AND transcript.participant_id = @ParticipantId
                   AND transcript.attempt_id = @AttemptId
                   AND transcript.session_id = @SessionId
-                  AND transcript.exact_utf8_text IS NOT NULL
                   AND runtime.cutoff_sequence = @CutoffSequence
                   AND (
                         (
                             transcript.author_type = 'participant'
+                            AND transcript.exact_utf8_text IS NOT NULL
                             AND participant_invocation.admitted_session_sequence IS NOT NULL
                             AND participant_invocation.admitted_session_sequence <= @CutoffSequence
                             AND participant_invocation.status IN (
@@ -114,15 +114,58 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                 },
                 cancellationToken: cancellationToken))).AsList();
 
-        var items = rows
-            .Where(row => !string.IsNullOrWhiteSpace(row.exact_utf8_text))
-            .Select(row => new EvaluationSessionTranscriptMaterial(
-                row.message_id,
-                EvaluationEvidenceSourceIdentity.TranscriptSourceVersion(row.protected_ref),
-                row.published_sequence,
-                row.content_digest,
-                System.Text.Encoding.UTF8.GetBytes(row.exact_utf8_text)))
+        var agentMessageIds = rows
+            .Where(row => string.Equals(row.author_type, "agent", StringComparison.Ordinal))
+            .Select(row => row.message_id)
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
+        var fragmentsByMessageId = await LoadAgentFragmentsAsync(
+            connection,
+            handoff,
+            agentMessageIds,
+            cancellationToken);
+
+        var items = new List<EvaluationSessionTranscriptMaterial>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (string.Equals(row.author_type, "participant", StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(row.exact_utf8_text))
+                {
+                    continue;
+                }
+
+                items.Add(
+                    new EvaluationSessionTranscriptMaterial(
+                        row.message_id,
+                        EvaluationEvidenceSourceIdentity.TranscriptSourceVersion(row.protected_ref),
+                        row.published_sequence,
+                        row.content_digest,
+                        System.Text.Encoding.UTF8.GetBytes(row.exact_utf8_text)));
+                continue;
+            }
+
+            if (!fragmentsByMessageId.TryGetValue(row.message_id, out var fragments))
+            {
+                continue;
+            }
+
+            var assembled = EvidenceAgentTranscriptAssembler.TryAssembleExactUtf8(
+                fragments,
+                row.content_digest);
+            if (!assembled.Succeeded || assembled.Value.IsEmpty)
+            {
+                continue;
+            }
+
+            items.Add(
+                new EvaluationSessionTranscriptMaterial(
+                    row.message_id,
+                    EvaluationEvidenceSourceIdentity.TranscriptSourceVersion(row.protected_ref),
+                    row.published_sequence,
+                    row.content_digest,
+                    assembled.Value));
+        }
 
         var configurationFact = await LoadConfigurationFactAsync(
             connection,
@@ -143,6 +186,55 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
         }
 
         return new EvaluationSessionEvidenceBundle(handoff, items, configurationFact, manifestFact);
+    }
+
+    private static async Task<IReadOnlyDictionary<string, IReadOnlyList<EvaluationAgentFragmentMaterial>>>
+        LoadAgentFragmentsAsync(
+            Npgsql.NpgsqlConnection connection,
+            EvaluationHandoffSnapshot handoff,
+            IReadOnlyList<string> messageIds,
+            CancellationToken cancellationToken)
+    {
+        if (messageIds.Count == 0)
+        {
+            return new Dictionary<string, IReadOnlyList<EvaluationAgentFragmentMaterial>>(StringComparer.Ordinal);
+        }
+
+        var rows = await connection.QueryAsync<FragmentRow>(
+            new CommandDefinition(
+                """
+                SELECT message_id, fragment_ordinal, content_digest, exact_utf8_text
+                FROM session_message_fragments
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND participant_id = @ParticipantId
+                  AND attempt_id = @AttemptId
+                  AND session_id = @SessionId
+                  AND message_id = ANY(@MessageIds)
+                ORDER BY message_id, fragment_ordinal;
+                """,
+                new
+                {
+                    handoff.Ownership.OrganizationId,
+                    handoff.Ownership.ActivityId,
+                    handoff.Ownership.ParticipantId,
+                    handoff.Ownership.AttemptId,
+                    handoff.Ownership.SessionId,
+                    MessageIds = messageIds.ToArray(),
+                },
+                cancellationToken: cancellationToken));
+
+        return rows
+            .GroupBy(row => row.message_id, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<EvaluationAgentFragmentMaterial>)group
+                    .Select(fragment => new EvaluationAgentFragmentMaterial(
+                        fragment.fragment_ordinal,
+                        fragment.content_digest,
+                        System.Text.Encoding.UTF8.GetBytes(fragment.exact_utf8_text)))
+                    .ToArray(),
+                StringComparer.Ordinal);
     }
 
     private static async Task<EvaluationSafeFactProjection?> LoadConfigurationFactAsync(
@@ -221,7 +313,13 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
         string message_id,
         string protected_ref,
         string content_digest,
-        string exact_utf8_text,
+        string? exact_utf8_text,
         string author_type,
         long published_sequence);
+
+    private sealed record FragmentRow(
+        string message_id,
+        int fragment_ordinal,
+        string content_digest,
+        string exact_utf8_text);
 }

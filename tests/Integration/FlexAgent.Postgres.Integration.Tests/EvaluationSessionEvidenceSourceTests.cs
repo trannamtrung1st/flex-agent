@@ -160,6 +160,58 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Agent_transcript_is_reconstructed_from_durable_fragments()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.fragments";
+        const string first = "Thank you ";
+        const string second = "for participating.";
+        var assembled = first + second;
+        var digest = Digest(assembled);
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 20,
+            fragments: [(1, first), (2, second)],
+            contentDigest: digest);
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.Contains(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId
+                    && item.PublishedSequence == 20
+                    && assembled == System.Text.Encoding.UTF8.GetString(item.ExactUtf8.Span));
+    }
+
+    [Fact]
+    public async Task Agent_transcript_with_fragment_gap_is_not_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.gap";
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 20,
+            fragments: [(2, "missing-first-fragment")],
+            contentDigest: Digest("missing-first-fragment"));
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.DoesNotContain(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId);
+    }
+
+    [Fact]
     public async Task Transcript_outside_frozen_handoff_cutoff_is_not_materialized()
     {
         var prepared = await CreatePreparedAsync();
@@ -273,6 +325,159 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
                 Text = text,
                 Status = invocationStatus,
             });
+    }
+
+    private static async Task InsertAgentTranscriptWithFragmentsAsync(
+        NpgsqlConnection connection,
+        EvaluationOwnership ownership,
+        string messageId,
+        long sealedSequence,
+        IReadOnlyList<(int Ordinal, string Text)> fragments,
+        string contentDigest)
+    {
+        var turnId = $"turn.{messageId}";
+        var responseSlotId = $"slot.{messageId}";
+        var generationAttemptId = $"agen.{messageId}";
+        var invocationId = $"ainv.{messageId}";
+        var decisionId = $"dec.{messageId}";
+        var assembled = string.Concat(fragments.OrderBy(fragment => fragment.Ordinal).Select(fragment => fragment.Text));
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO session_turns (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                turn_id, kind, state, trigger_invocation_id, response_slot_id,
+                response_slot_state, created_session_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @TurnId, 'agent_opening', 'accepted', @InvocationId, @ResponseSlotId,
+                'claimed_for_publication', @SealedSequence);
+
+            INSERT INTO session_invocations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, trigger_family, trigger_type, trigger_id, purpose,
+                turn_id, response_slot_id, idempotency_key, policy_digest,
+                admitted_session_sequence, status)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @InvocationId, 'workflow_event', 'workflow_event.agent_opening', @TriggerId,
+                'agent_opening', @TurnId, @ResponseSlotId, @IdempotencyKey, @PolicyDigest,
+                @AdmittedSequence, 'decided');
+
+            INSERT INTO session_decisions (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, decision_id, decision_type, produced_at,
+                payload_digest, decision_payload_digest_version,
+                committed_session_version, committed_session_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @InvocationId, @DecisionId, 'no_action', TIMESTAMPTZ '2026-08-13T00:00:00Z',
+                @PayloadDigest, @DigestVersion,
+                1, @CommittedSessionSequence);
+
+            INSERT INTO session_decision_validations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, revision_ordinal,
+                validated_against_session_version, validated_against_session_sequence,
+                validation_commit_session_version, validation_commit_session_sequence,
+                validation_outcome, effect_outcome, timer_validation_outcome)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @InvocationId, 1,
+                0, 1,
+                1, 2,
+                'accepted', 'not_attempted', 'not_present');
+
+            INSERT INTO session_decision_output_validations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @InvocationId, 1, 0, 'out.message.primary', 'message',
+                'accepted', NULL, @MessageId, 'not_attempted');
+
+            INSERT INTO session_messages (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                message_id, author_type, turn_id, protected_ref, content_digest,
+                completion_state, generation_attempt_id, driving_invocation_id, driving_decision_id,
+                accepted_agent_output_id, assembled_content_digest, response_slot_id,
+                sealed_session_sequence, sealed_at)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @MessageId, 'agent', @TurnId, @ProtectedRef, @ContentDigest,
+                'complete', @GenerationAttemptId, @InvocationId, @DecisionId,
+                @MessageId, @ContentDigest, @ResponseSlotId,
+                @SealedSequence, clock_timestamp());
+
+            INSERT INTO session_visible_transcript_items (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                message_id, author_type, turn_id, protected_ref, content_digest, exact_utf8_text)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @MessageId, 'agent', @TurnId, @ProtectedRef, @ContentDigest, @AssembledText);
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.ActivityId,
+                ownership.ParticipantId,
+                ownership.AttemptId,
+                ownership.SessionId,
+                MessageId = messageId,
+                TurnId = turnId,
+                ResponseSlotId = responseSlotId,
+                GenerationAttemptId = generationAttemptId,
+                InvocationId = invocationId,
+                DecisionId = decisionId,
+                TriggerId = $"{messageId}.trigger",
+                IdempotencyKey = $"{messageId}.idem",
+                PolicyDigest = new string('p', 64),
+                AdmittedSequence = sealedSequence - 1,
+                PayloadDigest = new string('d', 64),
+                DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                CommittedSessionSequence = sealedSequence,
+                ProtectedRef = $"rev.{messageId}",
+                ContentDigest = contentDigest,
+                SealedSequence = sealedSequence,
+                AssembledText = assembled,
+            });
+
+        foreach (var fragment in fragments)
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO session_message_fragments (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    message_id, fragment_ordinal, session_sequence, turn_id, response_slot_id,
+                    generation_attempt_id, protected_ref, content_digest, exact_utf8_text,
+                    driving_invocation_id, driving_decision_id)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @MessageId, @FragmentOrdinal, @SessionSequence, @TurnId, @ResponseSlotId,
+                    @GenerationAttemptId, @ProtectedRef, @ContentDigest, @ExactUtf8Text,
+                    @InvocationId, @DecisionId);
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    MessageId = messageId,
+                    FragmentOrdinal = fragment.Ordinal,
+                    SessionSequence = sealedSequence + fragment.Ordinal,
+                    TurnId = turnId,
+                    ResponseSlotId = responseSlotId,
+                    GenerationAttemptId = generationAttemptId,
+                    ProtectedRef = $"frag:{messageId}:{fragment.Ordinal}",
+                    ContentDigest = Digest(fragment.Text),
+                    ExactUtf8Text = fragment.Text,
+                    InvocationId = invocationId,
+                    DecisionId = decisionId,
+                });
+        }
     }
 
     private static string Digest(string text) =>
