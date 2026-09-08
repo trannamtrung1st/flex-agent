@@ -5,6 +5,7 @@ created: 2026-09-07
 updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
+phase3_ci_review: approved-3c0c1c3-4a2a86a
 ---
 
 # Goal
@@ -996,6 +997,11 @@ The only other active task is `text-interaction-controller-contract`
   hardening) together: 0 Blocker / 0 High / 0 new Medium; no corrective
   commit required. GitHub combined-status endpoint returned no status records
   for either SHA, so CI green was not independently verified from that endpoint.
+- CI/confirmation review on 2026-09-08 approved `3c0c1c3` (lockfile restore and
+  migration-upgrade tail through `0073`) and `4a2a86a` (confirmation evidence):
+  0 Blocker / 0 High / 0 Medium; no corrective commit required. Hosted GitHub
+  Actions for `4a2a86a` was not independently observed; repository-recorded
+  local/CI-equivalent verification is internally consistent.
 
 # Readiness review
 
@@ -1049,8 +1055,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 frozen-input and persistence red/green | approved core | `13fd2f3`: `0072`, frozen-input digest, admission/inbox/reconciliation, durable work claim/retry/recovery. Focused: Evaluation domain 54; schema 3; admission/recovery 11; architecture 65; Grate 13 |
 | Phase 3 security-review schema follow-up | approved hardening | `4e2fb53`: additive `0073` composite annotation/audit provenance; expired final-attempt exhaustion on claim scan. Focused schema/provenance/admission 18 passed |
 | Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required. Phase 3 not closed: completion-race matrix, immutable-artifact mutation/delete verification, authorized hold-aware lifecycle disposition remain |
-| Phase 3 CI restore (`3c0c1c3`) | complete | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073`. Locked restore and full upgrade matrix green |
-| Phase 3 migration and architecture regression | complete | 2026-09-08 confirmation pass: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415 |
+| Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
+| Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
 | Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | pending | Required during UI implementation; keep local artifacts under `.playwright-mcp/` unless deliberately committed |
