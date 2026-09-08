@@ -318,6 +318,31 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Cancelled_agent_transcript_is_not_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.cancelled";
+        const string text = "failed generation prefix";
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 20,
+            fragments: [(1, text, 20)],
+            contentDigest: Digest(text),
+            completionState: "cancelled");
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.DoesNotContain(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId);
+    }
+
+    [Fact]
     public async Task Transcript_outside_frozen_handoff_cutoff_is_not_materialized()
     {
         var prepared = await CreatePreparedAsync();

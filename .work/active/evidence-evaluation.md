@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T00:40:00+07:00
+updated: 2026-09-09T00:42:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -13,6 +13,7 @@ phase4_foundation: approved-437401b-2461466
 phase4_slice: approved-0514a70-235f7ed
 phase4_slice2: approved-9e286f9-1932276
 phase4_slice3: approved-4a6a152-88b293f
+phase4_slice4: verified-pending-external-review
 ---
 
 # Goal
@@ -534,9 +535,10 @@ approved layout families and donors already exist.
   Domain matrix covers ownership cross-scope, wrong digest, post-cutoff
   transcript, post-cutoff agent fragment `session_sequence`, byte-range UTF-8
   boundary, line range beyond content, configuration JSON Pointer outside safe
-  projection, missing submission material, unpublished open agent messages, and
-  lower-precision fallback; forged quotes, failed/hidden generations, and local
-  drafts remain open.
+  projection, missing submission material, forged excerpt digest, wrong source
+  version / unpublished transcript material, unpublished open agent messages,
+  cancelled agent messages, and lower-precision fallback; work-trace owner-port
+  materialization remains deferred (schema allowlist only; no durable table yet).
 - [x] Implement independent locator verification after parser/model output and
   again at completion. Store only protected references and locator metadata in
   Evaluation records; retrieve exact content from the owning source on an
@@ -577,9 +579,12 @@ approved layout families and donors already exist.
   assembler/domain/integration negatives, and extended locator matrix items from
   slice 3. External review on corrective chain: 0 Blocker / 0 High / 0 Medium;
   previous fragment-cutoff High and incomplete-publication Medium closed.
+  Slice 4 verified 2026-09-09 (pending external review): remaining locator negative
+  excerpt digest, wrong source-version / unpublished transcript material,
+  work-trace post-cutoff; Session integration for cancelled agent exclusion.
   Remaining Phase 4 gate before Phase 5: Session work-trace owner-port
-  (deferred until durable work-trace persistence exists) and remaining negative
-  matrix (forged quotes, failed/hidden generations, local drafts).
+  (deferred until durable work-trace persistence exists), proportionate full-suite
+  regression, and external review of slice 4.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
@@ -964,13 +969,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
 - Next: close remaining Phase 4 gate — Session work-trace owner-port
-  (deferred until durable work-trace persistence exists) and remaining negative
-  matrix (forged quotes, failed/hidden generations, local drafts) before Phase 5.
-  Phase 4 slice 2 approved through `9e286f9` + `1932276` (review 2026-09-08:
-  0 Blocker / 0 High / 0 Medium; previous fallback integrity High closed).
+  (deferred until durable work-trace persistence exists), proportionate
+  full-suite regression, and external review of slice 4 before Phase 5.
   Phase 4 slice 3 approved 2026-09-09 through `4a6a152` + `88b293f` (review:
-  0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication
-  Medium closed). Phase 3 is complete through `909c624`.
+  0 Blocker / 0 High / 0 Medium). Slice 4 verified 2026-09-09 (pending external
+  review): locator negatives for forged excerpt, wrong source version,
+  unpublished material, work-trace post-cutoff; Session integration 14;
+  `FlexAgent.Evaluation.Tests` 120. Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1135,7 +1140,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | Phase 4 slice (`0514a70` + `235f7ed` + `895a30a`) | approved | Combined developer review 2026-09-08 on corrective slice: 0 Blocker / 0 High / 0 Medium; no further corrective commit required. `0514a70` review: 1 High + 1 Medium; `235f7ed` closes ownership binding and canonical-digest verification; `895a30a` records evidence. Focused: `FlexAgent.Evaluation.Tests` 94; session/submission Postgres integration 10; architecture 65; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 2 (`9e286f9` + `1932276` + `72ad277` + `2b70676` + `eb4be24`) | approved | Review 2026-09-08 on corrective chain: 0 Blocker / 0 High / 0 Medium; previous fallback integrity High closed. `9e286f9`: procedure gating, locator persistence, seal reorder/drift, mutable-alias/work-trace negatives. Review found 1 High — fallback sealed failed exact-range digests. `1932276`: effective `whole_item` location for seal/persistence via `EvidenceLocatorVerifiedProjection`. Evidence commits `72ad277`, `2b70676`, `eb4be24` record corrective/confirmation state without premature approval. Focused: `FlexAgent.Evaluation.Tests` 108; evaluation Postgres locator store 1; architecture 65; `verify-dotnet.sh` 2181 passed / 4 skipped; `check_docs.py` passed. Hosted CI not independently observed |
-| Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. `4a6a152`: agent fragment reconstruction via durable fragments. Review found 1 High + 1 Medium. `88b293f`: owner query filters `session_sequence <= cutoff`, assembler validates cutoff, admits published `complete`/`incomplete`, excludes `open`; negatives for post-cutoff fragment, at-cutoff fragment, incomplete published, open unpublished. `42c5d7f` records confirmation evidence. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; `EvidenceAgentTranscriptAssemblerTests` 5; architecture 65; `check_docs.py` passed. Work-trace owner-port deferred. Hosted CI not independently observed |
+| Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
+| Phase 4 slice 4 | verified-pending-external-review | Locator negative matrix: forged excerpt digest, wrong source-version transcript material, unpublished transcript material, work-trace post-cutoff; Session integration cancelled agent exclusion. Focused: `FlexAgent.Evaluation.Tests` 120; `EvidenceLocatorVerifierTests` 17; `EvaluationSessionEvidenceSourceTests` 14; `check_docs.py` passed. Work-trace owner-port deferred. External review pending; hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

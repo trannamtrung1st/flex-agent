@@ -247,6 +247,99 @@ public sealed class EvidenceLocatorVerifierTests
         Assert.Equal("verified", result.Value!.VerificationState);
     }
 
+    [Fact]
+    public void Forged_excerpt_digest_is_rejected()
+    {
+        var content = new byte[256];
+        Array.Fill(content, (byte)'a');
+        var sourceDigest = EvidenceTextSourceNormalizer.DigestUtf8(content);
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-submission-byte-range.json")));
+        var locator = MutateIntegrity(
+            MutateExcerptDigest(document.RootElement, new string('f', 64)),
+            sourceDigest);
+        var context = BuildSubmissionContext(locator, content, sourceDigest);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("location.excerpt_digest", result.Field);
+    }
+
+    [Fact]
+    public void Wrong_source_version_transcript_material_is_rejected()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
+        var locator = document.RootElement;
+        var baseContext = BuildContextForFixture(locator);
+        var staleMaterial = baseContext.TranscriptItemsByMessageId["msg.synthetic.0001"] with
+        {
+            SourceVersion = "rev.0002",
+        };
+        var context = baseContext with
+        {
+            TranscriptItemsByMessageId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
+                baseContext.TranscriptItemsByMessageId,
+                StringComparer.Ordinal)
+            {
+                ["msg.synthetic.0001"] = staleMaterial,
+            },
+        };
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Unpublished_transcript_material_is_rejected()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
+        var locator = document.RootElement;
+        var baseContext = BuildContextForFixture(locator);
+        var context = baseContext with
+        {
+            TranscriptItemsByMessageId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
+                StringComparer.Ordinal),
+        };
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Work_trace_post_cutoff_material_is_rejected()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
+        var locator = MutateSourceType(document.RootElement, "session.work_trace");
+        var baseContext = BuildContextForFixture(locator);
+        var workTrace = baseContext.TranscriptItemsByMessageId["msg.synthetic.0001"] with
+        {
+            PublishedSequence = 99,
+        };
+        var context = baseContext with
+        {
+            TranscriptItemsByMessageId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
+                baseContext.TranscriptItemsByMessageId,
+                StringComparer.Ordinal)
+            {
+                ["msg.synthetic.0001"] = workTrace,
+            },
+        };
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
     private static JsonElement MutateSourceType(JsonElement locator, string sourceType)
     {
         using var stream = new MemoryStream();
