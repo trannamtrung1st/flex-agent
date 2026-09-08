@@ -571,6 +571,7 @@
           "AWSSDK.S3": "[4.0.102.3, )",
           "Dapper": "[2.1.79, )",
           "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
+          "FlexAgent.Evaluation": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Postgres": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",

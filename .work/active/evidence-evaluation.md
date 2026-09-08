@@ -6,7 +6,9 @@ updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
-phase3_fault_matrix: complete-0074-0075
+phase3_fault_matrix: approved-909c624
+phase3_status: complete
+phase4_status: in-progress
 ---
 
 # Goal
@@ -495,35 +497,54 @@ approved layout families and donors already exist.
 
 ## Phase 4 — Materialize exact sources and validate Evidence locators
 
-- [ ] Add Session-owned read ports for the exact terminal handoff, terminal
+- [>] Add Session-owned read ports for the exact terminal handoff, terminal
   record/seal, resolved configuration/manifest, accepted/published transcript
   material at or before cutoff, and safe configuration/manifest facts. Reads
   must scope before materialization and return stable protected references plus
   digests, not unrestricted tables.
-- [ ] Add Submission-owned delegated-service ports for the exact bound accepted
+  `IEvaluationSessionEvidenceSource` + `PostgresEvaluationSessionEvidenceSource`
+  load the authoritative handoff and cutoff-scoped transcript items; safe
+  configuration/manifest fact materialization remains open.
+- [>] Add Submission-owned delegated-service ports for the exact bound accepted
   versions/items and protected object bytes. Reauthorize ownership/status/
   binding before each disclosure; reject failed, quarantined, rejected, later,
   unbound, or mutable material.
-- [ ] Normalize P0 text sources to source-native units without losing exact
+  `IEvaluationSubmissionEvidenceSource` +
+  `PostgresEvaluationSubmissionEvidenceSource` require completed Attempt scope
+  and exact artifact bytes via `IArtifactStore`; integration coverage pending.
+- [>] Normalize P0 text sources to source-native units without losing exact
   bytes: Unicode-scalar/line and UTF-8 byte ranges for direct text/text files;
   stable transcript message/fragment/update/notice IDs and offsets at/before
   cutoff; allowlisted JSON Pointers for safe configuration/manifest and
   deterministic facts.
-- [ ] Red: locator tests for wrong source/version/digest/criterion/Evaluation,
+  `EvidenceTextSourceNormalizer` implements `line-split.v1` and UTF-8 byte-range
+  excerpt digest checks; agent fragment reconstruction and work-trace sources
+  remain open.
+- [>] Red: locator tests for wrong source/version/digest/criterion/Evaluation,
   cross-scope material, invalid UTF-8 boundaries, off-by-one ranges, forged
   quotes, post-cutoff messages/fragments, unpublished/failed generations,
   local drafts, hidden prompts, unsafe config fields, missing objects, and
   later aliases.
-- [ ] Implement independent locator verification after parser/model output and
+  Domain matrix covers ownership cross-scope, wrong digest, post-cutoff
+  transcript, byte-range/off-by-one, configuration JSON Pointer, and
+  lower-precision fallback; broader matrix still open.
+- [>] Implement independent locator verification after parser/model output and
   again at completion. Store only protected references and locator metadata in
   Evaluation records; retrieve exact content from the owning source on an
   authorized Evidence open.
-- [ ] Implement honest whole-artifact fallback only when the source cannot
+  `EvidenceLocatorVerifier` + digest computer verify structure, ownership,
+  source material, location bounds, and adapter version; completion wiring and
+  persistence of locator metadata remain open.
+- [>] Implement honest whole-artifact fallback only when the source cannot
   verify a finer location, carrying explicit lower precision. Never infer a
   range from model text.
-- [ ] Canonicalize and seal ordered Evidence items with
+  Verifier records `lower_precision` when `PermitWholeItemFallback` is set and
+  finer range verification fails; procedure gating at completion remains open.
+- [>] Canonicalize and seal ordered Evidence items with
   `evidence-set-jcs-sha256-v1`; verify the existing fixture and add ordering,
   duplicate, drift, and tamper fixtures.
+  `EvidenceSetSealComputer` + fixture/tamper/duplicate tests are green; add
+  drift/reorder fixtures when locator digests are fixture-backed.
 - [ ] Green/refactor owner-port, artifact, locator, seal, cross-scope, and
   later-source-invariance tests.
 
@@ -857,7 +878,8 @@ input prerequisites are implemented and approved on `b728d71`. Phase 2 added
 the Evaluation module, architecture boundaries, domain validators, and
 fail-closed admission. Phase 3 core persistence/admission/recovery is approved
 on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
-`0074`.
+`0074`/`0075`. Developer review on `909c624` approved Phase 3 complete
+(0 Blocker / 0 High / 0 Medium).
 
 - Catalog family is present (procedure/request/work/artifact/review-read).
   Internal work/provider/protected-artifact contracts stay out of OpenAPI/TS.
@@ -908,11 +930,18 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: Phase 4 — materialize exact sources and validate Evidence locators.
-  Phase 3 completion-race, artifact immutability, and hold-aware provider-artifact
-  lifecycle disposition are implemented on `0074` with integration coverage.
+- Next: finish Phase 4 owner-port integration coverage, completion-time locator
+  re-verification wiring, and remaining negative matrix cases (work-trace,
+  deterministic facts, later-alias invariance). Phase 3 is complete through
+  `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
+- Phase 4 (in progress): Session/Submission owner ports,
+  `EvidenceTextSourceNormalizer`, `EvidenceLocatorDigestComputer`,
+  `EvidenceLocatorVerifier`, and `EvidenceSetSealComputer` domain slice.
+  Verification: `FlexAgent.Evaluation.Tests` 75 passed; architecture tests 65
+  passed; `EvaluationSessionEvidenceSourceTests` added (requires local Postgres
+  integration fixture).
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -1058,7 +1087,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 frozen-input and persistence red/green | approved core | `13fd2f3`: `0072`, frozen-input digest, admission/inbox/reconciliation, durable work claim/retry/recovery. Focused: Evaluation domain 54; schema 3; admission/recovery 11; architecture 65; Grate 13 |
 | Phase 3 security-review schema follow-up | approved hardening | `4e2fb53`: additive `0073` composite annotation/audit provenance; expired final-attempt exhaustion on claim scan. Focused schema/provenance/admission 18 passed |
 | Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required |
-| Phase 3 fault matrix (`0074` + `0075`) | complete | `5012349` review follow-up: evaluation-row hold/disposal serialization, lifecycle-executor EXECUTE boundary, delegation proof, role/delegation/race negatives. Confirmation 2026-09-08: Evaluation integration 39 passed; `verify-dotnet.sh` green; `verify-web.sh` green; `check_docs.py` passed. Hosted CI not independently observed |
+| Phase 3 fault matrix (`0074` + `0075`) | approved | Developer review on `909c624`: 0 Blocker / 0 High / 0 Medium. Hold/disposal serialization, lifecycle-executor boundary, delegation proof, role/delegation/race negatives. Confirmation: Evaluation integration 39 passed; `verify-dotnet.sh` / `verify-web.sh` / docs green. Hosted CI not independently observed |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
