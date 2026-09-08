@@ -8,6 +8,8 @@
     <Project Path="src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/FlexAgent.AssessmentConfiguration.csproj" />
     <Project Path="src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/FlexAgent.AssessmentConfiguration.Infrastructure.csproj" />
     <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
+    <Project Path="src/Modules/Evaluation/FlexAgent.Evaluation/FlexAgent.Evaluation.csproj" />
+    <Project Path="src/Modules/Evaluation/FlexAgent.Evaluation.Infrastructure/FlexAgent.Evaluation.Infrastructure.csproj" />
     <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
     <Project Path="src/Modules/Sessions/FlexAgent.Sessions/FlexAgent.Sessions.csproj" />
     <Project Path="src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/FlexAgent.Sessions.Infrastructure.csproj" />
@@ -22,6 +24,7 @@
     <Project Path="tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests/FlexAgent.AssessmentConfiguration.Tests.csproj" />
     <Project Path="tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/FlexAgent.CanonicalJson.Tests.csproj" />
     <Project Path="tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj" />
+    <Project Path="tests/Evaluation/FlexAgent.Evaluation.Tests/FlexAgent.Evaluation.Tests.csproj" />
     <Project Path="tests/Integration/FlexAgent.Artifact.Integration.Tests/FlexAgent.Artifact.Integration.Tests.csproj" />
     <Project Path="tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj" />
     <Project Path="tests/Integration/FlexAgent.Keycloak.Integration.Tests/FlexAgent.Keycloak.Integration.Tests.csproj" />

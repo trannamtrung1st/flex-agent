@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Evaluation.Infrastructure</RootNamespace>
+    <AssemblyName>FlexAgent.Evaluation.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlexAgent.Evaluation\FlexAgent.Evaluation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Evaluation.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+  </ItemGroup>
+
+</Project>

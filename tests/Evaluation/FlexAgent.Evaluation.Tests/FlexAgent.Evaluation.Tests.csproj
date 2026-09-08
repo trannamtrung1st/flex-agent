@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FlexAgent.Evaluation.Tests</RootNamespace>
+    <AssemblyName>FlexAgent.Evaluation.Tests</AssemblyName>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\schema\v1\evaluation\evaluation-procedure\**\*"
+             Link="contracts\fixtures\schema\v1\evaluation\evaluation-procedure\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Modules\Evaluation\FlexAgent.Evaluation\FlexAgent.Evaluation.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Evaluation\FlexAgent.Evaluation.Infrastructure\FlexAgent.Evaluation.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

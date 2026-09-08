@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
 ---
 
@@ -421,32 +421,32 @@ approved layout families and donors already exist.
 
 ## Phase 2 — Establish Evaluation domain and module boundaries
 
-- [ ] Create `src/Modules/Evaluation/FlexAgent.Evaluation` for domain and
+- [x] Create `src/Modules/Evaluation/FlexAgent.Evaluation` for domain and
   application behavior and
   `src/Modules/Evaluation/FlexAgent.Evaluation.Infrastructure` for PostgreSQL,
   protected-source adapters, and host composition. Add
   `tests/Evaluation/FlexAgent.Evaluation.Tests` and solution references.
-- [ ] Red: add architecture tests preventing Evaluation from referencing host,
+- [x] Red: add architecture tests preventing Evaluation from referencing host,
   concrete owner-module infrastructure, Design Lab, Review implementation
   internals, or provider-specific adapters. Permit only documented contracts
   and narrow owner ports.
-- [ ] Model explicit value objects/aggregates for trusted ownership, frozen
+- [x] Model explicit value objects/aggregates for trusted ownership, frozen
   input identity, request kind, request/invocation/attempt states, evaluator
   mode, criterion judgment, Evidence item/set, Evaluation, lineage, annotation,
   and disposition. Reject empty IDs, non-UTC times, unbounded text, unsupported
   schemas/modes/statuses, duplicate criteria/Evidence IDs, and mutable aliases.
-- [ ] Implement the evaluation-procedure resolver and independent validators
+- [x] Implement the evaluation-procedure resolver and independent validators
   for criterion completeness, configured fields/ranges, insufficiency,
   not-applicable, confidence/uncertainty, rationale/provisional content,
   aggregation, citation integrity, deterministic conflicts, and protected-
   content boundaries.
-- [ ] Red/green/refactor domain tests for all valid modes and the complete
+- [x] Red/green/refactor domain tests for all valid modes and the complete
   invalid matrix before persistence or provider wiring.
 
 ## Phase 3 — Add persistence, admission, durable work, and recovery
 
 - [ ] Allocate the next available additive migrations at activation (currently
-  `0071+`) for Evaluation requests,
+  `0072+`) for Evaluation requests,
   idempotency/input identities, invocation attempts, deterministic attempts,
   durable work/leases, protected provider artifacts/references, Evidence items,
   Evidence sets/seals, criterion judgments, Evaluations, lineage,
@@ -820,6 +820,9 @@ approved layout families and donors already exist.
 - Evaluation uses a separate Worker lane and provider-neutral contract. It may
   share stable protocol plumbing with Sessions only after architecture tests
   prove the dependency does not couple domain semantics.
+- Evaluation frozen model identity is owned by Evaluation and copies the exact
+  profile id/version/digest plus credential binding from the Session RSC. It
+  does not reference Sessions types or resolve a mutable profile name.
 - Evaluation completion calls a narrow Review-owned transaction adapter to
   publish `evaluation_available`; it does not write Review tables directly.
   The Review adapter may record the exact initial candidate only for a case
@@ -847,9 +850,10 @@ approved layout families and donors already exist.
 # Current state
 
 Activated on 2026-09-07 at `15ae379` (`main` / `origin/main`). Phase 1 frozen-
-input prerequisites are implemented; Evaluation processing remains fail-closed
-until later phases add the Evaluation module, admission, Worker lane, APIs,
-and Review UI.
+input prerequisites are implemented and approved on `b728d71`. Phase 2 added
+the Evaluation module, architecture boundaries, domain validators, and
+fail-closed admission. Evaluation processing, persistence, Worker, APIs, and
+Review UI remain unimplemented.
 
 - Catalog family is present (procedure/request/work/artifact/review-read).
   Internal work/provider/protected-artifact contracts stay out of OpenAPI/TS.
@@ -874,7 +878,19 @@ and Review UI.
 - Consistency review on 2026-09-07 fixed payload FK binding, inactive-hold
   dispose, rubric-only byte load, owner-port isolation tests, and the missing
   JCS `fixture.json` for the synthetic evaluation-procedure bytes.
-- Next: Phase 2 Evaluation module and architecture dependency rules.
+- Phase 1 approved on `b728d71`. Evaluation processing remains fail-closed.
+- Phase 2 added `FlexAgent.Evaluation` and `FlexAgent.Evaluation.Infrastructure`
+  with architecture tests. Domain aggregates validate ownership, exact frozen
+  input, procedure, judgments, Evidence, completion, lineage, and annotations.
+  `FrozenModelIdentity` requires exact profile id/version/digest plus
+  credential binding; names and `latest`/`current` aliases fail as
+  `evaluation.unqualified_model`.
+- Infrastructure is fail-closed (`ProcessingEnabled = false`;
+  `DisabledEvaluationAdmission` returns `evaluation.processing_disabled`). No
+  host, SQL, or provider adapter is wired. Application owner ports exist for
+  the Session handoff snapshot and protected canonical procedure bytes.
+- Next: Phase 3 persistence, admission, durable work, and recovery on additive
+  migration `0072`. Do not resolve evaluator/model identity by profile name.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -932,6 +948,17 @@ The only other active task is `text-interaction-controller-contract`
   Partial. This does not prevent red/green implementation work, but it does
   prevent enabling Evaluation or claiming the whole feature complete until the
   exact dependency gate is evidenced.
+- Phase 2 created `FlexAgent.Evaluation.Infrastructure` before Npgsql exists
+  because architecture tests and fail-closed admission need a composition
+  target. The assembly stays package-free and returns
+  `evaluation.processing_disabled` rather than a no-op placeholder.
+- `all_required_satisfied` has no dedicated aggregate for `not_satisfied`.
+  Interim default: a completed Evaluation with any remaining `not_satisfied`
+  criterion uses `insufficient_evidence` rather than inventing a new enum
+  value. Conflict and explicit insufficiency keep their own statuses.
+- Evidence item `Ownership` is stored but not yet compared to frozen-request
+  ownership at set/completion. Encode that equality before migration `0072`
+  so persistence cannot accept mixed-scope Evidence.
 
 # Readiness review
 
@@ -980,8 +1007,8 @@ interim default and rationale in the owning authority before proceeding.
 | Requirement/AC-to-surface map | complete | All `REQ-EVAL-1`–`REQ-EVAL-53` and `AC-EVAL-1`–`AC-EVAL-38` grouped above with implementation and evidence targets |
 | Plan documentation validation | complete | `python3 scripts/check_docs.py` passed on 2026-09-07; `git diff --no-index --check /dev/null .work/active/evidence-evaluation.md` reported no whitespace diagnostics (exit `1` only because the new file differs from `/dev/null`) |
 | Second cross-cutting readiness review | complete | Backend ownership/concurrency/contracts, frontend route/state/accessibility/security, and security/privacy trust boundaries reviewed on 2026-09-07; corrections recorded under Readiness review |
-| Focused red-green-refactor evidence | Phase 1 complete | Payload persist red then green; mismatched source-id FK red (accepted) then green; inactive-hold dispose red (`23503`) then green; JCS Node red (`ENOENT` missing `fixture.json`) then green |
-| Contract/JCS and architecture tests | Phase 1 complete | `FlexAgent.Contract.Tests` 245 passed; `EvaluationContractCatalogTests` 4; `EvaluationProcedureDocumentParserTests` 10; `JcsFixtureConformanceTests` 7; `pnpm --filter @flex-agent/contracts test` 8; `ModuleBoundaryTests` 3 |
+| Focused red-green-refactor evidence | Phase 2 complete | Domain compile red (`CS0234` missing `FlexAgent.Evaluation.Domain`) then types added; frozen-input fixture red (non-hex digest `m`/`s`) then green; architecture `EvaluationBoundaryTests` added before host/provider wiring |
+| Contract/JCS and architecture tests | Phase 2 focused complete | `FlexAgent.Evaluation.Tests` 39 passed; `EvaluationBoundaryTests` + `ModuleBoundaryTests` + `ProviderAdapterBoundaryTests` 13 passed. Phase 1 contract/JCS evidence unchanged |
 | PostgreSQL migration/fault/concurrency/isolation tests | Phase 1 focused complete | Payload persist 7; Assessment activation 22; Enrollment 30; Attempt-start 7; Grate smoke 2; `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` 1. Full `MigrationUpgradeTests` class not re-run |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

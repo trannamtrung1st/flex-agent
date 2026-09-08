@@ -27,12 +27,34 @@ internal static class ArchitectureTestSupport
         "OpenTelemetry",
     ];
 
+    internal static readonly string[] ForbiddenEvaluationPrefixes =
+    [
+        "Microsoft.AspNetCore",
+        "Npgsql",
+        "Dapper",
+        "FlexAgent.Postgres",
+        "OpenAI",
+        "AWSSDK",
+        "FlexAgent.Api",
+        "FlexAgent.Worker",
+        "FlexAgent.SyntheticBrowser",
+        "FlexAgent.Sessions.OpenAiCompatible",
+        "FlexAgent.Sessions.OpenRouter",
+        "FlexAgent.Sessions.Infrastructure",
+        "FlexAgent.Submissions.Infrastructure",
+        "FlexAgent.AssessmentConfiguration.Infrastructure",
+        "FlexAgent.Configuration.Infrastructure",
+        "FlexAgent.IdentityAccess.Infrastructure",
+        "OpenTelemetry",
+    ];
+
     internal static readonly string[] ForbiddenModuleInfrastructureNamespaces =
     [
         "FlexAgent.IdentityAccess.Infrastructure",
         "FlexAgent.Configuration.Infrastructure",
         "FlexAgent.AssessmentConfiguration.Infrastructure",
         "FlexAgent.Submissions.Infrastructure",
+        "FlexAgent.Evaluation.Infrastructure",
     ];
 
     internal static void AssertNoForbiddenDependencies(

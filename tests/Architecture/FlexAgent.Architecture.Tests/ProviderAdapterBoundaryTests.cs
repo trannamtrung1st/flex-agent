@@ -30,6 +30,8 @@ public sealed class ProviderAdapterBoundaryTests
                      typeof(FlexAgent.Api.Program).Assembly,
                      typeof(FlexAgent.Worker.Program).Assembly,
                      typeof(FlexAgent.Contracts.Session.SessionLocatorV1).Assembly,
+                     typeof(FlexAgent.Evaluation.Domain.EvaluationOwnership).Assembly,
+                     typeof(FlexAgent.Evaluation.Infrastructure.EvaluationInfrastructure).Assembly,
                  })
         {
             var result = Types.InAssembly(assembly)

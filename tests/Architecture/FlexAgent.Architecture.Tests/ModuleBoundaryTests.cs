@@ -1,6 +1,7 @@
 using System.Reflection;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.Configuration.Application;
+using FlexAgent.Evaluation.Domain;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Submissions.Application;
 using NetArchTest.Rules;
@@ -13,11 +14,12 @@ public sealed class ModuleBoundaryTests
   private static readonly Assembly ConfigurationAssembly = typeof(IRegisterConfigurationSourceVersionHandler).Assembly;
   private static readonly Assembly AssessmentAssembly = typeof(IAssessmentActivationCoordinator).Assembly;
   private static readonly Assembly SubmissionsAssembly = typeof(IEnrollmentCoordinator).Assembly;
+  private static readonly Assembly EvaluationAssembly = typeof(EvaluationOwnership).Assembly;
 
   [Fact]
   public void Domain_and_application_layers_do_not_reference_persistence_packages()
   {
-      foreach (var assembly in new[] { IdentityAccessAssembly, ConfigurationAssembly, AssessmentAssembly, SubmissionsAssembly })
+      foreach (var assembly in new[] { IdentityAccessAssembly, ConfigurationAssembly, AssessmentAssembly, SubmissionsAssembly, EvaluationAssembly })
       {
           var result = Types.InAssembly(assembly)
               .That()
