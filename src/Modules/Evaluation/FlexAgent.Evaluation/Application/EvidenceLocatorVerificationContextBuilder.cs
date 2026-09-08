@@ -29,6 +29,7 @@ public static class EvidenceLocatorVerificationContextBuilder
             sessionEvidence.TranscriptItemsAtOrBeforeCutoff.ToDictionary(
                 item => item.MessageId,
                 StringComparer.Ordinal),
+            new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal),
             (submissionEvidence?.BoundItems ?? [])
                 .ToDictionary(item => item.SourceId, StringComparer.Ordinal),
             resolvedConfigurationFacts,

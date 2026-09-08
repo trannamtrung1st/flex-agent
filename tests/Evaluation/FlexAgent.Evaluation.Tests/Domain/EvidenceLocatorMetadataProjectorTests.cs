@@ -272,6 +272,7 @@ public sealed class EvidenceLocatorMetadataProjectorTests
                 ownership.GetProperty("evaluation_id").GetString()!),
             42,
             new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal),
+            new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSubmissionMaterial>(StringComparer.Ordinal)
             {
                 [sourceRef.GetProperty("source_id").GetString()!] = new EvaluationSubmissionMaterial(

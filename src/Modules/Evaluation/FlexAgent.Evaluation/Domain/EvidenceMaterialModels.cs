@@ -71,6 +71,7 @@ public sealed record EvidenceLocatorVerificationContext(
     EvaluationStableOwnershipReference TrustedOwnership,
     long TerminalCutoffSequence,
     IReadOnlyDictionary<string, EvaluationSessionTranscriptMaterial> TranscriptItemsByMessageId,
+    IReadOnlyDictionary<string, EvaluationSessionTranscriptMaterial> WorkTraceItemsBySourceId,
     IReadOnlyDictionary<string, EvaluationSubmissionMaterial> SubmissionItemsBySourceId,
     IReadOnlyDictionary<string, EvaluationSafeFactProjection> SafeConfigurationFactsBySourceId,
     IReadOnlyDictionary<string, EvaluationSafeFactProjection> SafeManifestFactsBySourceId,

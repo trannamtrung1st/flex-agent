@@ -299,7 +299,7 @@ public static class EvidenceLocatorVerifier
                     submission.ContentDigest,
                     submission.ExactUtf8,
                     null),
-            "session.transcript_item" or "session.work_trace"
+            "session.transcript_item"
                 when context.TranscriptItemsByMessageId.TryGetValue(sourceId, out var transcript)
                      && string.Equals(transcript.SourceVersion, sourceVersion, StringComparison.Ordinal)
                      && transcript.PublishedSequence <= context.TerminalCutoffSequence =>
@@ -308,8 +308,20 @@ public static class EvidenceLocatorVerifier
                     transcript.ContentDigest,
                     transcript.ExactUtf8,
                     null),
-            "session.transcript_item" or "session.work_trace"
+            "session.transcript_item"
                 when context.TranscriptItemsByMessageId.ContainsKey(sourceId) =>
+                null,
+            "session.work_trace"
+                when context.WorkTraceItemsBySourceId.TryGetValue(sourceId, out var workTrace)
+                     && string.Equals(workTrace.SourceVersion, sourceVersion, StringComparison.Ordinal)
+                     && workTrace.PublishedSequence <= context.TerminalCutoffSequence =>
+                new ResolvedMaterial(
+                    sourceId,
+                    workTrace.ContentDigest,
+                    workTrace.ExactUtf8,
+                    null),
+            "session.work_trace"
+                when context.WorkTraceItemsBySourceId.ContainsKey(sourceId) =>
                 null,
             "configuration.fact"
                 when context.SafeConfigurationFactsBySourceId.TryGetValue(sourceId, out var configuration)

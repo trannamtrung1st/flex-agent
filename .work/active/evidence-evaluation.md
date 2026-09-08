@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T00:42:00+07:00
+updated: 2026-09-09T01:01:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -579,12 +579,12 @@ approved layout families and donors already exist.
   assembler/domain/integration negatives, and extended locator matrix items from
   slice 3. External review on corrective chain: 0 Blocker / 0 High / 0 Medium;
   previous fragment-cutoff High and incomplete-publication Medium closed.
-  Slice 4 verified 2026-09-09 (pending external review): remaining locator negative
-  excerpt digest, wrong source-version / unpublished transcript material,
-  work-trace post-cutoff; Session integration for cancelled agent exclusion.
-  Remaining Phase 4 gate before Phase 5: Session work-trace owner-port
-  (deferred until durable work-trace persistence exists), proportionate full-suite
-  regression, and external review of slice 4.
+  Slice 4 on `c97715e` pending external re-review after corrective work-trace
+  isolation: separate `WorkTraceItemsBySourceId` (empty from owner port),
+  transcript masquerade rejected, dedicated collection verifies when populated.
+  Review on `c97715e`: 1 High — shared transcript dictionary allowed work-trace
+  masquerade. Remaining Phase 4 gate before Phase 5: durable work-trace owner
+  port, proportionate full-suite regression, external re-review of slice 4.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
@@ -972,10 +972,10 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   (deferred until durable work-trace persistence exists), proportionate
   full-suite regression, and external review of slice 4 before Phase 5.
   Phase 4 slice 3 approved 2026-09-09 through `4a6a152` + `88b293f` (review:
-  0 Blocker / 0 High / 0 Medium). Slice 4 verified 2026-09-09 (pending external
-  review): locator negatives for forged excerpt, wrong source version,
-  unpublished material, work-trace post-cutoff; Session integration 14;
-  `FlexAgent.Evaluation.Tests` 120. Phase 3 is complete through `909c624`.
+  0 Blocker / 0 High / 0 Medium). Slice 4 on `c97715e` pending re-review after
+  work-trace source-type isolation corrective (local, pending re-review). Confirmation
+  2026-09-09: Evaluation 121; Session evidence integration 14; architecture 65.
+  Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1141,7 +1141,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice (`0514a70` + `235f7ed` + `895a30a`) | approved | Combined developer review 2026-09-08 on corrective slice: 0 Blocker / 0 High / 0 Medium; no further corrective commit required. `0514a70` review: 1 High + 1 Medium; `235f7ed` closes ownership binding and canonical-digest verification; `895a30a` records evidence. Focused: `FlexAgent.Evaluation.Tests` 94; session/submission Postgres integration 10; architecture 65; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 2 (`9e286f9` + `1932276` + `72ad277` + `2b70676` + `eb4be24`) | approved | Review 2026-09-08 on corrective chain: 0 Blocker / 0 High / 0 Medium; previous fallback integrity High closed. `9e286f9`: procedure gating, locator persistence, seal reorder/drift, mutable-alias/work-trace negatives. Review found 1 High — fallback sealed failed exact-range digests. `1932276`: effective `whole_item` location for seal/persistence via `EvidenceLocatorVerifiedProjection`. Evidence commits `72ad277`, `2b70676`, `eb4be24` record corrective/confirmation state without premature approval. Focused: `FlexAgent.Evaluation.Tests` 108; evaluation Postgres locator store 1; architecture 65; `verify-dotnet.sh` 2181 passed / 4 skipped; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
-| Phase 4 slice 4 | verified-pending-external-review | Locator negative matrix: forged excerpt digest, wrong source-version transcript material, unpublished transcript material, work-trace post-cutoff; Session integration cancelled agent exclusion. Focused: `FlexAgent.Evaluation.Tests` 120; `EvidenceLocatorVerifierTests` 17; `EvaluationSessionEvidenceSourceTests` 14; `check_docs.py` passed. Work-trace owner-port deferred. External review pending; hosted CI not independently observed |
+| Phase 4 slice 4 (`c97715e` + corrective) | verified-pending-external-review | `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review: 1 High — `session.work_trace` shared transcript dictionary allowed masquerade. Corrective (local): `WorkTraceItemsBySourceId` separate context; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

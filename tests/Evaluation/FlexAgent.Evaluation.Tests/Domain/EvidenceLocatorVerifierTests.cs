@@ -234,12 +234,37 @@ public sealed class EvidenceLocatorVerifierTests
     }
 
     [Fact]
-    public void Work_trace_whole_item_verifies_against_matching_material()
+    public void Transcript_material_cannot_masquerade_as_work_trace()
     {
         using var document = JsonDocument.Parse(
             File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
         var locator = MutateSourceType(document.RootElement, "session.work_trace");
-        var context = BuildContextForFixture(locator);
+        var context = BuildContextForFixture(document.RootElement);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Work_trace_material_verifies_from_dedicated_owner_collection()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
+        var locator = MutateSourceType(document.RootElement, "session.work_trace");
+        var transcriptContext = BuildContextForFixture(document.RootElement);
+        var workTrace = transcriptContext.TranscriptItemsByMessageId["msg.synthetic.0001"];
+        var context = transcriptContext with
+        {
+            TranscriptItemsByMessageId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
+                StringComparer.Ordinal),
+            WorkTraceItemsBySourceId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
+                StringComparer.Ordinal)
+            {
+                ["msg.synthetic.0001"] = workTrace,
+            },
+        };
 
         var result = EvidenceLocatorVerifier.TryVerify(locator, context);
 
@@ -319,15 +344,16 @@ public sealed class EvidenceLocatorVerifierTests
         using var document = JsonDocument.Parse(
             File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
         var locator = MutateSourceType(document.RootElement, "session.work_trace");
-        var baseContext = BuildContextForFixture(locator);
-        var workTrace = baseContext.TranscriptItemsByMessageId["msg.synthetic.0001"] with
+        var transcriptContext = BuildContextForFixture(document.RootElement);
+        var workTrace = transcriptContext.TranscriptItemsByMessageId["msg.synthetic.0001"] with
         {
             PublishedSequence = 99,
         };
-        var context = baseContext with
+        var context = transcriptContext with
         {
             TranscriptItemsByMessageId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
-                baseContext.TranscriptItemsByMessageId,
+                StringComparer.Ordinal),
+            WorkTraceItemsBySourceId = new Dictionary<string, EvaluationSessionTranscriptMaterial>(
                 StringComparer.Ordinal)
             {
                 ["msg.synthetic.0001"] = workTrace,
@@ -426,6 +452,7 @@ public sealed class EvidenceLocatorVerifierTests
 
         var submissionItems = new Dictionary<string, EvaluationSubmissionMaterial>(StringComparer.Ordinal);
         var transcriptItems = new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal);
+        var workTraceItems = new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal);
         var configurationFacts = new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal);
         var manifestFacts = new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal);
 
@@ -443,13 +470,20 @@ public sealed class EvidenceLocatorVerifierTests
                     DummyItemRecordId);
                 break;
             case "session.transcript_item":
-            case "session.work_trace":
                 transcriptItems[sourceId] = new EvaluationSessionTranscriptMaterial(
                     sourceId,
                     sourceVersion,
                     PublishedSequence: cutoff,
                     sourceDigest,
                     "fixture transcript"u8.ToArray());
+                break;
+            case "session.work_trace":
+                workTraceItems[sourceId] = new EvaluationSessionTranscriptMaterial(
+                    sourceId,
+                    sourceVersion,
+                    PublishedSequence: cutoff,
+                    sourceDigest,
+                    "fixture work trace"u8.ToArray());
                 break;
             case "configuration.fact":
                 configurationFacts[sourceId] = new EvaluationSafeFactProjection(
@@ -464,6 +498,7 @@ public sealed class EvidenceLocatorVerifierTests
             trustedOwnership,
             cutoff,
             transcriptItems,
+            workTraceItems,
             submissionItems,
             configurationFacts,
             manifestFacts,
@@ -487,6 +522,7 @@ public sealed class EvidenceLocatorVerifierTests
                 ownership.GetProperty("session_id").GetString()!,
                 ownership.GetProperty("evaluation_id").GetString()!),
             42,
+            new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSessionTranscriptMaterial>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSubmissionMaterial>(StringComparer.Ordinal)
             {
