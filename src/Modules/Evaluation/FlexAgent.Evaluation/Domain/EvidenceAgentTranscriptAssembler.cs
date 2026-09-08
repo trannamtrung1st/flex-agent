@@ -2,6 +2,7 @@ namespace FlexAgent.Evaluation.Domain;
 
 public sealed record EvaluationAgentFragmentMaterial(
     int FragmentOrdinal,
+    long SessionSequence,
     string ContentDigest,
     ReadOnlyMemory<byte> ExactUtf8);
 
@@ -9,10 +10,12 @@ public static class EvidenceAgentTranscriptAssembler
 {
     public static EvaluationDecision<ReadOnlyMemory<byte>> TryAssembleExactUtf8(
         IReadOnlyList<EvaluationAgentFragmentMaterial> fragments,
-        string expectedContentDigest)
+        string expectedContentDigest,
+        long terminalCutoffSequence)
     {
         if (!EvaluationIdentity.IsSha256Hex(expectedContentDigest)
-            || fragments.Count is < 1 or > 256)
+            || fragments.Count is < 1 or > 256
+            || terminalCutoffSequence < 0)
         {
             return EvaluationDecision<ReadOnlyMemory<byte>>.Fail(EvaluationFailureCodes.InvalidField);
         }
@@ -25,6 +28,13 @@ public static class EvidenceAgentTranscriptAssembler
                 return EvaluationDecision<ReadOnlyMemory<byte>>.Fail(
                     EvaluationFailureCodes.CitationIntegrity,
                     "fragments");
+            }
+
+            if (ordered[index].SessionSequence > terminalCutoffSequence)
+            {
+                return EvaluationDecision<ReadOnlyMemory<byte>>.Fail(
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "fragments.session_sequence");
             }
 
             if (!string.Equals(

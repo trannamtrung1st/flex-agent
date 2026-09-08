@@ -97,7 +97,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                             transcript.author_type = 'agent'
                             AND message.sealed_session_sequence IS NOT NULL
                             AND message.sealed_session_sequence <= @CutoffSequence
-                            AND message.completion_state = 'complete'
+                            AND message.completion_state IN ('complete', 'incomplete')
                         )
                       )
                 ORDER BY published_sequence, transcript.message_id;
@@ -122,6 +122,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
         var fragmentsByMessageId = await LoadAgentFragmentsAsync(
             connection,
             handoff,
+            handoff.CutoffSequence,
             agentMessageIds,
             cancellationToken);
 
@@ -152,7 +153,8 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
 
             var assembled = EvidenceAgentTranscriptAssembler.TryAssembleExactUtf8(
                 fragments,
-                row.content_digest);
+                row.content_digest,
+                handoff.CutoffSequence);
             if (!assembled.Succeeded || assembled.Value.IsEmpty)
             {
                 continue;
@@ -192,6 +194,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
         LoadAgentFragmentsAsync(
             Npgsql.NpgsqlConnection connection,
             EvaluationHandoffSnapshot handoff,
+            long terminalCutoffSequence,
             IReadOnlyList<string> messageIds,
             CancellationToken cancellationToken)
     {
@@ -203,7 +206,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
         var rows = await connection.QueryAsync<FragmentRow>(
             new CommandDefinition(
                 """
-                SELECT message_id, fragment_ordinal, content_digest, exact_utf8_text
+                SELECT message_id, fragment_ordinal, session_sequence, content_digest, exact_utf8_text
                 FROM session_message_fragments
                 WHERE organization_id = @OrganizationId
                   AND activity_id = @ActivityId
@@ -211,6 +214,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                   AND attempt_id = @AttemptId
                   AND session_id = @SessionId
                   AND message_id = ANY(@MessageIds)
+                  AND session_sequence <= @TerminalCutoffSequence
                 ORDER BY message_id, fragment_ordinal;
                 """,
                 new
@@ -221,6 +225,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                     handoff.Ownership.AttemptId,
                     handoff.Ownership.SessionId,
                     MessageIds = messageIds.ToArray(),
+                    TerminalCutoffSequence = terminalCutoffSequence,
                 },
                 cancellationToken: cancellationToken));
 
@@ -231,6 +236,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
                 group => (IReadOnlyList<EvaluationAgentFragmentMaterial>)group
                     .Select(fragment => new EvaluationAgentFragmentMaterial(
                         fragment.fragment_ordinal,
+                        fragment.session_sequence,
                         fragment.content_digest,
                         System.Text.Encoding.UTF8.GetBytes(fragment.exact_utf8_text)))
                     .ToArray(),
@@ -320,6 +326,7 @@ public sealed class PostgresEvaluationSessionEvidenceSource(
     private sealed record FragmentRow(
         string message_id,
         int fragment_ordinal,
+        long session_sequence,
         string content_digest,
         string exact_utf8_text);
 }

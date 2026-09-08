@@ -176,7 +176,7 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
             ownership,
             messageId,
             sealedSequence: 20,
-            fragments: [(1, first), (2, second)],
+            fragments: [(1, first, 21), (2, second, 22)],
             contentDigest: digest);
 
         var bundle = await LoadBundleAsync(prepared);
@@ -201,8 +201,114 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
             ownership,
             messageId,
             sealedSequence: 20,
-            fragments: [(2, "missing-first-fragment")],
+            fragments: [(2, "missing-first-fragment", 22)],
             contentDigest: Digest("missing-first-fragment"));
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.DoesNotContain(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId);
+    }
+
+    [Fact]
+    public async Task Agent_transcript_with_post_cutoff_fragment_is_not_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.post-cutoff-fragment";
+        const string first = "before ";
+        const string second = "after cutoff";
+        var assembled = first + second;
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 40,
+            fragments:
+            [
+                (1, first, 39),
+                (2, second, 43),
+            ],
+            contentDigest: Digest(assembled));
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.DoesNotContain(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId);
+    }
+
+    [Fact]
+    public async Task Agent_transcript_with_fragment_at_cutoff_is_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.at-cutoff-fragment";
+        const string text = "exact cutoff fragment";
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 40,
+            fragments: [(1, text, 42)],
+            contentDigest: Digest(text));
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.Contains(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId
+                    && text == System.Text.Encoding.UTF8.GetString(item.ExactUtf8.Span));
+    }
+
+    [Fact]
+    public async Task Explicitly_incomplete_published_agent_transcript_is_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.incomplete";
+        const string text = "partial published prefix";
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 20,
+            fragments: [(1, text, 20)],
+            contentDigest: Digest(text),
+            completionState: "incomplete");
+
+        var bundle = await LoadBundleAsync(prepared);
+
+        Assert.Contains(
+            bundle!.TranscriptItemsAtOrBeforeCutoff,
+            item => item.MessageId == messageId
+                    && text == System.Text.Encoding.UTF8.GetString(item.ExactUtf8.Span));
+    }
+
+    [Fact]
+    public async Task Unpublished_open_agent_message_is_not_materialized()
+    {
+        var prepared = await CreatePreparedAsync();
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        const string messageId = "msg.eval.agent.open";
+        const string text = "still streaming";
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        await InsertAgentTranscriptWithFragmentsAsync(
+            connection,
+            ownership,
+            messageId,
+            sealedSequence: 20,
+            fragments: [(1, text, 20)],
+            contentDigest: Digest(text),
+            completionState: "open");
 
         var bundle = await LoadBundleAsync(prepared);
 
@@ -332,8 +438,9 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
         EvaluationOwnership ownership,
         string messageId,
         long sealedSequence,
-        IReadOnlyList<(int Ordinal, string Text)> fragments,
-        string contentDigest)
+        IReadOnlyList<(int Ordinal, string Text, long SessionSequence)> fragments,
+        string contentDigest,
+        string completionState = "complete")
     {
         var turnId = $"turn.{messageId}";
         var responseSlotId = $"slot.{messageId}";
@@ -406,7 +513,7 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
             VALUES (
                 @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                 @MessageId, 'agent', @TurnId, @ProtectedRef, @ContentDigest,
-                'complete', @GenerationAttemptId, @InvocationId, @DecisionId,
+                @CompletionState, @GenerationAttemptId, @InvocationId, @DecisionId,
                 @MessageId, @ContentDigest, @ResponseSlotId,
                 @SealedSequence, clock_timestamp());
 
@@ -439,6 +546,7 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
                 CommittedSessionSequence = sealedSequence,
                 ProtectedRef = $"rev.{messageId}",
                 ContentDigest = contentDigest,
+                CompletionState = completionState,
                 SealedSequence = sealedSequence,
                 AssembledText = assembled,
             });
@@ -467,7 +575,7 @@ public sealed class EvaluationSessionEvidenceSourceTests(PostgresIntegrationFixt
                     ownership.SessionId,
                     MessageId = messageId,
                     FragmentOrdinal = fragment.Ordinal,
-                    SessionSequence = sealedSequence + fragment.Ordinal,
+                    SessionSequence = fragment.SessionSequence,
                     TurnId = turnId,
                     ResponseSlotId = responseSlotId,
                     GenerationAttemptId = generationAttemptId,
