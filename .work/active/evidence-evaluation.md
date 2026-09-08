@@ -10,6 +10,7 @@ phase3_fault_matrix: approved-909c624
 phase3_status: complete
 phase4_status: in-progress
 phase4_foundation: approved-437401b-2461466
+phase4_slice: corrected-0514a70-235f7ed
 ---
 
 # Goal
@@ -1102,7 +1103,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 fault matrix (`0074` + `0075`) | approved | Developer review on `909c624`: 0 Blocker / 0 High / 0 Medium. Hold/disposal serialization, lifecycle-executor boundary, delegation proof, role/delegation/race negatives. Confirmation: Evaluation integration 39 passed; `verify-dotnet.sh` / `verify-web.sh` / docs green. Hosted CI not independently observed |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
-| Phase 4 slice (safe facts, completion verifier, submission port integration) | in-progress | `EvaluationSafeFactProjector`, session bundle fact materialization, `EvidenceLocatorCompletionVerifier`/`EvidenceLocatorCompletionService`, submission port integration tests. `FlexAgent.Evaluation.Tests` 84 passed; session/submission Postgres integration 10 passed; architecture 65 passed. Hosted CI not independently observed |
+| Phase 4 slice (`0514a70` + `235f7ed`) | corrected | Developer review on `0514a70`: 1 High (caller ownership not bound to handoff), 1 Medium (safe facts did not verify canonical bytes). Corrective `235f7ed`: trusted ownership derived from authoritative handoff + Evaluation ID; canonical JCS digest check before projection; ownership/handoff/tamper negatives. Confirmation 2026-09-08: `FlexAgent.Evaluation.Tests` 94 passed; session/submission Postgres integration 10 passed; architecture 65 passed; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
