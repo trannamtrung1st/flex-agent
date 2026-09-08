@@ -3,6 +3,7 @@ using System.Text.Json;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
+using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests.Support;
 
@@ -167,6 +168,52 @@ internal static class EvaluationPersistenceTestSeed
             delegationId,
             workerActorId,
             Authority);
+    }
+
+    internal static async Task<Guid> InsertCompletedEvaluationAsync(
+        NpgsqlConnection connection,
+        EvaluationDurableWorkItem claimed,
+        CancellationToken cancellationToken,
+        NpgsqlTransaction? transaction = null)
+    {
+        var evaluationId = Guid.CreateVersion7();
+        var evidenceSetId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO evaluation_evidence_sets (
+                    organization_id, evaluation_id, evidence_set_id, request_id,
+                    invocation_attempt_id, seal_schema, seal_digest, sealed_at, sealed_by_service)
+                VALUES (
+                    @OrganizationId, @EvaluationId, @EvidenceSetId, @RequestId,
+                    @InvocationAttemptId, 'evidence-set-jcs-sha256-v1', @Digest,
+                    clock_timestamp(), 'evaluation.synthetic');
+
+                INSERT INTO evaluations (
+                    organization_id, evaluation_id, request_id, activity_id, participant_id,
+                    attempt_id, session_id, evidence_set_id, procedure_source_id,
+                    procedure_source_version_id, procedure_digest, aggregate_status,
+                    creation_service_id, completed_at, predecessor_evaluation_id)
+                SELECT
+                    organization_id, @EvaluationId, request_id, activity_id, participant_id,
+                    attempt_id, session_id, @EvidenceSetId, rubric_source_id,
+                    rubric_source_version_id, rubric_content_digest, 'complete',
+                    'evaluation.synthetic', clock_timestamp(), predecessor_evaluation_id
+                FROM evaluation_requests
+                WHERE organization_id = @OrganizationId AND request_id = @RequestId;
+                """,
+                new
+                {
+                    claimed.Ownership.OrganizationId,
+                    EvaluationId = evaluationId,
+                    EvidenceSetId = evidenceSetId,
+                    claimed.RequestId,
+                    claimed.InvocationAttemptId,
+                    Digest = new string('7', 64),
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        return evaluationId;
     }
 
     private const string SeedSql = """

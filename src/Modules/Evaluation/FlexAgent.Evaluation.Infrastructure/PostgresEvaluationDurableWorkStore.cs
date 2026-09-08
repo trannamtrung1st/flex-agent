@@ -68,6 +68,45 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
                     WHERE attempt.organization_id = reconciled.organization_id
                       AND attempt.request_id = reconciled.request_id
                       AND attempt.state IN ('running', 'validating', 'completing');
+
+                    WITH exhausted AS (
+                        UPDATE evaluation_durable_work AS work
+                        SET
+                            state = 'failed',
+                            claim_owner = NULL,
+                            claim_lease_until = NULL,
+                            failure_category = 'worker.attempt_exhausted',
+                            last_committed_at = clock_timestamp()
+                        FROM evaluation_requests AS request
+                        WHERE work.organization_id = @CandidateOrganizationId
+                          AND work.organization_id = request.organization_id
+                          AND work.request_id = request.request_id
+                          AND work.state = 'claimed'
+                          AND work.claim_lease_until < clock_timestamp()
+                          AND work.attempt_count >= work.max_attempts
+                          AND request.state <> 'completed'
+                        RETURNING work.organization_id, work.request_id
+                    ),
+                    failed_attempts AS (
+                        UPDATE evaluation_invocation_attempts AS attempt
+                        SET
+                            state = 'failed_review_required',
+                            finished_at = clock_timestamp(),
+                            failure_category = 'worker.attempt_exhausted'
+                        FROM exhausted
+                        WHERE attempt.organization_id = exhausted.organization_id
+                          AND attempt.request_id = exhausted.request_id
+                          AND attempt.state IN ('running', 'validating', 'completing')
+                        RETURNING attempt.organization_id, attempt.request_id
+                    )
+                    UPDATE evaluation_requests AS request
+                    SET
+                        state = 'failed_review_required',
+                        failure_category = 'worker.attempt_exhausted'
+                    FROM exhausted
+                    WHERE request.organization_id = exhausted.organization_id
+                      AND request.request_id = exhausted.request_id
+                      AND request.state IN ('queued', 'running', 'failed_retryable');
                     """,
                     new { CandidateOrganizationId = candidateOrganizationId.Value },
                     scope.Transaction,
@@ -583,6 +622,12 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
                         FROM evaluations
                         WHERE organization_id = request.organization_id
                           AND request_id = request.request_id)
+                )
+                OR (
+                    work.state = 'claimed'
+                    AND work.claim_lease_until < clock_timestamp()
+                    AND work.attempt_count >= work.max_attempts
+                    AND request.state <> 'completed'
                 )
               )
         ORDER BY COALESCE(served.last_claimed_at, TIMESTAMPTZ '-infinity'),

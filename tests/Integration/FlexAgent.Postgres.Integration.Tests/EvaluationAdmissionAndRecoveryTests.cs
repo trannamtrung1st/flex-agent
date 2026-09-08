@@ -421,6 +421,68 @@ public sealed class EvaluationAdmissionAndRecoveryTests(PostgresIntegrationFixtu
     }
 
     [Fact]
+    public async Task Expired_final_attempt_lease_is_exhausted_without_reclaim()
+    {
+        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+            Fixture,
+            Guid.CreateVersion7().ToString("N"),
+            CancellationToken);
+        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
+        var claimed = await prepared.Work.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+        Assert.NotNull(claimed);
+        await using (var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE evaluation_durable_work
+                SET
+                    max_attempts = attempt_count,
+                    claim_lease_until = clock_timestamp() - interval '1 second'
+                WHERE organization_id = @OrganizationId AND work_id = @WorkId;
+                """,
+                new
+                {
+                    claimed!.Ownership.OrganizationId,
+                    claimed.WorkId,
+                });
+        }
+
+        Assert.Null(await prepared.Work.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken));
+
+        await using var verification = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var state = await verification.QuerySingleAsync<(string WorkState, string RequestState, string AttemptState)>(
+            """
+            SELECT work.state, request.state, attempt.state
+            FROM evaluation_durable_work AS work
+            INNER JOIN evaluation_requests AS request
+              ON request.organization_id = work.organization_id
+             AND request.request_id = work.request_id
+            INNER JOIN evaluation_invocation_attempts AS attempt
+              ON attempt.organization_id = work.organization_id
+             AND attempt.request_id = work.request_id
+             AND attempt.invocation_attempt_id = @InvocationAttemptId
+            WHERE work.organization_id = @OrganizationId AND work.work_id = @WorkId;
+            """,
+            new
+            {
+                claimed!.Ownership.OrganizationId,
+                claimed.WorkId,
+                claimed.InvocationAttemptId,
+            });
+        Assert.Equal(("failed", "failed_review_required", "failed_review_required"), state);
+    }
+
+    [Fact]
     public async Task Lost_completion_acknowledgement_is_reconciled_without_reexecution()
     {
         var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
@@ -434,35 +496,17 @@ public sealed class EvaluationAdmissionAndRecoveryTests(PostgresIntegrationFixtu
             perOrganizationConcurrency: 1,
             CancellationToken);
         Assert.NotNull(claimed);
-        var evaluationId = Guid.CreateVersion7();
-        var evidenceSetId = Guid.CreateVersion7();
         await using (var connection = await Fixture.Services.ConnectionAccessor
             .OpenConnectionAsync(CancellationToken))
         await using (var transaction = await connection.BeginTransactionAsync(CancellationToken))
         {
+            await EvaluationPersistenceTestSeed.InsertCompletedEvaluationAsync(
+                connection,
+                claimed!,
+                CancellationToken,
+                transaction);
             await connection.ExecuteAsync(
                 """
-                INSERT INTO evaluation_evidence_sets (
-                    organization_id, evaluation_id, evidence_set_id, request_id,
-                    invocation_attempt_id, seal_schema, seal_digest, sealed_at, sealed_by_service)
-                VALUES (
-                    @OrganizationId, @EvaluationId, @EvidenceSetId, @RequestId,
-                    @InvocationAttemptId, 'evidence-set-jcs-sha256-v1', @Digest,
-                    clock_timestamp(), 'evaluation.synthetic');
-
-                INSERT INTO evaluations (
-                    organization_id, evaluation_id, request_id, activity_id, participant_id,
-                    attempt_id, session_id, evidence_set_id, procedure_source_id,
-                    procedure_source_version_id, procedure_digest, aggregate_status,
-                    creation_service_id, completed_at, predecessor_evaluation_id)
-                SELECT
-                    organization_id, @EvaluationId, request_id, activity_id, participant_id,
-                    attempt_id, session_id, @EvidenceSetId, rubric_source_id,
-                    rubric_source_version_id, rubric_content_digest, 'complete',
-                    'evaluation.synthetic', clock_timestamp(), predecessor_evaluation_id
-                FROM evaluation_requests
-                WHERE organization_id = @OrganizationId AND request_id = @RequestId;
-
                 UPDATE evaluation_requests
                 SET state = 'completed', completed_at = clock_timestamp()
                 WHERE organization_id = @OrganizationId AND request_id = @RequestId;
@@ -474,11 +518,7 @@ public sealed class EvaluationAdmissionAndRecoveryTests(PostgresIntegrationFixtu
                 new
                 {
                     claimed!.Ownership.OrganizationId,
-                    EvaluationId = evaluationId,
-                    EvidenceSetId = evidenceSetId,
                     claimed.RequestId,
-                    claimed.InvocationAttemptId,
-                    Digest = new string('7', 64),
                     claimed.WorkId,
                 },
                 transaction);

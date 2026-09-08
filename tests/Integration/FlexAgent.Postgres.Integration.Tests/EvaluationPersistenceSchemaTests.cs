@@ -76,6 +76,31 @@ public sealed class EvaluationPersistenceSchemaTests(PostgresIntegrationFixture 
     }
 
     [Fact]
+    public async Task Migration_0073_binds_disposition_and_audit_provenance()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+
+        var indexes = (await connection.QueryAsync<string>(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = ANY(@RequiredIndexes);
+            """,
+            new
+            {
+                RequiredIndexes = new[]
+                {
+                    "uq_evaluation_annotations_owned",
+                    "uq_audit_events_organization_event",
+                },
+            })).ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal(2, indexes.Count);
+    }
+
+    [Fact]
     public async Task Completed_artifact_tables_have_immutability_triggers()
     {
         await using var connection = await Fixture.Services.ConnectionAccessor

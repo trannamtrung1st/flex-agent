@@ -905,9 +905,11 @@ completion/lifecycle fault matrices remain before the phase can close.
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: finish the Phase 3 completion-race, artifact mutation/deletion, and
-  auditable hold-aware lifecycle disposition matrix. Do not resolve
-  evaluator/model identity by profile name.
+- Next: close remaining Phase 3 schema-integrity follow-ups from security
+  review (`0073` composite annotation/audit keys; expired final-attempt
+  exhaustion), then finish completion-race, ordinary artifact
+  mutation/deletion, and authorized hold-aware lifecycle disposition. Do not
+  resolve evaluator/model identity by profile name.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -989,6 +991,14 @@ The only other active task is `text-interaction-controller-contract`
   authorized execution boundary and hold/audit fault tests; rationale:
   PostgreSQL custom settings are caller-settable and are not sufficient
   lifecycle authority.
+- Phase 3 security review (`a317bff5`) found no Blocker/High, three Medium
+  schema-integrity gaps. Current `0072` already binds deterministic/provider
+  artifacts and Review handoffs through request/invocation composite FKs.
+  Remaining valid gaps: dispositions can cite another Evaluation's
+  annotation in the same Organization, and lifecycle disposition events cite
+  `audit_events` by global `event_id` only. Additive `0073` closes those
+  without editing frozen `0072`. Expired final-attempt leases that never
+  complete are also exhausted on the next claim scan so work cannot strand.
 
 # Readiness review
 
@@ -1040,6 +1050,7 @@ interim default and rationale in the owning authority before proceeding.
 | Focused red-green-refactor evidence | Phase 2 review-fix complete | Ownership/aggregation red (11 failing cases: mixed parent-chain Evidence accepted; `not_satisfied` → `insufficient_evidence`) then green |
 | Contract/JCS and architecture tests | Phase 2 review-fix complete | `FlexAgent.Evaluation.Tests` 51 passed; `EvaluationContractCatalogTests` 4; `ContractCatalogTests` valid/invalid fixtures 185; `python3 scripts/check_docs.py` passed |
 | Phase 3 frozen-input and persistence red/green | in progress | Observed red: missing `0072` tables/indexes/triggers (3 failures) and missing canonical frozen-input digester (compile failure). Green: `FlexAgent.Evaluation.Tests` 54 passed; Evaluation schema 3 passed; admission/inbox/idempotency/audit/cross-scope/delegation/claim/retry/recovery 11 passed |
+| Phase 3 security-review schema follow-up | in progress | Red: disposition cited another Evaluation annotation; lifecycle event cited another Organization's audit; uniqueness 5 vs 7; expired final attempt stayed `claimed`/`running`. Green: additive `0073` composite annotation/audit keys plus matching succeeded-audit trigger; claim scan exhausts expired final attempts. Schema/provenance 6 passed; admission+schema+provenance+Grate 30 passed before the schema-test split |
 | Phase 3 migration and architecture regression | in progress | `GrateToolMigrationTests` 13 passed; full `FlexAgent.Architecture.Tests` 65 passed; edited-file lints clean. One concurrent-build cache warning was transient and the sequential rerun was green |
 | PostgreSQL migration/fault/concurrency/isolation tests | Phase 1 focused complete | Payload persist 7; Assessment activation 22; Enrollment 30; Attempt-start 7; Grate smoke 2; `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` 1. Full `MigrationUpgradeTests` class not re-run |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
