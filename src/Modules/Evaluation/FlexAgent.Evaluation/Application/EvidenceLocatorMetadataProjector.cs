@@ -38,20 +38,11 @@ public static class EvidenceLocatorMetadataProjector
     {
         if (evidenceId == Guid.Empty
             || !TryGetRequiredString(locator, "locator_schema", out var locatorSchema)
-            || !TryGetRequiredString(locator, "precision", out var precision)
             || !locator.TryGetProperty("source_ref", out var sourceRef)
             || !TryGetRequiredString(sourceRef, "source_id", out var sourceId)
             || !TryGetRequiredString(sourceRef, "source_version", out var sourceVersion))
         {
             return EvaluationDecision<EvaluationEvidenceLocatorRecord>.Fail(EvaluationFailureCodes.InvalidField);
-        }
-
-        var locatorDigest = EvidenceLocatorDigestComputer.TryComputeLocatorDigest(locator);
-        if (!locatorDigest.Succeeded)
-        {
-            return EvaluationDecision<EvaluationEvidenceLocatorRecord>.Fail(
-                locatorDigest.OutcomeCode,
-                locatorDigest.Field);
         }
 
         var source = TryResolveProtectedSource(
@@ -76,8 +67,8 @@ public static class EvidenceLocatorMetadataProjector
                 source.Value.SourceVersionId,
                 verified.ResolvedSourceDigest,
                 locatorSchema,
-                locatorDigest.Value!,
-                precision,
+                verified.VerifiedLocatorDigest,
+                verified.VerifiedPrecision,
                 verified.VerificationState));
     }
 

@@ -92,7 +92,9 @@ public static class EvidenceLocatorVerifier
                 sourceRefDigest.Field);
         }
 
-        var locationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(location);
+        var effectiveLocation = locationResult.EffectiveLocation ?? location;
+        var verifiedPrecision = locationResult.EffectiveLocation is not null ? "whole_item" : precision;
+        var locationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(effectiveLocation);
         if (!locationDigest.Succeeded)
         {
             return EvaluationDecision<VerifiedEvidenceLocator>.Fail(
@@ -109,13 +111,36 @@ public static class EvidenceLocatorVerifier
                 "integrity.verification_state");
         }
 
+        var effectiveLocator = EvidenceLocatorVerifiedProjection.TryBuildEffectiveLocator(
+            locator,
+            effectiveLocation,
+            verifiedPrecision,
+            verificationState);
+        if (!effectiveLocator.Succeeded)
+        {
+            return EvaluationDecision<VerifiedEvidenceLocator>.Fail(
+                effectiveLocator.OutcomeCode,
+                effectiveLocator.Field);
+        }
+
+        var verifiedLocatorDigest = EvidenceLocatorDigestComputer.TryComputeLocatorDigest(
+            effectiveLocator.Value);
+        if (!verifiedLocatorDigest.Succeeded)
+        {
+            return EvaluationDecision<VerifiedEvidenceLocator>.Fail(
+                verifiedLocatorDigest.OutcomeCode,
+                verifiedLocatorDigest.Field);
+        }
+
         return EvaluationDecision<VerifiedEvidenceLocator>.Ok(
             new VerifiedEvidenceLocator(
                 sourceType,
                 sourceRefDigest.Value!,
                 locationDigest.Value!,
                 verificationState,
-                material.ContentDigest));
+                material.ContentDigest,
+                verifiedPrecision,
+                verifiedLocatorDigest.Value!));
     }
 
     private static LocationVerificationResult VerifyLocation(
@@ -183,9 +208,10 @@ public static class EvidenceLocatorVerifier
 
         if (permitWholeItemFallback)
         {
-            var wholeItem = VerifyWholeItem(location, material);
+            var wholeItemLocation = EvidenceLocatorVerifiedProjection.CreateWholeItemLocation(itemId);
+            var wholeItem = VerifyWholeItem(wholeItemLocation, material);
             return wholeItem.Succeeded
-                ? LocationVerificationResult.Ok("lower_precision")
+                ? LocationVerificationResult.Ok("lower_precision", wholeItemLocation)
                 : wholeItem;
         }
 
@@ -220,9 +246,10 @@ public static class EvidenceLocatorVerifier
 
         if (permitWholeItemFallback)
         {
-            var wholeItem = VerifyWholeItem(location, material);
+            var wholeItemLocation = EvidenceLocatorVerifiedProjection.CreateWholeItemLocation(itemId);
+            var wholeItem = VerifyWholeItem(wholeItemLocation, material);
             return wholeItem.Succeeded
-                ? LocationVerificationResult.Ok("lower_precision")
+                ? LocationVerificationResult.Ok("lower_precision", wholeItemLocation)
                 : wholeItem;
         }
 
@@ -388,10 +415,13 @@ public static class EvidenceLocatorVerifier
         bool Succeeded,
         string OutcomeCode,
         string VerificationState,
-        string? Field)
+        string? Field,
+        JsonElement? EffectiveLocation = null)
     {
-        public static LocationVerificationResult Ok(string verificationState) =>
-            new(true, "evaluation.ok", verificationState, null);
+        public static LocationVerificationResult Ok(
+            string verificationState,
+            JsonElement? effectiveLocation = null) =>
+            new(true, "evaluation.ok", verificationState, null, effectiveLocation);
 
         public static LocationVerificationResult Fail(string outcomeCode, string? field) =>
             new(false, outcomeCode, "failed", field);

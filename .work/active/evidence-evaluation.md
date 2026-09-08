@@ -11,7 +11,7 @@ phase3_status: complete
 phase4_status: in-progress
 phase4_foundation: approved-437401b-2461466
 phase4_slice: approved-0514a70-235f7ed
-phase4_slice2: committed-9e286f9
+phase4_slice2: corrective-pending-review
 ---
 
 # Goal
@@ -550,6 +550,8 @@ approved layout families and donors already exist.
   Verifier records `lower_precision` when `PermitWholeItemFallback` is set and
   finer range verification fails; `EvidenceLocatorProcedurePolicy` resolves
   fallback per criterion at completion (caller no longer supplies a bypass).
+  Corrective follow-up: fallback now seals/persists an effective `whole_item`
+  location digest and verified precision rather than the failed exact-range JSON.
   Review follow-up on `437401b`: Session owner port now requires authoritative
   participant admission sequences (no `COALESCE(..., 0)`), and byte-range
   normalization rejects non-boundary UTF-8 slices.
@@ -945,9 +947,7 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: developer review of uncommitted Phase 4 slice 2 (procedure gating,
-  locator-metadata persistence, seal reorder/drift, mutable-alias/work-trace
-  negatives), then full Phase 4 green gate (`verify-dotnet.sh`) before Phase 5.
+- Next: re-review Phase 4 slice 2 after corrective fallback sealing commit.
   Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
@@ -1112,7 +1112,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | Phase 4 slice (`0514a70` + `235f7ed` + `895a30a`) | approved | Combined developer review 2026-09-08 on corrective slice: 0 Blocker / 0 High / 0 Medium; no further corrective commit required. `0514a70` review: 1 High + 1 Medium; `235f7ed` closes ownership binding and canonical-digest verification; `895a30a` records evidence. Focused: `FlexAgent.Evaluation.Tests` 94; session/submission Postgres integration 10; architecture 65; `check_docs.py` passed. Hosted CI not independently observed |
-| Phase 4 slice 2 (`9e286f9`) | pending review | Procedure-gated whole-item fallback via `EvidenceLocatorProcedurePolicy`; completion request carries `CriterionId` + stable `EvidenceId`; `EvidenceLocatorMetadataProjector` + `PostgresEvaluationEvidenceLocatorStore` with idempotent retry; seal reorder/drift; mutable-alias/work-trace negatives. Confirmation 2026-09-08: `FlexAgent.Evaluation.Tests` 106; evaluation Postgres integration 11; architecture 65; `verify-dotnet.sh` 2179 passed / 4 skipped; `check_docs.py` passed. Hosted CI not independently observed |
+| Phase 4 slice 2 (`9e286f9` + corrective) | pending review | Initial slice: procedure gating, locator persistence, seal reorder/drift, mutable-alias/work-trace negatives. Review 2026-09-08: 0 Blocker / 1 High — fallback sealed failed exact-range digests. Corrective: effective `whole_item` location for seal/persistence via `EvidenceLocatorVerifiedProjection`; byte/line fallback tests. Verification: `FlexAgent.Evaluation.Tests` 108; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

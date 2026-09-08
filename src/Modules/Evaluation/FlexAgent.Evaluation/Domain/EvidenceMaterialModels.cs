@@ -111,4 +111,6 @@ public sealed record VerifiedEvidenceLocator(
     string SourceRefDigest,
     string LocationDigest,
     string VerificationState,
-    string ResolvedSourceDigest);
+    string ResolvedSourceDigest,
+    string VerifiedPrecision,
+    string VerifiedLocatorDigest);

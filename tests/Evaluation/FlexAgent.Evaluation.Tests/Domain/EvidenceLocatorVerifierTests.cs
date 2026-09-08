@@ -137,11 +137,45 @@ public sealed class EvidenceLocatorVerifierTests
             File.ReadAllBytes(LocatorFixturePath("valid-submission-byte-range.json")));
         var locator = MutateIntegrity(document.RootElement, sourceDigest);
         var context = BuildSubmissionContext(locator, content, sourceDigest, permitWholeItemFallback: true);
+        var itemId = locator.GetProperty("location").GetProperty("item_id").GetString()!;
+        var wholeItemLocation = EvidenceLocatorVerifiedProjection.CreateWholeItemLocation(itemId);
+        var attemptedLocationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(
+            locator.GetProperty("location"));
+        var wholeItemLocationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(wholeItemLocation);
 
         var result = EvidenceLocatorVerifier.TryVerify(locator, context);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
         Assert.Equal("lower_precision", result.Value!.VerificationState);
+        Assert.Equal("whole_item", result.Value.VerifiedPrecision);
+        Assert.Equal(wholeItemLocationDigest.Value, result.Value.LocationDigest);
+        Assert.NotEqual(attemptedLocationDigest.Value, result.Value.LocationDigest);
+    }
+
+    [Fact]
+    public void Line_range_fallback_seals_effective_whole_item_location()
+    {
+        var content = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\n"u8.ToArray();
+        var sourceDigest = EvidenceTextSourceNormalizer.DigestUtf8(content);
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-submission-line-range.json")));
+        var locator = MutateIntegrity(
+            MutateLineRange(document.RootElement, startLineInclusive: 20, endLineInclusive: 25),
+            sourceDigest);
+        var context = BuildSubmissionContext(locator, content, sourceDigest, permitWholeItemFallback: true);
+        var itemId = locator.GetProperty("location").GetProperty("item_id").GetString()!;
+        var wholeItemLocation = EvidenceLocatorVerifiedProjection.CreateWholeItemLocation(itemId);
+        var attemptedLocationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(
+            locator.GetProperty("location"));
+        var wholeItemLocationDigest = EvidenceLocatorDigestComputer.TryComputeLocationDigest(wholeItemLocation);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal("lower_precision", result.Value!.VerificationState);
+        Assert.Equal("whole_item", result.Value.VerifiedPrecision);
+        Assert.Equal(wholeItemLocationDigest.Value, result.Value.LocationDigest);
+        Assert.NotEqual(attemptedLocationDigest.Value, result.Value.LocationDigest);
     }
 
     [Fact]
@@ -329,6 +363,52 @@ public sealed class EvidenceLocatorVerifierTests
                         if (locationProperty.NameEquals("excerpt_digest"))
                         {
                             writer.WriteString("excerpt_digest", excerptDigest);
+                            continue;
+                        }
+
+                        locationProperty.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement MutateLineRange(
+        JsonElement locator,
+        int startLineInclusive,
+        int endLineInclusive)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in locator.EnumerateObject())
+            {
+                if (property.NameEquals("location"))
+                {
+                    writer.WritePropertyName("location");
+                    writer.WriteStartObject();
+                    foreach (var locationProperty in property.Value.EnumerateObject())
+                    {
+                        if (locationProperty.NameEquals("start_line_inclusive"))
+                        {
+                            writer.WriteNumber("start_line_inclusive", startLineInclusive);
+                            continue;
+                        }
+
+                        if (locationProperty.NameEquals("end_line_inclusive"))
+                        {
+                            writer.WriteNumber("end_line_inclusive", endLineInclusive);
                             continue;
                         }
 
