@@ -538,6 +538,8 @@ approved layout families and donors already exist.
   source material, location bounds, and adapter version;
   `EvidenceLocatorCompletionVerifier` + `EvidenceLocatorCompletionService` wire
   completion-time batch verification and `SealedEvidenceItemReference` output;
+  trusted ownership is derived from authoritative handoff plus Evaluation ID,
+  and safe-fact projection verifies canonical bytes against frozen digests;
   persistence of locator metadata remains open.
 - [>] Implement honest whole-artifact fallback only when the source cannot
   verify a finer location, carrying explicit lower precision. Never infer a

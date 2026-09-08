@@ -1,5 +1,7 @@
 using Dapper;
+using System.Text;
 using System.Text.Json;
+using FlexAgent.CanonicalJson;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
@@ -34,8 +36,6 @@ internal static class EvaluationPersistenceTestSeed
         var submissionItemId = Guid.CreateVersion7();
         var submissionArtifactId = Guid.CreateVersion7();
         var delegationId = Guid.CreateVersion7();
-        var configurationDigest = new string('c', 64);
-        var manifestDigest = new string('d', 64);
         var terminalSealDigest = new string('f', 64);
         var submissionDigest = new string('e', 64);
         const string boundSubmissionText = "bound submission evidence text";
@@ -92,6 +92,9 @@ internal static class EvaluationPersistenceTestSeed
                 },
             },
         });
+        var configurationDigest = CanonicalJsonProcessor.CanonicalizeSha256Hex(
+            Encoding.UTF8.GetBytes(resolvedConfigurationJson),
+            SeedCanonicalJsonLimits);
         var initialManifestJson = JsonSerializer.Serialize(new
         {
             manifest_id = manifestId.ToString("D"),
@@ -108,6 +111,9 @@ internal static class EvaluationPersistenceTestSeed
                 },
             },
         });
+        var manifestDigest = CanonicalJsonProcessor.CanonicalizeSha256Hex(
+            Encoding.UTF8.GetBytes(initialManifestJson),
+            SeedCanonicalJsonLimits);
 
         await connection.ExecuteAsync(
             new CommandDefinition(
@@ -252,6 +258,8 @@ internal static class EvaluationPersistenceTestSeed
     private static string Digest(string text) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+
+    private static readonly CanonicalJsonLimits SeedCanonicalJsonLimits = new(65_536, 64, 4_096, 4_096);
 
     internal static async Task<Guid> InsertCompletedEvaluationAsync(
         NpgsqlConnection connection,

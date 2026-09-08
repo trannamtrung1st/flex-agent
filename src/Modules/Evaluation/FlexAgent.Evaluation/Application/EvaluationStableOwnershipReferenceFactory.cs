@@ -8,10 +8,28 @@ public static class EvaluationStableOwnershipReferenceFactory
         EvaluationOwnership ownership,
         Guid evaluationId) =>
         new(
-            ownership.OrganizationId.ToString("D"),
-            ownership.ActivityId.ToString("D"),
-            ownership.ParticipantId.ToString("D"),
-            ownership.AttemptId.ToString("D"),
-            ownership.SessionId.ToString("D"),
-            evaluationId.ToString("D"));
+            StableOrganizationId(ownership.OrganizationId),
+            StableActivityId(ownership.ActivityId),
+            StableParticipantId(ownership.ParticipantId),
+            StableAttemptId(ownership.AttemptId),
+            StableSessionId(ownership.SessionId),
+            StableEvaluationId(evaluationId));
+
+    public static string StableOrganizationId(Guid organizationId) =>
+        $"org.{organizationId:N}";
+
+    public static string StableActivityId(Guid activityId) =>
+        $"act.{activityId:N}";
+
+    public static string StableParticipantId(Guid participantId) =>
+        $"part.{participantId:N}";
+
+    public static string StableAttemptId(Guid attemptId) =>
+        $"att.{attemptId:N}";
+
+    public static string StableSessionId(Guid sessionId) =>
+        $"sess.{sessionId:N}";
+
+    public static string StableEvaluationId(Guid evaluationId) =>
+        $"eval.{evaluationId:N}";
 }

@@ -7,21 +7,29 @@ namespace FlexAgent.Evaluation.Tests.Domain;
 public sealed class EvidenceLocatorCompletionVerifierTests
 {
     [Fact]
-    public void Completion_verifier_seals_verified_locators_from_session_and_submission_bundles()
+    public void Completion_verifier_seals_verified_locators_from_authoritative_handoff_ownership()
     {
+        var evaluationId = Guid.CreateVersion7();
+        var ownership = new EvaluationOwnership(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            Guid.Parse("55555555-5555-5555-5555-555555555555"));
+        var trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(ownership, evaluationId);
         using var locatorDocument = JsonDocument.Parse(
-            """
+            $$"""
             {
               "locator_schema":"evidence-locator.v1",
               "source_type":"submission.direct_text",
               "source_ref":{"source_id":"item.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_version":"rev.0001"},
               "ownership_ref":{
-                "organization_id":"org.synthetic.0001",
-                "activity_id":"act.synthetic.0001",
-                "participant_id":"part.synthetic.0001",
-                "attempt_id":"att.synthetic.0001",
-                "session_id":"sess.synthetic.0001",
-                "evaluation_id":"eval.synthetic.0001"
+                "organization_id":"{{trustedOwnership.OrganizationId}}",
+                "activity_id":"{{trustedOwnership.ActivityId}}",
+                "participant_id":"{{trustedOwnership.ParticipantId}}",
+                "attempt_id":"{{trustedOwnership.AttemptId}}",
+                "session_id":"{{trustedOwnership.SessionId}}",
+                "evaluation_id":"{{trustedOwnership.EvaluationId}}"
               },
               "location":{"location_type":"whole_item","item_id":"item.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
               "precision":"whole_item",
@@ -33,12 +41,6 @@ public sealed class EvidenceLocatorCompletionVerifierTests
               "created_by":{"service_id":"evaluation-service","invocation_id":"inv.completion.0001"}
             }
             """);
-        var ownership = new EvaluationOwnership(
-            Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            Guid.Parse("33333333-3333-3333-3333-333333333333"),
-            Guid.Parse("44444444-4444-4444-4444-444444444444"),
-            Guid.Parse("55555555-5555-5555-5555-555555555555"));
         var handoff = new EvaluationHandoffSnapshot(
             "handoff.completion.0001",
             ownership,
@@ -51,19 +53,7 @@ public sealed class EvidenceLocatorCompletionVerifierTests
             new string('c', 64),
             Guid.CreateVersion7(),
             new string('d', 64));
-        var sessionBundle = new EvaluationSessionEvidenceBundle(
-            handoff,
-            [],
-            new EvaluationSafeFactProjection(
-                "cfg.example",
-                "rev.example",
-                new string('c', 64),
-                """{"sources":[]}"""u8.ToArray()),
-            new EvaluationSafeFactProjection(
-                "mfst.example",
-                "rev.example",
-                new string('d', 64),
-                """{"provenance":[]}"""u8.ToArray()));
+        var sessionBundle = new EvaluationSessionEvidenceBundle(handoff, []);
         var submissionBundle = new EvaluationSubmissionEvidenceBundle(
         [
             new EvaluationSubmissionMaterial(
@@ -74,18 +64,14 @@ public sealed class EvidenceLocatorCompletionVerifierTests
                 new byte[256]),
         ]);
         var request = new EvidenceLocatorCompletionRequest(
-            new EvaluationStableOwnershipReference(
-                "org.synthetic.0001",
-                "act.synthetic.0001",
-                "part.synthetic.0001",
-                "att.synthetic.0001",
-                "sess.synthetic.0001",
-                "eval.synthetic.0001"),
+            evaluationId,
             handoff.HandoffId,
             [new EvidenceLocatorVerificationEntry("evidence.completion.0001", locatorDocument.RootElement.Clone())],
             PermitWholeItemFallback: false);
 
         var result = EvidenceLocatorCompletionVerifier.TryVerify(
+            ownership.OrganizationId,
+            ownership.SessionId,
             request,
             sessionBundle,
             submissionBundle);
@@ -95,6 +81,172 @@ public sealed class EvidenceLocatorCompletionVerifierTests
         Assert.Single(result.Value.SealedItems);
         Assert.Equal("evidence.completion.0001", result.Value.SealedItems[0].EvidenceId);
         Assert.Equal("verified", result.Value.SealedItems[0].VerificationState);
+    }
+
+    [Theory]
+    [InlineData("organization_id")]
+    [InlineData("activity_id")]
+    [InlineData("participant_id")]
+    [InlineData("attempt_id")]
+    [InlineData("session_id")]
+    public void Locator_ownership_mismatch_against_authoritative_handoff_is_rejected(string fieldName)
+    {
+        var evaluationId = Guid.CreateVersion7();
+        var ownership = new EvaluationOwnership(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7());
+        var trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(ownership, evaluationId);
+        using var locatorDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "locator_schema":"evidence-locator.v1",
+              "source_type":"submission.direct_text",
+              "source_ref":{"source_id":"item.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_version":"rev.0001"},
+              "ownership_ref":{
+                "organization_id":"{{trustedOwnership.OrganizationId}}",
+                "activity_id":"{{trustedOwnership.ActivityId}}",
+                "participant_id":"{{trustedOwnership.ParticipantId}}",
+                "attempt_id":"{{trustedOwnership.AttemptId}}",
+                "session_id":"{{trustedOwnership.SessionId}}",
+                "evaluation_id":"{{trustedOwnership.EvaluationId}}"
+              },
+              "location":{"location_type":"whole_item","item_id":"item.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+              "precision":"whole_item",
+              "integrity":{
+                "source_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "adapter_version":"locator-adapter.v1",
+                "verification_state":"verified"
+              },
+              "created_by":{"service_id":"evaluation-service","invocation_id":"inv.completion.0001"}
+            }
+            """);
+        var locator = MutateOwnershipField(locatorDocument.RootElement, fieldName, "scope.mismatch.0001");
+        var handoff = new EvaluationHandoffSnapshot(
+            "handoff.completion.scope",
+            ownership,
+            "completed",
+            Guid.CreateVersion7(),
+            42,
+            "manifest-jcs-sha256-v2",
+            new string('f', 64),
+            Guid.CreateVersion7(),
+            new string('c', 64),
+            Guid.CreateVersion7(),
+            new string('d', 64));
+        var request = new EvidenceLocatorCompletionRequest(
+            evaluationId,
+            handoff.HandoffId,
+            [new EvidenceLocatorVerificationEntry("evidence.scope.0001", locator)],
+            PermitWholeItemFallback: false);
+
+        var result = EvidenceLocatorCompletionVerifier.TryVerify(
+            ownership.OrganizationId,
+            ownership.SessionId,
+            request,
+            new EvaluationSessionEvidenceBundle(handoff, []),
+            new EvaluationSubmissionEvidenceBundle(
+            [
+                new EvaluationSubmissionMaterial(
+                    "item.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "rev.0001",
+                    "submission.direct_text",
+                    new string('a', 64),
+                    new byte[256]),
+            ]));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, result.OutcomeCode);
+    }
+
+    [Theory]
+    [InlineData("organization")]
+    [InlineData("session")]
+    public void External_scope_parameters_must_match_authoritative_handoff(string scopeField)
+    {
+        var evaluationId = Guid.CreateVersion7();
+        var ownership = new EvaluationOwnership(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7());
+        var handoff = new EvaluationHandoffSnapshot(
+            "handoff.completion.external",
+            ownership,
+            "completed",
+            Guid.CreateVersion7(),
+            42,
+            "manifest-jcs-sha256-v2",
+            new string('f', 64),
+            Guid.CreateVersion7(),
+            new string('c', 64),
+            Guid.CreateVersion7(),
+            new string('d', 64));
+        var request = new EvidenceLocatorCompletionRequest(
+            evaluationId,
+            handoff.HandoffId,
+            [],
+            PermitWholeItemFallback: false);
+
+        var organizationId = scopeField == "organization"
+            ? Guid.CreateVersion7()
+            : ownership.OrganizationId;
+        var sessionId = scopeField == "session"
+            ? Guid.CreateVersion7()
+            : ownership.SessionId;
+
+        var binding = EvidenceLocatorCompletionVerifier.TryBindTrustedOwnership(
+            organizationId,
+            sessionId,
+            request,
+            new EvaluationSessionEvidenceBundle(handoff, []),
+            out _);
+
+        Assert.NotNull(binding);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, binding!.OutcomeCode);
+    }
+
+    [Fact]
+    public void Handoff_id_mismatch_is_rejected()
+    {
+        var ownership = new EvaluationOwnership(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7());
+        var request = new EvidenceLocatorCompletionRequest(
+            Guid.CreateVersion7(),
+            "handoff.requested",
+            [],
+            PermitWholeItemFallback: false);
+
+        var binding = EvidenceLocatorCompletionVerifier.TryBindTrustedOwnership(
+            ownership.OrganizationId,
+            ownership.SessionId,
+            request,
+            new EvaluationSessionEvidenceBundle(
+                new EvaluationHandoffSnapshot(
+                    "handoff.authoritative",
+                    ownership,
+                    "completed",
+                    Guid.CreateVersion7(),
+                    1,
+                    "manifest-jcs-sha256-v2",
+                    new string('f', 64),
+                    Guid.CreateVersion7(),
+                    new string('c', 64),
+                    Guid.CreateVersion7(),
+                    new string('d', 64)),
+                []),
+            out _);
+
+        Assert.NotNull(binding);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, binding!.OutcomeCode);
+        Assert.Equal("handoff_id", binding.Field);
     }
 
     [Fact]
@@ -108,7 +260,7 @@ public sealed class EvidenceLocatorCompletionVerifierTests
             Guid.CreateVersion7(),
             Guid.CreateVersion7());
         var request = new EvidenceLocatorCompletionRequest(
-            EvaluationStableOwnershipReferenceFactory.From(ownership, Guid.CreateVersion7()),
+            Guid.CreateVersion7(),
             "handoff.duplicate",
             [
                 new EvidenceLocatorVerificationEntry("evidence.duplicate.0001", locatorDocument.RootElement.Clone()),
@@ -117,6 +269,8 @@ public sealed class EvidenceLocatorCompletionVerifierTests
             PermitWholeItemFallback: false);
 
         var result = EvidenceLocatorCompletionVerifier.TryVerify(
+            ownership.OrganizationId,
+            ownership.SessionId,
             request,
             new EvaluationSessionEvidenceBundle(
                 new EvaluationHandoffSnapshot(
@@ -136,5 +290,42 @@ public sealed class EvidenceLocatorCompletionVerifierTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.DuplicateIdentity, result.OutcomeCode);
+    }
+
+    private static JsonElement MutateOwnershipField(JsonElement locator, string fieldName, string value)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in locator.EnumerateObject())
+            {
+                if (property.NameEquals("ownership_ref"))
+                {
+                    writer.WritePropertyName("ownership_ref");
+                    writer.WriteStartObject();
+                    foreach (var ownershipProperty in property.Value.EnumerateObject())
+                    {
+                        if (ownershipProperty.NameEquals(fieldName))
+                        {
+                            writer.WriteString(fieldName, value);
+                            continue;
+                        }
+
+                        ownershipProperty.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
     }
 }

@@ -102,6 +102,14 @@ public static class EvaluationSafeFactProjector
 
         using (document)
         {
+            var canonicalDigest = CanonicalJsonProcessor.CanonicalizeSha256Hex(canonicalUtf8.Span, Limits);
+            if (!string.Equals(canonicalDigest, boundDigest, StringComparison.Ordinal))
+            {
+                return EvaluationDecision<EvaluationSafeFactProjection>.Fail(
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "canonical_digest");
+            }
+
             using var stream = new MemoryStream();
             using (var writer = new Utf8JsonWriter(stream))
             {

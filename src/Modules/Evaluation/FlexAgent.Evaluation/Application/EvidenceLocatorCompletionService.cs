@@ -8,7 +8,7 @@ public sealed record EvidenceLocatorVerificationEntry(
     JsonElement Locator);
 
 public sealed record EvidenceLocatorCompletionRequest(
-    EvaluationStableOwnershipReference TrustedOwnership,
+    Guid EvaluationId,
     string HandoffId,
     IReadOnlyList<EvidenceLocatorVerificationEntry> Entries,
     bool PermitWholeItemFallback);
@@ -29,12 +29,27 @@ public interface IEvidenceLocatorCompletionService
 public static class EvidenceLocatorCompletionVerifier
 {
     public static EvaluationDecision<EvidenceLocatorCompletionResult> TryVerify(
+        Guid organizationId,
+        Guid sessionId,
         EvidenceLocatorCompletionRequest request,
         EvaluationSessionEvidenceBundle sessionEvidence,
         EvaluationSubmissionEvidenceBundle? submissionEvidence)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(sessionEvidence);
+
+        var binding = TryBindTrustedOwnership(
+            organizationId,
+            sessionId,
+            request,
+            sessionEvidence,
+            out var trustedOwnership);
+        if (binding is not null)
+        {
+            return EvaluationDecision<EvidenceLocatorCompletionResult>.Fail(
+                binding.OutcomeCode,
+                binding.Field);
+        }
 
         if (request.Entries.Count is < 1 or > 128)
         {
@@ -54,7 +69,7 @@ public static class EvidenceLocatorCompletionVerifier
         }
 
         var context = EvidenceLocatorVerificationContextBuilder.Build(
-            request.TrustedOwnership,
+            trustedOwnership!,
             sessionEvidence,
             submissionEvidence,
             permitWholeItemFallback: request.PermitWholeItemFallback);
@@ -84,6 +99,38 @@ public static class EvidenceLocatorCompletionVerifier
         return EvaluationDecision<EvidenceLocatorCompletionResult>.Ok(
             new EvidenceLocatorCompletionResult(verified, sealedItems));
     }
+
+    internal static EvaluationDecision<EvaluationStableOwnershipReference>? TryBindTrustedOwnership(
+        Guid organizationId,
+        Guid sessionId,
+        EvidenceLocatorCompletionRequest request,
+        EvaluationSessionEvidenceBundle sessionEvidence,
+        out EvaluationStableOwnershipReference? trustedOwnership)
+    {
+        trustedOwnership = null;
+        var handoff = sessionEvidence.Handoff;
+        var ownership = handoff.Ownership;
+
+        if (!string.Equals(request.HandoffId, handoff.HandoffId, StringComparison.Ordinal))
+        {
+            return EvaluationDecision<EvaluationStableOwnershipReference>.Fail(
+                EvaluationFailureCodes.IncompleteOwnership,
+                "handoff_id");
+        }
+
+        if (request.EvaluationId == Guid.Empty
+            || organizationId != ownership.OrganizationId
+            || sessionId != ownership.SessionId)
+        {
+            return EvaluationDecision<EvaluationStableOwnershipReference>.Fail(
+                EvaluationFailureCodes.IncompleteOwnership);
+        }
+
+        trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(
+            ownership,
+            request.EvaluationId);
+        return null;
+    }
 }
 
 public sealed class EvidenceLocatorCompletionService(
@@ -111,7 +158,7 @@ public sealed class EvidenceLocatorCompletionService(
 
         var ownership = sessionBundle.Handoff.Ownership;
         var submissionBundle = await submissionEvidence.LoadBoundItemsAsync(
-            organizationId,
+            ownership.OrganizationId,
             ownership.ActivityId,
             ownership.ParticipantId,
             ownership.AttemptId,
@@ -119,6 +166,8 @@ public sealed class EvidenceLocatorCompletionService(
             cancellationToken);
 
         return EvidenceLocatorCompletionVerifier.TryVerify(
+            organizationId,
+            sessionId,
             request,
             sessionBundle,
             submissionBundle);
