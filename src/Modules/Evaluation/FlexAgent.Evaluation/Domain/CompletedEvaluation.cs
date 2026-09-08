@@ -47,6 +47,7 @@ public sealed record EvidenceSet(
     public static EvaluationDecision<EvidenceSet> TryCreate(
         Guid evidenceSetId,
         Guid evaluationId,
+        EvaluationOwnership ownership,
         IReadOnlyList<EvidenceItem> items,
         string digest)
     {
@@ -57,6 +58,11 @@ public sealed record EvidenceSet(
             || items.Any(item => item.EvaluationId != evaluationId))
         {
             return EvaluationDecision<EvidenceSet>.Fail(EvaluationFailureCodes.InvalidField);
+        }
+
+        if (items.Any(item => item.Ownership != ownership))
+        {
+            return EvaluationDecision<EvidenceSet>.Fail(EvaluationFailureCodes.IncompleteOwnership);
         }
 
         if (items.Select(item => item.EvidenceId).Distinct().Count() != items.Count)
@@ -110,6 +116,11 @@ public sealed record CompletedEvaluation(
             || judgments.Any(item => item.EvaluationId != evaluationId))
         {
             return EvaluationDecision<CompletedEvaluation>.Fail(EvaluationFailureCodes.IncompleteCriteria);
+        }
+
+        if (evidenceItems.Any(item => item.Ownership != request.FrozenInput.Ownership))
+        {
+            return EvaluationDecision<CompletedEvaluation>.Fail(EvaluationFailureCodes.IncompleteOwnership);
         }
 
         if (judgments.Select(item => item.CriterionId).Distinct(StringComparer.Ordinal).Count() != judgments.Count)
@@ -182,6 +193,11 @@ public static class EvaluationAggregator
         if (considered.Length == 0)
         {
             return EvaluationAggregateStatuses.NotApplicableExcluded;
+        }
+
+        if (considered.Any(item => item.Status == CriterionStatuses.NotSatisfied))
+        {
+            return EvaluationAggregateStatuses.RequirementsNotSatisfied;
         }
 
         return considered.All(item =>

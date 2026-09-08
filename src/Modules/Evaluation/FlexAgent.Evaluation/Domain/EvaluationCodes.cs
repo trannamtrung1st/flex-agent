@@ -40,6 +40,7 @@ public static class EvaluationAggregateStatuses
 {
     public const string Complete = "complete";
     public const string InsufficientEvidence = "insufficient_evidence";
+    public const string RequirementsNotSatisfied = "requirements_not_satisfied";
     public const string ConflictReviewRequired = "conflict_review_required";
     public const string NotApplicableExcluded = "not_applicable_excluded";
 }

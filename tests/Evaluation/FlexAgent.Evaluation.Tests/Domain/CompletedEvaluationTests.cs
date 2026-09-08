@@ -48,6 +48,7 @@ public sealed class CompletedEvaluationTests
         var set = EvidenceSet.TryCreate(
             Guid.NewGuid(),
             context.EvaluationId,
+            context.Frozen.Ownership,
             items,
             new string('e', 64)).Value!;
 
@@ -80,6 +81,7 @@ public sealed class CompletedEvaluationTests
         var set = EvidenceSet.TryCreate(
             context.EvidenceSet.EvidenceSetId,
             context.EvaluationId,
+            context.Frozen.Ownership,
             items,
             context.EvidenceSet.Digest).Value!;
 
@@ -97,6 +99,45 @@ public sealed class CompletedEvaluationTests
         Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
     }
 
+    [Theory]
+    [InlineData("organization")]
+    [InlineData("activity")]
+    [InlineData("participant")]
+    [InlineData("attempt")]
+    [InlineData("session")]
+    public void Evidence_ownership_must_equal_frozen_request_ownership(string field)
+    {
+        var context = CreateContext();
+        var foreignOwnership = EvaluationFixtures.PerturbOwnership(field);
+        var items = context.EvidenceItems.Select(item =>
+            EvidenceItem.TryCreate(
+                item.EvidenceId,
+                item.SourceType,
+                item.Source,
+                foreignOwnership,
+                item.EvaluationId,
+                item.Precision).Value!).ToArray();
+        var set = EvidenceSet.TryCreate(
+            context.EvidenceSet.EvidenceSetId,
+            context.EvaluationId,
+            foreignOwnership,
+            items,
+            context.EvidenceSet.Digest).Value!;
+
+        var result = CompletedEvaluation.TryCreate(
+            context.EvaluationId,
+            context.Request,
+            context.Procedure,
+            set,
+            items,
+            context.Judgments,
+            DateTimeOffset.UtcNow,
+            "evaluation-service");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, result.OutcomeCode);
+    }
+
     [Fact]
     public void Insufficient_criterion_blocks_all_required_satisfied_aggregation()
     {
@@ -107,6 +148,18 @@ public sealed class CompletedEvaluationTests
 
         Assert.True(built.Succeeded, built.OutcomeCode);
         Assert.Equal(EvaluationAggregateStatuses.InsufficientEvidence, built.Value!.AggregateStatus);
+    }
+
+    [Fact]
+    public void Not_satisfied_is_distinct_from_insufficient_evidence()
+    {
+        var built = Build(
+        [
+            new JudgmentOverride("crit.objective.word-count", CriterionStatuses.NotSatisfied, null, ["evaluator_bound"]),
+        ]);
+
+        Assert.True(built.Succeeded, built.OutcomeCode);
+        Assert.Equal(EvaluationAggregateStatuses.RequirementsNotSatisfied, built.Value!.AggregateStatus);
     }
 
     [Fact]
@@ -174,7 +227,12 @@ public sealed class CompletedEvaluationTests
             Assert.True(created.Succeeded, created.OutcomeCode);
             return created.Value!;
         }).ToArray();
-        var setResult = EvidenceSet.TryCreate(Guid.NewGuid(), evaluationId, items, new string('d', 64));
+        var setResult = EvidenceSet.TryCreate(
+            Guid.NewGuid(),
+            evaluationId,
+            frozen.Ownership,
+            items,
+            new string('d', 64));
         Assert.True(setResult.Succeeded, setResult.OutcomeCode);
         var set = setResult.Value!;
         var judgments = procedure.Criteria.Select((criterion, index) =>

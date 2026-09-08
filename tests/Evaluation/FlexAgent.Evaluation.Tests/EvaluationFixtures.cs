@@ -58,6 +58,20 @@ internal static class EvaluationFixtures
             Model(),
             "lifecycle.activity-closure-365d.v1");
 
+    public static EvaluationOwnership PerturbOwnership(string field)
+    {
+        var ownership = Ownership();
+        return field switch
+        {
+            "organization" => ownership with { OrganizationId = Guid.NewGuid() },
+            "activity" => ownership with { ActivityId = Guid.NewGuid() },
+            "participant" => ownership with { ParticipantId = Guid.NewGuid() },
+            "attempt" => ownership with { AttemptId = Guid.NewGuid() },
+            "session" => ownership with { SessionId = Guid.NewGuid() },
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown ownership field."),
+        };
+    }
+
     public static EvaluationProcedureV1 LoadSyntheticProcedure()
     {
         var utf8 = File.ReadAllBytes(

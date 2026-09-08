@@ -64,9 +64,11 @@
     },
     "aggregate_status": {
       "type": "string",
+      "description": "Outcome of the frozen aggregation rule for a completed Evaluation artifact. This is not a Result or Release. `complete` means every remaining required criterion is satisfied; `requirements_not_satisfied` means at least one remaining required criterion is not_satisfied; `insufficient_evidence` means the procedure blocked aggregation because evidence was inadequate; `conflict_review_required` preserves a procedure-defined conflict; `not_applicable_excluded` means every remaining criterion was excluded as not applicable.",
       "enum": [
         "complete",
         "insufficient_evidence",
+        "requirements_not_satisfied",
         "conflict_review_required",
         "not_applicable_excluded"
       ]

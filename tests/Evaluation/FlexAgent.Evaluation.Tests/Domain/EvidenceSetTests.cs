@@ -21,6 +21,7 @@ public sealed class EvidenceSetTests
         var result = EvidenceSet.TryCreate(
             Guid.NewGuid(),
             evaluationId,
+            EvaluationFixtures.Ownership(),
             [item, item],
             new string('d', 64));
 
@@ -41,6 +42,65 @@ public sealed class EvidenceSetTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidField, result.OutcomeCode);
+    }
+
+    [Theory]
+    [InlineData("organization")]
+    [InlineData("activity")]
+    [InlineData("participant")]
+    [InlineData("attempt")]
+    [InlineData("session")]
+    public void Mixed_parent_chain_ownership_is_rejected(string field)
+    {
+        var evaluationId = Guid.NewGuid();
+        var expected = EvaluationFixtures.Ownership();
+        var local = EvidenceItem.TryCreate(
+            Guid.NewGuid(),
+            "submission.direct_text",
+            EvaluationFixtures.Submission(),
+            expected,
+            evaluationId,
+            "exact_range").Value!;
+        var foreign = EvidenceItem.TryCreate(
+            Guid.NewGuid(),
+            "deterministic.fact",
+            EvaluationFixtures.Submission(),
+            EvaluationFixtures.PerturbOwnership(field),
+            evaluationId,
+            "exact_range").Value!;
+
+        var result = EvidenceSet.TryCreate(
+            Guid.NewGuid(),
+            evaluationId,
+            expected,
+            [local, foreign],
+            new string('d', 64));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Expected_ownership_must_match_every_item()
+    {
+        var evaluationId = Guid.NewGuid();
+        var item = EvidenceItem.TryCreate(
+            Guid.NewGuid(),
+            "submission.direct_text",
+            EvaluationFixtures.Submission(),
+            EvaluationFixtures.Ownership(),
+            evaluationId,
+            "exact_range").Value!;
+
+        var result = EvidenceSet.TryCreate(
+            Guid.NewGuid(),
+            evaluationId,
+            EvaluationFixtures.PerturbOwnership("organization"),
+            [item],
+            new string('d', 64));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, result.OutcomeCode);
     }
 }
 

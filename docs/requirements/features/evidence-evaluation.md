@@ -283,6 +283,9 @@ The frozen rubric/evaluation procedure owns criterion identifiers, permitted jud
 - Exact criterion/version identity and completeness against the frozen procedure.
 - Exact per-criterion evaluator mode and deterministic/Agent provenance.
 - Explicit `Insufficient evidence` rather than invented values.
+- Distinct `requirements_not_satisfied` aggregate when `all_required_satisfied`
+  has remaining required criteria judged `not_satisfied`, rather than recording
+  that outcome as insufficiency.
 - Validated Evidence references and source precision.
 - Concise rationale that separates observation from inference.
 - Per-criterion confidence and uncertainty.

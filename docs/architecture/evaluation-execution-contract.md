@@ -130,7 +130,7 @@ All decisions in this section were approved on 2026-08-06.
 | Evidence item | Evaluation | Exact source/version, locator, ownership, precision, integrity/verification, creator and cited criterion references; immutable after completion |
 | Evidence set | Evaluation | Ordered Evidence-item identities, schema, seal procedure/digest, invocation and Evaluation identity; immutable after seal |
 | Criterion judgment | Evaluation | Exact criterion/version/mode, status, configured fields, rationale, Evidence references, confidence, uncertainty, provisional feedback, validation; immutable after completion |
-| Evaluation | Evaluation | Exact ownership and upstream lineage, schema/procedure, judgments, aggregate, Evidence set, model/evaluator/configuration/manifest provenance, completion order/time; immutable |
+| Evaluation | Evaluation | Exact ownership and upstream lineage, schema/procedure, judgments, aggregate (`complete`, `requirements_not_satisfied`, `insufficient_evidence`, `conflict_review_required`, `not_applicable_excluded`), Evidence set, model/evaluator/configuration/manifest provenance, completion order/time; immutable |
 | Evaluation lineage | Evaluation | Predecessor/successor, bounded authorized reason, actor/service, creation time, eligibility disposition; append-only |
 | Evaluation annotation | Evaluation | Integrity, availability, lifecycle, or verification finding; affected records, bounded reason, actor/service and time; append-only |
 | Review handoff | Review and Release | Evaluation lineage, explicit candidate eligibility, integrity and policy references; created from completed Evaluation without Release side effect |

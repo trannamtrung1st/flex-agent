@@ -889,6 +889,10 @@ Review UI remain unimplemented.
   `DisabledEvaluationAdmission` returns `evaluation.processing_disabled`). No
   host, SQL, or provider adapter is wired. Application owner ports exist for
   the Session handoff snapshot and protected canonical procedure bytes.
+- Phase 2 review on `f412926` required two Mediums before `0072`: Evidence
+  ownership equality and a distinct `requirements_not_satisfied` aggregate.
+  Those are now encoded in domain validators, `evaluation.v1`, and negative
+  parent-chain tests.
 - Next: Phase 3 persistence, admission, durable work, and recovery on additive
   migration `0072`. Do not resolve evaluator/model identity by profile name.
 
@@ -952,13 +956,13 @@ The only other active task is `text-interaction-controller-contract`
   because architecture tests and fail-closed admission need a composition
   target. The assembly stays package-free and returns
   `evaluation.processing_disabled` rather than a no-op placeholder.
-- `all_required_satisfied` has no dedicated aggregate for `not_satisfied`.
-  Interim default: a completed Evaluation with any remaining `not_satisfied`
-  criterion uses `insufficient_evidence` rather than inventing a new enum
-  value. Conflict and explicit insufficiency keep their own statuses.
-- Evidence item `Ownership` is stored but not yet compared to frozen-request
-  ownership at set/completion. Encode that equality before migration `0072`
-  so persistence cannot accept mixed-scope Evidence.
+- `evaluation.v1` aggregate_status now includes `requirements_not_satisfied`
+  so `all_required_satisfied` can record an explicit criterion failure without
+  collapsing it into `insufficient_evidence`. Conflict and insufficiency keep
+  precedence.
+- Evidence set creation requires an expected `EvaluationOwnership`; mixed
+  parent-chain items and completion against a different frozen-request
+  ownership fail as `evaluation.incomplete_ownership`.
 
 # Readiness review
 
@@ -1007,8 +1011,8 @@ interim default and rationale in the owning authority before proceeding.
 | Requirement/AC-to-surface map | complete | All `REQ-EVAL-1`–`REQ-EVAL-53` and `AC-EVAL-1`–`AC-EVAL-38` grouped above with implementation and evidence targets |
 | Plan documentation validation | complete | `python3 scripts/check_docs.py` passed on 2026-09-07; `git diff --no-index --check /dev/null .work/active/evidence-evaluation.md` reported no whitespace diagnostics (exit `1` only because the new file differs from `/dev/null`) |
 | Second cross-cutting readiness review | complete | Backend ownership/concurrency/contracts, frontend route/state/accessibility/security, and security/privacy trust boundaries reviewed on 2026-09-07; corrections recorded under Readiness review |
-| Focused red-green-refactor evidence | Phase 2 complete | Domain compile red (`CS0234` missing `FlexAgent.Evaluation.Domain`) then types added; frozen-input fixture red (non-hex digest `m`/`s`) then green; architecture `EvaluationBoundaryTests` added before host/provider wiring |
-| Contract/JCS and architecture tests | Phase 2 focused complete | `FlexAgent.Evaluation.Tests` 39 passed; `EvaluationBoundaryTests` + `ModuleBoundaryTests` + `ProviderAdapterBoundaryTests` 13 passed. Phase 1 contract/JCS evidence unchanged |
+| Focused red-green-refactor evidence | Phase 2 review-fix complete | Ownership/aggregation red (11 failing cases: mixed parent-chain Evidence accepted; `not_satisfied` → `insufficient_evidence`) then green |
+| Contract/JCS and architecture tests | Phase 2 review-fix complete | `FlexAgent.Evaluation.Tests` 51 passed; `EvaluationContractCatalogTests` 4; `ContractCatalogTests` valid/invalid fixtures 185; `python3 scripts/check_docs.py` passed |
 | PostgreSQL migration/fault/concurrency/isolation tests | Phase 1 focused complete | Payload persist 7; Assessment activation 22; Enrollment 30; Attempt-start 7; Grate smoke 2; `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` 1. Full `MigrationUpgradeTests` class not re-run |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
