@@ -49,6 +49,7 @@ public sealed class PostgresEvaluationSubmissionEvidenceSource(
             new CommandDefinition(
                 """
                 SELECT
+                    binding.version_id,
                     binding.version_number,
                     item.item_id,
                     item.category,
@@ -99,7 +100,9 @@ public sealed class PostgresEvaluationSubmissionEvidenceSource(
                 EvaluationEvidenceSourceIdentity.SubmissionVersionSourceVersion(row.version_number),
                 row.category,
                 row.content_digest,
-                artifact.Content));
+                artifact.Content,
+                row.version_id,
+                row.item_id));
         }
 
         return new EvaluationSubmissionEvidenceBundle(items);
@@ -108,6 +111,7 @@ public sealed class PostgresEvaluationSubmissionEvidenceSource(
     private sealed record AttemptRow(string status, Guid session_id);
 
     private sealed record ItemRow(
+        Guid version_id,
         int version_number,
         Guid item_id,
         string category,

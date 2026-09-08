@@ -7,6 +7,10 @@ namespace FlexAgent.Evaluation.Tests.Domain;
 public sealed class EvidenceLocatorVerifierTests
 {
     private static readonly string ContractsRoot = FindContractsRoot();
+    private static readonly Guid DummyAcceptedVersionId =
+        Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly Guid DummyItemRecordId =
+        Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     [Theory]
     [InlineData("valid-transcript-whole-item.json")]
@@ -140,6 +144,44 @@ public sealed class EvidenceLocatorVerifierTests
         Assert.Equal("lower_precision", result.Value!.VerificationState);
     }
 
+    [Fact]
+    public void Work_trace_whole_item_verifies_against_matching_material()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllBytes(LocatorFixturePath("valid-transcript-whole-item.json")));
+        var locator = MutateSourceType(document.RootElement, "session.work_trace");
+        var context = BuildContextForFixture(locator);
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal("verified", result.Value!.VerificationState);
+    }
+
+    private static JsonElement MutateSourceType(JsonElement locator, string sourceType)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in locator.EnumerateObject())
+            {
+                if (property.NameEquals("source_type"))
+                {
+                    writer.WriteString("source_type", sourceType);
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var mutated = JsonDocument.Parse(stream.ToArray());
+        return mutated.RootElement.Clone();
+    }
+
     private static EvidenceLocatorVerificationContext BuildContextForFixture(
         JsonElement locator,
         bool permitWholeItemFallback = false)
@@ -177,7 +219,9 @@ public sealed class EvidenceLocatorVerifierTests
                     sourceVersion,
                     sourceType,
                     sourceDigest,
-                    BuildSubmissionBytes(sourceType, sourceDigest));
+                    BuildSubmissionBytes(sourceType, sourceDigest),
+                    DummyAcceptedVersionId,
+                    DummyItemRecordId);
                 break;
             case "session.transcript_item":
             case "session.work_trace":
@@ -232,7 +276,9 @@ public sealed class EvidenceLocatorVerifierTests
                     sourceRef.GetProperty("source_version").GetString()!,
                     locator.GetProperty("source_type").GetString()!,
                     sourceDigest,
-                    content),
+                    content,
+                    DummyAcceptedVersionId,
+                    DummyItemRecordId),
             },
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),

@@ -10,7 +10,8 @@ phase3_fault_matrix: approved-909c624
 phase3_status: complete
 phase4_status: in-progress
 phase4_foundation: approved-437401b-2461466
-phase4_slice: corrected-0514a70-235f7ed
+phase4_slice: approved-0514a70-235f7ed
+phase4_slice2: local-uncommitted-procedure-gating-locator-persistence
 ---
 
 # Goal
@@ -541,22 +542,26 @@ approved layout families and donors already exist.
   completion-time batch verification and `SealedEvidenceItemReference` output;
   trusted ownership is derived from authoritative handoff plus Evaluation ID,
   and safe-fact projection verifies canonical bytes against frozen digests;
-  persistence of locator metadata remains open.
-- [>] Implement honest whole-artifact fallback only when the source cannot
+  `EvidenceLocatorMetadataProjector` + `PostgresEvaluationEvidenceLocatorStore`
+  persist protected locator metadata scoped to the admitted request.
+- [x] Implement honest whole-artifact fallback only when the source cannot
   verify a finer location, carrying explicit lower precision. Never infer a
   range from model text.
   Verifier records `lower_precision` when `PermitWholeItemFallback` is set and
-  finer range verification fails; procedure gating at completion remains open.
+  finer range verification fails; `EvidenceLocatorProcedurePolicy` resolves
+  fallback per criterion at completion (caller no longer supplies a bypass).
   Review follow-up on `437401b`: Session owner port now requires authoritative
   participant admission sequences (no `COALESCE(..., 0)`), and byte-range
   normalization rejects non-boundary UTF-8 slices.
-- [>] Canonicalize and seal ordered Evidence items with
+- [x] Canonicalize and seal ordered Evidence items with
   `evidence-set-jcs-sha256-v1`; verify the existing fixture and add ordering,
   duplicate, drift, and tamper fixtures.
-  `EvidenceSetSealComputer` + fixture/tamper/duplicate tests are green; add
-  drift/reorder fixtures when locator digests are fixture-backed.
-- [ ] Green/refactor owner-port, artifact, locator, seal, cross-scope, and
+  `EvidenceSetSealComputer` + fixture/tamper/duplicate/reorder/drift tests green.
+- [>] Green/refactor owner-port, artifact, locator, seal, cross-scope, and
   later-source-invariance tests.
+  Slice 2 adds mutable-alias structural negatives, work-trace verifier/projector
+  coverage, and idempotent locator persistence integration; broader matrix and
+  full `verify-dotnet.sh` gate remain open.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
@@ -940,10 +945,10 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: remaining Phase 4 negative matrix (work-trace, later-alias invariance,
-  seal drift/reorder fixtures), procedure gating for whole-item fallback at
-  completion, and locator-metadata persistence. Phase 3 is complete through
-  `909c624`.
+- Next: developer review of uncommitted Phase 4 slice 2 (procedure gating,
+  locator-metadata persistence, seal reorder/drift, mutable-alias/work-trace
+  negatives), then full Phase 4 green gate (`verify-dotnet.sh`) before Phase 5.
+  Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -953,8 +958,11 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   cover post-cutoff, orphan, cancelled, and handoff/runtime drift cases.
   Verification: `FlexAgent.Evaluation.Tests` 80 passed; architecture 65 passed;
   `verify-dotnet.sh` green. Hosted CI not independently observed. Phase 4
-  remains in progress: work-trace sources, broader negative matrix,
-  seal/invariance fixtures, and locator-metadata persistence at completion.
+  slice 2 (local, uncommitted): procedure-gated completion verification,
+  locator metadata projector/store, seal reorder/drift, mutable-alias/work-trace
+  negatives. Focused verification 2026-09-08: `FlexAgent.Evaluation.Tests` 106;
+  evaluation Postgres integration 11; architecture 65; `verify-dotnet.sh` 2179
+  passed / 4 skipped. Hosted CI not independently observed.
 
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
@@ -1103,7 +1111,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 fault matrix (`0074` + `0075`) | approved | Developer review on `909c624`: 0 Blocker / 0 High / 0 Medium. Hold/disposal serialization, lifecycle-executor boundary, delegation proof, role/delegation/race negatives. Confirmation: Evaluation integration 39 passed; `verify-dotnet.sh` / `verify-web.sh` / docs green. Hosted CI not independently observed |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
-| Phase 4 slice (`0514a70` + `235f7ed`) | corrected | Developer review on `0514a70`: 1 High (caller ownership not bound to handoff), 1 Medium (safe facts did not verify canonical bytes). Corrective `235f7ed`: trusted ownership derived from authoritative handoff + Evaluation ID; canonical JCS digest check before projection; ownership/handoff/tamper negatives. Confirmation 2026-09-08: `FlexAgent.Evaluation.Tests` 94 passed; session/submission Postgres integration 10 passed; architecture 65 passed; `check_docs.py` passed. Hosted CI not independently observed |
+| Phase 4 slice (`0514a70` + `235f7ed` + `895a30a`) | approved | Combined developer review 2026-09-08 on corrective slice: 0 Blocker / 0 High / 0 Medium; no further corrective commit required. `0514a70` review: 1 High + 1 Medium; `235f7ed` closes ownership binding and canonical-digest verification; `895a30a` records evidence. Focused: `FlexAgent.Evaluation.Tests` 94; session/submission Postgres integration 10; architecture 65; `check_docs.py` passed. Hosted CI not independently observed |
+| Phase 4 slice 2 (local uncommitted) | pending review | Procedure-gated whole-item fallback via `EvidenceLocatorProcedurePolicy`; completion request carries `CriterionId` + stable `EvidenceId`; `EvidenceLocatorMetadataProjector` + `PostgresEvaluationEvidenceLocatorStore` with idempotent retry; seal reorder/drift; mutable-alias/work-trace negatives. Confirmation 2026-09-08: `FlexAgent.Evaluation.Tests` 106; evaluation Postgres integration 11; architecture 65; `verify-dotnet.sh` 2179 passed / 4 skipped. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

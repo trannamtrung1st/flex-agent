@@ -52,6 +52,19 @@ public static class EvidenceLocatorDigestComputer
                 Limits));
     }
 
+    public static EvaluationDecision<string> TryComputeLocatorDigest(JsonElement locator)
+    {
+        if (locator.ValueKind != JsonValueKind.Object)
+        {
+            return EvaluationDecision<string>.Fail(EvaluationFailureCodes.InvalidField, "locator");
+        }
+
+        return EvaluationDecision<string>.Ok(
+            CanonicalJsonProcessor.CanonicalizeSha256Hex(
+                JsonSerializer.SerializeToUtf8Bytes(locator),
+                Limits));
+    }
+
     private static bool TryGetRequiredString(JsonElement element, string propertyName, out string value)
     {
         value = string.Empty;

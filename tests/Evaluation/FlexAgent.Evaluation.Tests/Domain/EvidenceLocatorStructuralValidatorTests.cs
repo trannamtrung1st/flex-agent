@@ -31,6 +31,49 @@ public sealed class EvidenceLocatorStructuralValidatorTests
         Assert.Equal(EvaluationFailureCodes.InvalidField, result.OutcomeCode);
     }
 
+    [Theory]
+    [InlineData("source_id")]
+    [InlineData("source_version")]
+    public void Mutable_alias_in_source_reference_is_rejected(string fieldName)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllBytes(LocatorFixturePath("valid-submission-byte-range.json")));
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals("source_ref"))
+                {
+                    writer.WritePropertyName("source_ref");
+                    writer.WriteStartObject();
+                    foreach (var sourceProperty in property.Value.EnumerateObject())
+                    {
+                        if (sourceProperty.NameEquals(fieldName))
+                        {
+                            writer.WriteString(fieldName, "rev.latest");
+                            continue;
+                        }
+
+                        sourceProperty.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        var result = EvidenceLocatorStructuralValidator.ValidateJson(stream.ToArray());
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidField, result.OutcomeCode);
+    }
+
     [Fact]
     public void Session_transcript_locator_requires_terminal_cutoff_sequence()
     {

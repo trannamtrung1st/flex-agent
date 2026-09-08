@@ -58,6 +58,54 @@ public sealed class EvidenceSetSealComputerTests
     }
 
     [Fact]
+    public void Item_ordering_is_canonicalized_before_sealing()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllBytes(FixturePath("sorted-evidence-items")));
+        var digestDocument = document.RootElement.GetProperty("digest_document");
+        var items = digestDocument.GetProperty("evidence_items").EnumerateArray()
+            .Select(ReadItem)
+            .Reverse()
+            .ToArray();
+        var request = new EvidenceSetSealRequest(
+            digestDocument.GetProperty("evidence_set_id").GetString()!,
+            digestDocument.GetProperty("evaluation_invocation_id").GetString()!,
+            ReadOwnership(digestDocument.GetProperty("ownership")),
+            digestDocument.GetProperty("handoff_digest").GetString()!,
+            digestDocument.GetProperty("frozen_input_digest").GetString()!,
+            items);
+
+        var result = EvidenceSetSealComputer.TryComputeDigest(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(
+            document.RootElement.GetProperty("expected_sha256_hex").GetString(),
+            result.Value);
+    }
+
+    [Fact]
+    public void Handoff_digest_drift_changes_the_seal()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllBytes(FixturePath("sorted-evidence-items")));
+        var digestDocument = document.RootElement.GetProperty("digest_document");
+        var request = new EvidenceSetSealRequest(
+            digestDocument.GetProperty("evidence_set_id").GetString()!,
+            digestDocument.GetProperty("evaluation_invocation_id").GetString()!,
+            ReadOwnership(digestDocument.GetProperty("ownership")),
+            new string('0', 64),
+            digestDocument.GetProperty("frozen_input_digest").GetString()!,
+            digestDocument.GetProperty("evidence_items").EnumerateArray()
+                .Select(ReadItem)
+                .ToArray());
+
+        var result = EvidenceSetSealComputer.TryComputeDigest(request);
+
+        Assert.True(result.Succeeded);
+        Assert.NotEqual(
+            document.RootElement.GetProperty("expected_sha256_hex").GetString(),
+            result.Value);
+    }
+
+    [Fact]
     public void Duplicate_evidence_ids_are_rejected()
     {
         var item = new SealedEvidenceItemReference(
