@@ -25,24 +25,18 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
                 context.EvaluationId,
             });
 
-        var holdException = await Assert.ThrowsAsync<PostgresException>(() => context.Connection.ExecuteAsync(
-            """
-            SELECT dispose_evaluation_provider_artifact(
-                @OrganizationId,
-                @EvaluationId,
-                @ProviderArtifactId,
-                @AuditEventId,
-                'retention_expired',
-                @ActorId);
-            """,
-            new
-            {
-                context.OrganizationId,
-                context.EvaluationId,
-                context.ProviderArtifactId,
-                context.AuditEventId,
-                context.ActorId,
-            }));
+        var holdException = await Assert.ThrowsAsync<PostgresException>(() =>
+            EvaluationLifecycleDispositionSupport.RunAsLifecycleExecutorAsync(
+                context.Connection,
+                connection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                    connection,
+                    context.OrganizationId,
+                    context.EvaluationId,
+                    context.ProviderArtifactId,
+                    context.AuditEventId,
+                    context.DelegationId,
+                    "retention_expired",
+                    context.LifecycleActorId)));
         Assert.Contains("legal hold", holdException.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -65,24 +59,17 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
                 context.EvaluationId,
             });
 
-        await context.Connection.ExecuteAsync(
-            """
-            SELECT dispose_evaluation_provider_artifact(
-                @OrganizationId,
-                @EvaluationId,
-                @ProviderArtifactId,
-                @AuditEventId,
-                'authorized_erasure',
-                @ActorId);
-            """,
-            new
-            {
+        await EvaluationLifecycleDispositionSupport.RunAsLifecycleExecutorAsync(
+            context.Connection,
+            connection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                connection,
                 context.OrganizationId,
                 context.EvaluationId,
                 context.ProviderArtifactId,
                 context.AuditEventId,
-                context.ActorId,
-            });
+                context.DelegationId,
+                "authorized_erasure",
+                context.LifecycleActorId));
 
         Assert.Equal(0, await context.Connection.ExecuteScalarAsync<int>(
             """
@@ -136,25 +123,136 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
     {
         var context = await SeedProviderArtifactAsync();
 
-        var auditException = await Assert.ThrowsAsync<PostgresException>(() => context.Connection.ExecuteAsync(
+        var auditException = await Assert.ThrowsAsync<PostgresException>(() =>
+            EvaluationLifecycleDispositionSupport.RunAsLifecycleExecutorAsync(
+                context.Connection,
+                connection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                    connection,
+                    context.OrganizationId,
+                    context.EvaluationId,
+                    context.ProviderArtifactId,
+                    Guid.CreateVersion7(),
+                    context.DelegationId,
+                    "retention_expired",
+                    context.LifecycleActorId)));
+        Assert.Contains("audit event required", auditException.MessageText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Provider_artifact_disposition_requires_lifecycle_executor_role()
+    {
+        var context = await SeedProviderArtifactAsync();
+
+        var denied = await Assert.ThrowsAsync<PostgresException>(() =>
+            EvaluationLifecycleDispositionSupport.RunAsApplicationRoleAsync(
+                context.Connection,
+                connection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                    connection,
+                    context.OrganizationId,
+                    context.EvaluationId,
+                    context.ProviderArtifactId,
+                    context.AuditEventId,
+                    context.DelegationId,
+                    "retention_expired",
+                    context.LifecycleActorId)));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, denied.SqlState);
+    }
+
+    [Fact]
+    public async Task Provider_artifact_disposition_requires_current_lifecycle_delegation()
+    {
+        var context = await SeedProviderArtifactAsync();
+        await context.Connection.ExecuteAsync(
+            "UPDATE service_delegations SET revoked_at = clock_timestamp() WHERE delegation_id = @DelegationId;",
+            new { context.DelegationId });
+
+        var delegationException = await Assert.ThrowsAsync<PostgresException>(() =>
+            EvaluationLifecycleDispositionSupport.RunAsLifecycleExecutorAsync(
+                context.Connection,
+                connection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                    connection,
+                    context.OrganizationId,
+                    context.EvaluationId,
+                    context.ProviderArtifactId,
+                    context.AuditEventId,
+                    context.DelegationId,
+                    "retention_expired",
+                    context.LifecycleActorId)));
+        Assert.Contains("delegation required", delegationException.MessageText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Concurrent_hold_establishment_blocks_provider_artifact_disposition()
+    {
+        var context = await SeedProviderArtifactAsync();
+        var holdMayCommit = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Exception? disposeException = null;
+
+        var holdTask = Task.Run(async () =>
+        {
+            await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(CancellationToken);
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO evaluation_lifecycle_holds (
+                    organization_id, hold_id, evaluation_id, reason_code, active, created_at)
+                VALUES (@OrganizationId, @HoldId, @EvaluationId, 'legal_hold', TRUE, clock_timestamp());
+                """,
+                new
+                {
+                    context.OrganizationId,
+                    HoldId = Guid.CreateVersion7(),
+                    context.EvaluationId,
+                },
+                transaction);
+            await holdMayCommit.Task;
+            await transaction.CommitAsync(CancellationToken);
+        },
+        CancellationToken);
+
+        var disposeTask = Task.Run(async () =>
+        {
+            try
+            {
+                await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+                await EvaluationLifecycleDispositionSupport.RunAsLifecycleExecutorAsync(
+                    connection,
+                    executorConnection => EvaluationLifecycleDispositionSupport.ExecuteDisposeAsync(
+                        executorConnection,
+                        context.OrganizationId,
+                        context.EvaluationId,
+                        context.ProviderArtifactId,
+                        context.AuditEventId,
+                        context.DelegationId,
+                        "retention_expired",
+                        context.LifecycleActorId));
+            }
+            catch (Exception exception)
+            {
+                disposeException = exception;
+            }
+        },
+        CancellationToken);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        holdMayCommit.SetResult();
+        await Task.WhenAll(holdTask, disposeTask);
+
+        Assert.NotNull(disposeException);
+        Assert.IsType<PostgresException>(disposeException);
+        Assert.Contains("legal hold", disposeException.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, await context.Connection.ExecuteScalarAsync<int>(
             """
-            SELECT dispose_evaluation_provider_artifact(
-                @OrganizationId,
-                @EvaluationId,
-                @ProviderArtifactId,
-                @MissingAuditEventId,
-                'retention_expired',
-                @ActorId);
+            SELECT COUNT(*)
+            FROM evaluation_provider_artifacts
+            WHERE organization_id = @OrganizationId
+              AND provider_artifact_id = @ProviderArtifactId;
             """,
             new
             {
                 context.OrganizationId,
-                context.EvaluationId,
                 context.ProviderArtifactId,
-                MissingAuditEventId = Guid.CreateVersion7(),
-                context.ActorId,
             }));
-        Assert.Contains("audit event required", auditException.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<DispositionContext> SeedProviderArtifactAsync()
@@ -170,6 +268,7 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
             perOrganizationConcurrency: 1,
             CancellationToken);
         Assert.NotNull(claimed);
+        var lifecycleActorId = await Fixture.SeedWorkerActorAsync();
         var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
         var evaluationId = await EvaluationPersistenceTestSeed.InsertCompletedEvaluationAsync(
             connection,
@@ -178,6 +277,11 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
         var providerArtifactId = await EvaluationPersistenceTestSeed.InsertProviderArtifactAsync(
             connection,
             claimed!,
+            CancellationToken);
+        var delegationId = await EvaluationLifecycleDispositionSupport.InsertLifecycleDisposeDelegationAsync(
+            connection,
+            claimed!,
+            lifecycleActorId,
             CancellationToken);
         var auditEventId = Guid.CreateVersion7();
         await connection.ExecuteAsync(
@@ -188,7 +292,7 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
                 outcome, source_channel)
             VALUES (
                 @AuditEventId, @OrganizationId, 'audit-event.v1', clock_timestamp(),
-                @CorrelationId, 'service', @ActorId, 'evaluation.lifecycle.dispose',
+                @CorrelationId, 'service', @LifecycleActorId, 'evaluation.lifecycle.dispose',
                 'evaluation', @EvaluationId, 'succeeded', 'integration.test');
             """,
             new
@@ -196,7 +300,7 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
                 AuditEventId = auditEventId,
                 claimed!.Ownership.OrganizationId,
                 CorrelationId = Guid.CreateVersion7(),
-                ActorId = prepared.WorkerActorId,
+                LifecycleActorId = lifecycleActorId,
                 EvaluationId = evaluationId,
             });
         return new DispositionContext(
@@ -205,7 +309,8 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
             evaluationId,
             providerArtifactId,
             auditEventId,
-            prepared.WorkerActorId);
+            delegationId,
+            lifecycleActorId);
     }
 
     private sealed record DispositionContext(
@@ -214,5 +319,6 @@ public sealed class EvaluationLifecycleDispositionTests(PostgresIntegrationFixtu
         Guid EvaluationId,
         Guid ProviderArtifactId,
         Guid AuditEventId,
-        Guid ActorId);
+        Guid DelegationId,
+        Guid LifecycleActorId);
 }

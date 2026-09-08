@@ -6,7 +6,7 @@ updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
-phase3_fault_matrix: complete-0074
+phase3_fault_matrix: complete-0074-0075
 ---
 
 # Goal
@@ -988,12 +988,13 @@ The only other active task is `text-interaction-controller-contract`
   manifest id/digest. This prevents treating the terminal seal digest as the
   resolved manifest digest.
 - Phase 3 lifecycle disposal uses `dispose_evaluation_provider_artifact` on
-  migration `0074`. Provider-artifact DELETE requires a prior disposition event
-  (no caller-settable session bypass). Active legal holds block disposition;
-  inactive holds do not. Completion races reconcile through
-  `MarkCompletedAsync` and claim-scan reconciliation; duplicate request
-  evaluations fail on `uq_evaluations_request`; completed artifact tables reject
-  ordinary UPDATE/DELETE via append-only triggers.
+  migration `0074`, hardened by `0075`. Disposal locks the owning Evaluation row
+  for the transaction, hold INSERT/UPDATE serializes on the same lock, requires
+  a current `evaluation.lifecycle.dispose` delegation plus matching audit, and
+  is executable only by `flexagent_lifecycle_executor` (revoked from
+  `flexagent` / `flexagent_application`). Active legal holds block disposition;
+  inactive holds do not. Integration covers hold/disposal races, role denial,
+  and delegation revocation negatives.
 - Combined Phase 3 review on 2026-09-08 approved `13fd2f3` (core
   persistence/admission/durable recovery) and `4e2fb53` (security-review
   hardening) together: 0 Blocker / 0 High / 0 new Medium; no corrective
@@ -1057,7 +1058,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 3 frozen-input and persistence red/green | approved core | `13fd2f3`: `0072`, frozen-input digest, admission/inbox/reconciliation, durable work claim/retry/recovery. Focused: Evaluation domain 54; schema 3; admission/recovery 11; architecture 65; Grate 13 |
 | Phase 3 security-review schema follow-up | approved hardening | `4e2fb53`: additive `0073` composite annotation/audit provenance; expired final-attempt exhaustion on claim scan. Focused schema/provenance/admission 18 passed |
 | Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required |
-| Phase 3 fault matrix (`0074`) | complete | Completion-race reconciliation, completed-artifact UPDATE/DELETE denial, hold-aware `dispose_evaluation_provider_artifact` without session bypass. Focused: completion/immutability 14; lifecycle disposition 4; admission 12; provenance 2; schema 3 |
+| Phase 3 fault matrix (`0074` + `0075`) | complete | `5012349` review follow-up: evaluation-row hold/disposal serialization, lifecycle-executor EXECUTE boundary, delegation proof, role/delegation/race negatives. Confirmation 2026-09-08: Evaluation integration 39 passed; `verify-dotnet.sh` green; `verify-web.sh` green; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
