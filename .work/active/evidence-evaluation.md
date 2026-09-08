@@ -947,8 +947,8 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: re-review Phase 4 slice 2 after corrective fallback sealing commit.
-  Phase 3 is complete through `909c624`.
+- Next: external re-review of Phase 4 slice 2 (`9e286f9` + `1932276`) after corrective
+  fallback sealing. Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
