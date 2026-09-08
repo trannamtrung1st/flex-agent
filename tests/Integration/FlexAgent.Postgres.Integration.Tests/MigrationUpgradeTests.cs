@@ -91,6 +91,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0071ScriptName = "0071_configuration_source_payloads.sql";
     private const string Current0072ScriptName = "0072_evaluation_persistence_and_durable_work.sql";
     private const string Current0073ScriptName = "0073_evaluation_disposition_and_audit_provenance.sql";
+    private const string Current0074ScriptName = "0074_evaluation_provider_artifact_lifecycle_disposition.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -4049,7 +4050,8 @@ public sealed class MigrationUpgradeTests
         if (expectedScripts.LastOrDefault() is Current0069ScriptName
             or Current0070ScriptName
             or Current0071ScriptName
-            or Current0072ScriptName)
+            or Current0072ScriptName
+            or Current0073ScriptName)
         {
             if (expectedScripts.LastOrDefault() == Current0069ScriptName)
             {
@@ -4060,6 +4062,7 @@ public sealed class MigrationUpgradeTests
                     Current0071ScriptName,
                     Current0072ScriptName,
                     Current0073ScriptName,
+                    Current0074ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0070ScriptName
@@ -4071,6 +4074,7 @@ public sealed class MigrationUpgradeTests
                     Current0071ScriptName,
                     Current0072ScriptName,
                     Current0073ScriptName,
+                    Current0074ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0071ScriptName
@@ -4081,12 +4085,18 @@ public sealed class MigrationUpgradeTests
                     .. expectedScripts,
                     Current0072ScriptName,
                     Current0073ScriptName,
+                    Current0074ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0072ScriptName
                 && !expectedScripts.Contains(Current0073ScriptName))
             {
-                expectedScripts = [.. expectedScripts, Current0073ScriptName];
+                expectedScripts = [.. expectedScripts, Current0073ScriptName, Current0074ScriptName];
+            }
+            else if (expectedScripts.LastOrDefault() == Current0073ScriptName
+                && !expectedScripts.Contains(Current0074ScriptName))
+            {
+                expectedScripts = [.. expectedScripts, Current0074ScriptName];
             }
         }
 

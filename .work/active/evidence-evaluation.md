@@ -6,6 +6,7 @@ updated: 2026-09-08
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
+phase3_fault_matrix: complete-0074
 ---
 
 # Goal
@@ -459,14 +460,14 @@ approved layout families and donors already exist.
   binding. Add unique constraints for initial request input identity,
   request-attempt ordinal, one authoritative completion, Evidence ownership,
   exact criterion set, and replacement predecessor lineage.
-- [>] Protect completed artifacts, Evidence sets/items, criterion judgments,
+- [x] Protect completed artifacts, Evidence sets/items, criterion judgments,
   terminal attempts, and lineage against ordinary update/delete. Isolate
   mutable current disposition and claim state from immutable history, and
   provide only the approved, auditable lifecycle-disposition mechanism needed
   for expiry/hold processing; normal repositories and service actors cannot
   bypass immutability, while lifecycle policy is not made impossible by an
   unconditional database trigger.
-- [>] Red: PostgreSQL tests for cross-tenant/Activity/Participant/Attempt/
+- [x] Red: PostgreSQL tests for cross-tenant/Activity/Participant/Attempt/
   Session foreign-key attacks, invalid terminal state/cutoff/seal/configuration,
   duplicate admission, conflicting idempotency, completion races, mutation,
   deletion, audit outage, lost response, expired lease, and restart recovery.
@@ -489,7 +490,7 @@ approved layout families and donors already exist.
   per-Organization concurrency/backlog limits and fair claim partitioning, and
   stable non-content failure categories. One Organization, activity,
   Participant, oversized artifact, or provider failure must not starve another.
-- [ ] Green/refactor focused Evaluation and PostgreSQL migration/integration
+- [x] Green/refactor focused Evaluation and PostgreSQL migration/integration
   tests.
 
 ## Phase 4 — Materialize exact sources and validate Evidence locators
@@ -855,8 +856,8 @@ Activated on 2026-09-07 at `15ae379` (`main` / `origin/main`). Phase 1 frozen-
 input prerequisites are implemented and approved on `b728d71`. Phase 2 added
 the Evaluation module, architecture boundaries, domain validators, and
 fail-closed admission. Phase 3 core persistence/admission/recovery is approved
-on `13fd2f3` with hardening follow-up on `4e2fb53`; completion/lifecycle fault
-matrices remain before the phase can close.
+on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
+`0074`.
 
 - Catalog family is present (procedure/request/work/artifact/review-read).
   Internal work/provider/protected-artifact contracts stay out of OpenAPI/TS.
@@ -907,8 +908,9 @@ matrices remain before the phase can close.
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: finish the remaining Phase 3 completion-race, ordinary artifact
-  mutation/deletion, and authorized hold-aware lifecycle disposition matrix.
+- Next: Phase 4 — materialize exact sources and validate Evidence locators.
+  Phase 3 completion-race, artifact immutability, and hold-aware provider-artifact
+  lifecycle disposition are implemented on `0074` with integration coverage.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 
@@ -985,13 +987,13 @@ The only other active task is `text-interaction-controller-contract`
   terminal-record id, terminal state/cutoff/seal, configuration id/digest, and
   manifest id/digest. This prevents treating the terminal seal digest as the
   resolved manifest digest.
-- Phase 3 lifecycle disposal remains fail-closed. Migration `0072` records
-  holds and immutable disposition events but exposes no session-variable or
-  ordinary-service bypass around artifact immutability. Interim default:
-  physical disposal stays denied until the lifecycle path has a separately
-  authorized execution boundary and hold/audit fault tests; rationale:
-  PostgreSQL custom settings are caller-settable and are not sufficient
-  lifecycle authority.
+- Phase 3 lifecycle disposal uses `dispose_evaluation_provider_artifact` on
+  migration `0074`. Provider-artifact DELETE requires a prior disposition event
+  (no caller-settable session bypass). Active legal holds block disposition;
+  inactive holds do not. Completion races reconcile through
+  `MarkCompletedAsync` and claim-scan reconciliation; duplicate request
+  evaluations fail on `uq_evaluations_request`; completed artifact tables reject
+  ordinary UPDATE/DELETE via append-only triggers.
 - Combined Phase 3 review on 2026-09-08 approved `13fd2f3` (core
   persistence/admission/durable recovery) and `4e2fb53` (security-review
   hardening) together: 0 Blocker / 0 High / 0 new Medium; no corrective
@@ -1054,7 +1056,8 @@ interim default and rationale in the owning authority before proceeding.
 | Contract/JCS and architecture tests | Phase 2 review-fix complete | `FlexAgent.Evaluation.Tests` 51 passed; `EvaluationContractCatalogTests` 4; `ContractCatalogTests` valid/invalid fixtures 185; `python3 scripts/check_docs.py` passed |
 | Phase 3 frozen-input and persistence red/green | approved core | `13fd2f3`: `0072`, frozen-input digest, admission/inbox/reconciliation, durable work claim/retry/recovery. Focused: Evaluation domain 54; schema 3; admission/recovery 11; architecture 65; Grate 13 |
 | Phase 3 security-review schema follow-up | approved hardening | `4e2fb53`: additive `0073` composite annotation/audit provenance; expired final-attempt exhaustion on claim scan. Focused schema/provenance/admission 18 passed |
-| Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required. Phase 3 not closed: completion-race matrix, immutable-artifact mutation/delete verification, authorized hold-aware lifecycle disposition remain |
+| Phase 3 combined review (`13fd2f3` + `4e2fb53`) | approved | 2026-09-08: 0 Blocker / 0 High / 0 new Medium; no corrective commit required |
+| Phase 3 fault matrix (`0074`) | complete | Completion-race reconciliation, completed-artifact UPDATE/DELETE denial, hold-aware `dispose_evaluation_provider_artifact` without session bypass. Focused: completion/immutability 14; lifecycle disposition 4; admission 12; provenance 2; schema 3 |
 | Phase 3 CI restore (`3c0c1c3`) | approved | Refreshed NuGet lock files for Sessions→Evaluation dependency; extended migration upgrade tail through `0073` without weakening assertions. Review 2026-09-08: 0 Blocker/High/Medium |
 | Phase 3 migration and architecture regression | approved | 2026-09-08: `verify-dotnet.sh` 2095 passed / 4 skipped; `verify-web.sh` green; `check_docs.py` passed; architecture 65; Postgres integration including migration upgrade 415. Recorded on `4a2a86a`; hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |

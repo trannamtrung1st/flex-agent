@@ -216,6 +216,41 @@ internal static class EvaluationPersistenceTestSeed
         return evaluationId;
     }
 
+    internal static async Task<Guid> InsertProviderArtifactAsync(
+        NpgsqlConnection connection,
+        EvaluationDurableWorkItem claimed,
+        CancellationToken cancellationToken,
+        NpgsqlTransaction? transaction = null)
+    {
+        var providerArtifactId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO evaluation_provider_artifacts (
+                    organization_id, provider_artifact_id, request_id, invocation_attempt_id,
+                    model_profile_id, model_profile_version, model_profile_digest,
+                    credential_binding_reference, protected_request_ref, protected_response_ref,
+                    outcome, failure_category, created_at)
+                SELECT
+                    organization_id, @ProviderArtifactId, request_id, @InvocationAttemptId,
+                    model_profile_id, model_profile_version, model_profile_digest,
+                    credential_binding_reference, 'protected.request.ref', 'protected.response.ref',
+                    'succeeded', NULL, clock_timestamp()
+                FROM evaluation_requests
+                WHERE organization_id = @OrganizationId AND request_id = @RequestId;
+                """,
+                new
+                {
+                    claimed.Ownership.OrganizationId,
+                    ProviderArtifactId = providerArtifactId,
+                    claimed.RequestId,
+                    claimed.InvocationAttemptId,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        return providerArtifactId;
+    }
+
     private const string SeedSql = """
         INSERT INTO session_resolved_configurations (
             organization_id, configuration_id, configuration_digest, canonical_json, created_at)
