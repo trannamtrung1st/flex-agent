@@ -2,18 +2,19 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T07:13:00+07:00
+updated: 2026-09-09T07:20:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
 phase3_fault_matrix: approved-909c624
 phase3_status: complete
-phase4_status: in-progress
+phase4_status: complete-work-trace-deferred
 phase4_foundation: approved-437401b-2461466
 phase4_slice: approved-0514a70-235f7ed
 phase4_slice2: approved-9e286f9-1932276
 phase4_slice3: approved-4a6a152-88b293f
 phase4_slice4: approved-c97715e-7d16935
+phase4_gate: approved-2026-09-09-verify-dotnet
 ---
 
 # Goal
@@ -502,15 +503,18 @@ approved layout families and donors already exist.
 
 ## Phase 4 — Materialize exact sources and validate Evidence locators
 
-- [>] Add Session-owned read ports for the exact terminal handoff, terminal
+- [x] Add Session-owned read ports for the exact terminal handoff, terminal
   record/seal, resolved configuration/manifest, accepted/published transcript
   material at or before cutoff, and safe configuration/manifest facts. Reads
   must scope before materialization and return stable protected references plus
   digests, not unrestricted tables.
   `IEvaluationSessionEvidenceSource` + `PostgresEvaluationSessionEvidenceSource`
   load the authoritative handoff, cutoff-scoped transcript items, and safe
-  configuration/manifest fact projections bound to handoff digests.
-- [>] Add Submission-owned delegated-service ports for the exact bound accepted
+  configuration/manifest fact projections bound to handoff digests. Participant
+  and agent transcript materialization is complete through slice 3–4. Session
+  work-trace owner port/materialization remains deferred until durable Session
+  persistence exists (see Findings).
+- [x] Add Submission-owned delegated-service ports for the exact bound accepted
   versions/items and protected object bytes. Reauthorize ownership/status/
   binding before each disclosure; reject failed, quarantined, rejected, later,
   unbound, or mutable material.
@@ -518,7 +522,7 @@ approved layout families and donors already exist.
   `PostgresEvaluationSubmissionEvidenceSource` require completed Attempt scope
   and exact artifact bytes via `IArtifactStore`; integration coverage green for
   bound-item load, wrong-session rejection, and missing-artifact negatives.
-- [>] Normalize P0 text sources to source-native units without losing exact
+- [x] Normalize P0 text sources to source-native units without losing exact
   bytes: Unicode-scalar/line and UTF-8 byte ranges for direct text/text files;
   stable transcript message/fragment/update/notice IDs and offsets at/before
   cutoff; allowlisted JSON Pointers for safe configuration/manifest and
@@ -527,7 +531,7 @@ approved layout families and donors already exist.
   excerpt digest checks; Session owner port reconstructs agent transcript bytes
   from durable fragments via `EvidenceAgentTranscriptAssembler`; work-trace
   materialization remains deferred (schema allowlist only; no owner table yet).
-- [>] Red: locator tests for wrong source/version/digest/criterion/Evaluation,
+- [x] Red: locator tests for wrong source/version/digest/criterion/Evaluation,
   cross-scope material, invalid UTF-8 boundaries, off-by-one ranges, forged
   quotes, post-cutoff messages/fragments, unpublished/failed generations,
   local drafts, hidden prompts, unsafe config fields, missing objects, and
@@ -568,7 +572,7 @@ approved layout families and donors already exist.
   `evidence-set-jcs-sha256-v1`; verify the existing fixture and add ordering,
   duplicate, drift, and tamper fixtures.
   `EvidenceSetSealComputer` + fixture/tamper/duplicate/reorder/drift tests green.
-- [>] Green/refactor owner-port, artifact, locator, seal, cross-scope, and
+- [x] Green/refactor owner-port, artifact, locator, seal, cross-scope, and
   later-source-invariance tests.
   Slice 2 (`9e286f9` + `1932276`) approved 2026-09-08: procedure gating,
   locator-metadata persistence, effective fallback sealing, seal reorder/drift,
@@ -584,8 +588,11 @@ approved layout families and donors already exist.
   work-trace source-type isolation via separate `WorkTraceItemsBySourceId`
   (empty from owner port until durable persistence exists). External review on
   corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High
-  closed. Remaining Phase 4 gate before Phase 5: durable Session work-trace
-  owner port/materialization and proportionate full-suite regression.
+  closed. Phase 4 gate closed 2026-09-09: proportionate full-suite regression
+  green (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py`
+  passed). Session work-trace owner port/materialization remains an accepted
+  deferred gap until Session durable persistence lands; fail-closed empty
+  collection is interim default and does not block Phase 5 entry.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
@@ -969,13 +976,16 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: close remaining Phase 4 gate — durable Session work-trace owner
-  port/materialization (deferred until persistence exists) and proportionate
-  full-suite regression before Phase 5. Phase 4 slice 3 approved 2026-09-09
-  through `4a6a152` + `88b293f` (review: 0 Blocker / 0 High / 0 Medium).
-  Phase 4 slice 4 approved 2026-09-09 through `c97715e` + `7d16935` (review:
-  0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed). Phase 3 is
-  complete through `909c624`.
+- Next: Phase 5 — restricted deterministic evaluator lane (registry port,
+  built-in allowlist, qualification gates, and bounded execution). Phase 4 is
+  complete with work-trace owner port/materialization explicitly deferred until
+  Session durable persistence exists; interim fail-closed via empty
+  `WorkTraceItemsBySourceId` is approved. Phase 4 gate closed 2026-09-09:
+  `verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed.
+  Phase 4 slice 3 approved 2026-09-09 through `4a6a152` + `88b293f` (review:
+  0 Blocker / 0 High / 0 Medium). Phase 4 slice 4 approved 2026-09-09 through
+  `c97715e` + `7d16935` (review: 0 Blocker / 0 High / 0 Medium; work-trace
+  masquerade High closed). Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1082,6 +1092,13 @@ The only other active task is `text-interaction-controller-contract`
   0 Blocker / 0 High / 0 Medium; no corrective commit required. Hosted GitHub
   Actions for `4a2a86a` was not independently observed; repository-recorded
   local/CI-equivalent verification is internally consistent.
+- Phase 4 closes with Session work-trace owner port/materialization explicitly
+  deferred: Evaluation allowlists `session.work_trace`, isolates verification
+  through separate `WorkTraceItemsBySourceId`, and leaves the owner builder
+  collection empty fail-closed until Session module durable work-trace
+  persistence exists per `REQ-SESS-52`. External review accepted this interim
+  default; it is a recorded gap, not a Phase 4 blocker, and does not prevent
+  Phase 5 entry.
 
 # Readiness review
 
@@ -1142,6 +1159,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 2 (`9e286f9` + `1932276` + `72ad277` + `2b70676` + `eb4be24`) | approved | Review 2026-09-08 on corrective chain: 0 Blocker / 0 High / 0 Medium; previous fallback integrity High closed. `9e286f9`: procedure gating, locator persistence, seal reorder/drift, mutable-alias/work-trace negatives. Review found 1 High — fallback sealed failed exact-range digests. `1932276`: effective `whole_item` location for seal/persistence via `EvidenceLocatorVerifiedProjection`. Evidence commits `72ad277`, `2b70676`, `eb4be24` record corrective/confirmation state without premature approval. Focused: `FlexAgent.Evaluation.Tests` 108; evaluation Postgres locator store 1; architecture 65; `verify-dotnet.sh` 2181 passed / 4 skipped; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
+| Phase 4 gate (proportionate regression) | complete | 2026-09-09: `build/scripts/verify-dotnet.sh` 2201 passed / 4 skipped; `python3 scripts/check_docs.py` passed. Work-trace owner port/materialization remains deferred (accepted gap per Findings). Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
