@@ -33,7 +33,10 @@ public sealed class DeterministicEvaluatorRunnerTests
         Assert.True(result.Succeeded, result.OutcomeCode);
         Assert.Equal(DeterministicInvocationOutcomes.Succeeded, result.Value!.Outcome);
         Assert.NotNull(result.Value.OutputUtf8);
-        Assert.NotNull(result.Value.ProtectedOutputRef);
+        Assert.NotNull(result.Value.OutputContentDigest);
+        Assert.Equal(
+            DeterministicInvocationProvenance.ProtectedOutputRef(result.Value.OutputContentDigest),
+            result.Value.ProtectedOutputRef);
     }
 
     [Fact]
@@ -163,6 +166,64 @@ public sealed class DeterministicEvaluatorRunnerTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.UnqualifiedEvaluator, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Oversized_canonical_input_is_rejected_before_execution()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"] with
+        {
+            MemoryLimitBytes = 32,
+        };
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "this canonical input exceeds the configured memory limit",
+              "minimum": 1,
+              "maximum": 10
+            }
+            """);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.ResourceExhausted, result.Value!.Outcome);
+    }
+
+    [Fact]
+    public void Excessive_json_nesting_is_rejected()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var builder = new StringBuilder(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "x",
+              "minimum": 1,
+              "maximum": 2,
+              "nested":
+            """);
+        builder.Append('{', DeterministicExecutionBounds.MaxJsonDepth + 2);
+        builder.Append("\"x\":1");
+        builder.Append('}', DeterministicExecutionBounds.MaxJsonDepth + 2);
+        builder.Append('}');
+        var input = CreateInput(builder.ToString());
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
     }
 
     private static DeterministicEvaluatorExecutionRequest CreateRequest(

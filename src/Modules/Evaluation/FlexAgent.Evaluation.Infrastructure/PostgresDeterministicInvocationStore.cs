@@ -31,12 +31,14 @@ public sealed class PostgresDeterministicInvocationStore(
                     organization_id, deterministic_attempt_id, request_id, invocation_attempt_id,
                     criterion_id, criterion_version, evaluator_id, evaluator_version, evaluator_digest,
                     canonical_input_digest, dependency_digest, configuration_digest, outcome,
-                    protected_input_ref, protected_output_ref, failure_category, started_at, finished_at)
+                    protected_input_ref, protected_output_ref, output_content_digest, failure_category,
+                    started_at, finished_at)
                 SELECT
                     @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
                     @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
                     @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, @Outcome,
-                    @ProtectedInputRef, @ProtectedOutputRef, @FailureCategory, @StartedAt, @FinishedAt
+                    @ProtectedInputRef, @ProtectedOutputRef, @OutputContentDigest, @FailureCategory,
+                    @StartedAt, @FinishedAt
                 FROM evaluation_requests AS request
                 INNER JOIN evaluation_invocation_attempts AS attempt
                   ON attempt.organization_id = request.organization_id
@@ -72,6 +74,7 @@ public sealed class PostgresDeterministicInvocationStore(
                     Outcome = DeterministicInvocationOutcomes.ToPersistenceOutcome(command.Result.Outcome),
                     command.Result.ProtectedInputRef,
                     command.Result.ProtectedOutputRef,
+                    command.Result.OutputContentDigest,
                     command.Result.FailureCategory,
                     StartedAt = command.Result.StartedAt,
                     FinishedAt = command.Result.FinishedAt,
@@ -90,7 +93,21 @@ public sealed class PostgresDeterministicInvocationStore(
         var existing = await connection.QuerySingleOrDefaultAsync<PersistedDeterministicAttemptRow>(
             new CommandDefinition(
                 """
-                SELECT outcome, protected_output_ref, failure_category, canonical_input_digest
+                SELECT
+                    invocation_attempt_id,
+                    criterion_id,
+                    criterion_version,
+                    evaluator_id,
+                    evaluator_version,
+                    evaluator_digest,
+                    configuration_digest,
+                    dependency_digest,
+                    canonical_input_digest,
+                    protected_input_ref,
+                    protected_output_ref,
+                    output_content_digest,
+                    outcome,
+                    failure_category
                 FROM evaluation_deterministic_attempts
                 WHERE organization_id = @OrganizationId
                   AND request_id = @RequestId
@@ -104,33 +121,49 @@ public sealed class PostgresDeterministicInvocationStore(
                 },
                 cancellationToken: cancellationToken));
 
-        if (existing is null
-            || !string.Equals(
-                DeterministicInvocationOutcomes.ToPersistenceOutcome(command.Result.Outcome),
-                existing.outcome,
-                StringComparison.Ordinal)
-            || !string.Equals(
-                command.Result.ProtectedOutputRef,
-                existing.protected_output_ref,
-                StringComparison.Ordinal)
-            || !string.Equals(
-                command.Result.FailureCategory,
-                existing.failure_category,
-                StringComparison.Ordinal)
-            || !string.Equals(
-                command.CanonicalInputDigest,
-                existing.canonical_input_digest,
-                StringComparison.Ordinal))
+        if (existing is null)
         {
-            return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.DuplicateIdentity);
+            return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.InvalidField);
+        }
+
+        var candidate = DeterministicInvocationProvenance.FromAppendCommand(command);
+        var persisted = new DeterministicInvocationProvenanceSnapshot(
+            existing.invocation_attempt_id,
+            existing.criterion_id,
+            existing.criterion_version,
+            existing.evaluator_id,
+            existing.evaluator_version,
+            existing.evaluator_digest,
+            existing.configuration_digest,
+            existing.dependency_digest,
+            existing.canonical_input_digest,
+            existing.protected_input_ref,
+            existing.protected_output_ref,
+            existing.output_content_digest,
+            existing.outcome,
+            existing.failure_category);
+
+        if (!DeterministicInvocationProvenance.IsEquivalentRetry(persisted, candidate))
+        {
+            return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.DeterministicConflict);
         }
 
         return EvaluationDecision<Guid>.Ok(command.DeterministicAttemptId);
     }
 
     private sealed record PersistedDeterministicAttemptRow(
-        string outcome,
+        Guid invocation_attempt_id,
+        string criterion_id,
+        string criterion_version,
+        string evaluator_id,
+        string evaluator_version,
+        string evaluator_digest,
+        string configuration_digest,
+        string dependency_digest,
+        string canonical_input_digest,
+        string? protected_input_ref,
         string? protected_output_ref,
-        string? failure_category,
-        string canonical_input_digest);
+        string? output_content_digest,
+        string outcome,
+        string? failure_category);
 }

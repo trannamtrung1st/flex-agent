@@ -5,68 +5,41 @@ namespace FlexAgent.Evaluation.Infrastructure;
 
 public sealed class BuiltinEvaluatorRegistry : IEvaluatorRegistry
 {
-    public const string BoundedCalcEvaluatorDigest =
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
-    public const string BoundedCalcConfigurationDigest =
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-    public const string BoundedCalcDependencyDigest =
-        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
-
-    public const string SchemaValidateEvaluatorDigest =
-        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
-
-    public const string SchemaValidateConfigurationDigest =
-        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-
-    public const string SchemaValidateDependencyDigest =
-        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-
     private static readonly EvaluatorRegistryEntry BoundedCalcEntry = CreateEntry(
         "eval.builtin.bounded-calc",
         EvaluatorOperations.BoundedCalculation,
         "eval.builtin.bounded-calc.input.v1",
-        "eval.builtin.bounded-calc.output.v1",
-        BoundedCalcEvaluatorDigest,
-        BoundedCalcConfigurationDigest,
-        BoundedCalcDependencyDigest);
+        "eval.builtin.bounded-calc.output.v1");
 
     private static readonly EvaluatorRegistryEntry SchemaValidateEntry = CreateEntry(
         "eval.builtin.schema-validate",
         EvaluatorOperations.SchemaValidate,
         "eval.builtin.schema-validate.input.v1",
-        "eval.builtin.schema-validate.output.v1",
-        SchemaValidateEvaluatorDigest,
-        SchemaValidateConfigurationDigest,
-        SchemaValidateDependencyDigest);
+        "eval.builtin.schema-validate.output.v1");
 
     private static readonly EvaluatorRegistryEntry ExactCompareEntry = CreateEntry(
         "eval.builtin.exact-compare",
         EvaluatorOperations.ExactCompare,
         "eval.builtin.exact-compare.input.v1",
-        "eval.builtin.exact-compare.output.v1",
-        "1111111111111111111111111111111111111111111111111111111111111111",
-        "2222222222222222222222222222222222222222222222222222222222222222",
-        "3333333333333333333333333333333333333333333333333333333333333333");
+        "eval.builtin.exact-compare.output.v1");
 
     private static readonly EvaluatorRegistryEntry CitationValidateEntry = CreateEntry(
         "eval.builtin.citation-validate",
         EvaluatorOperations.CitationValidate,
         "eval.builtin.citation-validate.input.v1",
-        "eval.builtin.citation-validate.output.v1",
-        "4444444444444444444444444444444444444444444444444444444444444444",
-        "5555555555555555555555555555555555555555555555555555555555555555",
-        "6666666666666666666666666666666666666666666666666666666666666666");
+        "eval.builtin.citation-validate.output.v1");
 
     private static readonly EvaluatorRegistryEntry RubricAggregateEntry = CreateEntry(
         "eval.builtin.rubric-aggregate",
         EvaluatorOperations.RubricAggregate,
         "eval.builtin.rubric-aggregate.input.v1",
-        "eval.builtin.rubric-aggregate.output.v1",
-        "7777777777777777777777777777777777777777777777777777777777777777",
-        "8888888888888888888888888888888888888888888888888888888888888888",
-        "9999999999999999999999999999999999999999999999999999999999999999");
+        "eval.builtin.rubric-aggregate.output.v1");
+
+    public static string BoundedCalcEvaluatorDigest => BoundedCalcEntry.EvaluatorDigest;
+
+    public static string BoundedCalcConfigurationDigest => BoundedCalcEntry.ConfigurationDigest;
+
+    public static string BoundedCalcDependencyDigest => BoundedCalcEntry.DependencyDigest;
 
     private static readonly EvaluatorRegistrySnapshot P0Snapshot = CreateSnapshot(EvaluatorRegistryVersions.P0);
 
@@ -118,20 +91,18 @@ public sealed class BuiltinEvaluatorRegistry : IEvaluatorRegistry
         string evaluatorId,
         string operation,
         string inputSchemaId,
-        string outputSchemaId,
-        string evaluatorDigest,
-        string configurationDigest,
-        string dependencyDigest) =>
-        new(
+        string outputSchemaId)
+    {
+        var entry = new EvaluatorRegistryEntry(
             evaluatorId,
             $"{evaluatorId}.v1",
-            evaluatorDigest,
+            string.Empty,
             operation,
             inputSchemaId,
             outputSchemaId,
             "jcs-sha256-v1",
-            configurationDigest,
-            dependencyDigest,
+            string.Empty,
+            string.Empty,
             "PT5S",
             "PT10S",
             16_777_216,
@@ -139,4 +110,7 @@ public sealed class BuiltinEvaluatorRegistry : IEvaluatorRegistry
             "prohibited",
             "prohibited",
             EvaluatorQualificationStates.Qualified);
+
+        return BuiltinEvaluatorIdentityDigester.WithComputedDigests(entry);
+    }
 }

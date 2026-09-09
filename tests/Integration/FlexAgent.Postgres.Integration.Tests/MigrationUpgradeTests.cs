@@ -93,6 +93,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0073ScriptName = "0073_evaluation_disposition_and_audit_provenance.sql";
     private const string Current0074ScriptName = "0074_evaluation_provider_artifact_lifecycle_disposition.sql";
     private const string Current0075ScriptName = "0075_evaluation_lifecycle_disposition_authorization_and_serialization.sql";
+    private const string Current0076ScriptName = "0076_evaluation_deterministic_output_digest.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -4066,6 +4067,7 @@ public sealed class MigrationUpgradeTests
                     Current0073ScriptName,
                     Current0074ScriptName,
                     Current0075ScriptName,
+                    Current0076ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0070ScriptName
@@ -4079,6 +4081,7 @@ public sealed class MigrationUpgradeTests
                     Current0073ScriptName,
                     Current0074ScriptName,
                     Current0075ScriptName,
+                    Current0076ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0071ScriptName
@@ -4091,22 +4094,28 @@ public sealed class MigrationUpgradeTests
                     Current0073ScriptName,
                     Current0074ScriptName,
                     Current0075ScriptName,
+                    Current0076ScriptName,
                 ];
             }
             else if (expectedScripts.LastOrDefault() == Current0072ScriptName
                 && !expectedScripts.Contains(Current0073ScriptName))
             {
-                expectedScripts = [.. expectedScripts, Current0073ScriptName, Current0074ScriptName, Current0075ScriptName];
+                expectedScripts = [.. expectedScripts, Current0073ScriptName, Current0074ScriptName, Current0075ScriptName, Current0076ScriptName];
             }
             else if (expectedScripts.LastOrDefault() == Current0073ScriptName
                 && !expectedScripts.Contains(Current0074ScriptName))
             {
-                expectedScripts = [.. expectedScripts, Current0074ScriptName, Current0075ScriptName];
+                expectedScripts = [.. expectedScripts, Current0074ScriptName, Current0075ScriptName, Current0076ScriptName];
             }
             else if (expectedScripts.LastOrDefault() == Current0074ScriptName
                 && !expectedScripts.Contains(Current0075ScriptName))
             {
-                expectedScripts = [.. expectedScripts, Current0075ScriptName];
+                expectedScripts = [.. expectedScripts, Current0075ScriptName, Current0076ScriptName];
+            }
+            else if (expectedScripts.LastOrDefault() == Current0075ScriptName
+                && !expectedScripts.Contains(Current0076ScriptName))
+            {
+                expectedScripts = [.. expectedScripts, Current0076ScriptName];
             }
         }
 

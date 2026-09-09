@@ -32,10 +32,25 @@ public static class DeterministicInvocationIdentity
 {
     public static Guid ComputeAttemptId(
         Guid requestId,
+        Guid invocationAttemptId,
         string criterionId,
+        string criterionVersion,
+        DeterministicEvaluatorBindingV1 binding,
         string canonicalInputDigest)
     {
-        var payload = Encoding.UTF8.GetBytes($"{requestId:N}|{criterionId}|{canonicalInputDigest}");
+        var payload = Encoding.UTF8.GetBytes(
+            string.Join(
+                '|',
+                requestId.ToString("N"),
+                invocationAttemptId.ToString("N"),
+                criterionId,
+                criterionVersion,
+                binding.EvaluatorId,
+                binding.EvaluatorVersion,
+                binding.EvaluatorDigest,
+                binding.ConfigurationDigest,
+                binding.DependencyDigest,
+                canonicalInputDigest));
         var hash = SHA256.HashData(payload);
         return new Guid(hash.AsSpan(0, 16));
     }

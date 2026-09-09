@@ -47,27 +47,17 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
 
         var attemptId = DeterministicInvocationIdentity.ComputeAttemptId(
             request.RequestId,
+            request.InvocationAttemptId,
             request.CriterionId,
+            request.CriterionVersion,
+            request.Binding,
             request.Input.CanonicalInputDigest);
-        var inputRef = $"prot.eval.det-in.{attemptId:N}";
-        var finishedAt = DateTimeOffset.UtcNow;
+        var inputRef = DeterministicInvocationProvenance.ProtectedInputRef(request.Input.CanonicalInputDigest);
 
-        if (!TryScanInputForForbiddenContent(request.Input.CanonicalUtf8, out var forbiddenField))
-        {
-            return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
-                FailedResult(
-                    attemptId,
-                    inputRef,
-                    startedAt,
-                    finishedAt,
-                    DeterministicInvocationOutcomes.InvalidOutput,
-                    "integrity_failure",
-                    forbiddenField));
-        }
-
-        var execution = ExecuteBuiltin(request.Binding, request.Input.CanonicalUtf8);
-        if (execution.OutputUtf8 is { } output
-            && output.Length > request.Binding.OutputLimitBytes)
+        if (!DeterministicExecutionBounds.TryValidateCanonicalInputSize(
+                request.Input.CanonicalUtf8,
+                request.Binding.MemoryLimitBytes,
+                out var inputSizeField))
         {
             return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
                 FailedResult(
@@ -77,54 +67,123 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                     DateTimeOffset.UtcNow,
                     DeterministicInvocationOutcomes.ResourceExhausted,
                     "resource_exhausted",
-                    "output_limit_bytes"));
+                    inputSizeField));
         }
 
-        var outputRef = execution.OutputUtf8 is null
-            ? null
-            : $"prot.eval.det-out.{attemptId:N}";
+        if (!DeterministicExecutionBounds.TryParseBoundedJson(
+                request.Input.CanonicalUtf8,
+                out var document,
+                out var jsonField)
+            || document is null)
+        {
+            return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                FailedResult(
+                    attemptId,
+                    inputRef,
+                    startedAt,
+                    DateTimeOffset.UtcNow,
+                    DeterministicInvocationOutcomes.InvalidOutput,
+                    "schema_invalid",
+                    jsonField));
+        }
 
-        return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
-            new DeterministicEvaluatorExecutionResult(
-                attemptId,
-                execution.Outcome,
-                execution.FailureCategory,
-                execution.OutputUtf8,
-                execution.OutputContentDigest,
-                inputRef,
-                outputRef,
-                startedAt,
-                execution.OutputUtf8 is null ? DateTimeOffset.UtcNow : DateTimeOffset.UtcNow));
+        using (document)
+        {
+            if (!TryScanInputForForbiddenContent(document.RootElement, out var forbiddenField))
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.InvalidOutput,
+                        "integrity_failure",
+                        forbiddenField));
+            }
+
+            if (!DeterministicExecutionBounds.TryValidateElapsedLimit(
+                    startedAt,
+                    request.Binding.ElapsedTimeLimit,
+                    out var elapsedField))
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.Timeout,
+                        "provider_timeout",
+                        elapsedField));
+            }
+
+            var execution = ExecuteBuiltin(request.Binding, document.RootElement);
+            if (execution.OutputUtf8 is { } output
+                && output.Length > request.Binding.OutputLimitBytes)
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.ResourceExhausted,
+                        "resource_exhausted",
+                        "output_limit_bytes"));
+            }
+
+            if (!DeterministicExecutionBounds.TryValidateElapsedLimit(
+                    startedAt,
+                    request.Binding.CpuTimeLimit,
+                    out var cpuField))
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.Timeout,
+                        "provider_timeout",
+                        cpuField));
+            }
+
+            var outputRef = DeterministicInvocationProvenance.ProtectedOutputRef(execution.OutputContentDigest);
+            var finishedAt = DateTimeOffset.UtcNow;
+
+            return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                new DeterministicEvaluatorExecutionResult(
+                    attemptId,
+                    execution.Outcome,
+                    execution.FailureCategory,
+                    execution.OutputUtf8,
+                    execution.OutputContentDigest,
+                    inputRef,
+                    outputRef,
+                    startedAt,
+                    finishedAt));
+        }
     }
 
     private static BuiltinExecutionAttempt ExecuteBuiltin(
         DeterministicEvaluatorBindingV1 binding,
-        ReadOnlyMemory<byte> canonicalInput)
+        JsonElement input)
     {
-        try
-        {
-            using var document = JsonDocument.Parse(canonicalInput);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return FailedAttempt(DeterministicInvocationOutcomes.InvalidOutput, "schema_invalid");
-            }
-
-            return binding.Operation switch
-            {
-                EvaluatorOperations.BoundedCalculation => ExecuteBoundedCalculation(
-                    binding,
-                    document.RootElement),
-                EvaluatorOperations.ExactCompare => ExecuteExactCompare(document.RootElement),
-                EvaluatorOperations.SchemaValidate => ExecuteSchemaValidate(document.RootElement),
-                EvaluatorOperations.CitationValidate => ExecuteCitationValidate(document.RootElement),
-                EvaluatorOperations.RubricAggregate => ExecuteRubricAggregate(document.RootElement),
-                _ => FailedAttempt(DeterministicInvocationOutcomes.Failed, "integrity_failure"),
-            };
-        }
-        catch (JsonException)
+        if (input.ValueKind != JsonValueKind.Object)
         {
             return FailedAttempt(DeterministicInvocationOutcomes.InvalidOutput, "schema_invalid");
         }
+
+        return binding.Operation switch
+        {
+            EvaluatorOperations.BoundedCalculation => ExecuteBoundedCalculation(binding, input),
+            EvaluatorOperations.ExactCompare => ExecuteExactCompare(input),
+            EvaluatorOperations.SchemaValidate => ExecuteSchemaValidate(input),
+            EvaluatorOperations.CitationValidate => ExecuteCitationValidate(input),
+            EvaluatorOperations.RubricAggregate => ExecuteRubricAggregate(input),
+            _ => FailedAttempt(DeterministicInvocationOutcomes.Failed, "integrity_failure"),
+        };
     }
 
     private static BuiltinExecutionAttempt ExecuteBoundedCalculation(
@@ -249,19 +308,10 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         return true;
     }
 
-    private static bool TryScanInputForForbiddenContent(ReadOnlyMemory<byte> canonicalUtf8, out string field)
+    private static bool TryScanInputForForbiddenContent(JsonElement root, out string field)
     {
         field = "canonical_input";
-        try
-        {
-            using var document = JsonDocument.Parse(canonicalUtf8);
-            return !ContainsForbiddenContent(document.RootElement, ref field);
-        }
-        catch (JsonException)
-        {
-            field = "canonical_input";
-            return false;
-        }
+        return !ContainsForbiddenContent(root, ref field);
     }
 
     private static bool ContainsForbiddenContent(JsonElement element, ref string field)
@@ -377,10 +427,10 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
             null,
             startedAt,
             finishedAt);
-
-    private sealed record BuiltinExecutionAttempt(
-        string Outcome,
-        string? FailureCategory,
-        ReadOnlyMemory<byte>? OutputUtf8,
-        string? OutputContentDigest);
 }
+
+internal sealed record BuiltinExecutionAttempt(
+    string Outcome,
+    string? FailureCategory,
+    ReadOnlyMemory<byte>? OutputUtf8,
+    string? OutputContentDigest);
