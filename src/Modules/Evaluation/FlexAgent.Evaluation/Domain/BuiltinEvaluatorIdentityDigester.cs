@@ -60,6 +60,7 @@ public static class BuiltinEvaluatorIdentityDigester
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
             writer.WriteString("executable_selection", entry.ExecutableSelection);
+            writer.WriteString("implementation_closure_digest", implementation.ImplementationClosureDigest);
             writer.WriteString("implementation_kind", ImplementationKind);
             writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WriteString("input_schema_id", entry.InputSchemaId);
@@ -69,7 +70,6 @@ public static class BuiltinEvaluatorIdentityDigester
             writer.WriteString("operation_artifact_digest", operationArtifactDigest);
             writer.WriteNumber("output_limit_bytes", entry.OutputLimitBytes);
             writer.WriteString("output_schema_id", entry.OutputSchemaId);
-            writer.WriteString("runner_source_artifact_digest", implementation.RunnerSourceArtifactDigest);
             writer.WriteEndObject();
         }
 
@@ -91,6 +91,7 @@ public static class BuiltinEvaluatorIdentityDigester
             writer.WriteStartObject();
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
+            writer.WriteString("implementation_closure_digest", implementation.ImplementationClosureDigest);
             writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WriteString("operation", entry.Operation);
             writer.WriteString("operation_artifact_digest", operationArtifactDigest);
@@ -117,6 +118,7 @@ public static class BuiltinEvaluatorIdentityDigester
             writer.WriteString("dependency_closure", ImplementationKind);
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
+            writer.WriteString("implementation_closure_digest", implementation.ImplementationClosureDigest);
             writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WritePropertyName("modules");
             writer.WriteStartArray();
@@ -130,7 +132,14 @@ public static class BuiltinEvaluatorIdentityDigester
             }
 
             writer.WriteEndObject();
-            writer.WriteString("runner_source_artifact_digest", implementation.RunnerSourceArtifactDigest);
+            writer.WritePropertyName("source_artifact_digests");
+            writer.WriteStartObject();
+            foreach (var pair in implementation.SourceArtifactDigests.OrderBy(static p => p.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(pair.Key, pair.Value);
+            }
+
+            writer.WriteEndObject();
             writer.WriteString("runtime", "net10.0");
             writer.WriteEndObject();
         }

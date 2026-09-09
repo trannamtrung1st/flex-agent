@@ -56,7 +56,7 @@ public sealed class EvaluationProcedureDocumentParserTests
         var utf8 = File.ReadAllBytes(Path.Combine(FixturesRoot, "valid-three-mode-synthetic.json"));
         var digest = CanonicalJsonProcessor.CanonicalizeSha256Hex(utf8, Limits);
         var canonical = CanonicalJsonProcessor.CanonicalizeUtf8(utf8, Limits);
-        Assert.Equal("00f1379f48b8af520b23822c8a7ff37633dc76b0e9ba6e012218af90d8e9df47", digest);
+        Assert.Equal("04bdd47d300bcbdc3099901d400eb076c51dd6b545622b05abe8385022ef0fc5", digest);
         Assert.True(EvaluationProcedureDocumentParser.TryParse(canonical, out _, out var failure), failure);
     }
 }

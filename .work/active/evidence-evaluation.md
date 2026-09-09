@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T23:38:00+07:00
+updated: 2026-09-09T23:51:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -617,7 +617,7 @@ approved layout families and donors already exist.
   Participant strings.
   Built-in entries cover `eval.builtin.exact-compare`, `schema-validate`,
   `citation-validate`, `bounded-calc`, and `rubric-aggregate` with digests from
-  `BuiltinEvaluatorImplementationManifest` + verified runner source artifact
+  `BuiltinEvaluatorImplementationManifest` v2 source-closure binding
   (`BuiltinEvaluatorImplementationBinding`).
 - [>] Red: reject unknown/mutable evaluator identifiers, changed dependency or
   config digests, path traversal, shell/script/code fields, environment or
@@ -676,9 +676,9 @@ approved layout families and donors already exist.
   expired-deadline/cooperative-scalar-check negatives);
   `DeterministicInvocationStoreTests` integration idempotency + 4 conflict paths;
   `BuiltinEvaluatorImplementationBindingTests` (runner source artifact digest).
-  Focused verification 2026-09-09 corrective #2 confirmation pass: Evaluation 174;
-  contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Hosted CI
-  not independently observed.
+  Focused verification 2026-09-09 source-closure corrective #3 confirmation pass:
+  Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5.
+  Hosted CI not independently observed.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1026,12 +1026,12 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: request re-review on corrective #2 commit after push. Prior review on
-  `d9011f9`: 0 Blocker / 1 High / 1 Medium — idempotency/provenance High closed;
-  runtime isolation High and registry-identity Medium were targets of corrective #2.
-  Worker remains disabled until re-review passes. Phase 5 slice 1 approved
-  2026-09-09 through `2ede5e1` + `2f3c699`. Phase 4 remains
-  `complete-work-trace-deferred`. Phase 3 is complete through `909c624`.
+- Next: commit source-closure corrective #3 and request re-review. `ce63dbe`
+  re-review: 0 Blocker / 0 High / 1 Medium — runtime isolation High **closed**;
+  registry identity Medium **open**. Corrective #3 binds SHA-256 source closure into
+  `implementation_closure_digest`. Worker remains disabled until re-review passes.
+  Phase 5 slice 1 approved 2026-09-09 through `2ede5e1` + `2f3c699`. Phase 4
+  remains `complete-work-trace-deferred`. Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1210,7 +1210,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
-| Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe`) | in-progress | `a53a5f5` review: 0 Blocker / 2 High / 1 Medium. `d9011f9` corrective: idempotency/provenance High **closed**; full-provenance attempt ID, `output_content_digest` via `0076`, snapshot reconciliation → `DeterministicConflict`, 5 Postgres conflict/idempotency tests; input/JSON bounds; computed registry digests. `d9011f9` re-review: 0 Blocker / 1 High / 1 Medium — runtime isolation High and registry-identity Medium **open**. `ce63dbe` corrective #2: `InProcessDeterministicExecutionContract`, cooperative wall-clock deadline during scalar loops, `BuiltinEvaluatorImplementationManifest` + verified runner source artifact digest, fixture/digest refresh. Confirmation pass: Evaluation 174; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker wiring remains disabled. Re-review required before approval |
+| Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe` + corrective #3, uncommitted) | in-progress | `d9011f9`: idempotency/provenance High **closed**. `ce63dbe` re-review: 0 Blocker / 0 High / 1 Medium — runtime isolation High **closed**; registry identity Medium **open**. `a228aec` accurate. Corrective #3 (uncommitted): `eval.builtin.impl-manifest.v2` SHA-256 source closure feeds `implementation_closure_digest`; dependency-artifact change tests; fixture refresh. Confirmation: Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker disabled. Re-review required before approval |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

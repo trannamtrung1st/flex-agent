@@ -6,12 +6,13 @@ namespace FlexAgent.Evaluation.Domain;
 
 public sealed record BuiltinEvaluatorImplementationIdentity(
     string ManifestVersion,
-    string RunnerSourceArtifactDigest,
+    string ImplementationClosureDigest,
+    IReadOnlyDictionary<string, string> SourceArtifactDigests,
     IReadOnlyDictionary<string, string> OperationArtifactDigests);
 
 public static class BuiltinEvaluatorImplementationManifest
 {
-    public const string ManifestVersion = "eval.builtin.impl-manifest.v1";
+    public const string ManifestVersion = "eval.builtin.impl-manifest.v2";
 
     private static readonly CanonicalJsonLimits Limits = new(
         maxUtf8Bytes: 65_536,
@@ -49,11 +50,39 @@ public static class BuiltinEvaluatorImplementationManifest
                 100),
         };
 
-    public static BuiltinEvaluatorImplementationIdentity CreateIdentity(string runnerSourceArtifactDigest) =>
-        new(
+    public static BuiltinEvaluatorImplementationIdentity CreateIdentity(
+        IReadOnlyDictionary<string, string> sourceArtifactDigests)
+    {
+        var closureDigest = ComputeClosureDigest(ManifestVersion, sourceArtifactDigests);
+        return new(
             ManifestVersion,
-            runnerSourceArtifactDigest,
+            closureDigest,
+            sourceArtifactDigests,
             OperationArtifacts);
+    }
+
+    public static string ComputeClosureDigest(
+        string manifestVersion,
+        IReadOnlyDictionary<string, string> sourceArtifactDigests)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("manifest_version", manifestVersion);
+            writer.WritePropertyName("source_artifact_digests");
+            writer.WriteStartObject();
+            foreach (var pair in sourceArtifactDigests.OrderBy(static p => p.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(pair.Key, pair.Value);
+            }
+
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }
+
+        return CanonicalJsonProcessor.CanonicalizeSha256Hex(stream.ToArray(), Limits);
+    }
 
     public static string ComputeBundleDigest(BuiltinEvaluatorImplementationIdentity identity)
     {
@@ -61,11 +90,19 @@ public static class BuiltinEvaluatorImplementationManifest
         using (var writer = new Utf8JsonWriter(stream))
         {
             writer.WriteStartObject();
+            writer.WriteString("implementation_closure_digest", identity.ImplementationClosureDigest);
             writer.WriteString("manifest_version", identity.ManifestVersion);
-            writer.WriteString("runner_source_artifact_digest", identity.RunnerSourceArtifactDigest);
             writer.WritePropertyName("operation_artifact_digests");
             writer.WriteStartObject();
             foreach (var pair in identity.OperationArtifactDigests.OrderBy(static p => p.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(pair.Key, pair.Value);
+            }
+
+            writer.WriteEndObject();
+            writer.WritePropertyName("source_artifact_digests");
+            writer.WriteStartObject();
+            foreach (var pair in identity.SourceArtifactDigests.OrderBy(static p => p.Key, StringComparer.Ordinal))
             {
                 writer.WriteString(pair.Key, pair.Value);
             }
