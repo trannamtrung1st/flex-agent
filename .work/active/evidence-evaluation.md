@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T07:20:00+07:00
+updated: 2026-09-09T07:47:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -14,7 +14,7 @@ phase4_slice: approved-0514a70-235f7ed
 phase4_slice2: approved-9e286f9-1932276
 phase4_slice3: approved-4a6a152-88b293f
 phase4_slice4: approved-c97715e-7d16935
-phase4_gate: approved-2026-09-09-verify-dotnet
+phase4_gate: approved-f89c35c
 ---
 
 # Goal
@@ -590,9 +590,11 @@ approved layout families and donors already exist.
   corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High
   closed. Phase 4 gate closed 2026-09-09: proportionate full-suite regression
   green (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py`
-  passed). Session work-trace owner port/materialization remains an accepted
-  deferred gap until Session durable persistence lands; fail-closed empty
-  collection is interim default and does not block Phase 5 entry.
+  passed). External review 2026-09-09 on `f89c35c`: 0 Blocker / 0 High /
+  0 Medium; Phase 5 entry authorized. Session work-trace owner port/
+  materialization remains an accepted deferred gap until Session durable
+  persistence lands; fail-closed empty collection is interim default and does
+  not block Phase 5 entry.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
@@ -977,15 +979,19 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
 - Next: Phase 5 — restricted deterministic evaluator lane (registry port,
-  built-in allowlist, qualification gates, and bounded execution). Phase 4 is
-  complete with work-trace owner port/materialization explicitly deferred until
-  Session durable persistence exists; interim fail-closed via empty
-  `WorkTraceItemsBySourceId` is approved. Phase 4 gate closed 2026-09-09:
-  `verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed.
-  Phase 4 slice 3 approved 2026-09-09 through `4a6a152` + `88b293f` (review:
-  0 Blocker / 0 High / 0 Medium). Phase 4 slice 4 approved 2026-09-09 through
-  `c97715e` + `7d16935` (review: 0 Blocker / 0 High / 0 Medium; work-trace
-  masquerade High closed). Phase 3 is complete through `909c624`.
+  built-in allowlist, qualification gates, and bounded execution). External
+  review 2026-09-09 approved `cce2302` (slice 4 approval record) and `f89c35c`
+  (Phase 4 gate closure): 0 Blocker / 0 High / 0 Medium; proceed. Phase 4
+  remains `complete-work-trace-deferred` with interim fail-closed via empty
+  `WorkTraceItemsBySourceId` until Session durable persistence exists. Before
+  final feature completion or production readiness, work-trace Evidence must
+  either be implemented upstream or remain explicitly unavailable under approved
+  product configuration. Phase 4 gate evidence: `verify-dotnet.sh` 2201 passed /
+  4 skipped; `scripts/check_docs.py` passed. Phase 4 slice 3 approved 2026-09-09
+  through `4a6a152` + `88b293f` (review: 0 Blocker / 0 High / 0 Medium). Phase 4
+  slice 4 approved 2026-09-09 through `c97715e` + `7d16935` (review: 0 Blocker /
+  0 High / 0 Medium; work-trace masquerade High closed). Phase 3 is complete
+  through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1098,7 +1104,10 @@ The only other active task is `text-interaction-controller-contract`
   collection empty fail-closed until Session module durable work-trace
   persistence exists per `REQ-SESS-52`. External review accepted this interim
   default; it is a recorded gap, not a Phase 4 blocker, and does not prevent
-  Phase 5 entry.
+  Phase 5 entry. Before final feature completion or production readiness,
+  `session.work_trace` Evidence must either be materialized from durable Session
+  persistence per `REQ-SESS-52` or remain explicitly unavailable under approved
+  product configuration.
 
 # Readiness review
 
@@ -1158,8 +1167,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice (`0514a70` + `235f7ed` + `895a30a`) | approved | Combined developer review 2026-09-08 on corrective slice: 0 Blocker / 0 High / 0 Medium; no further corrective commit required. `0514a70` review: 1 High + 1 Medium; `235f7ed` closes ownership binding and canonical-digest verification; `895a30a` records evidence. Focused: `FlexAgent.Evaluation.Tests` 94; session/submission Postgres integration 10; architecture 65; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 2 (`9e286f9` + `1932276` + `72ad277` + `2b70676` + `eb4be24`) | approved | Review 2026-09-08 on corrective chain: 0 Blocker / 0 High / 0 Medium; previous fallback integrity High closed. `9e286f9`: procedure gating, locator persistence, seal reorder/drift, mutable-alias/work-trace negatives. Review found 1 High — fallback sealed failed exact-range digests. `1932276`: effective `whole_item` location for seal/persistence via `EvidenceLocatorVerifiedProjection`. Evidence commits `72ad277`, `2b70676`, `eb4be24` record corrective/confirmation state without premature approval. Focused: `FlexAgent.Evaluation.Tests` 108; evaluation Postgres locator store 1; architecture 65; `verify-dotnet.sh` 2181 passed / 4 skipped; `check_docs.py` passed. Hosted CI not independently observed |
 | Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
-| Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
-| Phase 4 gate (proportionate regression) | complete | 2026-09-09: `build/scripts/verify-dotnet.sh` 2201 passed / 4 skipped; `python3 scripts/check_docs.py` passed. Work-trace owner port/materialization remains deferred (accepted gap per Findings). Hosted CI not independently observed |
+| Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
+| Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
