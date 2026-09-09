@@ -83,6 +83,7 @@ public static class EvaluationFailureCodes
     public const string DuplicateIdentity = "evaluation.duplicate_identity";
     public const string CitationIntegrity = "evaluation.citation_integrity";
     public const string DeterministicConflict = "evaluation.deterministic_conflict";
+    public const string UnqualifiedEvaluator = "evaluation.unqualified_evaluator";
     public const string ProcessingDisabled = "evaluation.processing_disabled";
 }
 

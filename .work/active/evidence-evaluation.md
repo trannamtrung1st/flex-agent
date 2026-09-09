@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T07:47:00+07:00
+updated: 2026-09-09T07:48:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -15,6 +15,7 @@ phase4_slice2: approved-9e286f9-1932276
 phase4_slice3: approved-4a6a152-88b293f
 phase4_slice4: approved-c97715e-7d16935
 phase4_gate: approved-f89c35c
+phase5_status: in-progress
 ---
 
 # Goal
@@ -598,21 +599,34 @@ approved layout families and donors already exist.
 
 ## Phase 5 — Implement the restricted deterministic evaluator lane
 
-- [ ] Define an Evaluation-owned evaluator registry port whose entries bind
+- [x] Define an Evaluation-owned evaluator registry port whose entries bind
   exact evaluator ID/version or verified digest, supported operation,
   input/output schemas, canonicalization/configuration/dependency digests,
   positive resource bounds, failure/conflict behavior, and qualification
   state.
-- [ ] Start with a minimal built-in allowlist sufficient for the approved
+  `IEvaluatorRegistry` + `EvaluatorRegistryEntry`/`EvaluatorRegistrySnapshot`;
+  `BuiltinEvaluatorRegistry` serves `evalreg.p0.v1` and contract alias
+  `evalreg.builtin.v1` with five qualified built-ins aligned to
+  `EvaluationProcedureDocumentParser.AllowlistedEvaluatorIds`.
+- [x] Start with a minimal built-in allowlist sufficient for the approved
   synthetic procedure: exact comparison/schema validation, bounded permitted
   calculation, citation validation, and rubric aggregation as actually
   declared. Do not add a general expression language or execute procedure/
   Participant strings.
-- [ ] Red: reject unknown/mutable evaluator identifiers, changed dependency or
+  Built-in entries cover `eval.builtin.exact-compare`, `schema-validate`,
+  `citation-validate`, `bounded-calc`, and `rubric-aggregate` with immutable
+  digests matching the synthetic procedure where applicable.
+- [>] Red: reject unknown/mutable evaluator identifiers, changed dependency or
   config digests, path traversal, shell/script/code fields, environment or
   secret access, network attempts, oversized/deep inputs, timeout, memory/CPU/
   output exhaustion, invalid output, wrong criterion/scope, and silent mode
   fallback.
+  Slice 1: `EvaluatorBindingValidator` + `EvaluatorRegistryTests` cover unknown
+  evaluator, mutable aliases, digest/operation drift, prohibited network egress,
+  and memory bound exhaustion; synthetic procedure deterministic bindings
+  validate against registry. Remaining negatives (path traversal, shell/code,
+  environment/secret access, runtime timeout/output exhaustion, wrong criterion/
+  scope, silent mode fallback) await restricted runner slice.
 - [ ] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -978,19 +992,12 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: Phase 5 — restricted deterministic evaluator lane (registry port,
-  built-in allowlist, qualification gates, and bounded execution). External
-  review 2026-09-09 approved `cce2302` (slice 4 approval record) and `f89c35c`
-  (Phase 4 gate closure): 0 Blocker / 0 High / 0 Medium; proceed. Phase 4
-  remains `complete-work-trace-deferred` with interim fail-closed via empty
-  `WorkTraceItemsBySourceId` until Session durable persistence exists. Before
-  final feature completion or production readiness, work-trace Evidence must
-  either be implemented upstream or remain explicitly unavailable under approved
-  product configuration. Phase 4 gate evidence: `verify-dotnet.sh` 2201 passed /
-  4 skipped; `scripts/check_docs.py` passed. Phase 4 slice 3 approved 2026-09-09
-  through `4a6a152` + `88b293f` (review: 0 Blocker / 0 High / 0 Medium). Phase 4
-  slice 4 approved 2026-09-09 through `c97715e` + `7d16935` (review: 0 Blocker /
-  0 High / 0 Medium; work-trace masquerade High closed). Phase 3 is complete
+- Next: Phase 5 slice 2 — restricted deterministic runner adapter, invocation
+  persistence, and remaining negative matrix. Phase 5 slice 1 landed registry
+  port + built-in allowlist + binding validation (`IEvaluatorRegistry`,
+  `BuiltinEvaluatorRegistry`, `EvaluatorBindingValidator`). External review
+  2026-09-09 approved Phase 4 gate through `f89c35c` (0 Blocker / 0 High /
+  0 Medium). Phase 4 remains `complete-work-trace-deferred`. Phase 3 is complete
   through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
@@ -1169,6 +1176,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
+| Phase 5 slice 1 (registry port + binding validation) | in-progress | `IEvaluatorRegistry`, `BuiltinEvaluatorRegistry`, `EvaluatorBindingValidator`; `EvaluationFailureCodes.UnqualifiedEvaluator`. Consistency: parser allowlist ↔ registry entries; synthetic procedure bindings validate. Focused: `FlexAgent.Evaluation.Tests` 138; architecture 65; contract 247; `check_docs.py` passed. Runner, invocation persistence, and runtime isolation negatives remain |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
