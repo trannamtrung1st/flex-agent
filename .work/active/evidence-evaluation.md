@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T08:17:00+07:00
+updated: 2026-09-09T08:28:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -630,28 +630,46 @@ approved layout families and donors already exist.
   validation. Review on `2ede5e1` found 1 Medium — binding validator did not
   independently enforce positive bounds; `2f3c699` closes it with fail-closed
   positive memory/output/duration validation. External review 2026-09-09 on
-  corrective chain: 0 Blocker / 0 High / 0 Medium. Remaining negatives (path
-  traversal, shell/code, environment/secret access, runtime timeout/output
-  exhaustion, wrong criterion/scope, silent mode fallback) await restricted
-  runner slice.
-- [ ] Run evaluators through a restricted adapter with no network egress by
+  corrective chain: 0 Blocker / 0 High / 0 Medium. Slice 2 adds runner negatives
+  for shell/path/digest/output-bound exhaustion; timeout, environment/secret,
+  wrong criterion scope, and orchestration-level silent fallback remain.
+- [>] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
   worker process/container contract before enabling that operation; do not
   claim sandboxing from application checks alone.
-- [ ] If an evaluator requires temporary files, allocate a per-invocation
+  `IDeterministicEvaluatorRunner` + `RestrictedBuiltinDeterministicEvaluatorRunner`
+  re-validate registry bindings, canonical input digests, forbidden shell/script/
+  path fields, and output limits; built-in memory-only execution for bounded-calc,
+  exact-compare, schema-validate, citation-validate, and rubric-aggregate. No
+  network egress or temp files in slice 2 built-ins.
+- [>] If an evaluator requires temporary files, allocate a per-invocation
   private directory with bounded size, safe filenames, no inherited secrets,
   no symlink/path escape, and guaranteed cleanup on success, failure, timeout,
   cancellation, and process restart. Prefer memory-only canonical inputs for
   built-in evaluators.
-- [ ] Persist every deterministic invocation's exact canonical input digest/
+  Built-in path remains memory-only; separate temp-directory contract deferred
+  until a built-in requires it.
+- [>] Persist every deterministic invocation's exact canonical input digest/
   references, evaluator/config/dependency identity, limits, UTC timing,
   outcome, bounded failure, output digest/protected reference, and audit/
   manifest correlation.
-- [ ] Treat successful output as protected Evidence. It is not policy or
+  `IDeterministicInvocationStore` + `PostgresDeterministicInvocationStore` append
+  to `evaluation_deterministic_attempts` with ownership-scoped FK to invocation
+  attempts and idempotent retry on stable attempt identity;
+  `DeterministicEvaluatorExecutionService` orchestrates registry lookup, run,
+  and persist.
+- [>] Treat successful output as protected Evidence. It is not policy or
   infallible truth, and Agent output cannot overwrite it.
-- [ ] Green/refactor evaluator registry, isolation, provenance, failure,
+  Runner records protected input/output refs and output content digest on
+  success; artifact materialization and Evidence-item linkage remain for a
+  later slice.
+- [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
+  Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound
+  negatives); `DeterministicInvocationStoreTests` integration idempotency.
+  Focused: Evaluation 155; Postgres integration 455 passed / 1 skipped;
+  architecture 65. Hosted CI not independently observed.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -999,12 +1017,11 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: Phase 5 slice 2 — restricted deterministic runner adapter, invocation
-  persistence, and runtime isolation/negative matrix. Phase 5 slice 1 approved
-  2026-09-09 through `2ede5e1` + `2f3c699` (review: 0 Blocker / 0 High /
-  0 Medium; previous positive-bounds Medium closed). Re-check built-in digest
-  identities when the actual runner lands. Phase 4 remains
-  `complete-work-trace-deferred`. Phase 3 is complete through `909c624`.
+- Next: Phase 5 slice 2 review and remaining runner negatives (timeout,
+  environment/secret access, wrong criterion scope, silent mode fallback at
+  orchestration boundary). Phase 5 slice 1 approved 2026-09-09 through
+  `2ede5e1` + `2f3c699`. Phase 4 remains `complete-work-trace-deferred`. Phase 3
+  is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1183,6 +1200,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
+| Phase 5 slice 2 (runner + invocation persistence) | in-progress | Confirmation pass 2026-09-09: domain/application ports, restricted built-in runner, Postgres append store, execution service, stable attempt identity. Runner negatives: digest mismatch, shell field, path traversal, output bound exhaustion, unqualified binding. Postgres integration: append + idempotent retry (single row). Focused re-run: Evaluation 155; `DeterministicInvocationStoreTests` 1; architecture 65. Output content digest recorded on execution result; DB column deferred to artifact slice. Worker DI wiring deferred while `ProcessingEnabled=false`. Evidence artifact linkage, timeout/env/secret negatives, and orchestration wiring remain |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
