@@ -102,10 +102,12 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                         forbiddenField));
             }
 
-            if (!DeterministicExecutionBounds.TryValidateElapsedLimit(
+            if (!InProcessDeterministicExecutionContract.TryCreateWallClockDeadline(
                     startedAt,
                     request.Binding.ElapsedTimeLimit,
-                    out var elapsedField))
+                    request.Binding.CpuTimeLimit,
+                    out var deadlineUtc,
+                    out var deadlineField))
             {
                 return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
                     FailedResult(
@@ -115,10 +117,37 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                         DateTimeOffset.UtcNow,
                         DeterministicInvocationOutcomes.Timeout,
                         "provider_timeout",
-                        elapsedField));
+                        deadlineField));
             }
 
-            var execution = ExecuteBuiltin(request.Binding, document.RootElement);
+            var deadline = new DeterministicExecutionDeadline(deadlineUtc);
+            if (!deadline.TryCheck(out var expiredBeforeExecutionField))
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.Timeout,
+                        "provider_timeout",
+                        expiredBeforeExecutionField));
+            }
+
+            var execution = ExecuteBuiltin(request.Binding, document.RootElement, deadline);
+            if (execution.TimedOut)
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
+                    FailedResult(
+                        attemptId,
+                        inputRef,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        DeterministicInvocationOutcomes.Timeout,
+                        "provider_timeout",
+                        "elapsed_time_limit"));
+            }
+
             if (execution.OutputUtf8 is { } output
                 && output.Length > request.Binding.OutputLimitBytes)
             {
@@ -133,10 +162,7 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                         "output_limit_bytes"));
             }
 
-            if (!DeterministicExecutionBounds.TryValidateElapsedLimit(
-                    startedAt,
-                    request.Binding.CpuTimeLimit,
-                    out var cpuField))
+            if (!deadline.TryCheck(out var expiredAfterExecutionField))
             {
                 return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
                     FailedResult(
@@ -146,10 +172,10 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                         DateTimeOffset.UtcNow,
                         DeterministicInvocationOutcomes.Timeout,
                         "provider_timeout",
-                        cpuField));
+                        expiredAfterExecutionField));
             }
 
-            var outputRef = DeterministicInvocationProvenance.ProtectedOutputRef(execution.OutputContentDigest);
+            var outputRef = DeterministicInvocationProvenance.ProtectedOutputRef(execution.OutputContentDigest!);
             var finishedAt = DateTimeOffset.UtcNow;
 
             return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Ok(
@@ -168,7 +194,8 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
 
     private static BuiltinExecutionAttempt ExecuteBuiltin(
         DeterministicEvaluatorBindingV1 binding,
-        JsonElement input)
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
         if (input.ValueKind != JsonValueKind.Object)
         {
@@ -177,18 +204,19 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
 
         return binding.Operation switch
         {
-            EvaluatorOperations.BoundedCalculation => ExecuteBoundedCalculation(binding, input),
-            EvaluatorOperations.ExactCompare => ExecuteExactCompare(input),
-            EvaluatorOperations.SchemaValidate => ExecuteSchemaValidate(input),
-            EvaluatorOperations.CitationValidate => ExecuteCitationValidate(input),
-            EvaluatorOperations.RubricAggregate => ExecuteRubricAggregate(input),
+            EvaluatorOperations.BoundedCalculation => ExecuteBoundedCalculation(binding, input, deadline),
+            EvaluatorOperations.ExactCompare => ExecuteExactCompare(input, deadline),
+            EvaluatorOperations.SchemaValidate => ExecuteSchemaValidate(input, deadline),
+            EvaluatorOperations.CitationValidate => ExecuteCitationValidate(input, deadline),
+            EvaluatorOperations.RubricAggregate => ExecuteRubricAggregate(input, deadline),
             _ => FailedAttempt(DeterministicInvocationOutcomes.Failed, "integrity_failure"),
         };
     }
 
     private static BuiltinExecutionAttempt ExecuteBoundedCalculation(
         DeterministicEvaluatorBindingV1 binding,
-        JsonElement input)
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
         if (!input.TryGetProperty("schema", out var schema)
             || schema.GetString() != binding.InputSchemaId
@@ -206,7 +234,11 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         }
 
         var text = textElement.GetString() ?? string.Empty;
-        var wordCount = CountWords(text);
+        if (!TryCountWords(text, deadline, out var wordCount))
+        {
+            return TimedOutAttempt();
+        }
+
         var withinRange = wordCount >= minimum && wordCount <= maximum;
         var outputJson = JsonSerializer.Serialize(new
         {
@@ -217,8 +249,15 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         return SuccessAttempt(outputJson);
     }
 
-    private static BuiltinExecutionAttempt ExecuteExactCompare(JsonElement input)
+    private static BuiltinExecutionAttempt ExecuteExactCompare(
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
+        if (!deadline.TryCheck(out _))
+        {
+            return TimedOutAttempt();
+        }
+
         if (!input.TryGetProperty("left_digest", out var left)
             || !input.TryGetProperty("right_digest", out var right)
             || left.ValueKind != JsonValueKind.String
@@ -231,8 +270,15 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         return SuccessAttempt(JsonSerializer.Serialize(new { matches }));
     }
 
-    private static BuiltinExecutionAttempt ExecuteSchemaValidate(JsonElement input)
+    private static BuiltinExecutionAttempt ExecuteSchemaValidate(
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
+        if (!deadline.TryCheck(out _))
+        {
+            return TimedOutAttempt();
+        }
+
         if (!input.TryGetProperty("schema", out var schema)
             || schema.ValueKind != JsonValueKind.String
             || !input.TryGetProperty("payload", out var payload)
@@ -244,7 +290,9 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         return SuccessAttempt(JsonSerializer.Serialize(new { valid = true, schema = schema.GetString() }));
     }
 
-    private static BuiltinExecutionAttempt ExecuteCitationValidate(JsonElement input)
+    private static BuiltinExecutionAttempt ExecuteCitationValidate(
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
         if (!input.TryGetProperty("citations", out var citations)
             || citations.ValueKind != JsonValueKind.Array)
@@ -252,8 +300,16 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
             return FailedAttempt(DeterministicInvocationOutcomes.InvalidOutput, "schema_invalid");
         }
 
+        var index = 0;
         foreach (var citation in citations.EnumerateArray())
         {
+            index++;
+            if (InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(index)
+                && !deadline.TryCheck(out _))
+            {
+                return TimedOutAttempt();
+            }
+
             if (citation.ValueKind != JsonValueKind.String
                 || !EvaluationIdentity.IsStableId(citation.GetString()))
             {
@@ -264,7 +320,9 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         return SuccessAttempt(JsonSerializer.Serialize(new { valid = true, count = citations.GetArrayLength() }));
     }
 
-    private static BuiltinExecutionAttempt ExecuteRubricAggregate(JsonElement input)
+    private static BuiltinExecutionAttempt ExecuteRubricAggregate(
+        JsonElement input,
+        DeterministicExecutionDeadline deadline)
     {
         if (!input.TryGetProperty("scores", out var scores)
             || scores.ValueKind != JsonValueKind.Array
@@ -274,8 +332,16 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         }
 
         var total = 0;
+        var index = 0;
         foreach (var score in scores.EnumerateArray())
         {
+            index++;
+            if (InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(index)
+                && !deadline.TryCheck(out _))
+            {
+                return TimedOutAttempt();
+            }
+
             if (!score.TryGetInt32(out var value) || value < 0 || value > 100)
             {
                 return FailedAttempt(DeterministicInvocationOutcomes.InvalidOutput, "schema_invalid");
@@ -311,16 +377,29 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
     private static bool TryScanInputForForbiddenContent(JsonElement root, out string field)
     {
         field = "canonical_input";
-        return !ContainsForbiddenContent(root, ref field);
+        return !ContainsForbiddenContent(root, ref field, deadline: null);
     }
 
-    private static bool ContainsForbiddenContent(JsonElement element, ref string field)
+    private static bool ContainsForbiddenContent(
+        JsonElement element,
+        ref string field,
+        DeterministicExecutionDeadline? deadline,
+        ref int scalarIndex)
     {
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 foreach (var property in element.EnumerateObject())
                 {
+                    scalarIndex++;
+                    if (deadline is not null
+                        && InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(scalarIndex)
+                        && !deadline.Value.TryCheck(out _))
+                    {
+                        field = "elapsed_time_limit";
+                        return true;
+                    }
+
                     if (ForbiddenPropertyNames.Contains(property.Name))
                     {
                         field = property.Name;
@@ -334,7 +413,7 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
                         return true;
                     }
 
-                    if (ContainsForbiddenContent(property.Value, ref field))
+                    if (ContainsForbiddenContent(property.Value, ref field, deadline, ref scalarIndex))
                     {
                         return true;
                     }
@@ -344,7 +423,16 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
             case JsonValueKind.Array:
                 foreach (var item in element.EnumerateArray())
                 {
-                    if (ContainsForbiddenContent(item, ref field))
+                    scalarIndex++;
+                    if (deadline is not null
+                        && InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(scalarIndex)
+                        && !deadline.Value.TryCheck(out _))
+                    {
+                        field = "elapsed_time_limit";
+                        return true;
+                    }
+
+                    if (ContainsForbiddenContent(item, ref field, deadline, ref scalarIndex))
                     {
                         return true;
                     }
@@ -352,6 +440,15 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
 
                 return false;
             case JsonValueKind.String:
+                scalarIndex++;
+                if (deadline is not null
+                    && InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(scalarIndex)
+                    && !deadline.Value.TryCheck(out _))
+                {
+                    field = "elapsed_time_limit";
+                    return true;
+                }
+
                 if (ContainsPathTraversal(element.GetString()))
                 {
                     field = "value";
@@ -364,19 +461,32 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
         }
     }
 
-    private static bool ContainsPathTraversal(string? value) =>
-        !string.IsNullOrEmpty(value)
-        && (value.Contains("../", StringComparison.Ordinal)
-            || value.Contains("..\\", StringComparison.Ordinal)
-            || value.StartsWith('/')
-            || value.StartsWith('\\'));
-
-    private static int CountWords(string text)
+    private static bool ContainsForbiddenContent(
+        JsonElement element,
+        ref string field,
+        DeterministicExecutionDeadline? deadline)
     {
-        var count = 0;
+        var scalarIndex = 0;
+        return ContainsForbiddenContent(element, ref field, deadline, ref scalarIndex);
+    }
+
+    private static bool TryCountWords(
+        string text,
+        DeterministicExecutionDeadline deadline,
+        out int count)
+    {
+        count = 0;
         var inWord = false;
+        var scalarIndex = 0;
         foreach (var rune in text.EnumerateRunes())
         {
+            scalarIndex++;
+            if (InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(scalarIndex)
+                && !deadline.TryCheck(out _))
+            {
+                return false;
+            }
+
             if (Rune.IsWhiteSpace(rune))
             {
                 inWord = false;
@@ -390,8 +500,15 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
             }
         }
 
-        return count;
+        return true;
     }
+
+    private static bool ContainsPathTraversal(string? value) =>
+        !string.IsNullOrEmpty(value)
+        && (value.Contains("../", StringComparison.Ordinal)
+            || value.Contains("..\\", StringComparison.Ordinal)
+            || value.StartsWith('/')
+            || value.StartsWith('\\'));
 
     private static string DigestUtf8(ReadOnlyMemory<byte> bytes) =>
         Convert.ToHexString(SHA256.HashData(bytes.Span)).ToLowerInvariant();
@@ -403,11 +520,20 @@ public sealed class RestrictedBuiltinDeterministicEvaluatorRunner : IDeterminist
             DeterministicInvocationOutcomes.Succeeded,
             null,
             output,
-            DigestUtf8(output));
+            DigestUtf8(output),
+            TimedOut: false);
     }
 
     private static BuiltinExecutionAttempt FailedAttempt(string outcome, string failureCategory) =>
-        new(outcome, failureCategory, null, null);
+        new(outcome, failureCategory, null, null, TimedOut: false);
+
+    private static BuiltinExecutionAttempt TimedOutAttempt() =>
+        new(
+            DeterministicInvocationOutcomes.Timeout,
+            "provider_timeout",
+            null,
+            null,
+            TimedOut: true);
 
     private static DeterministicEvaluatorExecutionResult FailedResult(
         Guid attemptId,
@@ -433,4 +559,5 @@ internal sealed record BuiltinExecutionAttempt(
     string Outcome,
     string? FailureCategory,
     ReadOnlyMemory<byte>? OutputUtf8,
-    string? OutputContentDigest);
+    string? OutputContentDigest,
+    bool TimedOut);

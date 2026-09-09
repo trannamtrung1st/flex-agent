@@ -18,6 +18,7 @@ public static class DeterministicExecutionBounds
         int memoryLimitBytes,
         out string field)
     {
+        // In-process contract: memory_limit_bytes caps canonical input size, not execution heap usage.
         field = "canonical_input";
         if (canonicalUtf8.Length > memoryLimitBytes)
         {

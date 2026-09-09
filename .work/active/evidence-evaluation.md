@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T22:52:00+07:00
+updated: 2026-09-09T23:38:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -17,6 +17,7 @@ phase4_slice4: approved-c97715e-7d16935
 phase4_gate: approved-f89c35c
 phase5_status: in-progress
 phase5_slice1: approved-2ede5e1-2f3c699
+phase5_slice2: in-progress-d9011f9-corrective2-uncommitted
 ---
 
 # Goal
@@ -615,8 +616,9 @@ approved layout families and donors already exist.
   declared. Do not add a general expression language or execute procedure/
   Participant strings.
   Built-in entries cover `eval.builtin.exact-compare`, `schema-validate`,
-  `citation-validate`, `bounded-calc`, and `rubric-aggregate` with immutable
-  digests matching the synthetic procedure where applicable.
+  `citation-validate`, `bounded-calc`, and `rubric-aggregate` with digests from
+  `BuiltinEvaluatorImplementationManifest` + verified runner source artifact
+  (`BuiltinEvaluatorImplementationBinding`).
 - [>] Red: reject unknown/mutable evaluator identifiers, changed dependency or
   config digests, path traversal, shell/script/code fields, environment or
   secret access, network attempts, oversized/deep inputs, timeout, memory/CPU/
@@ -638,11 +640,15 @@ approved layout families and donors already exist.
   enforceable isolation for a permitted operation, use a separately bounded
   worker process/container contract before enabling that operation; do not
   claim sandboxing from application checks alone.
-  `IDeterministicEvaluatorRunner` + `RestrictedBuiltinDeterministicEvaluatorRunner`
-  re-validate registry bindings, canonical input digests, forbidden shell/script/
-  path fields, and output limits; built-in memory-only execution for bounded-calc,
-  exact-compare, schema-validate, citation-validate, and rubric-aggregate. No
-  network egress or temp files in slice 2 built-ins.
+  `RestrictedBuiltinDeterministicEvaluatorRunner` re-validate registry bindings,
+  canonical input digests, forbidden shell/script/path fields, and output limits;
+  built-in memory-only execution for bounded-calc, exact-compare, schema-validate,
+  citation-validate, and rubric-aggregate. Corrective #2 (`d9011f9` review):
+  `InProcessDeterministicExecutionContract` (`in-process-algorithmically-bounded.v1`)
+  uses cooperative wall-clock deadline (min of elapsed/cpu binding seconds) checked
+  during scalar loops; `memory_limit_bytes` is documented as canonical-input size
+  only, not execution heap. No network egress or temp files in slice 2 built-ins.
+  Does not claim process-level CPU/memory kill or hung-evaluator preemption.
 - [>] If an evaluator requires temporary files, allocate a per-invocation
   private directory with bounded size, safe filenames, no inherited secrets,
   no symlink/path escape, and guaranteed cleanup on success, failure, timeout,
@@ -666,10 +672,13 @@ approved layout families and donors already exist.
   later slice.
 - [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
-  Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound
-  negatives); `DeterministicInvocationStoreTests` integration idempotency.
-  Focused: Evaluation 155; Postgres integration 455 passed / 1 skipped;
-  architecture 65. Hosted CI not independently observed.
+  Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound/
+  expired-deadline/cooperative-scalar-check negatives);
+  `DeterministicInvocationStoreTests` integration idempotency + 4 conflict paths;
+  `BuiltinEvaluatorImplementationBindingTests` (runner source artifact digest).
+  Focused verification 2026-09-09 corrective #2 confirmation pass: Evaluation 174;
+  contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Hosted CI
+  not independently observed.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1017,11 +1026,12 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: Phase 5 slice 2 review and remaining runner negatives (timeout,
-  environment/secret access, wrong criterion scope, silent mode fallback at
-  orchestration boundary). Phase 5 slice 1 approved 2026-09-09 through
-  `2ede5e1` + `2f3c699`. Phase 4 remains `complete-work-trace-deferred`. Phase 3
-  is complete through `909c624`.
+- Next: request re-review on corrective #2 commit after push. Prior review on
+  `d9011f9`: 0 Blocker / 1 High / 1 Medium — idempotency/provenance High closed;
+  runtime isolation High and registry-identity Medium were targets of corrective #2.
+  Worker remains disabled until re-review passes. Phase 5 slice 1 approved
+  2026-09-09 through `2ede5e1` + `2f3c699`. Phase 4 remains
+  `complete-work-trace-deferred`. Phase 3 is complete through `909c624`.
   Do not resolve evaluator/model identity by profile name. Do not weaken the
   fail-closed physical lifecycle-disposal boundary to finish faster.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1200,7 +1210,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
-| Phase 5 slice 2 (`a53a5f5` + corrective, uncommitted) | in-progress | External review 2026-09-09 on `a53a5f5`: 0 Blocker / 2 High / 1 Medium — do not approve yet. Corrective closes: full-provenance attempt ID, `output_content_digest` via `0076`, snapshot reconciliation → `DeterministicConflict`, conflict integration tests; input/JSON/elapsed/cpu bounds in runner; computed builtin registry digests with fixture refresh. Confirmation pass 2026-09-09: Evaluation 168; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker wiring remains disabled. Re-review required before approval |
+| Phase 5 slice 2 (`a53a5f5` + `d9011f9` + corrective #2, uncommitted) | in-progress | `a53a5f5` review: 0 Blocker / 2 High / 1 Medium. `d9011f9` corrective: idempotency/provenance High **closed**; full-provenance attempt ID, `output_content_digest` via `0076`, snapshot reconciliation → `DeterministicConflict`, 5 Postgres conflict/idempotency tests; input/JSON bounds; computed registry digests. `d9011f9` re-review: 0 Blocker / 1 High / 1 Medium — runtime isolation High and registry-identity Medium **open**. Corrective #2 (uncommitted): `InProcessDeterministicExecutionContract`, cooperative wall-clock deadline during scalar loops, `BuiltinEvaluatorImplementationManifest` + verified runner source artifact digest, fixture/digest refresh. Focused: Evaluation 174; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker wiring remains disabled. Re-review required before approval |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

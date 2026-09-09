@@ -15,17 +15,20 @@ public static class BuiltinEvaluatorIdentityDigester
         maxArrayElements: 4_096);
 
     public static (string EvaluatorDigest, string ConfigurationDigest, string DependencyDigest) ComputeDigests(
-        EvaluatorRegistryEntry entry)
+        EvaluatorRegistryEntry entry,
+        BuiltinEvaluatorImplementationIdentity implementation)
     {
-        var evaluatorDigest = Digest(BuildEvaluatorIdentityPayload(entry));
-        var configurationDigest = Digest(BuildConfigurationPayload(entry));
-        var dependencyDigest = Digest(BuildDependencyPayload(entry));
+        var evaluatorDigest = Digest(BuildEvaluatorIdentityPayload(entry, implementation));
+        var configurationDigest = Digest(BuildConfigurationPayload(entry, implementation));
+        var dependencyDigest = Digest(BuildDependencyPayload(entry, implementation));
         return (evaluatorDigest, configurationDigest, dependencyDigest);
     }
 
-    public static EvaluatorRegistryEntry WithComputedDigests(EvaluatorRegistryEntry entry)
+    public static EvaluatorRegistryEntry WithComputedDigests(
+        EvaluatorRegistryEntry entry,
+        BuiltinEvaluatorImplementationIdentity implementation)
     {
-        var digests = ComputeDigests(entry);
+        var digests = ComputeDigests(entry, implementation);
         return entry with
         {
             EvaluatorDigest = digests.EvaluatorDigest,
@@ -37,8 +40,15 @@ public static class BuiltinEvaluatorIdentityDigester
     private static string Digest(string canonicalJson) =>
         CanonicalJsonProcessor.CanonicalizeSha256Hex(Encoding.UTF8.GetBytes(canonicalJson), Limits);
 
-    private static string BuildEvaluatorIdentityPayload(EvaluatorRegistryEntry entry)
+    private static string BuildEvaluatorIdentityPayload(
+        EvaluatorRegistryEntry entry,
+        BuiltinEvaluatorImplementationIdentity implementation)
     {
+        if (!implementation.OperationArtifactDigests.TryGetValue(entry.Operation, out var operationArtifactDigest))
+        {
+            throw new InvalidOperationException($"Missing implementation artifact for operation '{entry.Operation}'.");
+        }
+
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
@@ -46,32 +56,48 @@ public static class BuiltinEvaluatorIdentityDigester
             writer.WriteString("canonicalization_procedure", entry.CanonicalizationProcedure);
             writer.WriteString("cpu_time_limit", entry.CpuTimeLimit);
             writer.WriteString("elapsed_time_limit", entry.ElapsedTimeLimit);
+            writer.WriteString("enforcement_profile", InProcessDeterministicExecutionContract.EnforcementProfile);
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
             writer.WriteString("executable_selection", entry.ExecutableSelection);
             writer.WriteString("implementation_kind", ImplementationKind);
+            writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WriteString("input_schema_id", entry.InputSchemaId);
             writer.WriteNumber("memory_limit_bytes", entry.MemoryLimitBytes);
             writer.WriteString("network_egress", entry.NetworkEgress);
             writer.WriteString("operation", entry.Operation);
+            writer.WriteString("operation_artifact_digest", operationArtifactDigest);
             writer.WriteNumber("output_limit_bytes", entry.OutputLimitBytes);
             writer.WriteString("output_schema_id", entry.OutputSchemaId);
+            writer.WriteString("runner_source_artifact_digest", implementation.RunnerSourceArtifactDigest);
             writer.WriteEndObject();
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static string BuildConfigurationPayload(EvaluatorRegistryEntry entry)
+    private static string BuildConfigurationPayload(
+        EvaluatorRegistryEntry entry,
+        BuiltinEvaluatorImplementationIdentity implementation)
     {
+        if (!implementation.OperationArtifactDigests.TryGetValue(entry.Operation, out var operationArtifactDigest))
+        {
+            throw new InvalidOperationException($"Missing implementation artifact for operation '{entry.Operation}'.");
+        }
+
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
             writer.WriteStartObject();
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
+            writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WriteString("operation", entry.Operation);
+            writer.WriteString("operation_artifact_digest", operationArtifactDigest);
             writer.WriteStartObject("operation_configuration");
+            writer.WriteString(
+                "enforcement_profile",
+                InProcessDeterministicExecutionContract.EnforcementProfile);
             writer.WriteEndObject();
             writer.WriteEndObject();
         }
@@ -79,19 +105,32 @@ public static class BuiltinEvaluatorIdentityDigester
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static string BuildDependencyPayload(EvaluatorRegistryEntry entry)
+    private static string BuildDependencyPayload(
+        EvaluatorRegistryEntry entry,
+        BuiltinEvaluatorImplementationIdentity implementation)
     {
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
             writer.WriteStartObject();
+            writer.WriteString("bundle_digest", BuiltinEvaluatorImplementationManifest.ComputeBundleDigest(implementation));
             writer.WriteString("dependency_closure", ImplementationKind);
             writer.WriteString("evaluator_id", entry.EvaluatorId);
             writer.WriteString("evaluator_version", entry.EvaluatorVersion);
+            writer.WriteString("implementation_manifest_version", implementation.ManifestVersion);
             writer.WritePropertyName("modules");
             writer.WriteStartArray();
             writer.WriteStringValue("FlexAgent.Evaluation.Infrastructure");
             writer.WriteEndArray();
+            writer.WritePropertyName("operation_artifact_digests");
+            writer.WriteStartObject();
+            foreach (var pair in implementation.OperationArtifactDigests.OrderBy(static p => p.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(pair.Key, pair.Value);
+            }
+
+            writer.WriteEndObject();
+            writer.WriteString("runner_source_artifact_digest", implementation.RunnerSourceArtifactDigest);
             writer.WriteString("runtime", "net10.0");
             writer.WriteEndObject();
         }

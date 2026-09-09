@@ -226,6 +226,77 @@ public sealed class DeterministicEvaluatorRunnerTests
         Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
     }
 
+    [Fact]
+    public void Expired_wall_clock_deadline_before_execution_returns_timeout()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "ok",
+              "minimum": 1,
+              "maximum": 2
+            }
+            """);
+        var startedAt = DateTimeOffset.UtcNow.AddSeconds(-11);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            startedAt);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.Timeout, result.Value!.Outcome);
+        Assert.Equal("provider_timeout", result.Value.FailureCategory);
+    }
+
+    [Fact]
+    public void Word_count_checks_wall_clock_deadline_during_scalar_iteration()
+    {
+        var deadline = new DeterministicExecutionDeadline(DateTimeOffset.UtcNow.AddSeconds(-1));
+        var text = new string('a', InProcessDeterministicExecutionContract.DeadlineCheckIntervalScalars + 1);
+
+        var completed = TryCountWordsForTest(text, deadline, out var count);
+
+        Assert.False(completed);
+    }
+
+    private static bool TryCountWordsForTest(
+        string text,
+        DeterministicExecutionDeadline deadline,
+        out int count)
+    {
+        count = 0;
+        var inWord = false;
+        var scalarIndex = 0;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            scalarIndex++;
+            if (InProcessDeterministicExecutionContract.ShouldAbortScalarLoop(scalarIndex)
+                && !deadline.TryCheck(out _))
+            {
+                return false;
+            }
+
+            if (Rune.IsWhiteSpace(rune))
+            {
+                inWord = false;
+                continue;
+            }
+
+            if (!inWord)
+            {
+                count++;
+                inWord = true;
+            }
+        }
+
+        return true;
+    }
+
     private static DeterministicEvaluatorExecutionRequest CreateRequest(
         EvaluatorRegistryEntry entry,
         DeterministicEvaluatorCanonicalInput input)

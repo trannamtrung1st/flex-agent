@@ -111,6 +111,8 @@ public sealed class BuiltinEvaluatorRegistry : IEvaluatorRegistry
             "prohibited",
             EvaluatorQualificationStates.Qualified);
 
-        return BuiltinEvaluatorIdentityDigester.WithComputedDigests(entry);
+        return BuiltinEvaluatorIdentityDigester.WithComputedDigests(
+            entry,
+            BuiltinEvaluatorImplementationBinding.Identity);
     }
 }
