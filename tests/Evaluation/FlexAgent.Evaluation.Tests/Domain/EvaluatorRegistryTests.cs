@@ -274,6 +274,93 @@ public sealed class EvaluatorRegistryTests
         Assert.Equal("memory_limit_bytes", result.Field);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Non_positive_memory_limit_is_rejected(int memoryLimitBytes)
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = CreateBinding(
+            "eval.builtin.bounded-calc",
+            "eval.builtin.bounded-calc.v1",
+            BuiltinEvaluatorRegistry.BoundedCalcEvaluatorDigest) with
+        {
+            MemoryLimitBytes = memoryLimitBytes,
+        };
+
+        var result = EvaluatorBindingValidator.TryValidateBinding(registry, binding);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.UnqualifiedEvaluator, result.OutcomeCode);
+        Assert.Equal("memory_limit_bytes", result.Field);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Non_positive_output_limit_is_rejected(int outputLimitBytes)
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = CreateBinding(
+            "eval.builtin.bounded-calc",
+            "eval.builtin.bounded-calc.v1",
+            BuiltinEvaluatorRegistry.BoundedCalcEvaluatorDigest) with
+        {
+            OutputLimitBytes = outputLimitBytes,
+        };
+
+        var result = EvaluatorBindingValidator.TryValidateBinding(registry, binding);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.UnqualifiedEvaluator, result.OutcomeCode);
+        Assert.Equal("output_limit_bytes", result.Field);
+    }
+
+    [Theory]
+    [InlineData("PT")]
+    [InlineData("PT0S")]
+    [InlineData("PTgarbage")]
+    [InlineData("PT5Sextra")]
+    public void Malformed_cpu_duration_is_rejected(string cpuTimeLimit)
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = CreateBinding(
+            "eval.builtin.bounded-calc",
+            "eval.builtin.bounded-calc.v1",
+            BuiltinEvaluatorRegistry.BoundedCalcEvaluatorDigest) with
+        {
+            CpuTimeLimit = cpuTimeLimit,
+        };
+
+        var result = EvaluatorBindingValidator.TryValidateBinding(registry, binding);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.UnqualifiedEvaluator, result.OutcomeCode);
+        Assert.Equal("cpu_time_limit", result.Field);
+    }
+
+    [Theory]
+    [InlineData("PT")]
+    [InlineData("PT0S")]
+    [InlineData("PTgarbage")]
+    public void Malformed_elapsed_duration_is_rejected(string elapsedTimeLimit)
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = CreateBinding(
+            "eval.builtin.bounded-calc",
+            "eval.builtin.bounded-calc.v1",
+            BuiltinEvaluatorRegistry.BoundedCalcEvaluatorDigest) with
+        {
+            ElapsedTimeLimit = elapsedTimeLimit,
+        };
+
+        var result = EvaluatorBindingValidator.TryValidateBinding(registry, binding);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.UnqualifiedEvaluator, result.OutcomeCode);
+        Assert.Equal("elapsed_time_limit", result.Field);
+    }
+
     private static DeterministicEvaluatorBindingV1 CreateBinding(
         string evaluatorId,
         string evaluatorVersion,

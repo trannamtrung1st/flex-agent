@@ -21,10 +21,6 @@ public static class EvaluationProcedureDocumentParser
         "^[0-9a-f]{64}$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    private static readonly Regex PositiveDuration = new(
-        "^PT(?:(?:[1-9]|[1-5][0-9])S|(?:[1-9]|[1-5][0-9])M|(?:[1-9]|1[0-9]|2[0-3])H|24H|(?:[1-9]|1[0-9]|2[0-3])H(?:[1-9]|[1-5][0-9])M|(?:[1-9]|[1-5][0-9])M(?:[1-9]|[1-5][0-9])S|(?:[1-9]|1[0-9]|2[0-3])H(?:[1-9]|[1-5][0-9])S|(?:[1-9]|1[0-9]|2[0-3])H(?:[1-9]|[1-5][0-9])M(?:[1-9]|[1-5][0-9])S)$",
-        RegexOptions.CultureInvariant | RegexOptions.Compiled);
-
     private static readonly HashSet<string> RootProperties =
     [
         "procedure_schema",
@@ -280,9 +276,9 @@ public static class EvaluationProcedureDocumentParser
             || !TryRequiredString(item, "dependency_digest", out var dependencyDigest)
             || !Sha256Hex.IsMatch(dependencyDigest)
             || !TryRequiredString(item, "cpu_time_limit", out var cpu)
-            || !PositiveDuration.IsMatch(cpu)
+            || !EvaluationPositiveDuration.IsValid(cpu)
             || !TryRequiredString(item, "elapsed_time_limit", out var elapsed)
-            || !PositiveDuration.IsMatch(elapsed)
+            || !EvaluationPositiveDuration.IsValid(elapsed)
             || !TryRequiredInt(item, "memory_limit_bytes", 1, 268435456, out var memory)
             || !TryRequiredInt(item, "output_limit_bytes", 1, 1048576, out var output)
             || !TryRequiredString(item, "network_egress", out var network)
@@ -437,9 +433,9 @@ public static class EvaluationProcedureDocumentParser
             || !HasOnly(item, ["max_attempts", "backoff", "attempt_timeout"])
             || !TryRequiredInt(item, "max_attempts", 1, 8, out var maxAttempts)
             || !TryRequiredString(item, "backoff", out var backoff)
-            || !PositiveDuration.IsMatch(backoff)
+            || !EvaluationPositiveDuration.IsValid(backoff)
             || !TryRequiredString(item, "attempt_timeout", out var timeout)
-            || !PositiveDuration.IsMatch(timeout))
+            || !EvaluationPositiveDuration.IsValid(timeout))
         {
             return false;
         }
@@ -455,7 +451,7 @@ public static class EvaluationProcedureDocumentParser
             || item.ValueKind != JsonValueKind.Object
             || !HasOnly(item, ["elapsed_timeout", "max_evidence_items", "max_provider_output_bytes"])
             || !TryRequiredString(item, "elapsed_timeout", out var elapsed)
-            || !PositiveDuration.IsMatch(elapsed)
+            || !EvaluationPositiveDuration.IsValid(elapsed)
             || !TryRequiredInt(item, "max_evidence_items", 1, 128, out var evidence)
             || !TryRequiredInt(item, "max_provider_output_bytes", 1, 65536, out var output))
         {

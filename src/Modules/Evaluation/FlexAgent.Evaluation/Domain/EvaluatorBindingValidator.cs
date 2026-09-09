@@ -4,6 +4,14 @@ namespace FlexAgent.Evaluation.Domain;
 
 public static class EvaluatorBindingValidator
 {
+    public const int MinMemoryLimitBytes = 1;
+
+    public const int MaxMemoryLimitBytes = 268_435_456;
+
+    public const int MinOutputLimitBytes = 1;
+
+    public const int MaxOutputLimitBytes = 1_048_576;
+
     public static EvaluationDecision<EvaluatorRegistryEntry> TryValidateBinding(
         EvaluatorRegistrySnapshot registry,
         DeterministicEvaluatorBindingV1 binding)
@@ -94,6 +102,22 @@ public static class EvaluatorBindingValidator
                 "executable_selection");
         }
 
+        if (binding.MemoryLimitBytes < MinMemoryLimitBytes
+            || binding.MemoryLimitBytes > MaxMemoryLimitBytes)
+        {
+            return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
+                EvaluationFailureCodes.UnqualifiedEvaluator,
+                "memory_limit_bytes");
+        }
+
+        if (binding.OutputLimitBytes < MinOutputLimitBytes
+            || binding.OutputLimitBytes > MaxOutputLimitBytes)
+        {
+            return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
+                EvaluationFailureCodes.UnqualifiedEvaluator,
+                "output_limit_bytes");
+        }
+
         if (binding.MemoryLimitBytes > entry.MemoryLimitBytes)
         {
             return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
@@ -108,14 +132,30 @@ public static class EvaluatorBindingValidator
                 "output_limit_bytes");
         }
 
-        if (!WithinDurationLimit(binding.CpuTimeLimit, entry.CpuTimeLimit))
+        if (!EvaluationPositiveDuration.TryParseTotalSeconds(binding.CpuTimeLimit, out var cpuSeconds))
         {
             return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
                 EvaluationFailureCodes.UnqualifiedEvaluator,
                 "cpu_time_limit");
         }
 
-        if (!WithinDurationLimit(binding.ElapsedTimeLimit, entry.ElapsedTimeLimit))
+        if (!EvaluationPositiveDuration.TryParseTotalSeconds(binding.ElapsedTimeLimit, out var elapsedSeconds))
+        {
+            return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
+                EvaluationFailureCodes.UnqualifiedEvaluator,
+                "elapsed_time_limit");
+        }
+
+        if (!EvaluationPositiveDuration.TryParseTotalSeconds(entry.CpuTimeLimit, out var entryCpuLimitSeconds)
+            || cpuSeconds > entryCpuLimitSeconds)
+        {
+            return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
+                EvaluationFailureCodes.UnqualifiedEvaluator,
+                "cpu_time_limit");
+        }
+
+        if (!EvaluationPositiveDuration.TryParseTotalSeconds(entry.ElapsedTimeLimit, out var entryElapsedLimitSeconds)
+            || elapsedSeconds > entryElapsedLimitSeconds)
         {
             return EvaluationDecision<EvaluatorRegistryEntry>.Fail(
                 EvaluationFailureCodes.UnqualifiedEvaluator,
@@ -123,50 +163,5 @@ public static class EvaluatorBindingValidator
         }
 
         return EvaluationDecision<EvaluatorRegistryEntry>.Ok(entry);
-    }
-
-    private static bool WithinDurationLimit(string bindingLimit, string registryLimit) =>
-        string.Equals(bindingLimit, registryLimit, StringComparison.Ordinal)
-        || ParsePositiveDurationSeconds(bindingLimit) <= ParsePositiveDurationSeconds(registryLimit);
-
-    private static int ParsePositiveDurationSeconds(string value)
-    {
-        if (!value.StartsWith("PT", StringComparison.Ordinal))
-        {
-            return int.MaxValue;
-        }
-
-        var body = value[2..];
-        var total = 0;
-        var index = 0;
-        while (index < body.Length && char.IsDigit(body[index]))
-        {
-            var start = index;
-            while (index < body.Length && char.IsDigit(body[index]))
-            {
-                index++;
-            }
-
-            if (!int.TryParse(body[start..index], out var amount))
-            {
-                return int.MaxValue;
-            }
-
-            if (index >= body.Length)
-            {
-                return int.MaxValue;
-            }
-
-            total += body[index] switch
-            {
-                'S' => amount,
-                'M' => amount * 60,
-                'H' => amount * 3600,
-                _ => int.MaxValue,
-            };
-            index++;
-        }
-
-        return total;
     }
 }

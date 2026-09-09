@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-09T07:48:00+07:00
+updated: 2026-09-09T08:05:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -623,10 +623,14 @@ approved layout families and donors already exist.
   fallback.
   Slice 1: `EvaluatorBindingValidator` + `EvaluatorRegistryTests` cover unknown
   evaluator, mutable aliases, digest/operation drift, prohibited network egress,
-  and memory bound exhaustion; synthetic procedure deterministic bindings
-  validate against registry. Remaining negatives (path traversal, shell/code,
-  environment/secret access, runtime timeout/output exhaustion, wrong criterion/
-  scope, silent mode fallback) await restricted runner slice.
+  non-positive memory/output bounds, malformed durations, and memory bound
+  exhaustion; synthetic procedure deterministic bindings validate against
+  registry. Shared `EvaluationPositiveDuration` aligns parser and binding
+  validation. Review on `2ede5e1` found 1 Medium — binding validator did not
+  independently enforce positive bounds; corrective adds fail-closed positive
+  memory/output/duration validation. Remaining negatives (path traversal,
+  shell/code, environment/secret access, runtime timeout/output exhaustion,
+  wrong criterion/scope, silent mode fallback) await restricted runner slice.
 - [ ] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -1176,7 +1180,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 slice 3 (`4a6a152` + `88b293f` + `42c5d7f` + `bbb8b1d`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; fragment-cutoff High and incomplete-publication Medium closed. Focused: `FlexAgent.Evaluation.Tests` 116; `EvaluationSessionEvidenceSourceTests` 13; architecture 65. Hosted CI not independently observed |
 | Phase 4 slice 4 (`c97715e` + `7d16935` + `53611d8` + `cce2302`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; work-trace masquerade High closed. `c97715e`: forged excerpt, wrong version, unpublished material, cancelled agent negatives. Review found 1 High — shared transcript dictionary allowed work-trace masquerade. `7d16935`: separate `WorkTraceItemsBySourceId`; owner builder leaves empty; masquerade negative; dedicated-collection positive when populated. `53611d8` records confirmation evidence; `cce2302` records approval. Focused: `FlexAgent.Evaluation.Tests` 121; `EvaluationSessionEvidenceSourceTests` 14; architecture 65; `check_docs.py` passed. Work-trace owner port still deferred. Hosted CI not independently observed |
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
-| Phase 5 slice 1 (registry port + binding validation) | in-progress | `IEvaluatorRegistry`, `BuiltinEvaluatorRegistry`, `EvaluatorBindingValidator`; `EvaluationFailureCodes.UnqualifiedEvaluator`. Consistency: parser allowlist ↔ registry entries; synthetic procedure bindings validate. Focused: `FlexAgent.Evaluation.Tests` 138; architecture 65; contract 247; `check_docs.py` passed. Runner, invocation persistence, and runtime isolation negatives remain |
+| Phase 5 slice 1 (`2ede5e1`) | corrective | Review 2026-09-09: 0 Blocker / 0 High / 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations (`PT`, `PT0S`, garbage parsed as 0). Corrective: shared `EvaluationPositiveDuration`; `EvaluatorBindingValidator` fail-closed positive bound checks. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Awaiting re-review before approval. Runner and invocation persistence remain |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
