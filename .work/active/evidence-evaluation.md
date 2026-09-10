@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T12:22:00+07:00
+updated: 2026-09-10T12:25:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -1019,9 +1019,9 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `IProtectedConfigurationSourcePayloadReader` own typed procedure load.
   Owner-port reads are organization- and source-scoped.
 - Development/Testing rubric version `33333333-…3316` has real digest
-  `8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2`. Historical
-  placeholder `…3306` / `g…` remains without payload and is not the available
-  descriptor.
+  `04bdd47d300bcbdc3099901d400eb076c51dd6b545622b05abe8385022ef0fc5` (JCS
+  canonical evaluation-procedure bytes). Historical placeholder `…3306` / `g…`
+  remains without payload and is not the available descriptor.
 - Assessment readiness blocks missing rubric payload
   (`assessment.unavailable_source`) and invalid procedure
   (`assessment.invalid_procedure`). Attempt/RSC require `rubric_evaluation`.
@@ -1248,7 +1248,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
 | Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` + `d76c0ac`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. Chain: `a53a5f5` runner + invocation persistence; `d9011f9` idempotency/provenance + `0076`; `ce63dbe` in-process algorithmically bounded contract + cooperative deadlines; `d4255c4` `eval.builtin.impl-manifest.v2` source-closure identity; `d76c0ac` records push evidence. Focused: Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
-| Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af`) | approved | External review 2026-09-10 on corrective chain: **0 Blocker / 0 High / 0 Medium**. `4c803fe`: orchestration gate on criterion/mode/binding; review found 1 High — caller-supplied procedure authority. `5579ce7`: admitted-request reload + protected source lookup; review found 1 High — bytes not independently bound to frozen digest. `395a7af`: `ProtectedEvaluationProcedureContentDigest` recomputes JCS SHA-256 on loaded `canonical_utf8` before parse; tampered-valid-procedure negative with unchanged source/version/digest metadata. Focused: Evaluation 203; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
+| Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6`) | approved | External review 2026-09-10 on corrective chain: **0 Blocker / 0 High / 0 Medium**. `4c803fe`: orchestration gate on criterion/mode/binding; review found 1 High — caller-supplied procedure authority. `5579ce7`: admitted-request reload + protected source lookup; review found 1 High — bytes not independently bound to frozen digest. `395a7af`: `ProtectedEvaluationProcedureContentDigest` recomputes JCS SHA-256 on loaded `canonical_utf8` before parse; tampered-valid-procedure negative with unchanged source/version/digest metadata. `1193ec6` records approval. Post-approval confirmation: Evaluation 203; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
