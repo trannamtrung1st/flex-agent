@@ -1,0 +1,30 @@
+{
+  "schema_version": "v1",
+  "request_id": "ereq.synthetic.0002",
+  "invocation_attempt_id": "eatt.synthetic.0002",
+  "criterion_id": "crit.judgment.quality",
+  "criterion_version": "crit.judgment.quality.v1",
+  "evaluator_mode": "agent_judgment",
+  "ownership": {
+    "organization_id": "org.synthetic.demo",
+    "activity_id": "act.synthetic.demo",
+    "participant_id": "part.synthetic.demo",
+    "attempt_id": "att.synthetic.demo",
+    "session_id": "sess.synthetic.demo"
+  },
+  "input_schema_id": "eval.agent.judgment.input.v1",
+  "output_schema_id": "eval.agent.judgment.output.v1",
+  "instruction_version": "eval.instructions.p0.v1",
+  "model_profile_id": "model.synthetic.eval",
+  "model_profile_version": "model.synthetic.eval.v1",
+  "model_profile_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "credential_binding_reference": "cred.bind.synthetic.eval",
+  "permitted_evidence": [
+    {
+      "evidence_id": "evid.synthetic.0001",
+      "source_type": "submission.direct_text",
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "max_context_unicode_scalars": 12000
+}

@@ -236,6 +236,16 @@
       "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-provider-artifact"
     },
     {
+      "category": "evaluation_model_request",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-model-request.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-model-request"
+    },
+    {
+      "category": "evaluation_model_response",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-model-response.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evaluation/evaluation-model-response"
+    },
+    {
       "category": "criterion_judgment",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/evaluation/criterion-judgment.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/evaluation/criterion-judgment"

@@ -1,0 +1,40 @@
+{
+  "schema_version": "v1",
+  "request_id": "ereq.synthetic.0001",
+  "invocation_attempt_id": "eatt.synthetic.0001",
+  "criterion_id": "crit.assisted.structure",
+  "criterion_version": "crit.assisted.structure.v1",
+  "evaluator_mode": "agent_assisted",
+  "ownership": {
+    "organization_id": "org.synthetic.demo",
+    "activity_id": "act.synthetic.demo",
+    "participant_id": "part.synthetic.demo",
+    "attempt_id": "att.synthetic.demo",
+    "session_id": "sess.synthetic.demo"
+  },
+  "input_schema_id": "eval.agent.assisted.input.v1",
+  "output_schema_id": "eval.agent.assisted.output.v1",
+  "instruction_version": "eval.instructions.p0.v1",
+  "model_profile_id": "model.synthetic.eval",
+  "model_profile_version": "model.synthetic.eval.v1",
+  "model_profile_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "credential_binding_reference": "cred.bind.synthetic.eval",
+  "permitted_evidence": [
+    {
+      "evidence_id": "evid.synthetic.0001",
+      "source_type": "submission.direct_text",
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "deterministic_facts": [
+    {
+      "source_id": "detfact.synthetic.schema",
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "protected_ref": {
+        "protected_ref": "prot.eval.fact.0002",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    }
+  ],
+  "max_context_unicode_scalars": 8000
+}

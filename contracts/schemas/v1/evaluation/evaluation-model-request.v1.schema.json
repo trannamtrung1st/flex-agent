@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-model-request.v1.schema.json",
+  "title": "Evaluation model request v1",
+  "description": "Internal bounded model-adapter request composition. Carries trusted policy fields, permitted evidence references, optional verified deterministic facts, and non-secret frozen model provenance. Never carries raw credentials or hidden prompts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "invocation_attempt_id",
+    "criterion_id",
+    "criterion_version",
+    "evaluator_mode",
+    "ownership",
+    "input_schema_id",
+    "output_schema_id",
+    "instruction_version",
+    "model_profile_id",
+    "model_profile_version",
+    "model_profile_digest",
+    "credential_binding_reference",
+    "permitted_evidence",
+    "max_context_unicode_scalars"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "request_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "invocation_attempt_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "criterion_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluator_mode": {
+      "type": "string",
+      "enum": ["agent_assisted", "agent_judgment"]
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "input_schema_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "output_schema_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "instruction_version": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9._-]{3,63}$"
+    },
+    "model_profile_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "model_profile_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "model_profile_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "credential_binding_reference": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "permitted_evidence": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "source_type", "content_digest"],
+        "properties": {
+          "evidence_id": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+          },
+          "source_type": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9._-]{3,63}$"
+          },
+          "content_digest": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+          }
+        }
+      }
+    },
+    "deterministic_facts": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "content_digest", "protected_ref"],
+        "properties": {
+          "source_id": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+          },
+          "content_digest": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+          },
+          "protected_ref": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+          }
+        }
+      }
+    },
+    "max_context_unicode_scalars": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    }
+  }
+}

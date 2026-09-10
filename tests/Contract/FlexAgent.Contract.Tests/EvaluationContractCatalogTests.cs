@@ -21,6 +21,8 @@ public sealed class EvaluationContractCatalogTests
         "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-work.v1.schema.json",
         "https://flex-agent.local/contracts/schemas/v1/evaluation/deterministic-invocation.v1.schema.json",
         "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-provider-artifact.v1.schema.json",
+        "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-model-request.v1.schema.json",
+        "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-model-response.v1.schema.json",
         "https://flex-agent.local/contracts/schemas/v1/evaluation/criterion-judgment.v1.schema.json",
         "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation.v1.schema.json",
         "https://flex-agent.local/contracts/schemas/v1/evaluation/evaluation-annotation.v1.schema.json",
@@ -39,6 +41,8 @@ public sealed class EvaluationContractCatalogTests
         "evaluation-work.v1.schema.json",
         "deterministic-invocation.v1.schema.json",
         "evaluation-provider-artifact.v1.schema.json",
+        "evaluation-model-request.v1.schema.json",
+        "evaluation-model-response.v1.schema.json",
         "criterion-judgment.v1.schema.json",
         "evaluation.v1.schema.json",
         "evaluation-annotation.v1.schema.json",
@@ -124,6 +128,8 @@ public sealed class EvaluationContractCatalogTests
         Assert.DoesNotContain("EvaluationWorkV1", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("DeterministicInvocationV1", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("EvaluationProviderArtifactV1", openApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("EvaluationModelRequestV1", openApi, StringComparison.Ordinal);
+        Assert.DoesNotContain("EvaluationModelResponseV1", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("provider_request_body", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("provider_response_body", openApi, StringComparison.Ordinal);
         Assert.DoesNotContain("hidden_prompt", openApi, StringComparison.Ordinal);
@@ -137,6 +143,8 @@ public sealed class EvaluationContractCatalogTests
                      "EvaluationWorkV1",
                      "DeterministicInvocationV1",
                      "EvaluationProviderArtifactV1",
+                     "EvaluationModelRequestV1",
+                     "EvaluationModelResponseV1",
                      "CriterionJudgmentV1",
                      "EvaluationAnnotationV1",
                      "EvaluationReplacementV1",

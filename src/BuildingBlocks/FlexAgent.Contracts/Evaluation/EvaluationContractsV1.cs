@@ -77,6 +77,51 @@ public sealed record EvaluationProviderArtifactV1(
     ProtectedPayloadRefV1? ResponseRef,
     string? FailureCategory);
 
+public sealed record EvaluationModelPermittedEvidenceV1(
+    string EvidenceId,
+    string SourceType,
+    string ContentDigest);
+
+public sealed record EvaluationModelDeterministicFactV1(
+    string SourceId,
+    string ContentDigest,
+    ProtectedPayloadRefV1 ProtectedRef);
+
+public sealed record EvaluationModelRequestV1(
+    string SchemaVersion,
+    string RequestId,
+    string InvocationAttemptId,
+    string CriterionId,
+    string CriterionVersion,
+    string EvaluatorMode,
+    SessionOwnershipRefV1 Ownership,
+    string InputSchemaId,
+    string OutputSchemaId,
+    string InstructionVersion,
+    string ModelProfileId,
+    string ModelProfileVersion,
+    string ModelProfileDigest,
+    string CredentialBindingReference,
+    IReadOnlyList<EvaluationModelPermittedEvidenceV1> PermittedEvidence,
+    IReadOnlyList<EvaluationModelDeterministicFactV1>? DeterministicFacts,
+    int MaxContextUnicodeScalars);
+
+public sealed record EvaluationModelResponseV1(
+    string SchemaVersion,
+    string OutputSchemaId,
+    string CriterionId,
+    string CriterionVersion,
+    string EvaluatorMode,
+    string Status,
+    string Confidence,
+    IReadOnlyList<string> Uncertainty,
+    string Rationale,
+    IReadOnlyList<string> EvidenceIds,
+    ProtectedPayloadRefV1 ResponseRef,
+    object? Score,
+    string? ProvisionalFeedback,
+    string? DeterministicInvocationId);
+
 public sealed record CriterionJudgmentV1(
     string SchemaVersion,
     string JudgmentId,

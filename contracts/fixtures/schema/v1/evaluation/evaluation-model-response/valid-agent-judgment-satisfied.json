@@ -1,0 +1,19 @@
+{
+  "schema_version": "v1",
+  "output_schema_id": "eval.agent.judgment.output.v1",
+  "criterion_id": "crit.judgment.quality",
+  "criterion_version": "crit.judgment.quality.v1",
+  "evaluator_mode": "agent_judgment",
+  "status": "satisfied",
+  "score": 3,
+  "confidence": "medium",
+  "uncertainty": ["limited_context"],
+  "rationale": "The explanation quality matches the rubric at the required level.",
+  "provisional_feedback": null,
+  "evidence_ids": ["evid.synthetic.0001"],
+  "deterministic_invocation_id": null,
+  "response_ref": {
+    "protected_ref": "prot.eval.res.0003",
+    "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}
