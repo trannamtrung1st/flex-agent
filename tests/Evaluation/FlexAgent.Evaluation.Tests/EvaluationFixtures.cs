@@ -104,6 +104,37 @@ internal static class EvaluationFixtures
                 "evaluation-procedure",
                 "valid-three-mode-synthetic.json"));
 
+    public static byte[] LoadSyntheticProcedureCanonicalUtf8()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var hex = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "contracts",
+                "fixtures",
+                "jcs",
+                "evaluation-procedure-jcs-sha256-v1",
+                "p0-text-synthetic",
+                "canonical.utf8.hex")).Trim();
+        return Convert.FromHexString(hex);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "FlexAgent.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root.");
+    }
+
     public static ExactSourceIdentity SyntheticProcedureRef() =>
         ExactSourceIdentity.TryCreate(
             "rubric_evaluation",

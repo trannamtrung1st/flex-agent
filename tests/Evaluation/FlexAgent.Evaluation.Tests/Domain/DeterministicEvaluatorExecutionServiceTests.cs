@@ -1,3 +1,4 @@
+using System.Text;
 using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
@@ -18,7 +19,7 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
         var store = new CountingStore();
         var service = CreateService(
             new FixedAuthorityStore(authority),
-            new FixedProcedureSource(CreatePayload(authority.ProcedureRef, EvaluationFixtures.LoadSyntheticProcedureUtf8())),
+            new FixedProcedureSource(CreatePayload(authority.ProcedureRef, EvaluationFixtures.LoadSyntheticProcedureCanonicalUtf8())),
             registry,
             runner,
             store);
@@ -49,7 +50,7 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
         var store = new CountingStore();
         var service = CreateService(
             new FixedAuthorityStore(authority),
-            new FixedProcedureSource(CreatePayload(admittedRef, EvaluationFixtures.LoadSyntheticProcedureUtf8())),
+            new FixedProcedureSource(CreatePayload(admittedRef, EvaluationFixtures.LoadSyntheticProcedureCanonicalUtf8())),
             registry,
             runner,
             store);
@@ -64,6 +65,42 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
     }
 
     [Fact]
+    public async Task Tampered_valid_procedure_bytes_with_unchanged_digest_metadata_are_rejected()
+    {
+        var procedure = EvaluationFixtures.LoadSyntheticProcedure();
+        var criterion = procedure.Criteria[0];
+        var request = CreateRequest(criterion, criterion.DeterministicEvaluator!);
+        var authority = CreateAuthority(request);
+        var tamperedUtf8 = Encoding.UTF8.GetBytes(
+            Encoding.UTF8.GetString(EvaluationFixtures.LoadSyntheticProcedureCanonicalUtf8()).Replace(
+                "evalproc.p0.text.synthetic.v1",
+                "evalproc.p0.text.synthetic.v2",
+                StringComparison.Ordinal));
+        var registry = new CountingRegistry();
+        var runner = new CountingRunner();
+        var store = new CountingStore();
+        var service = CreateService(
+            new FixedAuthorityStore(authority),
+            new FixedProcedureSource(new ProtectedCanonicalUtf8(
+                authority.ProcedureRef.SourceId,
+                authority.ProcedureRef.SourceVersionId,
+                tamperedUtf8,
+                authority.ProcedureRef.ContentDigest)),
+            registry,
+            runner,
+            store);
+
+        var result = await service.TryExecuteAndPersistAsync(request, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("procedure_content_digest", result.Field);
+        Assert.Equal(0, registry.LookupCount);
+        Assert.Equal(0, runner.ExecuteCount);
+        Assert.Equal(0, store.AppendCount);
+    }
+
+    [Fact]
     public async Task Missing_admitted_request_authority_rejects_before_runner_or_store()
     {
         var procedure = EvaluationFixtures.LoadSyntheticProcedure();
@@ -71,7 +108,7 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
         var request = CreateRequest(criterion, criterion.DeterministicEvaluator!);
         var service = CreateService(
             new FixedAuthorityStore(null),
-            new FixedProcedureSource(CreatePayload(EvaluationFixtures.SyntheticProcedureRef(), EvaluationFixtures.LoadSyntheticProcedureUtf8())),
+            new FixedProcedureSource(CreatePayload(EvaluationFixtures.SyntheticProcedureRef(), EvaluationFixtures.LoadSyntheticProcedureCanonicalUtf8())),
             new CountingRegistry(),
             new CountingRunner(),
             new CountingStore());

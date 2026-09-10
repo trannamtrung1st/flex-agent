@@ -53,6 +53,16 @@ public static class DeterministicEvaluatorAuthorityVerifier
                 "procedure_ref");
         }
 
+        var contentDigest = ProtectedEvaluationProcedureContentDigest.TryVerify(
+            procedurePayload.Utf8,
+            authority.ProcedureRef.ContentDigest);
+        if (!contentDigest.Succeeded)
+        {
+            return EvaluationDecision<VerifiedFrozenProcedureExecutionContext>.Fail(
+                contentDigest.OutcomeCode,
+                contentDigest.Field);
+        }
+
         var resolved = EvaluationProcedureResolver.TryResolve(procedurePayload.Utf8);
         if (!resolved.Succeeded || resolved.Value is null)
         {

@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T10:40:00+07:00
+updated: 2026-09-10T12:10:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -642,8 +642,16 @@ approved layout families and donors already exist.
   `ProcedureRef` from persisted request scope (not caller-supplied procedure),
   verifies digest/source identity, then applies criterion/mode/binding gate.
   External review on `4c803fe`: 0 Blocker / 1 High — caller-supplied procedure
-  treated as authority; corrective pass removes bare `EvaluationProcedureV1`
-  parameter and adds substitution/ownership/digest negatives.
+  treated as authority; corrective `5579ce7` removes bare `EvaluationProcedureV1`
+  parameter and adds substitution/ownership/digest negatives. External review on
+  `5579ce7`: 0 Blocker / 1 High — protected procedure bytes not independently
+  bound to frozen digest (metadata-only reconciliation). Corrective pass adds
+  `ProtectedEvaluationProcedureContentDigest`: recompute
+  `CanonicalJsonProcessor.CanonicalizeSha256Hex` on loaded `canonical_utf8`
+  with evaluation-procedure JCS limits and fail closed on
+  `procedure_content_digest` mismatch before parse/orchestration/registry/runner/
+  store; negative where source id/version and digest metadata are unchanged but
+  bytes contain a different valid procedure.
 - [>] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -1041,13 +1049,16 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   expired-lease recovery.
 - Next: continue Phase 5 slice 3 — protected deterministic Evidence
   materialization/linkage, then remaining lane integration before Phase 6. Slice 3
-  authority correction landed locally: admitted-request procedure reload +
-  `VerifiedFrozenProcedureExecutionContext`; focused verification:
-  `DeterministicEvaluatorAuthorityVerifierTests` 8;
+  authority reconciliation: admitted-request procedure reload +
+  `VerifiedFrozenProcedureExecutionContext`; `5579ce7` closes caller-supplied
+  procedure High; local corrective adds independent byte→digest verification via
+  `ProtectedEvaluationProcedureContentDigest` before parse/execution. Focused
+  verification (byte→digest corrective, pre-push): `ProtectedEvaluationProcedureContentDigestTests`
+  2; `DeterministicEvaluatorAuthorityVerifierTests` 9;
   `DeterministicEvaluatorOrchestrationValidatorTests` 7;
-  `DeterministicEvaluatorExecutionServiceTests` 3; Evaluation unit 198;
-  `DeterministicInvocationStoreTests` 5 (authority-backed integration path).
-  Phase 5 slice 2 approved 2026-09-10 through
+  `DeterministicEvaluatorExecutionServiceTests` 4; Evaluation unit 203; contract
+  264; architecture 65; `DeterministicInvocationStoreTests` 5. Awaiting external
+  re-review after push. Phase 5 slice 2 approved 2026-09-10 through
   `a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` (0 Blocker / 0 High / 0 Medium).
   `EvaluationInfrastructure.ProcessingEnabled` and Worker wiring remain disabled
   until later Phase 5 integration work explicitly enables them.
@@ -1230,6 +1241,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
 | Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` + `d76c0ac`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. Chain: `a53a5f5` runner + invocation persistence; `d9011f9` idempotency/provenance + `0076`; `ce63dbe` in-process algorithmically bounded contract + cooperative deadlines; `d4255c4` `eval.builtin.impl-manifest.v2` source-closure identity; `d76c0ac` records push evidence. Focused: Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
+| Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + byte→digest corrective) | in-progress | External review on `4c803fe`: 0 Blocker / 1 High — caller-supplied procedure authority. `5579ce7` substantially closes prior High with admitted-request reload + protected source lookup. External review on `5579ce7`: 0 Blocker / 1 High — bytes not independently bound to frozen digest. Local corrective: `ProtectedEvaluationProcedureContentDigest` recomputes JCS SHA-256 on `canonical_utf8` and fails on `procedure_content_digest` before parse; tampered-valid-procedure negative with unchanged source/version/digest metadata. Focused (local): Evaluation 203; contract 264; architecture 65; Postgres integration 458/460 (unrelated flaky enrollment idempotency). Worker/processing remain disabled. Hosted CI not independently observed |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

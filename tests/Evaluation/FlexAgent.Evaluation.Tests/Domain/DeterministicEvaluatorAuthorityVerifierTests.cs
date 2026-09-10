@@ -1,3 +1,4 @@
+using System.Text;
 using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
@@ -7,7 +8,7 @@ namespace FlexAgent.Evaluation.Tests.Domain;
 public sealed class DeterministicEvaluatorAuthorityVerifierTests
 {
     private static readonly EvaluationProcedureV1 Procedure = EvaluationFixtures.LoadSyntheticProcedure();
-    private static readonly byte[] ProcedureUtf8 = EvaluationFixtures.LoadSyntheticProcedureUtf8();
+    private static readonly byte[] ProcedureUtf8 = EvaluationFixtures.LoadSyntheticProcedureCanonicalUtf8();
     private static readonly ExactSourceIdentity ProcedureRef = EvaluationFixtures.SyntheticProcedureRef();
 
     [Fact]
@@ -117,6 +118,32 @@ public sealed class DeterministicEvaluatorAuthorityVerifierTests
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
         Assert.Equal("procedure_ref", result.Field);
+    }
+
+    [Fact]
+    public void Tampered_valid_procedure_bytes_with_unchanged_digest_metadata_are_rejected()
+    {
+        var request = CreateRequest(Procedure.Criteria[0], Procedure.Criteria[0].DeterministicEvaluator!);
+        var authority = CreateAuthority(request);
+        var tamperedUtf8 = Encoding.UTF8.GetBytes(
+            Encoding.UTF8.GetString(ProcedureUtf8).Replace(
+                "evalproc.p0.text.synthetic.v1",
+                "evalproc.p0.text.synthetic.v2",
+                StringComparison.Ordinal));
+        var payload = new ProtectedCanonicalUtf8(
+            ProcedureRef.SourceId,
+            ProcedureRef.SourceVersionId,
+            tamperedUtf8,
+            ProcedureRef.ContentDigest);
+
+        var result = DeterministicEvaluatorAuthorityVerifier.TryVerify(
+            authority,
+            payload,
+            request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("procedure_content_digest", result.Field);
     }
 
     [Fact]
