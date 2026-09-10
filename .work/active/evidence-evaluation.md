@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T21:00:00+07:00
+updated: 2026-09-11T00:10:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -15,12 +15,12 @@ phase4_slice2: approved-9e286f9-1932276
 phase4_slice3: approved-4a6a152-88b293f
 phase4_slice4: approved-c97715e-7d16935
 phase4_gate: approved-f89c35c
-phase5_status: in-progress
+phase5_status: complete
 phase5_slice1: approved-2ede5e1-2f3c699
 phase5_slice2: approved-a53a5f5-d9011f9-ce63dbe-d4255c4
 phase5_slice3: approved-4c803fe-5579ce7-395a7af
 phase5_ci_review: approved-03056d0-be1b1d5-76d3496-7ee5293
-phase5_slice4: in-progress
+phase5_slice4: approved-4acfa4b-a179b085-0c63e403
 phase5_slice4_materialization: approved-5ff61ee-2209477-4422772
 phase5_slice4_completion_linkage: approved-428c835-b3b37b4
 ---
@@ -741,9 +741,9 @@ approved layout families and donors already exist.
   `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window insert;
   external review 2026-09-10 on `a179b085` + `0c63e403`: **approved**, 0 Blocker /
   0 High / 0 Medium. Hosted at `a179b085`: Documentation `34503812220` green;
-  Implementation `34503812163` — `changes`, `dotnet`, `web`, `oidc` green (prior
-  failure closed); `supply-chain` and `oci-oidc-smoke` still in progress at review
-  time. Slice 4 remains `approved-pending-ci` until full Implementation succeeds.
+  Implementation `34503812163` green — all six jobs (`changes`, `dotnet`, `web`,
+  `oidc`, `supply-chain`, `oci-oidc-smoke`). Local confirmation at closure:
+  `verify-dotnet.sh` 2337 passed / 4 skipped. **Phase 5 slice 4 closed.**
   Worker processing remains disabled.
 - [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
@@ -780,10 +780,8 @@ approved layout families and donors already exist.
   (`34495832645`, dotnet: enrollment admission window-boundary race — unrelated).
   Corrective chain `a179b085` + `0c63e403` externally reviewed **approved**
   2026-09-10 (0 Blocker / 0 High / 0 Medium). Hosted at `a179b085`:
-  Documentation `34503812220` green; Implementation `34503812163` — `changes`,
-  `dotnet`, `web`, `oidc` green; `supply-chain` + `oci-oidc-smoke` in progress at
-  review time. Slice 4 `approved-pending-ci` until full Implementation green.
-  Worker disabled.
+  Documentation `34503812220` green; Implementation `34503812163` green — all
+  six jobs. **Phase 5 slice 4 closed.** Worker disabled.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1131,11 +1129,11 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: await hosted Implementation `supply-chain` + `oci-oidc-smoke` green on
-  `a179b085`, then close Phase 5 slice 4 and begin Phase 6. Chain `4acfa4b` +
-  `a179b085` + `0c63e403` externally reviewed **approved** 2026-09-10 (0 Blocker /
-  0 High / 0 Medium); hosted `dotnet` failure corrected and green at `a179b085`
-  (Implementation `34503812163`; Documentation `34503812220`). Completion-linkage chain `428c835` → `b3b37b4`
+- Next: begin **Phase 6** — Agent-assisted and Agent-judgment execution. **Phase 5
+  is closed** through slice 4 chain `4acfa4b` + `a179b085` + `0c63e403`
+  externally reviewed **approved** 2026-09-10 (0 Blocker / 0 High / 0 Medium);
+  hosted CI green at `a179b085` (Documentation `34503812220`; Implementation
+  `34503812163` all six jobs). Completion-linkage chain `428c835` → `b3b37b4`
   closed and **approved** (external review 2026-09-10: 0 Blocker / 0 High /
   0 Medium; hosted CI green). **Phase 5 slice 3 is closed and approved** through implementation chain `4c803fe` + `5579ce7` + `395a7af` and docs chain
   `1193ec6` + `6d1abc6` (external review 2026-09-10: 0 Blocker / 0 High /
@@ -1333,7 +1331,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 post-slice-3 CI chain (`03056d0` + `be1b1d5` + `76d3496` + `7ee5293`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. `03056d0` docs-only slice-3 chain record; `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh (`be1b1d5` hosted dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed at SPA SBOM grype on `js-yaml@4.3.1`); `76d3496` local confirmation; `7ee5293` pnpm override `js-yaml@4.3.2` + SPA OCI `apk upgrade curl libcurl`. Hosted **Implementation** run `34447801929` and **Documentation** run `34447801925` green at `7ee5293`; all six Implementation jobs pass including `supply-chain` and `oci-oidc-smoke`. Phase 5 remains in-progress; Worker disabled |
 | Phase 5 slice 4 materialization corrective chain (`5ff61ee` + `0078` + `2209477` + `4422772`) | approved | External review 2026-09-10 on full corrective chain: **0 Blocker / 0 High / 0 Medium**. `5ff61ee`: payload store + `deterministic.fact` locator resolution. Review: lifecycle bypass (High) + decoupled FK/load provenance (Medium). `2209477`/`0078`: unconditional immutability; composite FK; hardened load. Review: duplicate retry provenance (Medium). `4422772`: retry joins attempt/request; reconciles request + ownership before ref/digest/bytes. Focused: `DeterministicPayloadImmutabilityTests` 8; hosted CI green at `4422772` (Documentation `34459660148`; Implementation `34459660500` all six jobs). Worker disabled |
 | Phase 5 slice 4 completion linkage (`428c835` + `b3b37b4`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. `428c835`: `DeterministicFactContextLoader` + completion service store-backed context; persists `deterministic.fact` `evaluation_evidence_items`. Review: cross-criterion reuse High (load bound request/attempt/digest only). `b3b37b4`: criterion id/version on `TryLoadProjectionAsync` SQL + loader; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative (both criteria permit `deterministic.fact`). Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154` all six jobs). Worker disabled |
-| Phase 5 slice 4 runner negatives + Worker lane scaffold (`4acfa4b` + `a179b085` + `0c63e403`) | approved-pending-ci | External review 2026-09-10 on `4acfa4b`: **0 Blocker / 0 High / 0 Medium**. Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Hosted at `4acfa4b`: Documentation `34495832537` green; Implementation `34495832645` **failed** on unrelated enrollment admission window-boundary race. Corrective `a179b085`: `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window counter insert; `0c63e403` records confirmation. External review 2026-09-10 on corrective chain: **0 Blocker / 0 High / 0 Medium**. Hosted at `a179b085`: Documentation `34503812220` green; Implementation `34503812163` — `changes`, `dotnet`, `web`, `oidc` green; `supply-chain` + `oci-oidc-smoke` in progress at review time. Local: `verify-dotnet.sh` 2337 passed / 4 skipped. Slice 4 closure blocked until full Implementation green. Worker disabled |
+| Phase 5 slice 4 runner negatives + Worker lane scaffold (`4acfa4b` + `a179b085` + `0c63e403`) | approved | External review 2026-09-10 on `4acfa4b`: **0 Blocker / 0 High / 0 Medium**. Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Hosted at `4acfa4b`: Documentation `34495832537` green; Implementation `34495832645` **failed** on unrelated enrollment admission window-boundary race. Corrective `a179b085`: `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window counter insert; `0c63e403` + `22c17489` record confirmation and external approval. External review on corrective chain: **0 Blocker / 0 High / 0 Medium**. Hosted at `a179b085`: Documentation `34503812220` green; Implementation `34503812163` green — all six jobs. Local: `verify-dotnet.sh` 2337 passed / 4 skipped. Phase 5 slice 4 closed. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
