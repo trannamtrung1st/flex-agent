@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T09:36:00+07:00
+updated: 2026-09-10T10:15:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -18,6 +18,7 @@ phase4_gate: approved-f89c35c
 phase5_status: in-progress
 phase5_slice1: approved-2ede5e1-2f3c699
 phase5_slice2: approved-a53a5f5-d9011f9-ce63dbe-d4255c4
+phase5_slice3: in-progress-orchestration-guardrails
 ---
 
 # Goal
@@ -633,8 +634,12 @@ approved layout families and donors already exist.
   independently enforce positive bounds; `2f3c699` closes it with fail-closed
   positive memory/output/duration validation. External review 2026-09-09 on
   corrective chain: 0 Blocker / 0 High / 0 Medium. Slice 2 adds runner negatives
-  for shell/path/digest/output-bound exhaustion; timeout, environment/secret,
-  wrong criterion scope, and orchestration-level silent fallback remain.
+  for shell/path/digest/output-bound exhaustion; timeout and environment/secret
+  remain. Slice 3 adds orchestration gate via
+  `DeterministicEvaluatorOrchestrationValidator` + service boundary tests:
+  unknown/wrong-version criterion, `agent_judgment` mode rejection (no silent
+  deterministic substitution), and frozen binding drift; integration path passes
+  resolved procedure into `DeterministicEvaluatorExecutionService`.
 - [>] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -680,9 +685,9 @@ approved layout families and donors already exist.
   External review 2026-09-10 on chain `a53a5f5` + `d9011f9` + `ce63dbe` +
   `d4255c4`: **approved**, 0 Blocker / 0 High / 0 Medium. Focused verification:
   Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5.
-  Hosted CI not independently observed. Remaining Phase 5 before Phase 6: orchestration
-  mode/scope negatives, protected deterministic Evidence materialization/linkage, lane
-  integration/Worker enablement (still disabled).
+  Hosted CI not independently observed. Remaining Phase 5 before Phase 6: protected
+  deterministic Evidence materialization/linkage, environment/secret runner negatives,
+  and lane integration/Worker enablement (still disabled).
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1030,9 +1035,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: continue Phase 5 beyond slice 2 — orchestration-level mode/scope negatives,
-  protected deterministic Evidence materialization/linkage, and remaining lane
-  integration before Phase 6. Phase 5 slice 2 approved 2026-09-10 through
+- Next: continue Phase 5 slice 3 — protected deterministic Evidence
+  materialization/linkage, then remaining lane integration before Phase 6. Slice 3
+  orchestration guardrails landed locally: procedure-aware criterion/mode/binding gate
+  on `DeterministicEvaluatorExecutionService`; focused verification:
+  `DeterministicEvaluatorOrchestrationValidatorTests` 6;
+  `DeterministicEvaluatorExecutionServiceTests` 1; Evaluation unit 187;
+  `DeterministicInvocationStoreTests` 5. Phase 5 slice 2 approved 2026-09-10 through
   `a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` (0 Blocker / 0 High / 0 Medium).
   `EvaluationInfrastructure.ProcessingEnabled` and Worker wiring remain disabled
   until later Phase 5 integration work explicitly enables them.

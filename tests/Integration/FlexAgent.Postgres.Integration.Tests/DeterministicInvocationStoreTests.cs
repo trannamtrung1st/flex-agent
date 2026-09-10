@@ -20,6 +20,7 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
 
         var second = await context.Service.TryExecuteAndPersistAsync(
             EvaluatorRegistryVersions.P0,
+            context.Procedure,
             context.Request,
             CancellationToken);
 
@@ -163,13 +164,13 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var runner = new RestrictedBuiltinDeterministicEvaluatorRunner();
         var store = new PostgresDeterministicInvocationStore(Fixture.Services.ConnectionAccessor);
         var service = new DeterministicEvaluatorExecutionService(registry, runner, store);
-
-        var registrySnapshot = registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
-        var entry = registrySnapshot.Entries["eval.builtin.bounded-calc"];
-        var binding = ToBinding(entry);
+        var procedure = LoadSyntheticProcedure();
+        var criterion = procedure.Criteria.Single(item =>
+            item.CriterionId == "crit.objective.word-count");
+        var binding = criterion.DeterministicEvaluator!;
         var inputJson = JsonSerializer.Serialize(new
         {
-            schema = entry.InputSchemaId,
+            schema = binding.InputSchemaId,
             operation = "word_count",
             text = "alpha beta",
             minimum = 1,
@@ -188,33 +189,37 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
 
         var first = await service.TryExecuteAndPersistAsync(
             EvaluatorRegistryVersions.P0,
+            procedure,
             request,
             CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
 
-        return new ExecutionContext(claimed, request, first, service, store);
+        return new ExecutionContext(claimed, procedure, request, first, service, store);
     }
 
-    private static DeterministicEvaluatorBindingV1 ToBinding(EvaluatorRegistryEntry entry) =>
-        new(
-            entry.EvaluatorId,
-            entry.EvaluatorVersion,
-            entry.EvaluatorDigest,
-            entry.Operation,
-            entry.InputSchemaId,
-            entry.OutputSchemaId,
-            entry.CanonicalizationProcedure,
-            entry.ConfigurationDigest,
-            entry.DependencyDigest,
-            entry.CpuTimeLimit,
-            entry.ElapsedTimeLimit,
-            entry.MemoryLimitBytes,
-            entry.OutputLimitBytes,
-            entry.NetworkEgress,
-            entry.ExecutableSelection);
+    private static EvaluationProcedureV1 LoadSyntheticProcedure()
+    {
+        var utf8 = File.ReadAllBytes(Path.Combine(
+            AppContext.BaseDirectory,
+            "contracts",
+            "fixtures",
+            "schema",
+            "v1",
+            "evaluation",
+            "evaluation-procedure",
+            "valid-three-mode-synthetic.json"));
+        var resolved = EvaluationProcedureResolver.TryResolve(utf8);
+        if (!resolved.Succeeded || resolved.Value is null)
+        {
+            throw new InvalidOperationException(resolved.OutcomeCode);
+        }
+
+        return resolved.Value;
+    }
 
     private sealed record ExecutionContext(
         EvaluationDurableWorkItem Claimed,
+        EvaluationProcedureV1 Procedure,
         DeterministicEvaluatorExecutionRequest Request,
         EvaluationDecision<DeterministicEvaluatorExecutionResult> First,
         DeterministicEvaluatorExecutionService Service,

@@ -1,3 +1,4 @@
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Application;
@@ -24,9 +25,18 @@ public sealed class DeterministicEvaluatorExecutionService(
 {
     public async Task<EvaluationDecision<DeterministicEvaluatorExecutionResult>> TryExecuteAndPersistAsync(
         string registryVersion,
+        EvaluationProcedureV1 procedure,
         DeterministicEvaluatorExecutionRequest request,
         CancellationToken cancellationToken)
     {
+        var orchestration = DeterministicEvaluatorOrchestrationValidator.TryValidateRequest(procedure, request);
+        if (!orchestration.Succeeded)
+        {
+            return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Fail(
+                orchestration.OutcomeCode,
+                orchestration.Field);
+        }
+
         var registryResult = registry.TryGetRegistry(registryVersion);
         if (!registryResult.Succeeded || registryResult.Value is null)
         {

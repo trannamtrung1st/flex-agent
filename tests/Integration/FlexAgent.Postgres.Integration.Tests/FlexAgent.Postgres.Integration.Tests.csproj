@@ -9,6 +9,9 @@
 
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\schema\v1\evaluation\evaluation-procedure\valid-three-mode-synthetic.json"
+             Link="contracts\fixtures\schema\v1\evaluation\evaluation-procedure\valid-three-mode-synthetic.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
