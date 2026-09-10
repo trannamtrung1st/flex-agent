@@ -339,6 +339,14 @@ public static class EvidenceLocatorVerifier
                     manifest.ContentDigest,
                     manifest.ProjectionUtf8,
                     manifest.ProjectionUtf8),
+            "deterministic.fact"
+                when context.SafeDeterministicFactsBySourceId.TryGetValue(sourceId, out var deterministic)
+                     && string.Equals(deterministic.SourceVersion, sourceVersion, StringComparison.Ordinal) =>
+                new ResolvedMaterial(
+                    sourceId,
+                    deterministic.ContentDigest,
+                    deterministic.ProjectionUtf8,
+                    deterministic.ProjectionUtf8),
             _ => null,
         };
     }

@@ -198,6 +198,35 @@ public sealed class EvidenceLocatorVerifierTests
     }
 
     [Fact]
+    public void Deterministic_fact_json_pointer_resolves_against_materialized_output()
+    {
+        var attemptId = Guid.Parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        var outputUtf8 = """{"schema":"eval.output.word-count.v1","value":2,"within_range":true}"""u8.ToArray();
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(outputUtf8))
+            .ToLowerInvariant();
+        var projection = EvaluationDeterministicFactProjector.TryCreate(attemptId, outputUtf8, digest).Value!;
+        using var document = JsonDocument.Parse(
+            BuildDeterministicFactLocatorJson(
+                projection.SourceId,
+                projection.SourceVersion,
+                digest,
+                "/value"));
+        var locator = document.RootElement;
+        var context = BuildContextForFixture(locator) with
+        {
+            SafeDeterministicFactsBySourceId = new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal)
+            {
+                [projection.SourceId] = projection,
+            },
+        };
+
+        var result = EvidenceLocatorVerifier.TryVerify(locator, context);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal("verified", result.Value!.VerificationState);
+    }
+
+    [Fact]
     public void Configuration_json_pointer_outside_safe_projection_is_rejected()
     {
         using var document = JsonDocument.Parse(
@@ -502,6 +531,7 @@ public sealed class EvidenceLocatorVerifierTests
             submissionItems,
             configurationFacts,
             manifestFacts,
+            new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             permitWholeItemFallback);
     }
 
@@ -535,6 +565,7 @@ public sealed class EvidenceLocatorVerifierTests
                     DummyAcceptedVersionId,
                     DummyItemRecordId),
             },
+            new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             permitWholeItemFallback);
@@ -719,6 +750,44 @@ public sealed class EvidenceLocatorVerifierTests
         using var document = JsonDocument.Parse(stream.ToArray());
         return document.RootElement.Clone();
     }
+
+    private static string BuildDeterministicFactLocatorJson(
+        string sourceId,
+        string sourceVersion,
+        string sourceDigest,
+        string jsonPointer) =>
+        $$"""
+        {
+          "locator_schema": "evidence-locator.v1",
+          "source_type": "deterministic.fact",
+          "source_ref": {
+            "source_id": "{{sourceId}}",
+            "source_version": "{{sourceVersion}}"
+          },
+          "ownership_ref": {
+            "organization_id": "org.synthetic.0001",
+            "activity_id": "act.synthetic.0001",
+            "participant_id": "part.synthetic.0001",
+            "attempt_id": "att.synthetic.0001",
+            "session_id": "sess.synthetic.0001",
+            "evaluation_id": "eval.synthetic.0001"
+          },
+          "location": {
+            "location_type": "json_pointer",
+            "json_pointer": "{{jsonPointer}}"
+          },
+          "precision": "exact_range",
+          "integrity": {
+            "source_digest": "{{sourceDigest}}",
+            "adapter_version": "locator-adapter.v1",
+            "verification_state": "verified"
+          },
+          "created_by": {
+            "service_id": "evaluation-service",
+            "invocation_id": "inv.synthetic.0004"
+          }
+        }
+        """;
 
     private static string LocatorFixturePath(string fixtureName) =>
         Path.Combine(

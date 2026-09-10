@@ -17,12 +17,35 @@ public interface IDeterministicInvocationStore
         CancellationToken cancellationToken);
 }
 
+public interface IProtectedDeterministicOutputStore
+{
+    Task<EvaluationDecision<bool>> TryPersistAsync(
+        ProtectedDeterministicOutputPersistCommand command,
+        CancellationToken cancellationToken);
+
+    Task<EvaluationSafeFactProjection?> TryLoadProjectionAsync(
+        Guid organizationId,
+        Guid requestId,
+        Guid deterministicAttemptId,
+        string expectedContentDigest,
+        CancellationToken cancellationToken);
+}
+
+public sealed record ProtectedDeterministicOutputPersistCommand(
+    EvaluationOwnership Ownership,
+    Guid RequestId,
+    Guid DeterministicAttemptId,
+    string ProtectedOutputRef,
+    string OutputContentDigest,
+    ReadOnlyMemory<byte> OutputUtf8);
+
 public sealed class DeterministicEvaluatorExecutionService(
     IEvaluationRequestAuthorityStore authorityStore,
     IProtectedEvaluationProcedureSource procedureSource,
     IEvaluatorRegistry registry,
     IDeterministicEvaluatorRunner runner,
-    IDeterministicInvocationStore store)
+    IDeterministicInvocationStore store,
+    IProtectedDeterministicOutputStore outputStore)
 {
     public async Task<EvaluationDecision<DeterministicEvaluatorExecutionResult>> TryExecuteAndPersistAsync(
         DeterministicEvaluatorExecutionRequest request,
@@ -96,6 +119,31 @@ public sealed class DeterministicEvaluatorExecutionService(
             return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Fail(
                 append.OutcomeCode,
                 append.Field);
+        }
+
+        if (string.Equals(
+                execution.Value.Outcome,
+                DeterministicInvocationOutcomes.Succeeded,
+                StringComparison.Ordinal)
+            && execution.Value.OutputUtf8 is not null
+            && execution.Value.OutputContentDigest is not null
+            && execution.Value.ProtectedOutputRef is not null)
+        {
+            var materialize = await outputStore.TryPersistAsync(
+                new ProtectedDeterministicOutputPersistCommand(
+                    request.Ownership,
+                    request.RequestId,
+                    execution.Value.DeterministicAttemptId,
+                    execution.Value.ProtectedOutputRef,
+                    execution.Value.OutputContentDigest,
+                    execution.Value.OutputUtf8.Value),
+                cancellationToken);
+            if (!materialize.Succeeded)
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Fail(
+                    materialize.OutcomeCode,
+                    materialize.Field);
+            }
         }
 
         return execution;

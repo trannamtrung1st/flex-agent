@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T13:35:00+07:00
+updated: 2026-09-10T15:10:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -19,6 +19,8 @@ phase5_status: in-progress
 phase5_slice1: approved-2ede5e1-2f3c699
 phase5_slice2: approved-a53a5f5-d9011f9-ce63dbe-d4255c4
 phase5_slice3: approved-4c803fe-5579ce7-395a7af
+phase5_ci_review: approved-03056d0-be1b1d5-76d3496-7ee5293
+phase5_slice4: in-progress
 ---
 
 # Goal
@@ -656,7 +658,11 @@ approved layout families and donors already exist.
   0 Medium; caller-supplied procedure and byte→digest Highs closed. Slice closed
   with docs chain `1193ec6` (approval record) + `6d1abc6` (confirmation evidence);
   external review 2026-09-10 on full chain through `6d1abc6`: **approved**, 0
-  Blocker / 0 High / 0 Medium.
+  Blocker / 0 High / 0 Medium. Post-slice-3 CI chain `03056d0` + `be1b1d5` +
+  `76d3496` + `7ee5293` externally reviewed **approved** 2026-09-10: 0 Blocker /
+  0 High / 0 Medium; hosted **Implementation** run `34447801929` and
+  **Documentation** run `34447801925` green at `7ee5293` (all six Implementation
+  jobs including `supply-chain` and `oci-oidc-smoke`).
 - [>] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -690,8 +696,17 @@ approved layout families and donors already exist.
 - [>] Treat successful output as protected Evidence. It is not policy or
   infallible truth, and Agent output cannot overwrite it.
   Runner records protected input/output refs and output content digest on
-  success; artifact materialization and Evidence-item linkage remain for a
-  later slice.
+  success. Slice 4 (`0077` + `IProtectedDeterministicOutputStore` +
+  `PostgresProtectedDeterministicOutputStore`): on succeeded invocation,
+  `DeterministicEvaluatorExecutionService` persists bounded `output_utf8` keyed by
+  `deterministic_attempt_id`, `protected_output_ref`, and `output_content_digest`
+  with ownership-scoped FK to `evaluation_deterministic_attempts`; idempotent
+  retry reconciles byte-identical payloads; digest/ref mismatch fails
+  `deterministic_conflict`. `EvaluationDeterministicFactProjector` binds
+  `det.{attemptId}` + `rev.{digest}` projections; `EvidenceLocatorVerifier`,
+  `EvidenceLocatorMetadataProjector`, and verification context now resolve
+  `deterministic.fact` JSON pointers against stored output. Evidence-item row
+  linkage at completion and context-builder loading from store remain.
 - [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
   Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound/
@@ -708,10 +723,16 @@ approved layout families and donors already exist.
   `DeterministicEvaluatorExecutionServiceTests` 4; Evaluation 203. External review
   2026-09-10 on chain `4c803fe` + `5579ce7` + `395a7af`: **approved**, 0 Blocker /
   0 High / 0 Medium. Slice 3 closed; docs chain `1193ec6` + `6d1abc6` externally
-  reviewed **approved** 0 Blocker / 0 High / 0 Medium. Hosted CI not independently
-  observed. Remaining Phase 5 before Phase 6: protected deterministic Evidence
-  materialization/linkage, environment/secret runner negatives, and lane
-  integration/Worker enablement (still disabled).
+  reviewed **approved** 0 Blocker / 0 High / 0 Medium. CI chain through
+  `7ee5293` externally reviewed **approved** 2026-09-10: hosted Implementation
+  run `34447801929` + Documentation run `34447801925` green (supply-chain and
+  oci-oidc-smoke included). Remaining Phase 5 before Phase 6: completion-time
+  Evidence-item linkage from materialized deterministic facts, environment/secret
+  runner negatives, and lane integration/Worker enablement (still disabled).
+  Slice 4 in progress: `0077` payload store + locator resolution; focused green
+  `EvaluationDeterministicFactProjectorTests` 2; deterministic-fact verifier
+  positive; `DeterministicInvocationStoreTests` materialization integration;
+  `verify-dotnet.sh` 2309 passed / 4 skipped.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1059,8 +1080,8 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: continue remaining Phase 5 work — protected deterministic Evidence
-  materialization/linkage, environment/secret runner negatives, then lane/
+- Next: continue Phase 5 slice 4 — completion-time Evidence-item linkage from
+  materialized deterministic facts, environment/secret runner negatives, then lane/
   Worker integration before Phase 6. **Phase 5 slice 3 is closed and approved**
   through implementation chain `4c803fe` + `5579ce7` + `395a7af` and docs chain
   `1193ec6` + `6d1abc6` (external review 2026-09-10: 0 Blocker / 0 High /
@@ -1254,7 +1275,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 gate (`f89c35c`) | approved | External review 2026-09-09: 0 Blocker / 0 High / 0 Medium; Phase 5 entry authorized. `f89c35c` records gate closure with `phase4_status: complete-work-trace-deferred`, proportionate regression (`verify-dotnet.sh` 2201 passed / 4 skipped; `scripts/check_docs.py` passed), and accepted work-trace deferral. Hosted CI not independently observed |
 | Phase 5 slice 1 (`2ede5e1` + `2f3c699`) | approved | External review 2026-09-09 on corrective chain: 0 Blocker / 0 High / 0 Medium; positive-bounds Medium closed. `2ede5e1`: registry port, built-in allowlist, binding validation. Review found 1 Medium — binding validator did not independently reject non-positive memory/output or malformed durations. `2f3c699`: shared `EvaluationPositiveDuration`; fail-closed positive bound checks on binding and registry durations. Focused: `FlexAgent.Evaluation.Tests` 149; contract 264; architecture 65. Hosted CI not independently observed. Runner and invocation persistence remain for slice 2 |
 | Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` + `d76c0ac`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. Chain: `a53a5f5` runner + invocation persistence; `d9011f9` idempotency/provenance + `0076`; `ce63dbe` in-process algorithmically bounded contract + cooperative deadlines; `d4255c4` `eval.builtin.impl-manifest.v2` source-closure identity; `d76c0ac` records push evidence. Focused: Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
-| Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6` + `6d1abc6` + `be1b1d5`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. Implementation: `4c803fe` orchestration gate; `5579ce7` admitted-request reload + protected source; `395a7af` independent byte→digest verification before parse. Docs: `1193ec6` approval record; `6d1abc6` confirmation evidence and rubric digest reconciliation to `04bdd47d…`. `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh. Post-fix: `verify-dotnet.sh` 2309 passed / 4 skipped; Evaluation 203; Runtime 340; `check_docs.py` passed. Slice closed; `phase5_status` remains in-progress. Worker/processing remain disabled. Hosted CI: `be1b1d5` dotnet/web/oidc green; **supply-chain failed** on SPA SBOM grype (`js-yaml@4.3.1` GHSA-2883-xcg3-v3hh High via `@cyclonedx/cyclonedx-npm` → `xmlbuilder2`). Local corrective: pnpm override `js-yaml@4.3.2`; SPA OCI `apk upgrade curl libcurl` for grype critical on nginx Alpine. `verify-supply-chain.sh` green locally after both fixes |
+| Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6` + `6d1abc6`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. Implementation: `4c803fe` orchestration gate; `5579ce7` admitted-request reload + protected source; `395a7af` independent byte→digest verification before parse. Docs: `1193ec6` approval record; `6d1abc6` confirmation evidence and rubric digest reconciliation to `04bdd47d…`. Focused: Evaluation 203; Runtime 340; `verify-dotnet.sh` 2309 passed / 4 skipped. Slice closed; `phase5_status` remains in-progress. Worker/processing remain disabled |
+| Phase 5 post-slice-3 CI chain (`03056d0` + `be1b1d5` + `76d3496` + `7ee5293`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. `03056d0` docs-only slice-3 chain record; `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh (`be1b1d5` hosted dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed at SPA SBOM grype on `js-yaml@4.3.1`); `76d3496` local confirmation; `7ee5293` pnpm override `js-yaml@4.3.2` + SPA OCI `apk upgrade curl libcurl`. Hosted **Implementation** run `34447801929` and **Documentation** run `34447801925` green at `7ee5293`; all six Implementation jobs pass including `supply-chain` and `oci-oidc-smoke`. Phase 5 remains in-progress; Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

@@ -125,8 +125,25 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
         IProtectedEvaluationProcedureSource procedureSource,
         IEvaluatorRegistry registry,
         IDeterministicEvaluatorRunner runner,
-        IDeterministicInvocationStore store) =>
-        new(authorityStore, procedureSource, registry, runner, store);
+        IDeterministicInvocationStore store,
+        IProtectedDeterministicOutputStore? outputStore = null) =>
+        new(authorityStore, procedureSource, registry, runner, store, outputStore ?? new NoOpOutputStore());
+
+    private sealed class NoOpOutputStore : IProtectedDeterministicOutputStore
+    {
+        public Task<EvaluationDecision<bool>> TryPersistAsync(
+            ProtectedDeterministicOutputPersistCommand command,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(EvaluationDecision<bool>.Ok(true));
+
+        public Task<EvaluationSafeFactProjection?> TryLoadProjectionAsync(
+            Guid organizationId,
+            Guid requestId,
+            Guid deterministicAttemptId,
+            string expectedContentDigest,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<EvaluationSafeFactProjection?>(null);
+    }
 
     private static AdmittedEvaluationRequestAuthority CreateAuthority(
         DeterministicEvaluatorExecutionRequest request) =>

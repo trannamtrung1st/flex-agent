@@ -122,6 +122,17 @@ public static class EvidenceLocatorMetadataProjector
                     EvaluationDeterministicGuid.CreateVersion5(
                         EvaluationSourceNamespaces.ManifestVersion,
                         handoff.ManifestDigest)),
+            "deterministic.fact"
+                when EvaluationEvidenceSourceIdentity.TryParseDeterministicFactSourceId(sourceId, out var attemptId)
+                     && string.Equals(
+                         sourceVersion,
+                         EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(contentDigest),
+                         StringComparison.Ordinal) =>
+                (
+                    attemptId,
+                    EvaluationDeterministicGuid.CreateVersion5(
+                        EvaluationSourceNamespaces.DeterministicFactVersion,
+                        contentDigest)),
             _ => null,
         };
     }

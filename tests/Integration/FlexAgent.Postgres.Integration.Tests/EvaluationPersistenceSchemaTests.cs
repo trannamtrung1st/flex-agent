@@ -12,6 +12,7 @@ public sealed class EvaluationPersistenceSchemaTests(PostgresIntegrationFixture 
         "evaluation_requests",
         "evaluation_invocation_attempts",
         "evaluation_deterministic_attempts",
+        "evaluation_deterministic_payloads",
         "evaluation_provider_artifacts",
         "evaluation_durable_work",
         "evaluation_work_claim_partitions",

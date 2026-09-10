@@ -143,6 +143,45 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         Assert.Equal(EvaluationFailureCodes.DeterministicConflict, append.OutcomeCode);
     }
 
+    [Fact]
+    public async Task Successful_invocation_materializes_protected_output_payload()
+    {
+        var context = await ExecuteAndPersistAsync();
+        var attemptId = context.First.Value!.DeterministicAttemptId;
+        var digest = context.First.Value.OutputContentDigest!;
+
+        var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
+        var projection = await outputStore.TryLoadProjectionAsync(
+            context.Claimed.Ownership.OrganizationId,
+            context.Claimed.RequestId,
+            attemptId,
+            digest,
+            CancellationToken);
+
+        Assert.NotNull(projection);
+        Assert.Equal(
+            EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(attemptId),
+            projection!.SourceId);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var payloadCount = await connection.QuerySingleAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluation_deterministic_payloads
+            WHERE organization_id = @OrganizationId
+              AND deterministic_attempt_id = @DeterministicAttemptId
+              AND content_digest = @ContentDigest;
+            """,
+            new
+            {
+                context.Claimed.Ownership.OrganizationId,
+                DeterministicAttemptId = attemptId,
+                ContentDigest = digest,
+            });
+        Assert.Equal(1, payloadCount);
+    }
+
     private async Task<ExecutionContext> ExecuteAndPersistAsync()
     {
         var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
@@ -162,12 +201,14 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var store = new PostgresDeterministicInvocationStore(Fixture.Services.ConnectionAccessor);
         var authorityStore = new PostgresEvaluationRequestAuthorityStore(Fixture.Services.ConnectionAccessor);
         var procedureSource = new PostgresProtectedEvaluationProcedureSource(Fixture.Services.ConnectionAccessor);
+        var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
         var service = new DeterministicEvaluatorExecutionService(
             authorityStore,
             procedureSource,
             registry,
             runner,
-            store);
+            store,
+            outputStore);
 
         var rubric = prepared.Request.FrozenInput.Rubric;
         var payload = await procedureSource.GetCanonicalUtf8Async(

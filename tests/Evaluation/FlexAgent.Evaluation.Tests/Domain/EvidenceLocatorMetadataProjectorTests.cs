@@ -286,6 +286,7 @@ public sealed class EvidenceLocatorMetadataProjectorTests
             },
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
+            new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal),
             permitWholeItemFallback);
     }
 

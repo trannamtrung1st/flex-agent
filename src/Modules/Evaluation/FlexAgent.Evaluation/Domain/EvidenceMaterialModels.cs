@@ -21,6 +21,9 @@ public static class EvaluationEvidenceSourceIdentity
     public static string ManifestFactSourceId(Guid manifestId) =>
         $"mfst.{manifestId:N}";
 
+    public static string DeterministicFactSourceId(Guid deterministicAttemptId) =>
+        $"det.{deterministicAttemptId:N}";
+
     public static string DigestBoundSourceVersion(string contentDigest) =>
         $"rev.{contentDigest}";
 
@@ -65,6 +68,19 @@ public static class EvaluationEvidenceSourceIdentity
 
         return manifestId != Guid.Empty;
     }
+
+    public static bool TryParseDeterministicFactSourceId(string sourceId, out Guid deterministicAttemptId)
+    {
+        deterministicAttemptId = Guid.Empty;
+        if (!sourceId.StartsWith("det.", StringComparison.Ordinal)
+            || sourceId.Length != "det.".Length + 32
+            || !Guid.TryParse(sourceId["det.".Length..], out deterministicAttemptId))
+        {
+            return false;
+        }
+
+        return deterministicAttemptId != Guid.Empty;
+    }
 }
 
 public sealed record EvidenceLocatorVerificationContext(
@@ -75,6 +91,7 @@ public sealed record EvidenceLocatorVerificationContext(
     IReadOnlyDictionary<string, EvaluationSubmissionMaterial> SubmissionItemsBySourceId,
     IReadOnlyDictionary<string, EvaluationSafeFactProjection> SafeConfigurationFactsBySourceId,
     IReadOnlyDictionary<string, EvaluationSafeFactProjection> SafeManifestFactsBySourceId,
+    IReadOnlyDictionary<string, EvaluationSafeFactProjection> SafeDeterministicFactsBySourceId,
     bool PermitWholeItemFallback);
 
 public sealed record EvaluationSafeFactProjection(

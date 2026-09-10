@@ -11,6 +11,7 @@ public static class EvidenceLocatorVerificationContextBuilder
         EvaluationSubmissionEvidenceBundle? submissionEvidence,
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? configurationFacts = null,
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? manifestFacts = null,
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? deterministicFacts = null,
         bool permitWholeItemFallback = false)
     {
         if (sessionEvidence is null)
@@ -22,6 +23,8 @@ public static class EvidenceLocatorVerificationContextBuilder
             ?? BuildFactDictionary(sessionEvidence.ConfigurationFact);
         var resolvedManifestFacts = manifestFacts
             ?? BuildFactDictionary(sessionEvidence.ManifestFact);
+        var resolvedDeterministicFacts = deterministicFacts
+            ?? new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal);
 
         return new EvidenceLocatorVerificationContext(
             trustedOwnership,
@@ -34,6 +37,7 @@ public static class EvidenceLocatorVerificationContextBuilder
                 .ToDictionary(item => item.SourceId, StringComparer.Ordinal),
             resolvedConfigurationFacts,
             resolvedManifestFacts,
+            resolvedDeterministicFacts,
             permitWholeItemFallback);
     }
 
