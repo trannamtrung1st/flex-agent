@@ -83,13 +83,28 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             return EvaluationDecision<bool>.Ok(true);
         }
 
-        var existing = await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
+        var existing = await connection.QuerySingleOrDefaultAsync<PersistedPayloadProvenanceRow>(
             new CommandDefinition(
                 """
-                SELECT protected_ref, content_digest, output_utf8
-                FROM evaluation_deterministic_payloads
-                WHERE organization_id = @OrganizationId
-                  AND deterministic_attempt_id = @DeterministicAttemptId;
+                SELECT
+                    payload.protected_ref,
+                    payload.content_digest,
+                    payload.output_utf8,
+                    payload.request_id,
+                    request.activity_id,
+                    request.participant_id,
+                    request.attempt_id,
+                    request.session_id
+                FROM evaluation_deterministic_payloads AS payload
+                INNER JOIN evaluation_deterministic_attempts AS attempt
+                  ON attempt.organization_id = payload.organization_id
+                 AND attempt.request_id = payload.request_id
+                 AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
+                INNER JOIN evaluation_requests AS request
+                  ON request.organization_id = payload.organization_id
+                 AND request.request_id = payload.request_id
+                WHERE payload.organization_id = @OrganizationId
+                  AND payload.deterministic_attempt_id = @DeterministicAttemptId;
                 """,
                 new
                 {
@@ -101,6 +116,15 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         if (existing is null)
         {
             return EvaluationDecision<bool>.Fail(EvaluationFailureCodes.InvalidField);
+        }
+
+        if (existing.request_id != command.RequestId
+            || existing.activity_id != command.Ownership.ActivityId
+            || existing.participant_id != command.Ownership.ParticipantId
+            || existing.attempt_id != command.Ownership.AttemptId
+            || existing.session_id != command.Ownership.SessionId)
+        {
+            return EvaluationDecision<bool>.Fail(EvaluationFailureCodes.DeterministicConflict);
         }
 
         if (!string.Equals(existing.protected_ref, command.ProtectedOutputRef, StringComparison.Ordinal)
@@ -171,4 +195,14 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         string protected_ref,
         string content_digest,
         byte[] output_utf8);
+
+    private sealed record PersistedPayloadProvenanceRow(
+        string protected_ref,
+        string content_digest,
+        byte[] output_utf8,
+        Guid request_id,
+        Guid activity_id,
+        Guid participant_id,
+        Guid attempt_id,
+        Guid session_id);
 }

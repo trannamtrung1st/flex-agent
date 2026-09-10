@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T15:35:00+07:00
+updated: 2026-09-10T16:15:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -710,7 +710,12 @@ approved layout families and donors already exist.
   Corrective `0078`: unconditional UPDATE/DELETE rejection; composite FK
   `(organization_id, request_id, deterministic_attempt_id)`; hardened load join on
   `payload.request_id`, `protected_ref`, and `attempt.outcome = succeeded`;
-  `DeterministicPayloadImmutabilityTests` regressions. Slice 4 remains in-progress.
+  `DeterministicPayloadImmutabilityTests` regressions. External review 2026-09-10 on
+  `2209477`: **not approved** 0 Blocker / 0 High / 1 Medium — original High/Medium
+  closed; duplicate `TryPersistAsync` retry reconciled ref/digest/bytes only, not
+  request/ownership provenance. Corrective pass: existing-row load joins attempt/request
+  and fails `deterministic_conflict` on request or ownership mismatch; retry negatives
+  added. Slice 4 remains in-progress.
   `EvaluationDeterministicFactProjector` binds
   `det.{attemptId}` + `rev.{digest}` projections; `EvidenceLocatorVerifier`,
   `EvidenceLocatorMetadataProjector`, and verification context now resolve
@@ -738,12 +743,12 @@ approved layout families and donors already exist.
   oci-oidc-smoke included). Remaining Phase 5 before Phase 6: completion-time
   Evidence-item linkage from materialized deterministic facts, environment/secret
   runner negatives, and lane integration/Worker enablement (still disabled).
-  Slice 4 in progress: `0077`/`0078` payload store + locator resolution; external review
-  on `5ff61ee` blocked approval pending lifecycle/provenance hardening; hosted CI green
-  (Implementation run `34451981653`). Focused green `EvaluationDeterministicFactProjectorTests` 2;
-  deterministic-fact verifier positive; `DeterministicInvocationStoreTests` materialization;
-  `DeterministicPayloadImmutabilityTests` 5; completion-time Evidence-row linkage and
-  context-builder store loading remain.
+  Slice 4 in progress: `0077`/`0078` payload store + locator resolution; external reviews
+  on `5ff61ee` and `2209477` blocked approval (lifecycle/provenance/retry equivalence);
+  hosted CI on `2209477` Documentation run `34455883573` green; Implementation run
+  `34455883620` had dotnet/web/oidc green with supply-chain/oci in progress at review time.
+  Focused green `DeterministicPayloadImmutabilityTests` 8; completion-time Evidence-row
+  linkage and context-builder store loading remain.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1288,7 +1293,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 2 (`a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` + `d76c0ac`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. Chain: `a53a5f5` runner + invocation persistence; `d9011f9` idempotency/provenance + `0076`; `ce63dbe` in-process algorithmically bounded contract + cooperative deadlines; `d4255c4` `eval.builtin.impl-manifest.v2` source-closure identity; `d76c0ac` records push evidence. Focused: Evaluation 180; contract 264; architecture 65; `DeterministicInvocationStoreTests` 5. Worker/processing remain disabled pending later Phase 5 integration. Hosted CI not independently observed |
 | Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6` + `6d1abc6`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. Implementation: `4c803fe` orchestration gate; `5579ce7` admitted-request reload + protected source; `395a7af` independent byte→digest verification before parse. Docs: `1193ec6` approval record; `6d1abc6` confirmation evidence and rubric digest reconciliation to `04bdd47d…`. Focused: Evaluation 203; Runtime 340; `verify-dotnet.sh` 2309 passed / 4 skipped. Slice closed; `phase5_status` remains in-progress. Worker/processing remain disabled |
 | Phase 5 post-slice-3 CI chain (`03056d0` + `be1b1d5` + `76d3496` + `7ee5293`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. `03056d0` docs-only slice-3 chain record; `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh (`be1b1d5` hosted dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed at SPA SBOM grype on `js-yaml@4.3.1`); `76d3496` local confirmation; `7ee5293` pnpm override `js-yaml@4.3.2` + SPA OCI `apk upgrade curl libcurl`. Hosted **Implementation** run `34447801929` and **Documentation** run `34447801925` green at `7ee5293`; all six Implementation jobs pass including `supply-chain` and `oci-oidc-smoke`. Phase 5 remains in-progress; Worker disabled |
-| Phase 5 slice 4 materialization (`5ff61ee` + corrective `0078`) | in-progress | External review 2026-09-10 on `5ff61ee`: **not approved** 0 Blocker / 1 High / 1 Medium. High: `0077` caller-settable disposition bypass on DELETE. Medium: decoupled payload/request FK + load path missing independent provenance reconciliation. Hosted CI green at `5ff61ee` (Implementation run `34451981653`). Corrective `0078` + immutability/provenance regressions locally green; re-review pending. Worker disabled |
+| Phase 5 slice 4 materialization (`5ff61ee` + `0078` + `2209477`) | in-progress | External review 2026-09-10 on `5ff61ee`: **not approved** 0 Blocker / 1 High / 1 Medium (lifecycle bypass + decoupled FK). `0078`/`2209477` close those findings. Review on `2209477`: **not approved** 0 Blocker / 0 High / 1 Medium — duplicate `TryPersistAsync` retry did not reconcile request/ownership provenance. Corrective: retry load joins attempt/request; provenance mismatch → `deterministic_conflict`; `Persist_exact_retry_succeeds_with_single_payload_row`, wrong-request, wrong-activity negatives. `verify-dotnet.sh` 2317 passed / 4 skipped (2321 total). Re-review pending. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

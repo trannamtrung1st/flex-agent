@@ -161,6 +161,85 @@ public sealed class DeterministicPayloadImmutabilityTests(PostgresIntegrationFix
         Assert.Null(projection);
     }
 
+    [Fact]
+    public async Task Persist_exact_retry_succeeds_with_single_payload_row()
+    {
+        var context = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(Fixture, CancellationToken);
+        var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
+        var result = context.First.Value!;
+
+        var retry = await outputStore.TryPersistAsync(
+            new ProtectedDeterministicOutputPersistCommand(
+                context.Claimed.Ownership,
+                context.Claimed.RequestId,
+                result.DeterministicAttemptId,
+                result.ProtectedOutputRef!,
+                result.OutputContentDigest!,
+                result.OutputUtf8!.Value),
+            CancellationToken);
+
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var count = await connection.QuerySingleAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluation_deterministic_payloads
+            WHERE organization_id = @OrganizationId
+              AND deterministic_attempt_id = @DeterministicAttemptId;
+            """,
+            new
+            {
+                context.Claimed.Ownership.OrganizationId,
+                DeterministicAttemptId = result.DeterministicAttemptId,
+            });
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Persist_retry_with_wrong_request_id_fails_deterministic_conflict()
+    {
+        var context = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(Fixture, CancellationToken);
+        var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
+        var result = context.First.Value!;
+
+        var retry = await outputStore.TryPersistAsync(
+            new ProtectedDeterministicOutputPersistCommand(
+                context.Claimed.Ownership,
+                Guid.CreateVersion7(),
+                result.DeterministicAttemptId,
+                result.ProtectedOutputRef!,
+                result.OutputContentDigest!,
+                result.OutputUtf8!.Value),
+            CancellationToken);
+
+        Assert.False(retry.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.DeterministicConflict, retry.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Persist_retry_with_wrong_activity_id_fails_deterministic_conflict()
+    {
+        var context = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(Fixture, CancellationToken);
+        var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
+        var result = context.First.Value!;
+        var wrongOwnership = context.Claimed.Ownership with { ActivityId = Guid.CreateVersion7() };
+
+        var retry = await outputStore.TryPersistAsync(
+            new ProtectedDeterministicOutputPersistCommand(
+                wrongOwnership,
+                context.Claimed.RequestId,
+                result.DeterministicAttemptId,
+                result.ProtectedOutputRef!,
+                result.OutputContentDigest!,
+                result.OutputUtf8!.Value),
+            CancellationToken);
+
+        Assert.False(retry.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.DeterministicConflict, retry.OutcomeCode);
+    }
+
     private sealed record AttemptRow(
         Guid organization_id,
         Guid deterministic_attempt_id,
