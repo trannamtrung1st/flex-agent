@@ -136,10 +136,13 @@ public sealed class PostgresProtectedDeterministicOutputStore(
                 FROM evaluation_deterministic_payloads AS payload
                 INNER JOIN evaluation_deterministic_attempts AS attempt
                   ON attempt.organization_id = payload.organization_id
+                 AND attempt.request_id = payload.request_id
                  AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
                 WHERE payload.organization_id = @OrganizationId
                   AND payload.deterministic_attempt_id = @DeterministicAttemptId
-                  AND attempt.request_id = @RequestId
+                  AND payload.request_id = @RequestId
+                  AND attempt.outcome = 'succeeded'
+                  AND payload.protected_ref = attempt.protected_output_ref
                   AND payload.content_digest = @ExpectedContentDigest
                   AND attempt.output_content_digest = @ExpectedContentDigest;
                 """,
