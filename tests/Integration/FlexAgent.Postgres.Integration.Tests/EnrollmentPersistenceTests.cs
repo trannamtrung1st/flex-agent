@@ -717,7 +717,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                 assigned.EnrollmentId!.Value,
                 "grant-expiry",
                 "2026-10-07T17:00:00Z",
-                expiresAtUtc: DateTimeOffset.Parse("2026-09-10T00:00:00Z")),
+                expiresAtUtc: DateTimeOffset.Parse("2026-10-07T17:00:00Z")),
             CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
         var second = await accommodations.GrantAsync(
@@ -726,7 +726,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                 assigned.EnrollmentId.Value,
                 "grant-expiry",
                 "2026-10-07T17:00:00Z",
-                expiresAtUtc: DateTimeOffset.Parse("2026-09-20T00:00:00Z")),
+                expiresAtUtc: DateTimeOffset.Parse("2026-10-20T17:00:00Z")),
             CancellationToken);
         Assert.False(second.Succeeded);
         Assert.Equal(EnrollmentFailureCodes.IdempotencyConflict, second.OutcomeCode);

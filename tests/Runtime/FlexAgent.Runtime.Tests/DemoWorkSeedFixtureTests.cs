@@ -23,7 +23,7 @@ public sealed class DemoWorkSeedFixtureTests
     public const string ActivatedTaskTitle = "Hazard identification response";
 
     public const string ActivatedBaselineDigest =
-        "f3290fa1165289beb34c218f5f1565f76c3409984b31655ca57fe24ab27a39ed";
+        "6fe05def9d0197eb7d5f03dde503c8e7f278d8a9500b66361b2ea6dd9fb08404";
 
     [Fact]
     public void Activated_campaign_baseline_digest_matches_demo_work_seed_contract()
