@@ -350,6 +350,72 @@ public sealed class EvidenceLocatorCompletionVerifierTests
     }
 
     [Fact]
+    public void Completion_verifier_seals_deterministic_fact_from_store_backed_context()
+    {
+        var evaluationId = Guid.CreateVersion7();
+        var requestId = Guid.CreateVersion7();
+        var ownership = new EvaluationOwnership(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            Guid.Parse("55555555-5555-5555-5555-555555555555"));
+        var trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(ownership, evaluationId);
+        var attemptId = Guid.Parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        var outputUtf8 = """{"schema":"eval.output.word-count.v1","value":2,"within_range":true}"""u8.ToArray();
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(outputUtf8))
+            .ToLowerInvariant();
+        var projection = EvaluationDeterministicFactProjector.TryCreate(attemptId, outputUtf8, digest).Value!;
+        using var locatorDocument = JsonDocument.Parse(
+            BuildDeterministicFactLocatorJson(
+                projection.SourceId,
+                projection.SourceVersion,
+                digest,
+                trustedOwnership,
+                "/value"));
+        var handoff = new EvaluationHandoffSnapshot(
+            "handoff.completion.deterministic",
+            ownership,
+            "completed",
+            Guid.CreateVersion7(),
+            42,
+            "manifest-jcs-sha256-v2",
+            new string('f', 64),
+            Guid.CreateVersion7(),
+            new string('c', 64),
+            Guid.CreateVersion7(),
+            new string('d', 64));
+        var request = new EvidenceLocatorCompletionRequest(
+            evaluationId,
+            requestId,
+            handoff.HandoffId,
+            [
+                new EvidenceLocatorVerificationEntry(
+                    Guid.CreateVersion7(),
+                    "crit.objective.word-count",
+                    locatorDocument.RootElement.Clone()),
+            ]);
+
+        var result = EvidenceLocatorCompletionVerifier.TryVerify(
+            ownership.OrganizationId,
+            ownership.SessionId,
+            Procedure,
+            request,
+            new EvaluationSessionEvidenceBundle(handoff, []),
+            null,
+            new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal)
+            {
+                [projection.SourceId] = projection,
+            });
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Single(result.Value!.VerifiedLocators);
+        Assert.Equal("deterministic.fact", result.Value.VerifiedLocators[0].SourceType);
+        Assert.Single(result.Value.LocatorRecords);
+        Assert.Equal(attemptId, result.Value.LocatorRecords[0].SourceId);
+    }
+
+    [Fact]
     public void Duplicate_evidence_ids_fail_before_verification()
     {
         using var locatorDocument = JsonDocument.Parse("{}");
@@ -399,6 +465,36 @@ public sealed class EvidenceLocatorCompletionVerifierTests
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.DuplicateIdentity, result.OutcomeCode);
     }
+
+    private static string BuildDeterministicFactLocatorJson(
+        string sourceId,
+        string sourceVersion,
+        string sourceDigest,
+        EvaluationStableOwnershipReference ownership,
+        string jsonPointer) =>
+        $$"""
+        {
+          "locator_schema":"evidence-locator.v1",
+          "source_type":"deterministic.fact",
+          "source_ref":{"source_id":"{{sourceId}}","source_version":"{{sourceVersion}}"},
+          "ownership_ref":{
+            "organization_id":"{{ownership.OrganizationId}}",
+            "activity_id":"{{ownership.ActivityId}}",
+            "participant_id":"{{ownership.ParticipantId}}",
+            "attempt_id":"{{ownership.AttemptId}}",
+            "session_id":"{{ownership.SessionId}}",
+            "evaluation_id":"{{ownership.EvaluationId}}"
+          },
+          "location":{"location_type":"json_pointer","json_pointer":"{{jsonPointer}}"},
+          "precision":"exact_range",
+          "integrity":{
+            "source_digest":"{{sourceDigest}}",
+            "adapter_version":"locator-adapter.v1",
+            "verification_state":"verified"
+          },
+          "created_by":{"service_id":"evaluation-service","invocation_id":"inv.completion.deterministic"}
+        }
+        """;
 
     private static JsonElement MutateIntegrity(JsonElement locator, string sourceDigest)
     {

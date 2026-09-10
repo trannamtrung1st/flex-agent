@@ -46,7 +46,8 @@ public static class EvidenceLocatorCompletionVerifier
         EvaluationProcedureV1 procedure,
         EvidenceLocatorCompletionRequest request,
         EvaluationSessionEvidenceBundle sessionEvidence,
-        EvaluationSubmissionEvidenceBundle? submissionEvidence)
+        EvaluationSubmissionEvidenceBundle? submissionEvidence,
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? deterministicFacts = null)
     {
         ArgumentNullException.ThrowIfNull(procedure);
         ArgumentNullException.ThrowIfNull(request);
@@ -102,6 +103,7 @@ public static class EvidenceLocatorCompletionVerifier
                 trustedOwnership!,
                 sessionEvidence,
                 submissionEvidence,
+                deterministicFacts: deterministicFacts,
                 permitWholeItemFallback: fallbackPolicy.Value);
 
             var result = EvidenceLocatorVerifier.TryVerify(entry.Locator, context);
@@ -176,6 +178,7 @@ public static class EvidenceLocatorCompletionVerifier
 public sealed class EvidenceLocatorCompletionService(
     IEvaluationSessionEvidenceSource sessionEvidence,
     IEvaluationSubmissionEvidenceSource submissionEvidence,
+    IProtectedDeterministicOutputStore deterministicOutputStore,
     IEvaluationEvidenceLocatorStore locatorStore) : IEvidenceLocatorCompletionService
 {
     public async Task<EvaluationDecision<EvidenceLocatorCompletionResult>> TryVerifyAsync(
@@ -240,13 +243,27 @@ public sealed class EvidenceLocatorCompletionService(
             ownership.SessionId,
             cancellationToken);
 
+        var deterministicFacts = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
+            organizationId,
+            request.RequestId,
+            request.Entries,
+            deterministicOutputStore,
+            cancellationToken);
+        if (!deterministicFacts.Succeeded)
+        {
+            return EvaluationDecision<EvidenceLocatorCompletionResult>.Fail(
+                deterministicFacts.OutcomeCode,
+                deterministicFacts.Field);
+        }
+
         var result = EvidenceLocatorCompletionVerifier.TryVerify(
             organizationId,
             sessionId,
             procedure,
             request,
             sessionBundle,
-            submissionBundle);
+            submissionBundle,
+            deterministicFacts.Value);
         if (!result.Succeeded || result.Value is null || !persist)
         {
             return result;

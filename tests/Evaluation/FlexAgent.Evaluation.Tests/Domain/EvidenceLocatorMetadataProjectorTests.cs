@@ -167,6 +167,80 @@ public sealed class EvidenceLocatorMetadataProjectorTests
     }
 
     [Fact]
+    public void Deterministic_fact_locator_projects_attempt_and_digest_bound_version()
+    {
+        var evidenceId = Guid.CreateVersion7();
+        var attemptId = Guid.Parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        var sourceDigest = new string('c', 64);
+        var sourceId = EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(attemptId);
+        var sourceVersion = EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(sourceDigest);
+        using var locatorDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "locator_schema":"evidence-locator.v1",
+              "source_type":"deterministic.fact",
+              "source_ref":{"source_id":"{{sourceId}}","source_version":"{{sourceVersion}}"},
+              "ownership_ref":{
+                "organization_id":"org.synthetic.0001",
+                "activity_id":"act.synthetic.0001",
+                "participant_id":"part.synthetic.0001",
+                "attempt_id":"att.synthetic.0001",
+                "session_id":"sess.synthetic.0001",
+                "evaluation_id":"eval.synthetic.0001"
+              },
+              "location":{"location_type":"json_pointer","json_pointer":"/value"},
+              "precision":"exact_range",
+              "integrity":{
+                "source_digest":"{{sourceDigest}}",
+                "adapter_version":"locator-adapter.v1",
+                "verification_state":"verified"
+              },
+              "created_by":{"service_id":"evaluation-service","invocation_id":"inv.metadata.deterministic"}
+            }
+            """);
+        var verified = new VerifiedEvidenceLocator(
+            "deterministic.fact",
+            new string('a', 64),
+            new string('b', 64),
+            "verified",
+            sourceDigest,
+            "exact_range",
+            new string('e', 64));
+
+        var result = EvidenceLocatorMetadataProjector.TryCreate(
+            evidenceId,
+            locatorDocument.RootElement,
+            verified,
+            new EvaluationHandoffSnapshot(
+                "handoff.metadata.deterministic",
+                new EvaluationOwnership(
+                    Guid.CreateVersion7(),
+                    Guid.CreateVersion7(),
+                    Guid.CreateVersion7(),
+                    Guid.CreateVersion7(),
+                    Guid.CreateVersion7()),
+                "completed",
+                Guid.CreateVersion7(),
+                42,
+                "manifest-jcs-sha256-v2",
+                new string('f', 64),
+                Guid.CreateVersion7(),
+                new string('c', 64),
+                Guid.CreateVersion7(),
+                new string('d', 64)),
+            null);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(attemptId, result.Value!.SourceId);
+        Assert.Equal(
+            EvaluationDeterministicGuid.CreateVersion5(
+                EvaluationSourceNamespaces.DeterministicFactVersion,
+                sourceDigest),
+            result.Value.SourceVersionId);
+        Assert.Equal(sourceDigest, result.Value.SourceContentDigest);
+    }
+
+    [Fact]
     public void Fallback_locator_metadata_persists_effective_whole_item_projection()
     {
         var content = new byte[256];
