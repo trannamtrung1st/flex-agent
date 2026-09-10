@@ -95,6 +95,7 @@ public sealed class EnrollmentSharedAdmissionTests(PostgresIntegrationFixture fi
     [Fact]
     public async Task Database_clock_window_and_cleanup_use_postgres_utc()
     {
+        await WaitUntilAwayFromAdmissionWindowBoundaryAsync();
         var organizationId = Guid.CreateVersion7();
         var actorId = Guid.CreateVersion7();
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
