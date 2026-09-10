@@ -156,6 +156,8 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
             context.Claimed.RequestId,
             attemptId,
             digest,
+            "crit.objective.word-count",
+            "crit.objective.word-count.v1",
             CancellationToken);
 
         Assert.NotNull(projection);

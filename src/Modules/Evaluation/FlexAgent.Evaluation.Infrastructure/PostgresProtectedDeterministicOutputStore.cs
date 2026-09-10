@@ -142,12 +142,16 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         Guid requestId,
         Guid deterministicAttemptId,
         string expectedContentDigest,
+        string expectedCriterionId,
+        string expectedCriterionVersion,
         CancellationToken cancellationToken)
     {
         if (organizationId == Guid.Empty
             || requestId == Guid.Empty
             || deterministicAttemptId == Guid.Empty
-            || !EvaluationIdentity.IsSha256Hex(expectedContentDigest))
+            || !EvaluationIdentity.IsSha256Hex(expectedContentDigest)
+            || string.IsNullOrWhiteSpace(expectedCriterionId)
+            || string.IsNullOrWhiteSpace(expectedCriterionVersion))
         {
             return null;
         }
@@ -165,6 +169,8 @@ public sealed class PostgresProtectedDeterministicOutputStore(
                 WHERE payload.organization_id = @OrganizationId
                   AND payload.deterministic_attempt_id = @DeterministicAttemptId
                   AND payload.request_id = @RequestId
+                  AND attempt.criterion_id = @ExpectedCriterionId
+                  AND attempt.criterion_version = @ExpectedCriterionVersion
                   AND attempt.outcome = 'succeeded'
                   AND payload.protected_ref = attempt.protected_output_ref
                   AND payload.content_digest = @ExpectedContentDigest
@@ -176,6 +182,8 @@ public sealed class PostgresProtectedDeterministicOutputStore(
                     RequestId = requestId,
                     DeterministicAttemptId = deterministicAttemptId,
                     ExpectedContentDigest = expectedContentDigest,
+                    ExpectedCriterionId = expectedCriterionId,
+                    ExpectedCriterionVersion = expectedCriterionVersion,
                 },
                 cancellationToken: cancellationToken));
 

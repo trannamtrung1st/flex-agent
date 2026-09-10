@@ -162,6 +162,8 @@ internal static class DeterministicPayloadTestSupport
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
             CancellationToken cancellationToken) =>
             Task.FromResult<EvaluationSafeFactProjection?>(null);
     }

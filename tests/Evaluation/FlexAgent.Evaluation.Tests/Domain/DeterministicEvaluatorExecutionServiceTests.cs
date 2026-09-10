@@ -141,6 +141,8 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
             CancellationToken cancellationToken) =>
             Task.FromResult<EvaluationSafeFactProjection?>(null);
     }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 
@@ -6,6 +7,8 @@ namespace FlexAgent.Evaluation.Tests.Domain;
 
 public sealed class DeterministicFactContextLoaderTests
 {
+    private static readonly EvaluationProcedureV1 Procedure =
+        EvaluationProcedureTestFixtures.LoadP0TextSynthetic();
     [Fact]
     public async Task Loader_returns_empty_dictionary_when_no_deterministic_locators()
     {
@@ -21,6 +24,7 @@ public sealed class DeterministicFactContextLoaderTests
         var result = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
+            Procedure,
             entries,
             new FakeOutputStore(),
             CancellationToken.None);
@@ -52,8 +56,12 @@ public sealed class DeterministicFactContextLoaderTests
         var result = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
             organizationId,
             requestId,
+            Procedure,
             entries,
-            new FakeOutputStore(projection),
+            new FakeOutputStore(
+                projection,
+                "crit.objective.word-count",
+                "crit.objective.word-count.v1"),
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -84,6 +92,7 @@ public sealed class DeterministicFactContextLoaderTests
         var result = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
+            Procedure,
             entries,
             new FakeOutputStore(),
             CancellationToken.None);
@@ -117,19 +126,53 @@ public sealed class DeterministicFactContextLoaderTests
                 firstLocator.RootElement.Clone()),
             new EvidenceLocatorVerificationEntry(
                 Guid.CreateVersion7(),
-                "crit.objective.schema-validate",
+                "crit.assisted.structure",
                 secondLocator.RootElement.Clone()),
         };
 
         var result = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
+            Procedure,
             entries,
             new FakeOutputStore(),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.DeterministicConflict, result.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Loader_fails_when_completion_criterion_does_not_match_producing_attempt()
+    {
+        var attemptId = Guid.Parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        var outputUtf8 = """{"schema":"eval.output.word-count.v1","value":2}"""u8.ToArray();
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(outputUtf8))
+            .ToLowerInvariant();
+        var projection = EvaluationDeterministicFactProjector.TryCreate(attemptId, outputUtf8, digest).Value!;
+        using var locatorDocument = JsonDocument.Parse(
+            BuildLocatorJson(projection.SourceId, projection.SourceVersion, digest));
+        var entries = new[]
+        {
+            new EvidenceLocatorVerificationEntry(
+                Guid.CreateVersion7(),
+                "crit.assisted.structure",
+                locatorDocument.RootElement.Clone()),
+        };
+
+        var result = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Procedure,
+            entries,
+            new FakeOutputStore(
+                projection,
+                "crit.objective.word-count",
+                "crit.objective.word-count.v1"),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
     }
 
     private static string BuildLocatorJson(string sourceId, string sourceVersion, string sourceDigest) =>
@@ -142,8 +185,10 @@ public sealed class DeterministicFactContextLoaderTests
         }
         """;
 
-    private sealed class FakeOutputStore(EvaluationSafeFactProjection? projection = null)
-        : IProtectedDeterministicOutputStore
+    private sealed class FakeOutputStore(
+        EvaluationSafeFactProjection? projection = null,
+        string? boundCriterionId = null,
+        string? boundCriterionVersion = null) : IProtectedDeterministicOutputStore
     {
         public Task<EvaluationDecision<bool>> TryPersistAsync(
             ProtectedDeterministicOutputPersistCommand command,
@@ -155,7 +200,20 @@ public sealed class DeterministicFactContextLoaderTests
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(projection);
+            string expectedCriterionId,
+            string expectedCriterionVersion,
+            CancellationToken cancellationToken)
+        {
+            if (projection is null
+                || boundCriterionId is null
+                || boundCriterionVersion is null
+                || !string.Equals(expectedCriterionId, boundCriterionId, StringComparison.Ordinal)
+                || !string.Equals(expectedCriterionVersion, boundCriterionVersion, StringComparison.Ordinal))
+            {
+                return Task.FromResult<EvaluationSafeFactProjection?>(null);
+            }
+
+            return Task.FromResult<EvaluationSafeFactProjection?>(projection);
+        }
     }
 }

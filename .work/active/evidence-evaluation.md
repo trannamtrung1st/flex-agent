@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T17:35:00+07:00
+updated: 2026-09-10T20:00:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -719,19 +719,16 @@ approved layout families and donors already exist.
   mismatch before ref/digest/bytes; retry negatives added. External review
   2026-09-10 on corrective chain `5ff61ee` → `2209477` → `4422772` (with additive
   `0078` from `2209477`): **approved**, 0 Blocker / 0 High / 0 Medium. Payload
-  materialization/provenance corrective work closed. Integration pass:
-  `DeterministicFactContextLoader` scans completion locators, loads materialized
-  projections via `IProtectedDeterministicOutputStore.TryLoadProjectionAsync`,
-  and `EvidenceLocatorCompletionService` passes them into
-  `EvidenceLocatorVerificationContextBuilder` before verify/persist;
-  `evaluation_evidence_items` rows now link `deterministic.fact` locators to
-  attempt UUID + digest-bound version. Focused green:
-  `DeterministicFactContextLoaderTests` 4;
-  `Completion_verifier_seals_deterministic_fact_from_store_backed_context`;
-  `Deterministic_fact_locator_projects_attempt_and_digest_bound_version`;
-  `DeterministicEvidenceCompletionTests` 2; `verify-dotnet.sh` 2325 passed /
-  4 skipped. Slice 4 remains in-progress for environment/secret runner negatives
-  and lane/Worker integration reuse. Worker disabled.
+  materialization/provenance corrective work closed. Integration pass (`428c835`):
+  store-backed completion context + Evidence-row linkage. External review 2026-09-10
+  on `428c835`: **not approved** 0 Blocker / 1 High / 0 Medium — load path bound
+  request/attempt/digest only, not completion-entry criterion provenance. Corrective:
+  `TryLoadProjectionAsync` + loader require procedure-resolved criterion id/version
+  matching parent attempt; cross-criterion negative added. Focused green:
+  `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3;
+  `verify-dotnet.sh` 2327 passed / 4 skipped. Re-review pending. Slice 4 remains
+  in-progress for environment/secret runner negatives and lane/Worker integration.
+  Worker disabled.
 - [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
   Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound/
@@ -758,12 +755,11 @@ approved layout families and donors already exist.
   `2209477` + `4422772` externally reviewed **approved** 2026-09-10 (0 Blocker /
   0 High / 0 Medium); hosted CI green at `4422772` (Documentation run `34459660148`;
   Implementation run `34459660500` — changes, OIDC, web, dotnet, supply-chain,
-  oci-oidc-smoke). Materialization corrective approved; integration pass wires store
-  loading into completion verification and persists `deterministic.fact`
-  `evaluation_evidence_items`. Focused green `DeterministicPayloadImmutabilityTests`
-  8; `DeterministicEvidenceCompletionTests` 2; `verify-dotnet.sh` 2325 passed /
-  4 skipped. Remaining slice 4: environment/secret runner negatives and lane/
-  Worker integration. Worker disabled.
+  oci-oidc-smoke). Materialization corrective approved (`4422772`). Integration pass
+  `428c835` reviewed **not approved** (criterion-provenance High); corrective criterion
+  binding locally green (`DeterministicEvidenceCompletionTests` 3;
+  `verify-dotnet.sh` 2327 passed / 4 skipped). Remaining slice 4: environment/secret
+  runner negatives and lane/Worker integration. Worker disabled.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1113,8 +1109,9 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   expired-lease recovery.
 - Next: continue Phase 5 slice 4 — environment/secret runner negatives, then lane/
   Worker integration before Phase 6. Completion-time deterministic Evidence-row
-  linkage and store-backed context loading are implemented locally (`DeterministicFactContextLoader`
-  + `EvidenceLocatorCompletionService`); external review pending on integration pass.
+  linkage and store-backed context loading implemented in `428c835`; external review
+  found criterion-provenance High; corrective criterion binding applied locally;
+  re-review pending before slice 4 closure.
   **Phase 5 slice 3 is closed and approved** through implementation chain `4c803fe` + `5579ce7` + `395a7af` and docs chain
   `1193ec6` + `6d1abc6` (external review 2026-09-10: 0 Blocker / 0 High /
   0 Medium). Orchestration gate, admitted-request authority reload, protected
@@ -1310,7 +1307,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6` + `6d1abc6`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. Implementation: `4c803fe` orchestration gate; `5579ce7` admitted-request reload + protected source; `395a7af` independent byte→digest verification before parse. Docs: `1193ec6` approval record; `6d1abc6` confirmation evidence and rubric digest reconciliation to `04bdd47d…`. Focused: Evaluation 203; Runtime 340; `verify-dotnet.sh` 2309 passed / 4 skipped. Slice closed; `phase5_status` remains in-progress. Worker/processing remain disabled |
 | Phase 5 post-slice-3 CI chain (`03056d0` + `be1b1d5` + `76d3496` + `7ee5293`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. `03056d0` docs-only slice-3 chain record; `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh (`be1b1d5` hosted dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed at SPA SBOM grype on `js-yaml@4.3.1`); `76d3496` local confirmation; `7ee5293` pnpm override `js-yaml@4.3.2` + SPA OCI `apk upgrade curl libcurl`. Hosted **Implementation** run `34447801929` and **Documentation** run `34447801925` green at `7ee5293`; all six Implementation jobs pass including `supply-chain` and `oci-oidc-smoke`. Phase 5 remains in-progress; Worker disabled |
 | Phase 5 slice 4 materialization corrective chain (`5ff61ee` + `0078` + `2209477` + `4422772`) | approved | External review 2026-09-10 on full corrective chain: **0 Blocker / 0 High / 0 Medium**. `5ff61ee`: payload store + `deterministic.fact` locator resolution. Review: lifecycle bypass (High) + decoupled FK/load provenance (Medium). `2209477`/`0078`: unconditional immutability; composite FK; hardened load. Review: duplicate retry provenance (Medium). `4422772`: retry joins attempt/request; reconciles request + ownership before ref/digest/bytes. Focused: `DeterministicPayloadImmutabilityTests` 8; hosted CI green at `4422772` (Documentation `34459660148`; Implementation `34459660500` all six jobs). Worker disabled |
-| Phase 5 slice 4 completion linkage (local integration pass) | in-progress | `DeterministicFactContextLoader` + `EvidenceLocatorCompletionService` store-backed context; completion persists `deterministic.fact` `evaluation_evidence_items` (`source_id` = attempt UUID). Focused: `DeterministicFactContextLoaderTests` 4; `DeterministicEvidenceCompletionTests` 2; completion/metadata unit positives; `verify-dotnet.sh` 2325 passed / 4 skipped. External review pending. Remaining slice 4: environment/secret runner negatives; lane/Worker integration. Worker disabled |
+| Phase 5 slice 4 completion linkage (`428c835` + criterion corrective) | in-progress | External review 2026-09-10 on `428c835`: **not approved** 0 Blocker / 1 High / 0 Medium — cross-criterion deterministic-fact reuse within one request. Corrective: `TryLoadProjectionAsync` + loader bind expected criterion id/version to parent attempt; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative. Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Re-review pending. Remaining slice 4: environment/secret runner negatives; lane/Worker integration. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

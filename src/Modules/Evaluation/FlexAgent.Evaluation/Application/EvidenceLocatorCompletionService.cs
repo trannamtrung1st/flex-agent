@@ -246,6 +246,7 @@ public sealed class EvidenceLocatorCompletionService(
         var deterministicFacts = await DeterministicFactContextLoader.TryLoadForCompletionAsync(
             organizationId,
             request.RequestId,
+            procedure,
             request.Entries,
             deterministicOutputStore,
             cancellationToken);

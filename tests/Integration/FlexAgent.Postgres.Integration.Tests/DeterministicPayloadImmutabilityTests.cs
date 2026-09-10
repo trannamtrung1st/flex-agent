@@ -106,6 +106,8 @@ public sealed class DeterministicPayloadImmutabilityTests(PostgresIntegrationFix
             Guid.CreateVersion7(),
             context.First.Value!.DeterministicAttemptId,
             context.First.Value.OutputContentDigest!,
+            "crit.objective.word-count",
+            "crit.objective.word-count.v1",
             CancellationToken);
 
         Assert.Null(projection);
@@ -156,6 +158,8 @@ public sealed class DeterministicPayloadImmutabilityTests(PostgresIntegrationFix
             context.Claimed.RequestId,
             context.First.Value.DeterministicAttemptId,
             context.First.Value.OutputContentDigest!,
+            "crit.objective.word-count",
+            "crit.objective.word-count.v1",
             CancellationToken);
 
         Assert.Null(projection);

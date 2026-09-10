@@ -28,6 +28,8 @@ public interface IProtectedDeterministicOutputStore
         Guid requestId,
         Guid deterministicAttemptId,
         string expectedContentDigest,
+        string expectedCriterionId,
+        string expectedCriterionVersion,
         CancellationToken cancellationToken);
 }
 

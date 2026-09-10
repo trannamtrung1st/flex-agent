@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Application;
@@ -8,12 +9,14 @@ public static class DeterministicFactContextLoader
     public static async Task<EvaluationDecision<IReadOnlyDictionary<string, EvaluationSafeFactProjection>>> TryLoadForCompletionAsync(
         Guid organizationId,
         Guid requestId,
+        EvaluationProcedureV1 procedure,
         IReadOnlyList<EvidenceLocatorVerificationEntry> entries,
         IProtectedDeterministicOutputStore outputStore,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(outputStore);
+        ArgumentNullException.ThrowIfNull(procedure);
 
         if (organizationId == Guid.Empty || requestId == Guid.Empty)
         {
@@ -21,7 +24,7 @@ public static class DeterministicFactContextLoader
                 EvaluationFailureCodes.InvalidField);
         }
 
-        var required = new Dictionary<string, (Guid AttemptId, string Digest)>(StringComparer.Ordinal);
+        var required = new Dictionary<string, Requirement>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
             if (!TryGetDeterministicFactRequirement(entry.Locator, out var sourceId, out var attemptId, out var digest))
@@ -29,10 +32,27 @@ public static class DeterministicFactContextLoader
                 continue;
             }
 
+            if (string.IsNullOrWhiteSpace(entry.CriterionId))
+            {
+                return EvaluationDecision<IReadOnlyDictionary<string, EvaluationSafeFactProjection>>.Fail(
+                    EvaluationFailureCodes.InvalidField);
+            }
+
+            var criterion = procedure.Criteria.SingleOrDefault(item =>
+                string.Equals(item.CriterionId, entry.CriterionId, StringComparison.Ordinal));
+            if (criterion is null)
+            {
+                return EvaluationDecision<IReadOnlyDictionary<string, EvaluationSafeFactProjection>>.Fail(
+                    EvaluationFailureCodes.InvalidField,
+                    "criterion_id");
+            }
+
             if (required.TryGetValue(sourceId, out var existing))
             {
                 if (existing.AttemptId != attemptId
-                    || !string.Equals(existing.Digest, digest, StringComparison.Ordinal))
+                    || !string.Equals(existing.Digest, digest, StringComparison.Ordinal)
+                    || !string.Equals(existing.CriterionId, entry.CriterionId, StringComparison.Ordinal)
+                    || !string.Equals(existing.CriterionVersion, criterion.CriterionVersion, StringComparison.Ordinal))
                 {
                     return EvaluationDecision<IReadOnlyDictionary<string, EvaluationSafeFactProjection>>.Fail(
                         EvaluationFailureCodes.DeterministicConflict);
@@ -41,7 +61,11 @@ public static class DeterministicFactContextLoader
                 continue;
             }
 
-            required[sourceId] = (attemptId, digest);
+            required[sourceId] = new Requirement(
+                attemptId,
+                digest,
+                entry.CriterionId,
+                criterion.CriterionVersion);
         }
 
         if (required.Count == 0)
@@ -58,6 +82,8 @@ public static class DeterministicFactContextLoader
                 requestId,
                 requirement.AttemptId,
                 requirement.Digest,
+                requirement.CriterionId,
+                requirement.CriterionVersion,
                 cancellationToken);
             if (projection is null)
             {
@@ -123,4 +149,10 @@ public static class DeterministicFactContextLoader
         value = property.GetString() ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value);
     }
+
+    private sealed record Requirement(
+        Guid AttemptId,
+        string Digest,
+        string CriterionId,
+        string CriterionVersion);
 }

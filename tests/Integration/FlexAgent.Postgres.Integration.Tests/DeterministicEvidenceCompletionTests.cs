@@ -24,6 +24,8 @@ public sealed class DeterministicEvidenceCompletionTests(PostgresIntegrationFixt
             context.Claimed.RequestId,
             execution.DeterministicAttemptId,
             execution.OutputContentDigest!,
+            "crit.objective.word-count",
+            "crit.objective.word-count.v1",
             CancellationToken);
         Assert.NotNull(projection);
 
@@ -202,6 +204,105 @@ public sealed class DeterministicEvidenceCompletionTests(PostgresIntegrationFixt
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Completion_service_rejects_cross_criterion_deterministic_fact_reuse()
+    {
+        var context = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(Fixture, CancellationToken);
+        var execution = context.First.Value!;
+        var sourceId = EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(
+            execution.DeterministicAttemptId);
+        var digest = execution.OutputContentDigest!;
+        var sourceVersion = EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(digest);
+
+        RequestRow requestRow;
+        Guid evaluationId;
+        await using (var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken))
+        {
+            requestRow = await connection.QuerySingleAsync<RequestRow>(
+                """
+                SELECT handoff_id, rubric_source_id, rubric_source_version_id, rubric_content_digest
+                FROM evaluation_requests
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId;
+                """,
+                new
+                {
+                    context.Claimed.Ownership.OrganizationId,
+                    context.Claimed.RequestId,
+                });
+            evaluationId = await EvaluationPersistenceTestSeed.InsertCompletedEvaluationAsync(
+                connection,
+                context.Claimed,
+                CancellationToken);
+        }
+
+        var ownership = context.Claimed.Ownership;
+        var trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(ownership, evaluationId);
+        using var locatorDocument = JsonDocument.Parse(
+            BuildDeterministicFactLocatorJson(
+                sourceId,
+                sourceVersion,
+                digest,
+                trustedOwnership,
+                "/value"));
+        var procedureSource = new PostgresProtectedEvaluationProcedureSource(Fixture.Services.ConnectionAccessor);
+        var payload = await procedureSource.GetCanonicalUtf8Async(
+            ownership.OrganizationId,
+            requestRow.rubric_source_id,
+            requestRow.rubric_source_version_id,
+            requestRow.rubric_content_digest,
+            CancellationToken);
+        Assert.NotNull(payload);
+        var procedure = EvaluationProcedureResolver.TryResolve(payload.Utf8).Value!;
+        var completion = new EvidenceLocatorCompletionService(
+            new PostgresEvaluationSessionEvidenceSource(
+                Fixture.Services.ConnectionAccessor,
+                new PostgresEvaluationHandoffSource(Fixture.Services.ConnectionAccessor)),
+            new PostgresEvaluationSubmissionEvidenceSource(
+                Fixture.Services.ConnectionAccessor,
+                new InMemoryArtifactStore()),
+            new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor),
+            new PostgresEvaluationEvidenceLocatorStore(Fixture.Services.ConnectionAccessor));
+        var completionRequest = new EvidenceLocatorCompletionRequest(
+            evaluationId,
+            context.Claimed.RequestId,
+            requestRow.handoff_id,
+            [
+                new EvidenceLocatorVerificationEntry(
+                    Guid.CreateVersion7(),
+                    "crit.assisted.structure",
+                    locatorDocument.RootElement.Clone()),
+            ]);
+
+        var result = await completion.TryVerifyAndPersistAsync(
+            ownership.OrganizationId,
+            ownership.SessionId,
+            procedure,
+            completionRequest,
+            "evaluation.integration",
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+
+        await using var verification = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var count = await verification.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluation_evidence_items
+            WHERE organization_id = @OrganizationId
+              AND evaluation_id = @EvaluationId;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                EvaluationId = evaluationId,
+            });
+        Assert.Equal(0, count);
     }
 
     private static string BuildDeterministicFactLocatorJson(
