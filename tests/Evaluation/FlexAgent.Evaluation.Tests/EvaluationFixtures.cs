@@ -82,7 +82,18 @@ internal static class EvaluationFixtures
 
     public static EvaluationProcedureV1 LoadSyntheticProcedure()
     {
-        var utf8 = File.ReadAllBytes(
+        var utf8 = LoadSyntheticProcedureUtf8();
+        var resolved = EvaluationProcedureResolver.TryResolve(utf8);
+        if (!resolved.Succeeded || resolved.Value is null)
+        {
+            throw new InvalidOperationException(resolved.OutcomeCode);
+        }
+
+        return resolved.Value;
+    }
+
+    public static byte[] LoadSyntheticProcedureUtf8() =>
+        File.ReadAllBytes(
             Path.Combine(
                 AppContext.BaseDirectory,
                 "contracts",
@@ -92,12 +103,11 @@ internal static class EvaluationFixtures
                 "evaluation",
                 "evaluation-procedure",
                 "valid-three-mode-synthetic.json"));
-        var resolved = EvaluationProcedureResolver.TryResolve(utf8);
-        if (!resolved.Succeeded || resolved.Value is null)
-        {
-            throw new InvalidOperationException(resolved.OutcomeCode);
-        }
 
-        return resolved.Value;
-    }
+    public static ExactSourceIdentity SyntheticProcedureRef() =>
+        ExactSourceIdentity.TryCreate(
+            "rubric_evaluation",
+            Guid.Parse("22222222-2222-2222-2222-222222222206"),
+            Guid.Parse("33333333-3333-3333-3333-333333333316"),
+            "04bdd47d300bcbdc3099901d400eb076c51dd6b545622b05abe8385022ef0fc5").Value!;
 }

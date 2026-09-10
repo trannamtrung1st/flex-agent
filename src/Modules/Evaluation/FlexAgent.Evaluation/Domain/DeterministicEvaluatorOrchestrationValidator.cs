@@ -21,7 +21,7 @@ public static class DeterministicEvaluatorOrchestrationValidator
                 "criterion");
         }
 
-        if (criterion.EvaluatorMode == EvaluatorModes.AgentJudgment)
+        if (criterion.EvaluatorMode is not (EvaluatorModes.Deterministic or EvaluatorModes.AgentAssisted))
         {
             return EvaluationDecision<EvaluationProcedureCriterionV1>.Fail(
                 EvaluationFailureCodes.InvalidJudgment,

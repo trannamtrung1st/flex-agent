@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dapper;
-using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
@@ -19,8 +18,6 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var context = await ExecuteAndPersistAsync();
 
         var second = await context.Service.TryExecuteAndPersistAsync(
-            EvaluatorRegistryVersions.P0,
-            context.Procedure,
             context.Request,
             CancellationToken);
 
@@ -163,8 +160,24 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var registry = new BuiltinEvaluatorRegistry();
         var runner = new RestrictedBuiltinDeterministicEvaluatorRunner();
         var store = new PostgresDeterministicInvocationStore(Fixture.Services.ConnectionAccessor);
-        var service = new DeterministicEvaluatorExecutionService(registry, runner, store);
-        var procedure = LoadSyntheticProcedure();
+        var authorityStore = new PostgresEvaluationRequestAuthorityStore(Fixture.Services.ConnectionAccessor);
+        var procedureSource = new PostgresProtectedEvaluationProcedureSource(Fixture.Services.ConnectionAccessor);
+        var service = new DeterministicEvaluatorExecutionService(
+            authorityStore,
+            procedureSource,
+            registry,
+            runner,
+            store);
+
+        var rubric = prepared.Request.FrozenInput.Rubric;
+        var payload = await procedureSource.GetCanonicalUtf8Async(
+            claimed!.Ownership.OrganizationId,
+            rubric.SourceId,
+            rubric.SourceVersionId,
+            rubric.ContentDigest,
+            CancellationToken);
+        Assert.NotNull(payload);
+        var procedure = EvaluationProcedureResolver.TryResolve(payload.Utf8).Value!;
         var criterion = procedure.Criteria.Single(item =>
             item.CriterionId == "crit.objective.word-count");
         var binding = criterion.DeterministicEvaluator!;
@@ -179,7 +192,7 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var inputBytes = Encoding.UTF8.GetBytes(inputJson);
         var inputDigest = Convert.ToHexString(SHA256.HashData(inputBytes)).ToLowerInvariant();
         var request = new DeterministicEvaluatorExecutionRequest(
-            claimed!.Ownership,
+            claimed.Ownership,
             claimed.RequestId,
             claimed.InvocationAttemptId,
             "crit.objective.word-count",
@@ -187,39 +200,14 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
             binding,
             new DeterministicEvaluatorCanonicalInput(inputBytes, inputDigest));
 
-        var first = await service.TryExecuteAndPersistAsync(
-            EvaluatorRegistryVersions.P0,
-            procedure,
-            request,
-            CancellationToken);
+        var first = await service.TryExecuteAndPersistAsync(request, CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
 
-        return new ExecutionContext(claimed, procedure, request, first, service, store);
-    }
-
-    private static EvaluationProcedureV1 LoadSyntheticProcedure()
-    {
-        var utf8 = File.ReadAllBytes(Path.Combine(
-            AppContext.BaseDirectory,
-            "contracts",
-            "fixtures",
-            "schema",
-            "v1",
-            "evaluation",
-            "evaluation-procedure",
-            "valid-three-mode-synthetic.json"));
-        var resolved = EvaluationProcedureResolver.TryResolve(utf8);
-        if (!resolved.Succeeded || resolved.Value is null)
-        {
-            throw new InvalidOperationException(resolved.OutcomeCode);
-        }
-
-        return resolved.Value;
+        return new ExecutionContext(claimed, request, first, service, store);
     }
 
     private sealed record ExecutionContext(
         EvaluationDurableWorkItem Claimed,
-        EvaluationProcedureV1 Procedure,
         DeterministicEvaluatorExecutionRequest Request,
         EvaluationDecision<DeterministicEvaluatorExecutionResult> First,
         DeterministicEvaluatorExecutionService Service,

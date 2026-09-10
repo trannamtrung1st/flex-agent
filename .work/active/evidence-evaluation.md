@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-10T10:15:00+07:00
+updated: 2026-09-10T10:40:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -18,7 +18,7 @@ phase4_gate: approved-f89c35c
 phase5_status: in-progress
 phase5_slice1: approved-2ede5e1-2f3c699
 phase5_slice2: approved-a53a5f5-d9011f9-ce63dbe-d4255c4
-phase5_slice3: in-progress-orchestration-guardrails
+phase5_slice3: in-progress-authority-reconciliation
 ---
 
 # Goal
@@ -635,11 +635,15 @@ approved layout families and donors already exist.
   positive memory/output/duration validation. External review 2026-09-09 on
   corrective chain: 0 Blocker / 0 High / 0 Medium. Slice 2 adds runner negatives
   for shell/path/digest/output-bound exhaustion; timeout and environment/secret
-  remain. Slice 3 adds orchestration gate via
-  `DeterministicEvaluatorOrchestrationValidator` + service boundary tests:
-  unknown/wrong-version criterion, `agent_judgment` mode rejection (no silent
-  deterministic substitution), and frozen binding drift; integration path passes
-  resolved procedure into `DeterministicEvaluatorExecutionService`.
+  remain. Slice 3 adds orchestration gate plus admitted-request authority
+  reconciliation: `DeterministicEvaluatorAuthorityVerifier`,
+  `IEvaluationRequestAuthorityStore`, `PostgresEvaluationRequestAuthorityStore`,
+  `PostgresProtectedEvaluationProcedureSource`; execution reloads frozen
+  `ProcedureRef` from persisted request scope (not caller-supplied procedure),
+  verifies digest/source identity, then applies criterion/mode/binding gate.
+  External review on `4c803fe`: 0 Blocker / 1 High — caller-supplied procedure
+  treated as authority; corrective pass removes bare `EvaluationProcedureV1`
+  parameter and adds substitution/ownership/digest negatives.
 - [>] Run evaluators through a restricted adapter with no network egress by
   default and explicit positive bounds. If in-process built-ins cannot provide
   enforceable isolation for a permitted operation, use a separately bounded
@@ -1037,11 +1041,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   expired-lease recovery.
 - Next: continue Phase 5 slice 3 — protected deterministic Evidence
   materialization/linkage, then remaining lane integration before Phase 6. Slice 3
-  orchestration guardrails landed locally: procedure-aware criterion/mode/binding gate
-  on `DeterministicEvaluatorExecutionService`; focused verification:
-  `DeterministicEvaluatorOrchestrationValidatorTests` 6;
-  `DeterministicEvaluatorExecutionServiceTests` 1; Evaluation unit 187;
-  `DeterministicInvocationStoreTests` 5. Phase 5 slice 2 approved 2026-09-10 through
+  authority correction landed locally: admitted-request procedure reload +
+  `VerifiedFrozenProcedureExecutionContext`; focused verification:
+  `DeterministicEvaluatorAuthorityVerifierTests` 8;
+  `DeterministicEvaluatorOrchestrationValidatorTests` 7;
+  `DeterministicEvaluatorExecutionServiceTests` 3; Evaluation unit 198;
+  `DeterministicInvocationStoreTests` 5 (authority-backed integration path).
+  Phase 5 slice 2 approved 2026-09-10 through
   `a53a5f5` + `d9011f9` + `ce63dbe` + `d4255c4` (0 Blocker / 0 High / 0 Medium).
   `EvaluationInfrastructure.ProcessingEnabled` and Worker wiring remain disabled
   until later Phase 5 integration work explicitly enables them.

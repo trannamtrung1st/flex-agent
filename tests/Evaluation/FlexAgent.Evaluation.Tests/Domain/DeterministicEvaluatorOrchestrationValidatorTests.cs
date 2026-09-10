@@ -96,6 +96,27 @@ public sealed class DeterministicEvaluatorOrchestrationValidatorTests
     }
 
     [Fact]
+    public void Unsupported_evaluator_mode_is_rejected()
+    {
+        var unsupportedCriterion = Procedure.Criteria[0] with { EvaluatorMode = "hybrid_review" };
+        var unsupportedProcedure = Procedure with
+        {
+            Criteria = new[] { unsupportedCriterion }
+                .Concat(Procedure.Criteria.Skip(1))
+                .ToArray(),
+        };
+        var request = CreateRequest(unsupportedCriterion, unsupportedCriterion.DeterministicEvaluator!);
+
+        var result = DeterministicEvaluatorOrchestrationValidator.TryValidateRequest(
+            unsupportedProcedure,
+            request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("evaluator_mode", result.Field);
+    }
+
+    [Fact]
     public void Procedure_binding_drift_is_rejected()
     {
         var criterion = Procedure.Criteria[0];

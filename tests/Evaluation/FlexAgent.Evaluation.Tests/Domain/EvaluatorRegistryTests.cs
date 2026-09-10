@@ -66,6 +66,27 @@ public sealed class EvaluatorRegistryTests
     }
 
     [Fact]
+    public void Jcs_canonical_synthetic_procedure_deterministic_bindings_validate_against_registry()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var procedure = EvaluationProcedureTestFixtures.LoadP0TextSynthetic();
+
+        foreach (var criterion in procedure.Criteria)
+        {
+            if (criterion.DeterministicEvaluator is null)
+            {
+                continue;
+            }
+
+            var validated = EvaluatorBindingValidator.TryValidateBinding(
+                registry,
+                criterion.DeterministicEvaluator);
+
+            Assert.True(validated.Succeeded, validated.OutcomeCode);
+        }
+    }
+
+    [Fact]
     public void Parser_allowlisted_evaluator_ids_are_registered_in_p0_registry()
     {
         var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;

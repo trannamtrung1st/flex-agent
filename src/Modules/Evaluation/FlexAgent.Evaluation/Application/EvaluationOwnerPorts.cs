@@ -100,4 +100,8 @@ public interface IProtectedEvaluationProcedureSource
         CancellationToken cancellationToken);
 }
 
-public sealed record ProtectedCanonicalUtf8(ReadOnlyMemory<byte> Utf8, string ContentDigest);
+public sealed record ProtectedCanonicalUtf8(
+    Guid SourceId,
+    Guid SourceVersionId,
+    ReadOnlyMemory<byte> Utf8,
+    string ContentDigest);
