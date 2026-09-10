@@ -639,7 +639,8 @@ approved layout families and donors already exist.
   positive memory/output/duration validation. External review 2026-09-09 on
   corrective chain: 0 Blocker / 0 High / 0 Medium. Slice 2 adds runner negatives
   for shell/path/digest/output-bound exhaustion; timeout and environment/secret
-  remain. Slice 3 adds orchestration gate plus admitted-request authority
+  runner negatives (`DeterministicEvaluatorRunnerTests`: `environment`, `env`,
+  `secret`, nested `secret`). Slice 3 adds orchestration gate plus admitted-request authority
   reconciliation: `DeterministicEvaluatorAuthorityVerifier`,
   `IEvaluationRequestAuthorityStore`, `PostgresEvaluationRequestAuthorityStore`,
   `PostgresProtectedEvaluationProcedureSource`; execution reloads frozen
@@ -730,8 +731,10 @@ approved layout families and donors already exist.
   `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3;
   `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4`
   (Documentation `34480110188`; Implementation `34480110154` all six jobs). Slice 4
-  remains in-progress for environment/secret runner negatives and lane/Worker
-  integration. Worker disabled.
+  runner negatives + Worker evaluation-lane scaffold landed locally (forbidden
+  `environment`/`env`/`secret` tests; idle `IEvaluationDurableWorkProcessor` lane
+  with config + compile-time fail-closed gate). Pending external review before
+  slice 4 closure. Worker processing remains disabled.
 - [>] Green/refactor evaluator registry, isolation, provenance, failure,
   aggregation, no-egress, and no-Session-tool-capability tests.
   Slice 2: `DeterministicEvaluatorRunnerTests` (shell/path/digest/output-bound/
@@ -761,8 +764,8 @@ approved layout families and donors already exist.
   oci-oidc-smoke). Completion-linkage chain `428c835` → `b3b37b4` externally
   reviewed **approved** 2026-09-10 (0 Blocker / 0 High / 0 Medium); hosted CI
   green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154`
-  all six jobs). Remaining slice 4: environment/secret runner negatives and lane/
-  Worker integration. Worker disabled.
+  all six jobs). Remaining slice 4: external review on runner-negative +
+  Worker-lane scaffold pass (local verification below). Worker disabled.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
@@ -1110,8 +1113,8 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: continue Phase 5 slice 4 — environment/secret runner negatives, then lane/
-  Worker integration before Phase 6. Completion-linkage chain `428c835` → `b3b37b4`
+- Next: external review on Phase 5 slice 4 runner-negative + Worker-lane scaffold
+  pass, then Phase 6. Completion-linkage chain `428c835` → `b3b37b4`
   closed and **approved** (external review 2026-09-10: 0 Blocker / 0 High /
   0 Medium; hosted CI green). **Phase 5 slice 3 is closed and approved** through implementation chain `4c803fe` + `5579ce7` + `395a7af` and docs chain
   `1193ec6` + `6d1abc6` (external review 2026-09-10: 0 Blocker / 0 High /
@@ -1308,7 +1311,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 3 authority (`4c803fe` + `5579ce7` + `395a7af` + `1193ec6` + `6d1abc6`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. Implementation: `4c803fe` orchestration gate; `5579ce7` admitted-request reload + protected source; `395a7af` independent byte→digest verification before parse. Docs: `1193ec6` approval record; `6d1abc6` confirmation evidence and rubric digest reconciliation to `04bdd47d…`. Focused: Evaluation 203; Runtime 340; `verify-dotnet.sh` 2309 passed / 4 skipped. Slice closed; `phase5_status` remains in-progress. Worker/processing remain disabled |
 | Phase 5 post-slice-3 CI chain (`03056d0` + `be1b1d5` + `76d3496` + `7ee5293`) | approved | External review 2026-09-10: **0 Blocker / 0 High / 0 Medium**. `03056d0` docs-only slice-3 chain record; `be1b1d5` reconciles demo seed fixtures/baseline digest and stabilizes accommodation idempotency expiry dates after digest refresh (`be1b1d5` hosted dotnet/web/oidc/oci-oidc-smoke green; supply-chain failed at SPA SBOM grype on `js-yaml@4.3.1`); `76d3496` local confirmation; `7ee5293` pnpm override `js-yaml@4.3.2` + SPA OCI `apk upgrade curl libcurl`. Hosted **Implementation** run `34447801929` and **Documentation** run `34447801925` green at `7ee5293`; all six Implementation jobs pass including `supply-chain` and `oci-oidc-smoke`. Phase 5 remains in-progress; Worker disabled |
 | Phase 5 slice 4 materialization corrective chain (`5ff61ee` + `0078` + `2209477` + `4422772`) | approved | External review 2026-09-10 on full corrective chain: **0 Blocker / 0 High / 0 Medium**. `5ff61ee`: payload store + `deterministic.fact` locator resolution. Review: lifecycle bypass (High) + decoupled FK/load provenance (Medium). `2209477`/`0078`: unconditional immutability; composite FK; hardened load. Review: duplicate retry provenance (Medium). `4422772`: retry joins attempt/request; reconciles request + ownership before ref/digest/bytes. Focused: `DeterministicPayloadImmutabilityTests` 8; hosted CI green at `4422772` (Documentation `34459660148`; Implementation `34459660500` all six jobs). Worker disabled |
-| Phase 5 slice 4 completion linkage (`428c835` + `b3b37b4`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. `428c835`: `DeterministicFactContextLoader` + completion service store-backed context; persists `deterministic.fact` `evaluation_evidence_items`. Review: cross-criterion reuse High (load bound request/attempt/digest only). `b3b37b4`: criterion id/version on `TryLoadProjectionAsync` SQL + loader; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative (both criteria permit `deterministic.fact`). Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154` all six jobs). Slice 4 overall remains in-progress for environment/secret runner negatives and lane/Worker integration. Worker disabled |
+| Phase 5 slice 4 completion linkage (`428c835` + `b3b37b4`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. `428c835`: `DeterministicFactContextLoader` + completion service store-backed context; persists `deterministic.fact` `evaluation_evidence_items`. Review: cross-criterion reuse High (load bound request/attempt/digest only). `b3b37b4`: criterion id/version on `TryLoadProjectionAsync` SQL + loader; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative (both criteria permit `deterministic.fact`). Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154` all six jobs). Worker disabled |
+| Phase 5 slice 4 runner negatives + Worker lane scaffold (local) | in-progress | Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Focused: `DeterministicEvaluatorRunnerTests` +4; `EvaluationDurableWorkProcessorTests` 1; Runtime Worker tests +1 gate negative; `verify-dotnet.sh` 2337 passed / 4 skipped (local). Hosted CI not independently observed. Awaiting external review before slice 4 closure |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |

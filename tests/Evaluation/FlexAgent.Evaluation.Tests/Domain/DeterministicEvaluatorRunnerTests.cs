@@ -87,6 +87,116 @@ public sealed class DeterministicEvaluatorRunnerTests
     }
 
     [Fact]
+    public void Forbidden_environment_field_is_rejected_with_invalid_output()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "safe",
+              "minimum": 1,
+              "maximum": 2,
+              "environment": { "PATH": "/usr/bin" }
+            }
+            """);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
+        Assert.Equal("integrity_failure", result.Value.FailureCategory);
+    }
+
+    [Fact]
+    public void Forbidden_env_field_is_rejected_with_invalid_output()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "safe",
+              "minimum": 1,
+              "maximum": 2,
+              "env": { "HOME": "/tmp" }
+            }
+            """);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
+        Assert.Equal("integrity_failure", result.Value.FailureCategory);
+    }
+
+    [Fact]
+    public void Forbidden_secret_field_is_rejected_with_invalid_output()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "safe",
+              "minimum": 1,
+              "maximum": 2,
+              "secret": "super-secret-token"
+            }
+            """);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
+        Assert.Equal("integrity_failure", result.Value.FailureCategory);
+    }
+
+    [Fact]
+    public void Nested_forbidden_secret_field_is_rejected_with_invalid_output()
+    {
+        var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;
+        var binding = registry.Entries["eval.builtin.bounded-calc"];
+        var input = CreateInput(
+            """
+            {
+              "schema": "eval.builtin.bounded-calc.input.v1",
+              "operation": "word_count",
+              "text": "safe",
+              "minimum": 1,
+              "maximum": 2,
+              "metadata": {
+                "secret": "nested-token"
+              }
+            }
+            """);
+
+        var result = Runner.TryExecute(
+            registry,
+            CreateRequest(binding with { }, input),
+            DateTimeOffset.UtcNow);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(DeterministicInvocationOutcomes.InvalidOutput, result.Value!.Outcome);
+        Assert.Equal("integrity_failure", result.Value.FailureCategory);
+    }
+
+    [Fact]
     public void Path_traversal_in_input_text_is_rejected()
     {
         var registry = Registry.TryGetRegistry(EvaluatorRegistryVersions.P0).Value!;

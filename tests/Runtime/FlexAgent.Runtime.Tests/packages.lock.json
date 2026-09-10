@@ -515,6 +515,13 @@
           "FlexAgent.Contracts": "[1.0.0, )"
         }
       },
+      "flexagent.evaluation.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Evaluation": "[1.0.0, )",
+          "FlexAgent.Postgres": "[1.0.0, )"
+        }
+      },
       "flexagent.identityaccess": {
         "type": "Project",
         "dependencies": {
@@ -588,6 +595,8 @@
       "flexagent.worker": {
         "type": "Project",
         "dependencies": {
+          "FlexAgent.Evaluation": "[1.0.0, )",
+          "FlexAgent.Evaluation.Infrastructure": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",

@@ -1,3 +1,4 @@
+using FlexAgent.Evaluation.Application;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -9,6 +10,7 @@ public sealed class WorkerBackgroundService(
     WorkClaimGate workClaimGate,
     IRecoverableAuthorityGate authorityGate,
     IDurableInvocationWorkProcessor workProcessor,
+    IEvaluationDurableWorkProcessor evaluationWorkProcessor,
     IDurableTimerFireProcessor timerFireProcessor,
     IHostedSessionExpirySweep expirySweep,
     IDurableWorkBacklogSampler backlogSampler) : BackgroundService
@@ -51,6 +53,23 @@ public sealed class WorkerBackgroundService(
                     catch (Exception exception)
                     {
                         logger.LogError(exception, "Durable invocation work processing failed.");
+                    }
+
+                    try
+                    {
+                        var evaluationProcessed = await evaluationWorkProcessor.TryProcessNextAsync(stoppingToken);
+                        if (evaluationProcessed.Outcome == EvaluationDurableWorkOutcomes.Idle)
+                        {
+                            logger.LogDebug("Worker evaluation lane idle at {Timestamp}", DateTimeOffset.UtcNow);
+                        }
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "Evaluation durable work processing failed.");
                     }
 
                     try

@@ -46,18 +46,29 @@ public sealed class WorkerReadinessCheck(
                 HealthCheckResult.Degraded($"{adapterName} adapter is requested but not qualified."));
         }
 
-        var claiming = capabilities.DurableWorkClaimingEnabled
-            ? "durable work claiming is enabled"
-            : "Durable work claiming is not enabled";
-        var timerPolling = capabilities.TimerPollingEnabled
-            ? "Timer polling is enabled"
-            : "Timer polling is not enabled";
+        var claiming = DescribeLane(
+            capabilities.DurableWorkClaimingEnabled,
+            "durable work claiming is enabled",
+            "Durable work claiming is not enabled");
+        var timerPolling = DescribeLane(
+            capabilities.TimerPollingEnabled,
+            "Timer polling is enabled",
+            "Timer polling is not enabled");
+        var evaluationProcessing = DescribeLane(
+            capabilities.EvaluationProcessingEnabled,
+            "Evaluation processing is enabled",
+            "Evaluation processing is not enabled");
         var description = capabilities.DurableWorkClaimingEnabled
-            ? $"Worker loop is running and {claiming}. {timerPolling}."
-            : $"Worker loop is running. {claiming}. {timerPolling}.";
+            ? $"Worker loop is running and {claiming}. {timerPolling}. {evaluationProcessing}."
+            : $"Worker loop is running. {claiming}. {timerPolling}. {evaluationProcessing}.";
         return Task.FromResult(HealthCheckResult.Healthy(description));
     }
 
     private static bool ProtectedLaneEnabled(WorkerRuntimeCapabilities capabilities) =>
-        capabilities.DurableWorkClaimingEnabled || capabilities.TimerPollingEnabled;
+        capabilities.DurableWorkClaimingEnabled
+        || capabilities.TimerPollingEnabled
+        || capabilities.EvaluationProcessingEnabled;
+
+    private static string DescribeLane(bool enabled, string enabledText, string disabledText) =>
+        enabled ? enabledText : disabledText;
 }

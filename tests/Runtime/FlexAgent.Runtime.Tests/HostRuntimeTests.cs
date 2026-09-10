@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using System.Net;
 using FlexAgent.Api;
+using FlexAgent.Evaluation.Application;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
@@ -133,7 +134,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
-        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled. Evaluation processing is not enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }
 
@@ -172,6 +173,8 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var processor = _factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>();
 
         Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
+        Assert.IsType<IdleEvaluationDurableWorkProcessor>(
+            _factory.Services.GetRequiredService<IEvaluationDurableWorkProcessor>());
         Assert.IsType<IdleDurableTimerFireProcessor>(
             _factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
         Assert.IsType<UnknownDurableInvocationWorkStore>(
@@ -268,6 +271,24 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.Null(factory.Services.GetService<IModelExecutionPort>());
         Assert.False(capabilities.DurableWorkClaimingEnabled);
         Assert.False(capabilities.TimerPollingEnabled);
+        Assert.False(capabilities.EvaluationProcessingEnabled);
+    }
+
+    [Fact]
+    public void Worker_rejects_evaluation_processing_when_infrastructure_gate_is_closed()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Evaluation:Processing:Enabled", "true");
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            _ = factory.Services.GetRequiredService<IEvaluationDurableWorkProcessor>());
+
+        Assert.Contains("EvaluationInfrastructure.ProcessingEnabled", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -618,7 +639,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
-        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled. Evaluation processing is not enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }
 
@@ -640,7 +661,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
-        Assert.Contains("Worker loop is running and durable work claiming is enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Worker loop is running and durable work claiming is enabled. Timer polling is not enabled. Evaluation processing is not enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }
 

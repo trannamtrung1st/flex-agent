@@ -1,3 +1,4 @@
+using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
@@ -17,6 +18,8 @@ public sealed class WorkerRuntimeCapabilities
     public bool DurableWorkClaimingEnabled { get; init; }
 
     public bool TimerPollingEnabled { get; init; }
+
+    public bool EvaluationProcessingEnabled { get; init; }
 
     public string WorkloadIdentityProfile { get; init; } = WorkloadIdentityProfiles.SyntheticConfiguredActor;
 
@@ -46,7 +49,10 @@ internal static class WorkerDurableWorkSampling
             "Sessions:InvocationProcessing:Enabled",
             false);
         var timerPollingRequested = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
-        var protectedLaneRequested = invocationProcessingRequested || timerPollingRequested;
+        var evaluationProcessingRequested = WorkerEvaluationLane.ResolveRequested(configuration);
+        var protectedLaneRequested = invocationProcessingRequested
+            || timerPollingRequested
+            || evaluationProcessingRequested;
         var identityProfile = ResolveWorkloadIdentityProfile(
             configuration,
             environment,
@@ -67,21 +73,33 @@ internal static class WorkerDurableWorkSampling
                 "Sessions:TimerPolling:Enabled requires a configured OAuth workload identity profile and cannot be enabled without it.");
         }
 
+        if (evaluationProcessingRequested && !IsSyntheticHostProfile(environment) && !productionAuthenticated)
+        {
+            throw new InvalidOperationException(
+                "Evaluation:Processing:Enabled requires a configured OAuth workload identity profile and cannot be enabled without it.");
+        }
+
         var invocationProcessingEnabled = invocationProcessingRequested
             && (IsSyntheticHostProfile(environment) || productionAuthenticated);
         var timerPollingEnabled = timerPollingRequested
+            && (IsSyntheticHostProfile(environment) || productionAuthenticated);
+        var evaluationProcessingEnabled = evaluationProcessingRequested
+            && EvaluationInfrastructure.ProcessingEnabled
+            && !string.IsNullOrWhiteSpace(connectionString)
             && (IsSyntheticHostProfile(environment) || productionAuthenticated);
         var modelExecution = ComposeModelExecution(configuration, environment);
         RegisterWorkloadIdentitySource(
             services,
             configuration,
             identityProfile,
-            protectedLaneRequested && (invocationProcessingEnabled || timerPollingEnabled),
+            protectedLaneRequested
+                && (invocationProcessingEnabled || timerPollingEnabled || evaluationProcessingEnabled),
             !string.IsNullOrWhiteSpace(connectionString));
         services.AddSingleton<IRecoverableAuthorityGate>(_ =>
         {
             var gate = new RecoverableAuthorityGate();
-            if (!protectedLaneRequested || !invocationProcessingEnabled && !timerPollingEnabled)
+            if (!protectedLaneRequested
+                || (!invocationProcessingEnabled && !timerPollingEnabled && !evaluationProcessingEnabled))
             {
                 gate.SetState(RecoverableAuthorityStates.Ready);
             }
@@ -105,10 +123,12 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
             services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
             services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
+            WorkerEvaluationLane.RegisterServices(services, evaluationProcessingEnabled: false);
             services.AddSingleton(new WorkerRuntimeCapabilities
             {
                 DurableWorkClaimingEnabled = false,
                 TimerPollingEnabled = false,
+                EvaluationProcessingEnabled = false,
                 WorkloadIdentityProfile = identityProfile,
             });
         }
@@ -182,10 +202,13 @@ internal static class WorkerDurableWorkSampling
                 services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
             }
 
+            WorkerEvaluationLane.RegisterServices(services, evaluationProcessingEnabled);
+
             services.AddSingleton(new WorkerRuntimeCapabilities
             {
                 DurableWorkClaimingEnabled = invocationProcessingEnabled,
                 TimerPollingEnabled = timerPollingEnabled,
+                EvaluationProcessingEnabled = evaluationProcessingEnabled,
                 WorkloadIdentityProfile = identityProfile,
                 ModelExecutionAdapter = invocationProcessingEnabled
                     ? modelExecution.Adapter
