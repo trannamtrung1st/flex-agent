@@ -2,9 +2,9 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T12:35:00+07:00
-phase6_slice2: in-progress-2466f1be-store-authority
-phase6_slice2_review: not-approved-2466f1be-0-blocker-1-high-1-medium
+updated: 2026-09-11T12:40:00+07:00
+phase6_slice2: in-progress-b8b5efad-authority-binding
+phase6_slice2_review: pending-re-review-b8b5efad-corrective-2466f1be
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -843,18 +843,19 @@ approved layout families and donors already exist.
   schema/citation/aggregation matrix deferred to slice 2+.
 - [>] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
-  **Committed at `2466f1be`; corrective WIP after review `2466f1be` (0 Blocker / 1 High /
-  1 Medium):** bind full `EvaluationOwnership` + admitted request authority reload;
+  **Committed at `2466f1be`; corrective at `b8b5efad` after review `2466f1be` (0 Blocker /
+  1 High / 1 Medium):** bind full `EvaluationOwnership` + admitted request authority reload;
   reconcile session ownership ref, request/invocation stable IDs, and
   `DeterministicInvocationId` before provider; enforce ownership chain in Postgres
   verified-material load; negatives for forged ownership, claimed-invocation mismatch,
-  and wrong same-org scope. Focused after corrective:
+  and wrong same-org scope. Confirmation at `b8b5efad`:
   `EvaluationModelExecutionAuthorityVerifierTests` 5;
   `EvaluationModelDeterministicFactAuthorityLoaderTests` 4;
   `EvaluationModelExecutionServiceTests` 10;
-  `EvaluationModelRequestComposerTests` 7. Remaining slice 2: prompt-injection/
-  confused-deputy suites, credential fail-closed adapter selection, protected provider
-  artifact persistence, fuller response validation.
+  `EvaluationModelRequestComposerTests` 7; Evaluation unit 253; `verify-dotnet.sh` green.
+  Pending external re-review. Remaining slice 2: prompt-injection/confused-deputy suites,
+  credential fail-closed adapter selection, protected provider artifact persistence,
+  fuller response validation.
 - [ ] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
@@ -1174,18 +1175,19 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- **Phase 6 slice 2 in progress.** Store-backed deterministic-fact authority landed at
-  `2466f1be`; external review found 1 High (invocation/ownership provenance binding)
-  and 1 Medium (work-plan drift). Corrective binds admitted request authority reload,
-  full ownership chain on verified-material load, deterministic invocation identity,
-  and session/request stable-ID reconciliation before provider. Focused after
-  corrective: `EvaluationModelExecutionAuthorityVerifierTests` 5;
+- **Phase 6 slice 2 in progress.** Store-backed deterministic-fact authority at
+  `2466f1be`; review found 1 High + 1 Medium; corrective **committed and pushed at
+  `b8b5efad`**. Binds admitted request authority reload, full ownership chain on
+  verified-material load, deterministic invocation identity, and session/request
+  stable-ID reconciliation before provider. Confirmation at `b8b5efad`:
+  `EvaluationModelExecutionAuthorityVerifierTests` 5;
   `EvaluationModelDeterministicFactAuthorityLoaderTests` 4;
   `EvaluationModelExecutionServiceTests` 10; `EvaluationModelRequestComposerTests` 7;
-  Evaluation unit 253. **Remaining slice 2:** prompt-injection/confused-deputy suites,
-  credential fail-closed adapter selection, protected provider artifact persistence,
-  fuller response validation (schema parse gate). **Phase 6 slice 1 closed and
-  approved** through `8e0a5fc0` → `7bc3ff4f` → `78190660`. Worker processing and
+  Evaluation unit 253; `verify-dotnet.sh` green. **Pending external re-review.**
+  **Remaining slice 2:** prompt-injection/confused-deputy suites, credential
+  fail-closed adapter selection, protected provider artifact persistence, fuller
+  response validation (schema parse gate). **Phase 6 slice 1 closed and approved**
+  through `8e0a5fc0` → `7bc3ff4f` → `78190660`. Worker processing and
   `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
