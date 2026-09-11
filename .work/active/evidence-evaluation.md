@@ -933,9 +933,12 @@ approved layout families and donors already exist.
   `42668dfd`: **0 Blocker / 0 High / 1 Medium / 1 Low** — Medium concurrent
   idempotent insert closed via `ON CONFLICT DO NOTHING` + reconciliation; Low
   criterion self-compare closed via persisted `criterion_id`/`criterion_version`
-  and DB-backed reconciliation (`16da6ef2`). Hosted CI green at pre-corrective
-  `42668dfd` (Implementation + Documentation). **Provider artifact increment closed.**
-  Worker/processing remain disabled; no payload blob table yet (refs-only at `0072`).
+  and DB-backed reconciliation (`16da6ef2`). **Reconfirmation pass 2026-09-11 at
+  `bd7bce9b`:** `EvaluationProviderArtifactStoreTests` 3/3; Postgres integration
+  475/475; `verify-dotnet.sh` green (local). Hosted CI green at pre-corrective
+  `42668dfd` (Implementation + Documentation); post-corrective hosted CI pending at `591f1381`.
+  **Provider artifact increment closed.** Worker/processing remain disabled; no payload
+  blob table yet (refs-only at `0072`).
 - [ ] Green/refactor model adapter, disclosure minimization, retry, invalid
   response, conflict, insufficiency, and provider-profile gate tests.
 
