@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T09:30:00+07:00
+updated: 2026-09-11T10:20:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -23,9 +23,10 @@ phase5_ci_review: approved-03056d0-be1b1d5-76d3496-7ee5293
 phase5_slice4: approved-4acfa4b-a179b085-0c63e403
 phase5_slice4_materialization: approved-5ff61ee-2209477-4422772
 phase5_slice4_completion_linkage: approved-428c835-b3b37b4
-phase6_status: in-progress-slice1
-phase6_slice1: corrective-authority-contract-pending-rereview
-phase6_slice1_review: not-approved-7bc3ff4f-0-blocker-1-high
+phase6_status: in-progress-slice2
+phase6_slice1: approved-8e0a5fc0-7bc3ff4f-78190660
+phase6_slice1_review: approved-78190660-0-blocker-0-high
+phase6_slice1_ci: approved-34554419421-34554419477
 ---
 
 # Goal
@@ -788,46 +789,40 @@ approved layout families and donors already exist.
 
 ## Phase 6 — Implement Agent-assisted and Agent-judgment execution
 
-- [>] Define a provider-neutral Evaluation model port and strict request/
+- [x] Define a provider-neutral Evaluation model port and strict request/
   response schemas. Include only fixed trusted policy/rubric fields, exact
   permitted Evidence/protected facts, bounded context, and non-secret frozen
   model provenance.
-  Slice 1: `evaluation-model-request.v1` / `evaluation-model-response.v1`
-  schemas + fixtures + catalog entries; C# `EvaluationModelRequestV1` /
-  `EvaluationModelResponseV1`; `IEvaluationModelExecutionPort` now consumes/
-  returns those canonical envelopes via `EvaluationModelRequestComposer` and
-  response validation/mapping; `FailClosedEvaluationModelExecutionPort`,
-  `EvaluationModelExecutionService`. No Worker wiring; no real provider adapters.
-  External review on `8e0a5fc0` 2026-09-11: **not approved** 0 Blocker / 2 High /
-  0 Medium — criterion override and parallel port contract. Corrective `7bc3ff4f`
-  closes both structurally. External review on `7bc3ff4f` 2026-09-11: **not approved**
-  0 Blocker / 1 High / 0 Medium — assisted deterministic-fact reconciliation was
-  one-way (verified subset only); permitted Evidence list/binding set not enforced;
-  protected ref not reconciled to verified digest. Second corrective pass builds
-  `EvaluationModelDeterministicFactV1` only from verified projections plus trusted
-  protected refs with exact set equality both directions; permitted Evidence and
-  bindings must match exactly; response citations authorize against canonical
-  request Evidence set. Hosted CI at `7bc3ff4f`: Documentation `34553726423`
-  green; Implementation `34553726442` in progress when checked (do not treat
-  combined status as proof until all six jobs finish).
-- [>] Keep Session generation and Evaluation judgment contracts separate.
+  Slice 1 **closed and approved** through chain `8e0a5fc0` → `7bc3ff4f` →
+  `78190660` (external review 2026-09-11: **0 Blocker / 0 High / 0 Medium**).
+  Canonical `evaluation-model-request.v1` / `evaluation-model-response.v1`
+  schemas, fixtures, catalog, C# DTOs; `IEvaluationModelExecutionPort` consumes/
+  returns canonical envelopes via `EvaluationModelRequestComposer` and response
+  validation/mapping; `FailClosedEvaluationModelExecutionPort`,
+  `EvaluationModelExecutionService`. Corrective chain closed authority binding,
+  bidirectional verified-fact/protected-ref set equality, and permitted Evidence
+  list/binding consistency. Hosted CI green at `78190660`: Documentation
+  `34554419421`; Implementation `34554419477` — all six jobs (`changes`, `dotnet`,
+  `web`, `oidc`, `supply-chain`, `oci-oidc-smoke`). No Worker wiring; no real
+  provider adapters.
+- [x] Keep Session generation and Evaluation judgment contracts separate.
   Extract only genuinely generic protocol/credential plumbing if dependency
   and architecture tests prove the abstraction is stable; otherwise add an
   Evaluation-specific adapter project.
-  Slice 1: Evaluation-specific port in `FlexAgent.Evaluation`; no Sessions
-  `IModelExecutionPort` reference. Generic protocol extraction deferred.
-- [>] Implement `deterministic` with no Agent call, `agent_assisted` only after
+  Slice 1 closed: Evaluation-specific port in `FlexAgent.Evaluation`; no Sessions
+  `IModelExecutionPort` reference. Generic protocol extraction deferred to later
+  slice when architecture tests prove stability.
+- [x] Implement `deterministic` with no Agent call, `agent_assisted` only after
   required deterministic facts verify, and `agent_judgment` only for exact
   procedure-permitted criteria. Never substitute modes at runtime.
-  Slice 1: `AgentEvaluatorOrchestrationValidator` gates deterministic rejection,
-  assisted requires verified facts, judgment rejects non-empty facts.
-- [>] Add a bounded deterministic/synthetic Development/Testing model adapter
+  Slice 1 closed: `AgentEvaluatorOrchestrationValidator` gates deterministic
+  rejection, assisted requires verified facts, judgment rejects non-empty facts.
+- [x] Add a bounded deterministic/synthetic Development/Testing model adapter
   that can exercise valid, insufficient, malformed, conflicting, timeout, and
   provider-failure paths without real data or network access.
-  Slice 1: `SyntheticEvaluationModelExecutionAdapter` scenarios
+  Slice 1 closed: `SyntheticEvaluationModelExecutionAdapter` scenarios
   (`timeout`, `provider_unavailable`, `schema_invalid`, `insufficient`,
-  `conflict`, default satisfied). Malformed/schema-invalid path returns failed
-  attempt; full schema parse gate deferred to slice 2.
+  `conflict`, default satisfied). Full schema parse gate deferred to slice 2.
 - [ ] Reuse workload credential source patterns without exposing secrets.
   Production/Staging adapter selection must fail closed unless exact
   qualification and workload identity are simultaneously valid.
@@ -839,11 +834,11 @@ approved layout families and donors already exist.
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,
   and provisional feedback before completion.
-  Slice 1: `EvaluationModelResponseValidator` validates against explicit
-  expected invocation identity (criterion/mode/output schema/deterministic
-  invocation), deterministic conflict (`"valid":false` fact + `satisfied`),
-  trusted draft mapping, and `CriterionJudgmentValidator`. Full
-  schema/citation/aggregation matrix deferred.
+  Slice 1 foundation **approved** at `78190660`: `EvaluationModelResponseValidator`
+  validates against explicit expected invocation identity (criterion/mode/output
+  schema/deterministic invocation), deterministic conflict (`"valid":false` fact +
+  `satisfied`), trusted draft mapping, and `CriterionJudgmentValidator`. Full
+  schema/citation/aggregation matrix deferred to slice 2+.
 - [ ] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
@@ -1163,14 +1158,20 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: submit Phase 6 slice 1 second corrective pass for re-review; then **slice 2**.
-  **Phase 5 is closed.** Slice 1 at `7bc3ff4f` reviewed **not approved**
-  2026-09-11 (0 Blocker / 1 High). Second corrective pass hardens deterministic-
-  fact and permitted-Evidence set reconciliation. Focused verification:
-  `EvaluationModelRequestComposerTests` 7;
+- Next: begin **Phase 6 slice 2** — prompt-injection/confused-deputy suites,
+  credential fail-closed adapter selection, protected artifact persistence, fuller
+  response validation, and obtaining `DeterministicFactProtectedRefs` from the
+  deterministic-output store rather than accepting arbitrary pointer strings
+  before any real adapter dereferences them (review carry-forward from slice 1
+  approval; not a slice-1 blocker). **Phase 6 slice 1 is closed and approved**
+  through chain `8e0a5fc0` → `7bc3ff4f` → `78190660` (external review
+  2026-09-11: **0 Blocker / 0 High / 0 Medium**). Hosted CI green at
+  `78190660`: Documentation `34554419421`; Implementation `34554419477` — all six
+  jobs. Focused verification at closure: `EvaluationModelRequestComposerTests` 7;
   `EvaluationModelExecutionServiceTests` 7;
-  `EvaluationModelResponseValidatorTests` 5; Evaluation unit 242; contract 269;
-  `verify-dotnet.sh` green. Worker processing remains disabled.
+  `EvaluationModelResponseValidatorTests` 5; `AgentEvaluatorOrchestrationValidatorTests` 5;
+  Evaluation unit 242; contract 269; `verify-dotnet.sh` green. Worker processing
+  and `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8
@@ -1353,6 +1354,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 4 materialization corrective chain (`5ff61ee` + `0078` + `2209477` + `4422772`) | approved | External review 2026-09-10 on full corrective chain: **0 Blocker / 0 High / 0 Medium**. `5ff61ee`: payload store + `deterministic.fact` locator resolution. Review: lifecycle bypass (High) + decoupled FK/load provenance (Medium). `2209477`/`0078`: unconditional immutability; composite FK; hardened load. Review: duplicate retry provenance (Medium). `4422772`: retry joins attempt/request; reconciles request + ownership before ref/digest/bytes. Focused: `DeterministicPayloadImmutabilityTests` 8; hosted CI green at `4422772` (Documentation `34459660148`; Implementation `34459660500` all six jobs). Worker disabled |
 | Phase 5 slice 4 completion linkage (`428c835` + `b3b37b4`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. `428c835`: `DeterministicFactContextLoader` + completion service store-backed context; persists `deterministic.fact` `evaluation_evidence_items`. Review: cross-criterion reuse High (load bound request/attempt/digest only). `b3b37b4`: criterion id/version on `TryLoadProjectionAsync` SQL + loader; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative (both criteria permit `deterministic.fact`). Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154` all six jobs). Worker disabled |
 | Phase 5 slice 4 runner negatives + Worker lane scaffold (`4acfa4b` + `a179b085` + `0c63e403`) | approved | External review 2026-09-10 on `4acfa4b`: **0 Blocker / 0 High / 0 Medium**. Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Hosted at `4acfa4b`: Documentation `34495832537` green; Implementation `34495832645` **failed** on unrelated enrollment admission window-boundary race. Corrective `a179b085`: `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window counter insert; `0c63e403` + `22c17489` record confirmation and external approval. External review on corrective chain: **0 Blocker / 0 High / 0 Medium**. Hosted at `a179b085`: Documentation `34503812220` green; Implementation `34503812163` green — all six jobs. Local: `verify-dotnet.sh` 2337 passed / 4 skipped. Phase 5 slice 4 closed. Worker disabled |
+| Phase 6 slice 1 model execution foundation (`8e0a5fc0` + `7bc3ff4f` + `78190660`) | approved | External review 2026-09-11 on `78190660`: **0 Blocker / 0 High / 0 Medium**. Chain: `8e0a5fc0` canonical model request/response contracts + orchestration gates + synthetic adapter; `7bc3ff4f` closes criterion/provenance override and parallel port contract; `78190660` closes bidirectional verified-fact/protected-ref and permitted Evidence set reconciliation. Focused: `EvaluationModelRequestComposerTests` 7; `EvaluationModelExecutionServiceTests` 7; `EvaluationModelResponseValidatorTests` 5; `AgentEvaluatorOrchestrationValidatorTests` 5; Evaluation unit 242; contract 269; `verify-dotnet.sh` green. Hosted CI green at `78190660`: Documentation `34554419421`; Implementation `34554419477` — all six jobs including `supply-chain` and `oci-oidc-smoke`. Slice 2 carry-forward: obtain protected refs from deterministic-output store before real adapter dereference. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
