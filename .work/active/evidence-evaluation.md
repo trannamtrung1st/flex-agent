@@ -2,7 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T13:35:00+07:00
+updated: 2026-09-11T13:50:00+07:00
+phase6_slice2_injection: in-progress-model-boundary-suite
 phase6_slice2: in-progress-store-authority-approved-2466f1be-b8b5efad
 phase6_slice2_store_authority: approved-2466f1be-b8b5efad
 phase6_slice2_store_authority_review: approved-b8b5efad-0-blocker-0-high-0-medium
@@ -831,10 +832,22 @@ approved layout families and donors already exist.
 - [ ] Reuse workload credential source patterns without exposing secrets.
   Production/Staging adapter selection must fail closed unless exact
   qualification and workload identity are simultaneously valid.
-- [ ] Red: prompt-injection and confused-deputy suites across Submission text,
+- [>] Red: prompt-injection and confused-deputy suites across Submission text,
   filenames, transcript, Agent messages, metadata, knowledge, deterministic
   output, and model response. Assert no scope/rubric/mode/tool/memory/Release
   change and no unapproved source disclosure.
+  **Model-boundary increment (uncommitted):** `EvaluationUntrustedModelOutputPolicy`
+  centralizes prohibited rationale/feedback patterns (`AC-EVAL-24`, `REQ-EVAL-26`);
+  `EvaluationModelPromptInjectionAndConfusedDeputyTests` covers rationale injection
+  matrix, provisional-feedback injection, mode/schema/deterministic-invocation
+  confused-deputy negatives, and untrusted deterministic-fact payload identity;
+  `EvaluationModelExecutionServiceTests` adds end-to-end injection rejection and
+  assisted-mode stability with injected fact bytes. Focused:
+  `EvaluationModelPromptInjectionAndConfusedDeputyTests` 12;
+  `EvaluationModelExecutionServiceTests` 12; Evaluation unit 268; `verify-dotnet.sh` green.
+  **Remainder:** Evidence-source paths (Submission/transcript/knowledge/metadata)
+  at locator/completion layers; credential fail-closed; provider artifact
+  persistence; fuller response validation.
 - [>] Independently validate every model response for schema, exact criterion
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,

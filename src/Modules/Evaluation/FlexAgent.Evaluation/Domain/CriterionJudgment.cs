@@ -121,10 +121,7 @@ public static class CriterionJudgmentValidator
     private static int RuneCount(string value) => value.EnumerateRunes().Count();
 
     private static bool ContainsProtectedContent(string? value) =>
-        !string.IsNullOrEmpty(value)
-        && (value.Contains('\0', StringComparison.Ordinal)
-            || value.Contains("hidden_prompt", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("<script", StringComparison.OrdinalIgnoreCase));
+        EvaluationUntrustedModelOutputPolicy.ContainsProhibitedContent(value);
 }
 
 public sealed record CriterionJudgmentDraft(
