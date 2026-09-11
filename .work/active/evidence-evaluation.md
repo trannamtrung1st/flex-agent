@@ -3,7 +3,7 @@ id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
 updated: 2026-09-11T17:40:00+07:00
-phase6_slice2_provider_artifacts: confirmed-pending-commit
+phase6_slice2_provider_artifacts: confirmed-d9c7b6a5
 phase6_slice2_evidence_source_bookkeeping: approved-f3105a7b-1afd1cbb
 phase6_slice2_evidence_source_bookkeeping_review: approved-f3105a7b-1afd1cbb-0-blocker-0-high-0-medium
 phase6_slice2_credential_failclosed: confirmed-fb0c79fb
@@ -915,7 +915,7 @@ approved layout families and donors already exist.
 - [x] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
-  **Confirmation pass 2026-09-11:** `IEvaluationProviderArtifactStore`,
+  **Confirmation pass 2026-09-11 at `d9c7b6a5`:** `IEvaluationProviderArtifactStore`,
   `EvaluationProviderArtifactPersistence`, `ProviderArtifactProvenance`/`ProviderArtifactOutcomes`,
   `InMemoryEvaluationProviderArtifactStore`, `PostgresEvaluationProviderArtifactStore`;
   optional persistence wired into `EvaluationModelExecutionService` after port
@@ -1259,7 +1259,7 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `EvaluationModelCredentialBindingAdmission`, `EvaluationSyntheticDevelopmentModelProfile`;
   fixtures aligned to profile constants. Focused: `EvaluationModelExecutionCompositionTests`
   11; Evaluation unit **285**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green
-  (local). **Protected provider artifact persistence implemented locally:**
+  (local). **Protected provider artifact persistence confirmed at `d9c7b6a5`:**
   `IEvaluationProviderArtifactStore`, `PostgresEvaluationProviderArtifactStore`,
   optional wire-in to `EvaluationModelExecutionService`; protected refs only.
   Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4;
