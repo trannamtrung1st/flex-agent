@@ -2,7 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T17:15:00+07:00
+updated: 2026-09-11T17:40:00+07:00
+phase6_slice2_provider_artifacts: confirmed-pending-commit
 phase6_slice2_evidence_source_bookkeeping: approved-f3105a7b-1afd1cbb
 phase6_slice2_evidence_source_bookkeeping_review: approved-f3105a7b-1afd1cbb-0-blocker-0-high-0-medium
 phase6_slice2_credential_failclosed: confirmed-fb0c79fb
@@ -880,8 +881,7 @@ approved layout families and donors already exist.
   `34574753257` green — all six jobs. **Evidence-source increment closed.**
   Wider `[>]` AC-EVAL-24 matrix (filenames, metadata, Agent messages, knowledge,
   model output) remains open at Phase 6 gate. **Slice 2 remainder:** credential
-  fail-closed external review/CI for `fb0c79fb`; protected provider artifact
-  persistence; fuller response validation.
+  fail-closed external review/CI for `fb0c79fb`; fuller response validation.
 - [>] Independently validate every model response for schema, exact criterion
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,
@@ -907,14 +907,27 @@ approved layout families and donors already exist.
   `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all
   six jobs. `EvaluationId` authoritative binding deferred to Phase 6/7 completion
   persistence (no admitted-request Evaluation ID at this boundary). **Slice 2
-  remainder:** credential fail-closed external review/CI for `fb0c79fb`; protected
-  provider artifact persistence; fuller response validation.
+  remainder:** credential fail-closed external review/CI for `fb0c79fb`; fuller
+  response validation.
   Model-boundary prompt-injection/
   confused-deputy suite **approved** (`5c28e565` → `2db28254`). Evidence-source
   **approved** (`8773c4f9` → `f3105a7b` → `1afd1cbb`; bookkeeping chain **0/0/0**).
-- [ ] Persist protected provider request/response references and bounded
+- [x] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
+  **Confirmation pass 2026-09-11:** `IEvaluationProviderArtifactStore`,
+  `EvaluationProviderArtifactPersistence`, `ProviderArtifactProvenance`/`ProviderArtifactOutcomes`,
+  `InMemoryEvaluationProviderArtifactStore`, `PostgresEvaluationProviderArtifactStore`;
+  optional persistence wired into `EvaluationModelExecutionService` after port
+  execution (success and failure). Protected refs only (`prot.eval.model-req.*`,
+  `prot.eval.model-res.*`); DB outcomes map to `0072` check constraint
+  (`succeeded`/`failed`/`timed_out`/`invalid_output`); bounded `failure_category`
+  only. Focused: `ProviderArtifactProvenanceTests` 7;
+  `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests`
+  14 (+2 persistence with ref-prefix assertions); `EvaluationProviderArtifactStoreTests`
+  2; Evaluation unit 298; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green
+  (local). Worker/processing remain disabled; no payload blob table yet (refs-only
+  at `0072`). Awaiting external review and hosted CI.
 - [ ] Green/refactor model adapter, disclosure minimization, retry, invalid
   response, conflict, insufficiency, and provider-profile gate tests.
 
@@ -1246,8 +1259,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `EvaluationModelCredentialBindingAdmission`, `EvaluationSyntheticDevelopmentModelProfile`;
   fixtures aligned to profile constants. Focused: `EvaluationModelExecutionCompositionTests`
   11; Evaluation unit **285**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green
-  (local). **Next slice 2:** protected provider artifact persistence, fuller response
-  validation (schema parse gate). Wider AC-EVAL-24 matrix item remains `[>]` at Phase 6
+  (local). **Protected provider artifact persistence implemented locally:**
+  `IEvaluationProviderArtifactStore`, `PostgresEvaluationProviderArtifactStore`,
+  optional wire-in to `EvaluationModelExecutionService`; protected refs only.
+  Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4;
+  `EvaluationProviderArtifactStoreTests` 2; Evaluation unit **298**; `verify-dotnet.sh`
+  green (local). **Next slice 2:** fuller response validation (schema parse gate).
+  at `fb0c79fb` awaiting external review/CI. Wider AC-EVAL-24 matrix item remains `[>]` at Phase 6
   gate. **Do not** close slice 2, enable Worker processing, or wire real provider
   adapters until remainder + review.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
@@ -1436,6 +1454,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 store/authority binding (`2466f1be` + `b8b5efad` + `9ae78e36`) | approved | External review 2026-09-11 on `b8b5efad`: **0 Blocker / 0 High / 0 Medium**; closes `2466f1be` High (invocation/ownership provenance) + Medium (work-plan drift). Chain: `2466f1be` store-backed protected refs; `b8b5efad` admitted request reload, ownership/stable-ID reconciliation, deterministic invocation binding, Postgres full-chain verified-material load; `9ae78e36` work-plan confirmation. Focused: `EvaluationModelExecutionAuthorityVerifierTests` 5; `EvaluationModelDeterministicFactAuthorityLoaderTests` 4; `EvaluationModelExecutionServiceTests` 10; `EvaluationModelRequestComposerTests` 7; Evaluation unit 253. Hosted CI green at `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all six jobs; `9ae78e36` Documentation `34566378273`; Implementation `34566378258`. Worker disabled |
 | Phase 6 slice 2 model-boundary injection (`5c28e565` + `2db28254`) | approved | External review 2026-09-11 on `2db28254`: **0 Blocker / 0 High / 0 Medium**; closes `5c28e565` Medium (instruction substring blacklist). Chain: `5c28e565` structural confused-deputy suite; `2db28254` disclosure-only `EvaluationProhibitedModelOutputDisclosurePolicy`, describe-injection positives, service synthetic scenarios corrected. Focused: `EvaluationModelPromptInjectionAndConfusedDeputyTests` 8; `EvaluationModelExecutionServiceTests` 13; Evaluation unit 265; `verify-dotnet.sh` green (local). Hosted CI green at `2db28254`: Documentation `34573333205`; Implementation `34573333223` — all six jobs. Worker disabled |
 | Phase 6 slice 2 credential fail-closed adapter selection (`fb0c79fb`) | pending | Confirmation pass 2026-09-11 at `fb0c79fb`: fail-closed compose gates + non-secret credential binding admission; Production/Staging fail closed; Development/Testing synthetic gated on workload identity + frozen profile + catalog binding; fixtures aligned to profile constants. Focused: `EvaluationModelExecutionCompositionTests` 11; Evaluation unit 285; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green (local). Awaiting external review and hosted CI. Worker disabled |
+| Phase 6 slice 2 provider artifact persistence | pending | Implemented locally (uncommitted): `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; no raw model bodies. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 2; Evaluation unit 298; `verify-dotnet.sh` green (local). Awaiting commit, external review, hosted CI. Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** **Slice 2 not closed** — credential fail-closed external review/CI for `fb0c79fb`; protected provider artifact persistence; fuller response validation remain. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |

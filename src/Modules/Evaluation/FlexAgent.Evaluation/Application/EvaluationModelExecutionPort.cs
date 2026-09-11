@@ -180,6 +180,7 @@ public sealed class EvaluationModelExecutionService
         IEvaluationModelExecutionPort executionPort,
         IEvaluationRequestAuthorityStore requestAuthorityStore,
         IProtectedDeterministicOutputStore? deterministicOutputStore,
+        IEvaluationProviderArtifactStore? providerArtifactStore,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(procedure);
@@ -275,6 +276,24 @@ public sealed class EvaluationModelExecutionService
             requestDecision.Value,
             executionContext,
             cancellationToken);
+
+        if (providerArtifactStore is not null)
+        {
+            var persisted = await EvaluationProviderArtifactPersistence.TryPersistAsync(
+                executionContext,
+                authorizedCriterion,
+                requestDecision.Value,
+                result,
+                providerArtifactStore,
+                cancellationToken);
+            if (!persisted.Succeeded)
+            {
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    persisted.OutcomeCode,
+                    persisted.Field);
+            }
+        }
+
         if (result is EvaluationModelAttemptFailed failed)
         {
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(

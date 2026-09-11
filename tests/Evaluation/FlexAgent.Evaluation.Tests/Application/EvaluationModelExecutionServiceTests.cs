@@ -29,6 +29,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             deterministicOutputStore: null,
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -47,6 +48,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(AssistedFacts("""{"valid":true}""").Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -68,6 +70,7 @@ public sealed class EvaluationModelExecutionServiceTests
             capturingPort,
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -101,6 +104,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -130,6 +134,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -150,6 +155,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -170,6 +176,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new FailClosedEvaluationModelExecutionPort(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -189,6 +196,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(projection: null),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -209,6 +217,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -232,6 +241,7 @@ public sealed class EvaluationModelExecutionServiceTests
             capturingPort,
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -254,6 +264,7 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -274,10 +285,61 @@ public sealed class EvaluationModelExecutionServiceTests
             new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Successful_model_execution_persists_provider_artifact_when_store_is_configured()
+    {
+        var store = new RecordingProviderArtifactStore();
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1"),
+            verifiedDeterministicFacts: null,
+            CreateJudgmentContext(),
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            deterministicOutputStore: null,
+            store,
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(ProviderArtifactOutcomes.Succeeded, store.LastCommand!.Outcome);
+        Assert.StartsWith("prot.eval.model-req.", store.LastCommand.ProtectedRequestRef, StringComparison.Ordinal);
+        Assert.NotNull(store.LastCommand.ProtectedResponseRef);
+        Assert.StartsWith("prot.eval.model-res.", store.LastCommand.ProtectedResponseRef, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failed_model_execution_persists_bounded_outcome_before_returning_failure()
+    {
+        var store = new RecordingProviderArtifactStore();
+        var context = CreateJudgmentContext() with { SyntheticScenario = "timeout" };
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1"),
+            verifiedDeterministicFacts: null,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            deterministicOutputStore: null,
+            store,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(ProviderArtifactOutcomes.TimedOut, store.LastCommand!.Outcome);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.ProviderTimeout, store.LastCommand.FailureCategory);
+        Assert.StartsWith("prot.eval.model-req.", store.LastCommand.ProtectedRequestRef, StringComparison.Ordinal);
+        Assert.Null(store.LastCommand.ProtectedResponseRef);
     }
 
     private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json)
@@ -436,6 +498,24 @@ public sealed class EvaluationModelExecutionServiceTests
                 new VerifiedDeterministicOutputMaterial(
                     projection,
                     new ProtectedPayloadRefV1("prot.eval.fact.0002", projection.ContentDigest)));
+        }
+    }
+
+    private sealed class RecordingProviderArtifactStore : IEvaluationProviderArtifactStore
+    {
+        private readonly InMemoryEvaluationProviderArtifactStore _inner = new();
+
+        public int AppendCount { get; private set; }
+
+        public ProviderArtifactAppendCommand? LastCommand { get; private set; }
+
+        public Task<EvaluationDecision<Guid>> TryAppendAsync(
+            ProviderArtifactAppendCommand command,
+            CancellationToken cancellationToken)
+        {
+            AppendCount++;
+            LastCommand = command;
+            return _inner.TryAppendAsync(command, cancellationToken);
         }
     }
 }
