@@ -31,6 +31,15 @@ public interface IProtectedDeterministicOutputStore
         string expectedCriterionId,
         string expectedCriterionVersion,
         CancellationToken cancellationToken);
+
+    Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+        Guid organizationId,
+        Guid requestId,
+        Guid deterministicAttemptId,
+        string expectedContentDigest,
+        string expectedCriterionId,
+        string expectedCriterionVersion,
+        CancellationToken cancellationToken);
 }
 
 public sealed record ProtectedDeterministicOutputPersistCommand(

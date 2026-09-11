@@ -8,7 +8,8 @@ public static class EvaluationModelRequestComposer
     public static EvaluationDecision<EvaluationModelRequestV1> TryCompose(
         EvaluationProcedureCriterionV1 authorizedCriterion,
         EvaluationModelExecutionContext context,
-        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts)
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
+        IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>? storeBackedDeterministicFacts)
     {
         ArgumentNullException.ThrowIfNull(authorizedCriterion);
         ArgumentNullException.ThrowIfNull(context);
@@ -32,8 +33,8 @@ public static class EvaluationModelRequestComposer
         if (authorizedCriterion.EvaluatorMode == EvaluatorModes.AgentAssisted)
         {
             var deterministicFactsDecision = TryBuildVerifiedDeterministicFacts(
-                context,
-                verifiedDeterministicFacts);
+                verifiedDeterministicFacts,
+                storeBackedDeterministicFacts);
             if (!deterministicFactsDecision.Succeeded || deterministicFactsDecision.Value is null)
             {
                 return EvaluationDecision<EvaluationModelRequestV1>.Fail(
@@ -43,7 +44,7 @@ public static class EvaluationModelRequestComposer
 
             deterministicFacts = deterministicFactsDecision.Value;
         }
-        else if (context.DeterministicFactProtectedRefs is { Count: > 0 }
+        else if (storeBackedDeterministicFacts is { Count: > 0 }
                  || context.DeterministicInvocationId is not null
                  || !string.IsNullOrWhiteSpace(context.DeterministicInvocationStableId))
         {
@@ -74,22 +75,14 @@ public static class EvaluationModelRequestComposer
     }
 
     private static EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>> TryBuildVerifiedDeterministicFacts(
-        EvaluationModelExecutionContext context,
-        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts)
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
+        IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>? storeBackedDeterministicFacts)
     {
-        if (context.DeterministicInvocationId is null
-            || string.IsNullOrWhiteSpace(context.DeterministicInvocationStableId)
-            || verifiedDeterministicFacts is null
+        if (verifiedDeterministicFacts is null
             || verifiedDeterministicFacts.Count == 0
-            || context.DeterministicFactProtectedRefs is null
-            || context.DeterministicFactProtectedRefs.Count == 0)
-        {
-            return EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>>.Fail(
-                EvaluationFailureCodes.InvalidJudgment,
-                "deterministic_facts");
-        }
-
-        if (context.DeterministicFactProtectedRefs.Count != verifiedDeterministicFacts.Count)
+            || storeBackedDeterministicFacts is null
+            || storeBackedDeterministicFacts.Count == 0
+            || storeBackedDeterministicFacts.Count != verifiedDeterministicFacts.Count)
         {
             return EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>>.Fail(
                 EvaluationFailureCodes.InvalidJudgment,
@@ -101,15 +94,19 @@ public static class EvaluationModelRequestComposer
                      pair => pair.Key,
                      StringComparer.Ordinal))
         {
-            if (!context.DeterministicFactProtectedRefs.TryGetValue(sourceId, out var protectedRef))
+            if (!storeBackedDeterministicFacts.TryGetValue(sourceId, out var material))
             {
                 return EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>>.Fail(
                     EvaluationFailureCodes.InvalidJudgment,
                     "deterministic_facts");
             }
 
-            if (!string.Equals(verifiedFact.SourceId, sourceId, StringComparison.Ordinal)
-                || !string.Equals(protectedRef.ContentDigest, verifiedFact.ContentDigest, StringComparison.Ordinal))
+            if (!string.Equals(verifiedFact.SourceId, material.Projection.SourceId, StringComparison.Ordinal)
+                || !string.Equals(verifiedFact.ContentDigest, material.Projection.ContentDigest, StringComparison.Ordinal)
+                || !string.Equals(
+                    verifiedFact.ContentDigest,
+                    material.ProtectedRef.ContentDigest,
+                    StringComparison.Ordinal))
             {
                 return EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>>.Fail(
                     EvaluationFailureCodes.InvalidJudgment,
@@ -117,12 +114,12 @@ public static class EvaluationModelRequestComposer
             }
 
             facts.Add(new EvaluationModelDeterministicFactV1(
-                verifiedFact.SourceId,
-                verifiedFact.ContentDigest,
-                protectedRef));
+                material.Projection.SourceId,
+                material.Projection.ContentDigest,
+                material.ProtectedRef));
         }
 
-        foreach (var sourceId in context.DeterministicFactProtectedRefs.Keys)
+        foreach (var sourceId in storeBackedDeterministicFacts.Keys)
         {
             if (!verifiedDeterministicFacts.ContainsKey(sourceId))
             {

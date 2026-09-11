@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.Contracts.Manifest;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Postgres;
@@ -146,6 +147,26 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         string expectedCriterionVersion,
         CancellationToken cancellationToken)
     {
+        var material = await TryLoadVerifiedMaterialAsync(
+            organizationId,
+            requestId,
+            deterministicAttemptId,
+            expectedContentDigest,
+            expectedCriterionId,
+            expectedCriterionVersion,
+            cancellationToken);
+        return material?.Projection;
+    }
+
+    public async Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+        Guid organizationId,
+        Guid requestId,
+        Guid deterministicAttemptId,
+        string expectedContentDigest,
+        string expectedCriterionId,
+        string expectedCriterionVersion,
+        CancellationToken cancellationToken)
+    {
         if (organizationId == Guid.Empty
             || requestId == Guid.Empty
             || deterministicAttemptId == Guid.Empty
@@ -196,7 +217,14 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             deterministicAttemptId,
             row.output_utf8,
             row.content_digest);
-        return projection.Succeeded ? projection.Value : null;
+        if (!projection.Succeeded || projection.Value is null)
+        {
+            return null;
+        }
+
+        return new VerifiedDeterministicOutputMaterial(
+            projection.Value,
+            new ProtectedPayloadRefV1(row.protected_ref, row.content_digest));
     }
 
     private sealed record PersistedPayloadRow(

@@ -166,5 +166,15 @@ internal static class DeterministicPayloadTestSupport
             string expectedCriterionVersion,
             CancellationToken cancellationToken) =>
             Task.FromResult<EvaluationSafeFactProjection?>(null);
+
+        public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+            Guid organizationId,
+            Guid requestId,
+            Guid deterministicAttemptId,
+            string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<VerifiedDeterministicOutputMaterial?>(null);
     }
 }

@@ -12,6 +12,7 @@ public sealed class EvaluationModelExecutionServiceTests
     private static readonly EvaluationProcedureV1 Procedure = EvaluationFixtures.LoadSyntheticProcedure();
     private static readonly EvaluationModelExecutionService Service = new();
     private static readonly Guid EvaluationId = Guid.Parse("11111111-1111-4111-8111-111111111115");
+    private static readonly Guid RequestId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab");
     private static readonly Guid EvidenceId = Guid.Parse("22222222-2222-4222-8222-222222222222");
     private static readonly Guid DeterministicInvocationId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
@@ -24,6 +25,7 @@ public sealed class EvaluationModelExecutionServiceTests
             verifiedDeterministicFacts: null,
             CreateJudgmentContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            deterministicOutputStore: null,
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -40,6 +42,7 @@ public sealed class EvaluationModelExecutionServiceTests
             verifiedDeterministicFacts: null,
             CreateAssistedContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            new FakeOutputStore(AssistedFacts("""{"valid":true}""").Values.Single()),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -48,7 +51,7 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
-    public async Task Agent_assisted_execution_succeeds_and_passes_verified_facts_to_port()
+    public async Task Agent_assisted_execution_succeeds_and_passes_store_backed_facts_to_port()
     {
         var facts = AssistedFacts("""{"valid":true}""");
         var capturingPort = new CapturingEvaluationModelExecutionPort(new SyntheticEvaluationModelExecutionAdapter());
@@ -59,6 +62,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(),
             capturingPort,
+            new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
@@ -69,9 +73,8 @@ public sealed class EvaluationModelExecutionServiceTests
         Assert.NotNull(capturingPort.LastRequest);
         Assert.NotNull(capturingPort.LastRequest!.DeterministicFacts);
         Assert.Single(capturingPort.LastRequest.DeterministicFacts!);
-        Assert.Equal("detfact.synthetic.schema", capturingPort.LastRequest.DeterministicFacts![0].SourceId);
-        Assert.Equal("eval.instructions.p0.v1", capturingPort.LastRequest.InstructionVersion);
-        Assert.Equal("crit.assisted.structure", capturingPort.LastRequest.CriterionId);
+        Assert.Equal(facts.Keys.Single(), capturingPort.LastRequest.DeterministicFacts![0].SourceId);
+        Assert.Equal("prot.eval.fact.0002", capturingPort.LastRequest.DeterministicFacts![0].ProtectedRef.ProtectedRef);
     }
 
     [Fact]
@@ -85,6 +88,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(syntheticScenario: "wrong_criterion"),
             new SyntheticEvaluationModelExecutionAdapter(),
+            new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -103,6 +107,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(),
             new FailClosedEvaluationModelExecutionPort(),
+            new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -110,28 +115,21 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
-    public async Task Extra_unverified_deterministic_fact_fails_before_provider_call()
+    public async Task Missing_store_material_fails_before_provider_call()
     {
         var facts = AssistedFacts("""{"valid":true}""");
-        var context = CreateAssistedContext() with
-        {
-            DeterministicFactProtectedRefs = new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal)
-            {
-                ["detfact.synthetic.schema"] = new ProtectedPayloadRefV1("prot.eval.fact.0002", new string('c', 64)),
-                ["detfact.synthetic.forged"] = new ProtectedPayloadRefV1("prot.eval.fact.forged", new string('f', 64)),
-            },
-        };
 
         var result = await Service.TryExecuteAsync(
             Procedure,
             new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
             facts,
-            context,
+            CreateAssistedContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            new FakeOutputStore(projection: null),
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
         Assert.Equal("deterministic_facts", result.Field);
     }
 
@@ -146,27 +144,34 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(syntheticScenario: "insufficient"),
             new SyntheticEvaluationModelExecutionAdapter(),
+            new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
         Assert.Equal(CriterionStatuses.InsufficientEvidence, result.Value!.Status);
     }
 
-    private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json) =>
-        new(StringComparer.Ordinal)
+    private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json)
+    {
+        var digest = new string('c', 64);
+        var sourceId = EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(DeterministicInvocationId);
+        return new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal)
         {
-            ["detfact.synthetic.schema"] = new(
-                "detfact.synthetic.schema",
-                "detfact.synthetic.schema.v1",
-                new string('c', 64),
+            [sourceId] = new(
+                sourceId,
+                EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(digest),
+                digest,
                 Encoding.UTF8.GetBytes(json)),
         };
+    }
 
     private static EvaluationModelExecutionContext CreateAssistedContext(string? syntheticScenario = null)
     {
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId);
         return new EvaluationModelExecutionContext(
             OwnershipRef(),
+            EvaluationFixtures.Ownership(),
+            RequestId,
             "ereq.synthetic.0001",
             "eatt.synthetic.0001",
             EvaluationId,
@@ -182,12 +187,6 @@ public sealed class EvaluationModelExecutionServiceTests
             {
                 [evidenceStableId] = EvidenceId,
             },
-            new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal)
-            {
-                ["detfact.synthetic.schema"] = new ProtectedPayloadRefV1(
-                    "prot.eval.fact.0002",
-                    new string('c', 64)),
-            },
             DeterministicInvocationId,
             "dinv.synthetic.0002",
             syntheticScenario);
@@ -196,6 +195,8 @@ public sealed class EvaluationModelExecutionServiceTests
     private static EvaluationModelExecutionContext CreateJudgmentContext() =>
         new(
             OwnershipRef(),
+            EvaluationFixtures.Ownership(),
+            RequestId,
             "ereq.synthetic.0002",
             "eatt.synthetic.0002",
             EvaluationId,
@@ -211,7 +212,6 @@ public sealed class EvaluationModelExecutionServiceTests
             {
                 [EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId)] = EvidenceId,
             },
-            null,
             null,
             null,
             null);
@@ -235,6 +235,48 @@ public sealed class EvaluationModelExecutionServiceTests
         {
             LastRequest = request;
             return await inner.ExecuteAsync(request, context, cancellationToken);
+        }
+    }
+
+    private sealed class FakeOutputStore(EvaluationSafeFactProjection? projection) : IProtectedDeterministicOutputStore
+    {
+        public Task<EvaluationDecision<bool>> TryPersistAsync(
+            ProtectedDeterministicOutputPersistCommand command,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(EvaluationDecision<bool>.Ok(true));
+
+        public Task<EvaluationSafeFactProjection?> TryLoadProjectionAsync(
+            Guid organizationId,
+            Guid requestId,
+            Guid deterministicAttemptId,
+            string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(projection);
+
+        public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+            Guid organizationId,
+            Guid requestId,
+            Guid deterministicAttemptId,
+            string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
+            CancellationToken cancellationToken)
+        {
+            if (projection is null
+                || deterministicAttemptId != DeterministicInvocationId
+                || !string.Equals(expectedCriterionId, "crit.assisted.structure", StringComparison.Ordinal)
+                || !string.Equals(expectedCriterionVersion, "crit.assisted.structure.v1", StringComparison.Ordinal)
+                || !string.Equals(expectedContentDigest, projection.ContentDigest, StringComparison.Ordinal))
+            {
+                return Task.FromResult<VerifiedDeterministicOutputMaterial?>(null);
+            }
+
+            return Task.FromResult<VerifiedDeterministicOutputMaterial?>(
+                new VerifiedDeterministicOutputMaterial(
+                    projection,
+                    new ProtectedPayloadRefV1("prot.eval.fact.0002", projection.ContentDigest)));
         }
     }
 }

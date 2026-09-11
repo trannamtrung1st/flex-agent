@@ -10,39 +10,42 @@ namespace FlexAgent.Evaluation.Tests.Application;
 public sealed class EvaluationModelRequestComposerTests
 {
     private static readonly EvaluationProcedureV1 Procedure = EvaluationFixtures.LoadSyntheticProcedure();
+    private static readonly Guid DeterministicAttemptId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
     [Fact]
-    public void Compose_builds_deterministic_facts_from_verified_authority_only()
+    public void Compose_builds_deterministic_facts_from_store_backed_authority_only()
     {
         var verified = VerifiedFacts("""{"valid":true}""");
-        var context = CreateAssistedContext(ProtectedRefs(verified));
+        var storeBacked = StoreBacked(verified);
 
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            context,
-            verified);
+            CreateAssistedContext(),
+            verified,
+            storeBacked);
 
         Assert.True(result.Succeeded, result.OutcomeCode);
         Assert.NotNull(result.Value!.DeterministicFacts);
         Assert.Single(result.Value.DeterministicFacts!);
-        Assert.Equal("detfact.synthetic.schema", result.Value.DeterministicFacts![0].SourceId);
-        Assert.Equal(new string('c', 64), result.Value.DeterministicFacts![0].ContentDigest);
+        Assert.Equal(verified.Keys.Single(), result.Value.DeterministicFacts![0].SourceId);
         Assert.Equal("prot.eval.fact.0002", result.Value.DeterministicFacts![0].ProtectedRef.ProtectedRef);
     }
 
     [Fact]
-    public void Extra_unverified_deterministic_fact_fails_before_compose()
+    public void Extra_store_backed_fact_without_verified_entry_fails_before_compose()
     {
         var verified = VerifiedFacts("""{"valid":true}""");
-        var protectedRefs = ProtectedRefs(verified);
-        protectedRefs["detfact.synthetic.forged"] = new ProtectedPayloadRefV1(
-            "prot.eval.fact.forged",
-            new string('f', 64));
+        var storeBacked = StoreBacked(verified);
+        storeBacked[EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(Guid.CreateVersion7())] =
+            new VerifiedDeterministicOutputMaterial(
+                verified.Values.Single(),
+                new ProtectedPayloadRefV1("prot.eval.fact.forged", new string('f', 64)));
 
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(protectedRefs),
-            verified);
+            CreateAssistedContext(),
+            verified,
+            storeBacked);
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -50,15 +53,15 @@ public sealed class EvaluationModelRequestComposerTests
     }
 
     [Fact]
-    public void Missing_verified_deterministic_fact_fails_before_compose()
+    public void Missing_store_backed_fact_for_verified_entry_fails_before_compose()
     {
         var verified = VerifiedFacts("""{"valid":true}""");
-        var protectedRefs = new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal);
 
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(protectedRefs),
-            verified);
+            CreateAssistedContext(),
+            verified,
+            storeBackedDeterministicFacts: new Dictionary<string, VerifiedDeterministicOutputMaterial>(StringComparer.Ordinal));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -66,20 +69,22 @@ public sealed class EvaluationModelRequestComposerTests
     }
 
     [Fact]
-    public void Forged_protected_ref_digest_fails_before_compose()
+    public void Forged_store_backed_protected_ref_digest_fails_before_compose()
     {
         var verified = VerifiedFacts("""{"valid":true}""");
-        var protectedRefs = new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal)
+        var sourceId = verified.Keys.Single();
+        var storeBacked = new Dictionary<string, VerifiedDeterministicOutputMaterial>(StringComparer.Ordinal)
         {
-            ["detfact.synthetic.schema"] = new ProtectedPayloadRefV1(
-                "prot.eval.fact.0002",
-                new string('f', 64)),
+            [sourceId] = new VerifiedDeterministicOutputMaterial(
+                verified[sourceId],
+                new ProtectedPayloadRefV1("prot.eval.fact.0002", new string('f', 64))),
         };
 
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(protectedRefs),
-            verified);
+            CreateAssistedContext(),
+            verified,
+            storeBacked);
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -92,7 +97,7 @@ public sealed class EvaluationModelRequestComposerTests
         var verified = VerifiedFacts("""{"valid":true}""");
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(
             Guid.Parse("22222222-2222-4222-8222-222222222222"));
-        var context = CreateAssistedContext(ProtectedRefs(verified)) with
+        var context = CreateAssistedContext() with
         {
             PermittedEvidence =
             [
@@ -104,7 +109,8 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
-            verified);
+            verified,
+            StoreBacked(verified));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -117,7 +123,7 @@ public sealed class EvaluationModelRequestComposerTests
         var verified = VerifiedFacts("""{"valid":true}""");
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(
             Guid.Parse("22222222-2222-4222-8222-222222222222"));
-        var context = CreateAssistedContext(ProtectedRefs(verified)) with
+        var context = CreateAssistedContext() with
         {
             PermittedEvidenceIdBindings = new Dictionary<string, Guid>(StringComparer.Ordinal)
             {
@@ -129,7 +135,8 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
-            verified);
+            verified,
+            StoreBacked(verified));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -142,7 +149,7 @@ public sealed class EvaluationModelRequestComposerTests
         var verified = VerifiedFacts("""{"valid":true}""");
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(
             Guid.Parse("22222222-2222-4222-8222-222222222222"));
-        var context = CreateAssistedContext(ProtectedRefs(verified)) with
+        var context = CreateAssistedContext() with
         {
             PermittedEvidenceIdBindings = new Dictionary<string, Guid>(StringComparer.Ordinal),
             PermittedEvidence =
@@ -154,7 +161,8 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
-            verified);
+            verified,
+            StoreBacked(verified));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
@@ -165,40 +173,42 @@ public sealed class EvaluationModelRequestComposerTests
         Procedure.Criteria.Single(item =>
             string.Equals(item.CriterionId, "crit.assisted.structure", StringComparison.Ordinal));
 
-    private static Dictionary<string, EvaluationSafeFactProjection> VerifiedFacts(string json) =>
-        new(StringComparer.Ordinal)
+    private static Dictionary<string, EvaluationSafeFactProjection> VerifiedFacts(string json)
+    {
+        var digest = new string('c', 64);
+        var sourceId = EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(DeterministicAttemptId);
+        return new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal)
         {
-            ["detfact.synthetic.schema"] = new(
-                "detfact.synthetic.schema",
-                "detfact.synthetic.schema.v1",
-                new string('c', 64),
+            [sourceId] = new(
+                sourceId,
+                EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(digest),
+                digest,
                 Encoding.UTF8.GetBytes(json)),
         };
-
-    private static Dictionary<string, ProtectedPayloadRefV1> ProtectedRefs(
-        IReadOnlyDictionary<string, EvaluationSafeFactProjection> verifiedFacts)
-    {
-        var protectedRefs = new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal);
-        foreach (var (sourceId, fact) in verifiedFacts)
-        {
-            protectedRefs[sourceId] = new ProtectedPayloadRefV1("prot.eval.fact.0002", fact.ContentDigest);
-        }
-
-        return protectedRefs;
     }
 
-    private static EvaluationModelExecutionContext CreateAssistedContext(
-        IReadOnlyDictionary<string, ProtectedPayloadRefV1> protectedRefs)
+    private static Dictionary<string, VerifiedDeterministicOutputMaterial> StoreBacked(
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection> verifiedFacts)
+    {
+        var storeBacked = new Dictionary<string, VerifiedDeterministicOutputMaterial>(StringComparer.Ordinal);
+        foreach (var (sourceId, fact) in verifiedFacts)
+        {
+            storeBacked[sourceId] = new VerifiedDeterministicOutputMaterial(
+                fact,
+                new ProtectedPayloadRefV1("prot.eval.fact.0002", fact.ContentDigest));
+        }
+
+        return storeBacked;
+    }
+
+    private static EvaluationModelExecutionContext CreateAssistedContext()
     {
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(
             Guid.Parse("22222222-2222-4222-8222-222222222222"));
         return new EvaluationModelExecutionContext(
-            new SessionOwnershipRefV1(
-                "org.synthetic.demo",
-                "act.synthetic.demo",
-                "part.synthetic.demo",
-                "att.synthetic.demo",
-                "sess.synthetic.demo"),
+            OwnershipRef(),
+            EvaluationFixtures.Ownership(),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"),
             "ereq.synthetic.0001",
             "eatt.synthetic.0001",
             Guid.Parse("11111111-1111-4111-8111-111111111115"),
@@ -214,8 +224,15 @@ public sealed class EvaluationModelRequestComposerTests
             {
                 [evidenceStableId] = Guid.Parse("22222222-2222-4222-8222-222222222222"),
             },
-            protectedRefs,
-            Guid.Parse("33333333-3333-4333-8333-333333333333"),
+            DeterministicAttemptId,
             "dinv.synthetic.0002");
     }
+
+    private static SessionOwnershipRefV1 OwnershipRef() =>
+        new(
+            "org.synthetic.demo",
+            "act.synthetic.demo",
+            "part.synthetic.demo",
+            "att.synthetic.demo",
+            "sess.synthetic.demo");
 }

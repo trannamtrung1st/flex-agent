@@ -215,5 +215,15 @@ public sealed class DeterministicFactContextLoaderTests
 
             return Task.FromResult<EvaluationSafeFactProjection?>(projection);
         }
+
+        public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+            Guid organizationId,
+            Guid requestId,
+            Guid deterministicAttemptId,
+            string expectedContentDigest,
+            string expectedCriterionId,
+            string expectedCriterionVersion,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<VerifiedDeterministicOutputMaterial?>(null);
     }
 }

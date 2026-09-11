@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T10:20:00+07:00
+updated: 2026-09-11T10:45:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -839,6 +839,19 @@ approved layout families and donors already exist.
   schema/deterministic invocation), deterministic conflict (`"valid":false` fact +
   `satisfied`), trusted draft mapping, and `CriterionJudgmentValidator`. Full
   schema/citation/aggregation matrix deferred to slice 2+.
+- [>] Obtain verified deterministic-fact protected refs from
+  `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
+  **In progress (uncommitted):** `VerifiedDeterministicOutputMaterial` +
+  `TryLoadVerifiedMaterialAsync`; `EvaluationModelDeterministicFactAuthorityLoader`
+  validates store projection/digest/bytes and protected-ref digest binding;
+  `EvaluationModelExecutionContext` drops caller-supplied protected refs; assisted
+  path loads store-backed facts before compose. Focused:
+  `EvaluationModelDeterministicFactAuthorityLoaderTests` 3;
+  `EvaluationModelExecutionServiceTests` 8 (includes missing-store fail-closed);
+  `EvaluationModelRequestComposerTests` 7 (store-backed materials);
+  Evaluation unit 245; `verify-dotnet.sh` green (local). Remaining slice 2:
+  prompt-injection/confused-deputy suites, credential fail-closed adapter selection,
+  protected provider artifact persistence, fuller response validation.
 - [ ] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
@@ -1158,20 +1171,21 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: begin **Phase 6 slice 2** — prompt-injection/confused-deputy suites,
-  credential fail-closed adapter selection, protected artifact persistence, fuller
-  response validation, and obtaining `DeterministicFactProtectedRefs` from the
-  deterministic-output store rather than accepting arbitrary pointer strings
-  before any real adapter dereferences them (review carry-forward from slice 1
-  approval; not a slice-1 blocker). **Phase 6 slice 1 is closed and approved**
-  through chain `8e0a5fc0` → `7bc3ff4f` → `78190660` (external review
-  2026-09-11: **0 Blocker / 0 High / 0 Medium**). Hosted CI green at
-  `78190660`: Documentation `34554419421`; Implementation `34554419477` — all six
-  jobs. Focused verification at closure: `EvaluationModelRequestComposerTests` 7;
-  `EvaluationModelExecutionServiceTests` 7;
-  `EvaluationModelResponseValidatorTests` 5; `AgentEvaluatorOrchestrationValidatorTests` 5;
-  Evaluation unit 242; contract 269; `verify-dotnet.sh` green. Worker processing
-  and `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
+- **Phase 6 slice 2 in progress (uncommitted WIP).** Store-backed deterministic-
+  fact authority increment landed locally: protected refs no longer accepted from
+  caller context; assisted execution loads verified material from
+  `IProtectedDeterministicOutputStore` via
+  `EvaluationModelDeterministicFactAuthorityLoader` before compose. Focused:
+  `EvaluationModelDeterministicFactAuthorityLoaderTests` 3;
+  `EvaluationModelExecutionServiceTests` 8; `EvaluationModelRequestComposerTests` 7;
+  Evaluation unit 245; `verify-dotnet.sh` green (local). **Remaining slice 2:**
+  prompt-injection/confused-deputy suites, credential fail-closed adapter
+  selection, protected provider artifact persistence, fuller response validation
+  (schema parse gate). **Phase 6 slice 1 is closed and approved** through chain
+  `8e0a5fc0` → `7bc3ff4f` → `78190660` (external review 2026-09-11: **0 Blocker /
+  0 High / 0 Medium**). Hosted CI green at `78190660`: Documentation
+  `34554419421`; Implementation `34554419477`. Worker processing and
+  `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8

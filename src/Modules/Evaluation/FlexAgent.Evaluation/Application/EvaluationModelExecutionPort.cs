@@ -153,6 +153,7 @@ public sealed class EvaluationModelExecutionService
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
         EvaluationModelExecutionContext executionContext,
         IEvaluationModelExecutionPort executionPort,
+        IProtectedDeterministicOutputStore? deterministicOutputStore,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(procedure);
@@ -179,10 +180,40 @@ public sealed class EvaluationModelExecutionService
         }
 
         var authorizedCriterion = orchestration.Value;
+
+        IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>? storeBackedDeterministicFacts = null;
+        if (authorizedCriterion.EvaluatorMode == EvaluatorModes.AgentAssisted)
+        {
+            if (deterministicOutputStore is null)
+            {
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    EvaluationFailureCodes.InvalidJudgment,
+                    "deterministic_facts");
+            }
+
+            var authority = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
+                executionContext.OwnershipScope,
+                executionContext.RequestId,
+                authorizedCriterion.CriterionId,
+                authorizedCriterion.CriterionVersion,
+                verifiedDeterministicFacts!,
+                deterministicOutputStore,
+                cancellationToken);
+            if (!authority.Succeeded || authority.Value is null)
+            {
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    authority.OutcomeCode,
+                    authority.Field);
+            }
+
+            storeBackedDeterministicFacts = authority.Value;
+        }
+
         var requestDecision = EvaluationModelRequestComposer.TryCompose(
             authorizedCriterion,
             executionContext,
-            verifiedDeterministicFacts);
+            verifiedDeterministicFacts,
+            storeBackedDeterministicFacts);
         if (!requestDecision.Succeeded || requestDecision.Value is null)
         {
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(
