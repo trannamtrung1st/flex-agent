@@ -2,8 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T14:30:00+07:00
-phase6_slice2_evidence_source: in-progress-evidence-source-injection-suite
+updated: 2026-09-11T14:35:00+07:00
+phase6_slice2_evidence_source: committed-8773c4f9-evidence-source-injection-suite
 phase6_slice2_injection: approved-5c28e565-2db28254
 phase6_slice2_injection_review: approved-2db28254-0-blocker-0-high-0-medium
 phase6_slice2_injection_ci: pending-34573333205-green-34573333223-in-progress
@@ -849,13 +849,13 @@ approved layout families and donors already exist.
   `EvaluationModelExecutionServiceTests` 13; Evaluation unit 265; `verify-dotnet.sh`
   green (local). Hosted CI at `2db28254`: Documentation `34573333205` green;
   Implementation `34573333223` pending final completion (`changes`, `oidc` green;
-  **Model-boundary portion approved; Evidence-source portion in progress:**
-  `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9 — submission/transcript/
-  configuration hostile text verifies as untrusted data; completion seals with
-  authoritative handoff; structural confused-deputy negatives (ownership, source
-  type, criterion). Evaluation unit 274; `verify-dotnet.sh` green (local).
-  **Remainder:** credential fail-closed; provider artifact persistence; fuller
-  response validation.
+  `.NET`, `web` running at review). **Model-boundary approved. Evidence-source
+  committed at `8773c4f9`:** `EvidenceSourcePromptInjectionAndConfusedDeputyTests`
+  9 — submission/transcript/configuration hostile text verifies as untrusted data;
+  completion seals with authoritative handoff; structural confused-deputy negatives
+  (ownership, source type, criterion). Evaluation unit 274; `verify-dotnet.sh` green
+  (local). **Remainder:** credential fail-closed; provider artifact persistence;
+  fuller response validation.
 - [>] Independently validate every model response for schema, exact criterion
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,
@@ -1213,10 +1213,11 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `EvaluationModelExecutionServiceTests` 13; Evaluation unit **265**;
   `verify-dotnet.sh` green (local). Hosted CI at `2db28254`: Documentation
   `34573333205` green; Implementation `34573333223` pending final completion.
-  **Next slice 2:** credential fail-closed adapter selection, protected provider
-  artifact persistence, fuller response validation (schema parse gate). Evidence-source
-  injection at locator/completion (`EvidenceSourcePromptInjectionAndConfusedDeputyTests`
-  9) committed locally. **Do not** close slice 2, enable Worker processing, or
+  Evidence-source injection at locator/completion **committed at `8773c4f9`**
+  (`EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; Evaluation unit 274;
+  `verify-dotnet.sh` green). **Next slice 2:** credential fail-closed adapter
+  selection, protected provider artifact persistence, fuller response validation
+  (schema parse gate). **Do not** close slice 2, enable Worker processing, or
   Production/Staging model adapters yet.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
@@ -1402,7 +1403,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 4 runner negatives + Worker lane scaffold (`4acfa4b` + `a179b085` + `0c63e403`) | approved | External review 2026-09-10 on `4acfa4b`: **0 Blocker / 0 High / 0 Medium**. Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Hosted at `4acfa4b`: Documentation `34495832537` green; Implementation `34495832645` **failed** on unrelated enrollment admission window-boundary race. Corrective `a179b085`: `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window counter insert; `0c63e403` + `22c17489` record confirmation and external approval. External review on corrective chain: **0 Blocker / 0 High / 0 Medium**. Hosted at `a179b085`: Documentation `34503812220` green; Implementation `34503812163` green — all six jobs. Local: `verify-dotnet.sh` 2337 passed / 4 skipped. Phase 5 slice 4 closed. Worker disabled |
 | Phase 6 slice 1 model execution foundation (`8e0a5fc0` + `7bc3ff4f` + `78190660`) | approved | External review 2026-09-11 on `78190660`: **0 Blocker / 0 High / 0 Medium**. Chain: `8e0a5fc0` canonical model request/response contracts + orchestration gates + synthetic adapter; `7bc3ff4f` closes criterion/provenance override and parallel port contract; `78190660` closes bidirectional verified-fact/protected-ref and permitted Evidence set reconciliation. Focused: `EvaluationModelRequestComposerTests` 7; `EvaluationModelExecutionServiceTests` 7; `EvaluationModelResponseValidatorTests` 5; `AgentEvaluatorOrchestrationValidatorTests` 5; Evaluation unit 242; contract 269; `verify-dotnet.sh` green. Hosted CI green at `78190660`: Documentation `34554419421`; Implementation `34554419477` — all six jobs including `supply-chain` and `oci-oidc-smoke`. Slice 2 carry-forward: obtain protected refs from deterministic-output store before real adapter dereference. Worker disabled |
 | Phase 6 slice 2 store/authority binding (`2466f1be` + `b8b5efad` + `9ae78e36`) | approved | External review 2026-09-11 on `b8b5efad`: **0 Blocker / 0 High / 0 Medium**; closes `2466f1be` High (invocation/ownership provenance) + Medium (work-plan drift). Chain: `2466f1be` store-backed protected refs; `b8b5efad` admitted request reload, ownership/stable-ID reconciliation, deterministic invocation binding, Postgres full-chain verified-material load; `9ae78e36` work-plan confirmation. Focused: `EvaluationModelExecutionAuthorityVerifierTests` 5; `EvaluationModelDeterministicFactAuthorityLoaderTests` 4; `EvaluationModelExecutionServiceTests` 10; `EvaluationModelRequestComposerTests` 7; Evaluation unit 253. Hosted CI green at `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all six jobs; `9ae78e36` Documentation `34566378273`; Implementation `34566378258`. Worker disabled |
-| Phase 6 slice 2 model-boundary injection (`5c28e565` + `2db28254`) | approved | External review 2026-09-11 on `2db28254`: **0 Blocker / 0 High / 0 Medium**; closes `5c28e565` Medium (instruction substring blacklist). Chain: `5c28e565` structural confused-deputy suite; `2db28254` disclosure-only `EvaluationProhibitedModelOutputDisclosurePolicy`, describe-injection positives, service synthetic scenarios corrected. Focused: `EvaluationModelPromptInjectionAndConfusedDeputyTests` 8; `EvaluationModelExecutionServiceTests` 13; Evaluation unit 265; `verify-dotnet.sh` green (local). Hosted CI at `2db28254`: Documentation `34573333205` green; Implementation `34573333223` pending final completion. **Slice 2 not closed** — Evidence-source injection at locator/completion, credential fail-closed, provider artifact persistence, fuller response validation remain. Worker disabled |
+| Phase 6 slice 2 model-boundary injection (`5c28e565` + `2db28254`) | approved | External review 2026-09-11 on `2db28254`: **0 Blocker / 0 High / 0 Medium**; closes `5c28e565` Medium (instruction substring blacklist). Chain: `5c28e565` structural confused-deputy suite; `2db28254` disclosure-only `EvaluationProhibitedModelOutputDisclosurePolicy`, describe-injection positives, service synthetic scenarios corrected. Focused: `EvaluationModelPromptInjectionAndConfusedDeputyTests` 8; `EvaluationModelExecutionServiceTests` 13; Evaluation unit 265; `verify-dotnet.sh` green (local). Hosted CI at `2db28254`: Documentation `34573333205` green; Implementation `34573333223` pending final completion. Worker disabled |
+| Phase 6 slice 2 evidence-source injection (`8773c4f9`) | committed | Evidence-source prompt-injection/confused-deputy at locator/completion layers: `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9 (submission/transcript/configuration positives; completion handoff seal; ownership/source-type/criterion/hidden-pointer negatives). No production code change — structural authority unchanged; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI not independently observed at confirmation. **Slice 2 not closed** — credential fail-closed, provider artifact persistence, fuller response validation remain. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
