@@ -121,7 +121,7 @@ public static class CriterionJudgmentValidator
     private static int RuneCount(string value) => value.EnumerateRunes().Count();
 
     private static bool ContainsProtectedContent(string? value) =>
-        EvaluationUntrustedModelOutputPolicy.ContainsProhibitedContent(value);
+        EvaluationProhibitedModelOutputDisclosurePolicy.ContainsProhibitedDisclosure(value);
 }
 
 public sealed record CriterionJudgmentDraft(

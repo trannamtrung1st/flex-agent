@@ -242,17 +242,36 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
-    public async Task Model_rationale_injection_fails_before_accepting_judgment()
+    public async Task Model_rationale_describing_injection_succeeds_when_authority_unchanged()
     {
         var facts = AssistedFacts("""{"valid":true}""");
-        var injectionPort = new SyntheticEvaluationModelExecutionAdapter();
 
         var result = await Service.TryExecuteAsync(
             Procedure,
             new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
             facts,
             CreateAssistedContext(syntheticScenario: "injection_rationale"),
-            injectionPort,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(EvaluatorModes.AgentAssisted, result.Value!.EvaluatorMode);
+        Assert.Equal(DeterministicInvocationId, result.Value.DeterministicInvocationId);
+    }
+
+    [Fact]
+    public async Task Model_hidden_prompt_disclosure_fails_before_accepting_judgment()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            CreateAssistedContext(syntheticScenario: "disclosed_hidden_prompt"),
+            new SyntheticEvaluationModelExecutionAdapter(),
             CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);

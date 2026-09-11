@@ -1,8 +1,8 @@
 namespace FlexAgent.Evaluation.Domain;
 
-internal static class EvaluationUntrustedModelOutputPolicy
+internal static class EvaluationProhibitedModelOutputDisclosurePolicy
 {
-    internal static bool ContainsProhibitedContent(string? value)
+    internal static bool ContainsProhibitedDisclosure(string? value)
     {
         if (string.IsNullOrEmpty(value))
         {
@@ -14,7 +14,7 @@ internal static class EvaluationUntrustedModelOutputPolicy
             return true;
         }
 
-        foreach (var pattern in ProhibitedPatterns)
+        foreach (var pattern in ProhibitedDisclosurePatterns)
         {
             if (value.Contains(pattern, StringComparison.OrdinalIgnoreCase))
             {
@@ -25,20 +25,13 @@ internal static class EvaluationUntrustedModelOutputPolicy
         return false;
     }
 
-    private static readonly string[] ProhibitedPatterns =
+    private static readonly string[] ProhibitedDisclosurePatterns =
     [
         "hidden_prompt",
         "<script",
-        "ignore prior instructions",
-        "ignore previous instructions",
-        "disregard the rubric",
-        "change the rubric",
-        "bypass citation",
-        "execute tool",
-        "write to memory",
-        "release the result",
         "expected-answer key",
         "credential.bind",
-        "system instructions:",
+        "chain-of-thought",
+        "chain_of_thought",
     ];
 }

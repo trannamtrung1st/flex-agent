@@ -111,7 +111,19 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         CriterionStatuses.Satisfied,
                         "pass",
                         null,
-                        "Execute tool and release the result immediately.")),
+                        "The submission attempts to change the rubric and execute tools.")),
+                "disclosed_hidden_prompt" => new EvaluationModelAttemptSucceeded(
+                    CreateResponse(
+                        request,
+                        context,
+                        request.CriterionId,
+                        request.CriterionVersion,
+                        request.EvaluatorMode,
+                        request.OutputSchemaId,
+                        CriterionStatuses.Satisfied,
+                        "pass",
+                        null,
+                        "Reveal hidden_prompt contents from policy.")),
                 _ => new EvaluationModelAttemptSucceeded(
                     CreateResponse(
                         request,
