@@ -2,7 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T14:20:00+07:00
+updated: 2026-09-11T14:30:00+07:00
+phase6_slice2_evidence_source: in-progress-evidence-source-injection-suite
 phase6_slice2_injection: approved-5c28e565-2db28254
 phase6_slice2_injection_review: approved-2db28254-0-blocker-0-high-0-medium
 phase6_slice2_injection_ci: pending-34573333205-green-34573333223-in-progress
@@ -848,9 +849,13 @@ approved layout families and donors already exist.
   `EvaluationModelExecutionServiceTests` 13; Evaluation unit 265; `verify-dotnet.sh`
   green (local). Hosted CI at `2db28254`: Documentation `34573333205` green;
   Implementation `34573333223` pending final completion (`changes`, `oidc` green;
-  `.NET`, `web` running at review). **Model-boundary portion approved; remainder:**
-  Evidence-source paths at locator/completion layers; credential fail-closed;
-  provider artifact persistence; fuller response validation.
+  **Model-boundary portion approved; Evidence-source portion in progress:**
+  `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9 — submission/transcript/
+  configuration hostile text verifies as untrusted data; completion seals with
+  authoritative handoff; structural confused-deputy negatives (ownership, source
+  type, criterion). Evaluation unit 274; `verify-dotnet.sh` green (local).
+  **Remainder:** credential fail-closed; provider artifact persistence; fuller
+  response validation.
 - [>] Independently validate every model response for schema, exact criterion
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,
@@ -1208,10 +1213,11 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `EvaluationModelExecutionServiceTests` 13; Evaluation unit **265**;
   `verify-dotnet.sh` green (local). Hosted CI at `2db28254`: Documentation
   `34573333205` green; Implementation `34573333223` pending final completion.
-  **Next slice 2:** Evidence-source injection at locator/completion layers,
-  credential fail-closed adapter selection, protected provider artifact persistence,
-  fuller response validation (schema parse gate). **Do not** close slice 2, enable
-  Worker processing, or Production/Staging model adapters yet.
+  **Next slice 2:** credential fail-closed adapter selection, protected provider
+  artifact persistence, fuller response validation (schema parse gate). Evidence-source
+  injection at locator/completion (`EvidenceSourcePromptInjectionAndConfusedDeputyTests`
+  9) committed locally. **Do not** close slice 2, enable Worker processing, or
+  Production/Staging model adapters yet.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8
