@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T00:45:00+07:00
+updated: 2026-09-11T09:15:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -24,7 +24,8 @@ phase5_slice4: approved-4acfa4b-a179b085-0c63e403
 phase5_slice4_materialization: approved-5ff61ee-2209477-4422772
 phase5_slice4_completion_linkage: approved-428c835-b3b37b4
 phase6_status: in-progress-slice1
-phase6_slice1: local-foundation-port-gates-synthetic
+phase6_slice1: corrective-authority-contract-pending-rereview
+phase6_slice1_review: not-approved-8e0a5fc0-0-blocker-2-high
 ---
 
 # Goal
@@ -793,9 +794,19 @@ approved layout families and donors already exist.
   model provenance.
   Slice 1: `evaluation-model-request.v1` / `evaluation-model-response.v1`
   schemas + fixtures + catalog entries; C# `EvaluationModelRequestV1` /
-  `EvaluationModelResponseV1`; `IEvaluationModelExecutionPort`,
-  `FailClosedEvaluationModelExecutionPort`, `EvaluationModelExecutionService`.
-  No Worker wiring; no real provider adapters.
+  `EvaluationModelResponseV1`; `IEvaluationModelExecutionPort` now consumes/
+  returns those canonical envelopes via `EvaluationModelRequestComposer` and
+  response validation/mapping; `FailClosedEvaluationModelExecutionPort`,
+  `EvaluationModelExecutionService`. No Worker wiring; no real provider adapters.
+  External review on `8e0a5fc0` 2026-09-11: **not approved** 0 Blocker / 2 High /
+  0 Medium — (1) caller/provider could override authorized criterion and
+  judgment provenance; (2) port used parallel `EvaluationModelAttemptRequest` that
+  omitted permitted Evidence/deterministic facts/instruction/context. Corrective
+  pass binds criterion identity from orchestration only, validates response
+  against `EvaluationModelExpectedInvocation`, maps trusted `EvaluationId` and
+  deterministic invocation into drafts, and passes verified deterministic facts
+  through the canonical request. Hosted CI green at `8e0a5fc0` (Documentation
+  `34509859951`; Implementation `34509859841` all six jobs).
 - [>] Keep Session generation and Evaluation judgment contracts separate.
   Extract only genuinely generic protocol/credential plumbing if dependency
   and architecture tests prove the abstraction is stable; otherwise add an
@@ -825,10 +836,11 @@ approved layout families and donors already exist.
   set, configured types/ranges, aggregation, citation resolution, protected-
   content policy, deterministic conflicts, rationale, confidence/uncertainty,
   and provisional feedback before completion.
-  Slice 1: `EvaluationModelResponseValidator` orchestration re-check,
-  deterministic conflict (`"valid":false` fact + `satisfied`), and
-  `CriterionJudgmentValidator` delegation. Full schema/citation/aggregation
-  matrix deferred.
+  Slice 1: `EvaluationModelResponseValidator` validates against explicit
+  expected invocation identity (criterion/mode/output schema/deterministic
+  invocation), deterministic conflict (`"valid":false` fact + `satisfied`),
+  trusted draft mapping, and `CriterionJudgmentValidator`. Full
+  schema/citation/aggregation matrix deferred.
 - [ ] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
@@ -1148,19 +1160,17 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: continue **Phase 6 slice 1** review handoff, then **slice 2** —
+- Next: submit Phase 6 slice 1 corrective pass for re-review; then **slice 2** —
   prompt-injection/confused-deputy suites, credential fail-closed adapter
   selection, protected artifact persistence, and fuller response validation.
   **Phase 5 is closed** through slice 4 chain `4acfa4b` + `a179b085` +
-  `0c63e403` externally reviewed **approved** 2026-09-10 (0 Blocker / 0 High /
-  0 Medium); hosted CI green at `a179b085`. Phase 6 slice 1 foundation landed
-  locally (uncommitted): model request/response contracts, orchestration gates,
-  response validation seam, synthetic adapter, fail-closed default port.
-  Focused verification: `AgentEvaluatorOrchestrationValidatorTests` 5;
-  `EvaluationModelResponseValidatorTests` 3;
-  `EvaluationModelExecutionServiceTests` 5; contract catalog 269; Evaluation
-  unit 231; `verify-dotnet.sh` 2355 passed / 4 skipped. Worker processing and
-  `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
+  `0c63e403`. Phase 6 slice 1 at `8e0a5fc0` reviewed **not approved**
+  2026-09-11 (0 Blocker / 2 High / 0 Medium; hosted CI green). Corrective pass
+  closes authority-binding and canonical contract/port alignment. Focused
+  verification: `AgentEvaluatorOrchestrationValidatorTests` 5;
+  `EvaluationModelResponseValidatorTests` 4;
+  `EvaluationModelExecutionServiceTests` 6; Evaluation unit 233; contract 269;
+  `verify-dotnet.sh` green. Worker processing remains disabled.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8

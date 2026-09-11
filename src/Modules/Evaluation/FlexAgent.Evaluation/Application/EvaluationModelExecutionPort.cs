@@ -1,4 +1,5 @@
 using FlexAgent.Contracts.Evaluation;
+using FlexAgent.Contracts.Manifest;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Application;
@@ -12,23 +13,9 @@ public static class EvaluationModelExecutionOutcomeCategories
     public const string AuthorizationDenied = "authorization_denied";
 }
 
-public sealed record EvaluationModelAttemptRequest(
-    EvaluationOwnership Ownership,
-    Guid RequestId,
-    Guid InvocationAttemptId,
-    string CriterionId,
-    string CriterionVersion,
-    string EvaluatorMode,
-    string InputSchemaId,
-    string OutputSchemaId,
-    FrozenModelIdentity ModelIdentity,
-    int AttemptOrdinal,
-    int MaxResponseUtf8Bytes,
-    string? SyntheticScenario = null);
-
 public abstract record EvaluationModelAttemptResult;
 
-public sealed record EvaluationModelAttemptSucceeded(CriterionJudgmentDraft JudgmentDraft)
+public sealed record EvaluationModelAttemptSucceeded(EvaluationModelResponseV1 Response)
     : EvaluationModelAttemptResult;
 
 public sealed record EvaluationModelAttemptFailed(string OutcomeCategory) : EvaluationModelAttemptResult;
@@ -36,17 +23,20 @@ public sealed record EvaluationModelAttemptFailed(string OutcomeCategory) : Eval
 public interface IEvaluationModelExecutionPort
 {
     Task<EvaluationModelAttemptResult> ExecuteAsync(
-        EvaluationModelAttemptRequest request,
+        EvaluationModelRequestV1 request,
+        EvaluationModelExecutionContext context,
         CancellationToken cancellationToken);
 }
 
 public sealed class FailClosedEvaluationModelExecutionPort : IEvaluationModelExecutionPort
 {
     public Task<EvaluationModelAttemptResult> ExecuteAsync(
-        EvaluationModelAttemptRequest request,
+        EvaluationModelRequestV1 request,
+        EvaluationModelExecutionContext context,
         CancellationToken cancellationToken)
     {
         _ = request;
+        _ = context;
         _ = cancellationToken;
         return Task.FromResult<EvaluationModelAttemptResult>(
             new EvaluationModelAttemptFailed(EvaluationModelExecutionOutcomeCategories.AuthorizationDenied));
@@ -56,10 +46,12 @@ public sealed class FailClosedEvaluationModelExecutionPort : IEvaluationModelExe
 public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelExecutionPort
 {
     public Task<EvaluationModelAttemptResult> ExecuteAsync(
-        EvaluationModelAttemptRequest request,
+        EvaluationModelRequestV1 request,
+        EvaluationModelExecutionContext context,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromResult<EvaluationModelAttemptResult>(
@@ -67,7 +59,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
         }
 
         return Task.FromResult<EvaluationModelAttemptResult>(
-            request.SyntheticScenario switch
+            context.SyntheticScenario switch
             {
                 "timeout" => new EvaluationModelAttemptFailed(
                     EvaluationModelExecutionOutcomeCategories.ProviderTimeout),
@@ -75,13 +67,47 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                     EvaluationModelExecutionOutcomeCategories.ProviderUnavailable),
                 "schema_invalid" => new EvaluationModelAttemptFailed(
                     EvaluationModelExecutionOutcomeCategories.SchemaInvalid),
-                "insufficient" => new EvaluationModelAttemptSucceeded(
-                    CreateDraft(request, CriterionStatuses.InsufficientEvidence, "pass", null)),
-                "conflict" => new EvaluationModelAttemptSucceeded(
-                    CreateDraft(request, CriterionStatuses.Conflict, "fail", null)),
-                _ => new EvaluationModelAttemptSucceeded(
-                    CreateDraft(
+                "wrong_criterion" => new EvaluationModelAttemptSucceeded(
+                    CreateResponse(
                         request,
+                        context,
+                        "crit.judgment.quality",
+                        "crit.judgment.quality.v1",
+                        EvaluatorModes.AgentJudgment,
+                        request.OutputSchemaId,
+                        CriterionStatuses.Satisfied,
+                        3,
+                        null)),
+                "insufficient" => new EvaluationModelAttemptSucceeded(
+                    CreateResponse(
+                        request,
+                        context,
+                        request.CriterionId,
+                        request.CriterionVersion,
+                        request.EvaluatorMode,
+                        request.OutputSchemaId,
+                        CriterionStatuses.InsufficientEvidence,
+                        "pass",
+                        null)),
+                "conflict" => new EvaluationModelAttemptSucceeded(
+                    CreateResponse(
+                        request,
+                        context,
+                        request.CriterionId,
+                        request.CriterionVersion,
+                        request.EvaluatorMode,
+                        request.OutputSchemaId,
+                        CriterionStatuses.Conflict,
+                        "fail",
+                        null)),
+                _ => new EvaluationModelAttemptSucceeded(
+                    CreateResponse(
+                        request,
+                        context,
+                        request.CriterionId,
+                        request.CriterionVersion,
+                        request.EvaluatorMode,
+                        request.OutputSchemaId,
                         CriterionStatuses.Satisfied,
                         request.EvaluatorMode == EvaluatorModes.AgentJudgment ? 3 : "pass",
                         request.EvaluatorMode == EvaluatorModes.AgentAssisted
@@ -90,28 +116,32 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
             });
     }
 
-    private static CriterionJudgmentDraft CreateDraft(
-        EvaluationModelAttemptRequest request,
+    private static EvaluationModelResponseV1 CreateResponse(
+        EvaluationModelRequestV1 request,
+        EvaluationModelExecutionContext context,
+        string criterionId,
+        string criterionVersion,
+        string evaluatorMode,
+        string outputSchemaId,
         string status,
         object? score,
         string? provisionalFeedback)
     {
-        return new CriterionJudgmentDraft(
-            Guid.CreateVersion7(),
-            request.RequestId,
-            request.CriterionId,
-            request.CriterionVersion,
-            request.EvaluatorMode,
+        return new EvaluationModelResponseV1(
+            "v1",
+            outputSchemaId,
+            criterionId,
+            criterionVersion,
+            evaluatorMode,
             status,
             "high",
             ["ambiguous_language"],
             "Synthetic evaluation model response.",
-            [Guid.CreateVersion7()],
+            request.PermittedEvidence.Select(item => item.EvidenceId).ToArray(),
+            new ProtectedPayloadRefV1("prot.eval.res.synthetic", new string('d', 64)),
             score,
             provisionalFeedback,
-            request.EvaluatorMode == EvaluatorModes.AgentAssisted
-                ? Guid.CreateVersion7()
-                : null);
+            context.DeterministicInvocationStableId);
     }
 }
 
@@ -121,16 +151,21 @@ public sealed class EvaluationModelExecutionService
         EvaluationProcedureV1 procedure,
         EvaluationModelInvocationContext context,
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
-        FrozenModelIdentity modelIdentity,
-        EvaluationModelAttemptRequest attemptRequest,
+        EvaluationModelExecutionContext executionContext,
         IEvaluationModelExecutionPort executionPort,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(procedure);
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(modelIdentity);
-        ArgumentNullException.ThrowIfNull(attemptRequest);
+        ArgumentNullException.ThrowIfNull(executionContext);
         ArgumentNullException.ThrowIfNull(executionPort);
+
+        if (executionContext.EvaluationId == Guid.Empty)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                EvaluationFailureCodes.InvalidJudgment,
+                "evaluation_id");
+        }
 
         var orchestration = AgentEvaluatorOrchestrationValidator.TryValidateInvocation(
             procedure,
@@ -143,17 +178,22 @@ public sealed class EvaluationModelExecutionService
                 orchestration.Field);
         }
 
-        var criterion = orchestration.Value;
-
-        var attempt = attemptRequest with
+        var authorizedCriterion = orchestration.Value;
+        var requestDecision = EvaluationModelRequestComposer.TryCompose(
+            authorizedCriterion,
+            executionContext,
+            verifiedDeterministicFacts);
+        if (!requestDecision.Succeeded || requestDecision.Value is null)
         {
-            EvaluatorMode = criterion.EvaluatorMode,
-            InputSchemaId = criterion.AgentIo!.InputSchemaId,
-            OutputSchemaId = criterion.AgentIo.OutputSchemaId,
-            ModelIdentity = modelIdentity,
-        };
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                requestDecision.OutcomeCode,
+                requestDecision.Field);
+        }
 
-        var result = await executionPort.ExecuteAsync(attempt, cancellationToken);
+        var result = await executionPort.ExecuteAsync(
+            requestDecision.Value,
+            executionContext,
+            cancellationToken);
         if (result is EvaluationModelAttemptFailed failed)
         {
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(
@@ -175,9 +215,17 @@ public sealed class EvaluationModelExecutionService
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(EvaluationFailureCodes.InvalidJudgment);
         }
 
+        var expected = new EvaluationModelExpectedInvocation(
+            authorizedCriterion,
+            executionContext.EvaluationId,
+            executionContext.DeterministicInvocationId,
+            executionContext.DeterministicInvocationStableId,
+            executionContext.PermittedEvidenceIdBindings);
+
         return EvaluationModelResponseValidator.TryValidate(
             procedure,
-            succeeded.JudgmentDraft,
+            expected,
+            succeeded.Response,
             verifiedDeterministicFacts);
     }
 }
