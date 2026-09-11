@@ -907,7 +907,8 @@ approved layout families and donors already exist.
   `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all
   six jobs. `EvaluationId` authoritative binding deferred to Phase 6/7 completion
   persistence (no admitted-request Evaluation ID at this boundary). **Slice 2
-  remainder:** protected provider artifact persistence, fuller response validation.
+  remainder:** credential fail-closed external review/CI for `fb0c79fb`; protected
+  provider artifact persistence; fuller response validation.
   Model-boundary prompt-injection/
   confused-deputy suite **approved** (`5c28e565` → `2db28254`). Evidence-source
   **approved** (`8773c4f9` → `f3105a7b` → `1afd1cbb`; bookkeeping chain **0/0/0**).
