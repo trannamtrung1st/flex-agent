@@ -220,6 +220,9 @@ public sealed class EvaluationModelExecutionService
             executionContext.EvaluationId,
             executionContext.DeterministicInvocationId,
             executionContext.DeterministicInvocationStableId,
+            requestDecision.Value.PermittedEvidence
+                .Select(item => item.EvidenceId)
+                .ToHashSet(StringComparer.Ordinal),
             executionContext.PermittedEvidenceIdBindings);
 
         return EvaluationModelResponseValidator.TryValidate(

@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T09:15:00+07:00
+updated: 2026-09-11T09:30:00+07:00
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -25,7 +25,7 @@ phase5_slice4_materialization: approved-5ff61ee-2209477-4422772
 phase5_slice4_completion_linkage: approved-428c835-b3b37b4
 phase6_status: in-progress-slice1
 phase6_slice1: corrective-authority-contract-pending-rereview
-phase6_slice1_review: not-approved-8e0a5fc0-0-blocker-2-high
+phase6_slice1_review: not-approved-7bc3ff4f-0-blocker-1-high
 ---
 
 # Goal
@@ -799,14 +799,17 @@ approved layout families and donors already exist.
   response validation/mapping; `FailClosedEvaluationModelExecutionPort`,
   `EvaluationModelExecutionService`. No Worker wiring; no real provider adapters.
   External review on `8e0a5fc0` 2026-09-11: **not approved** 0 Blocker / 2 High /
-  0 Medium — (1) caller/provider could override authorized criterion and
-  judgment provenance; (2) port used parallel `EvaluationModelAttemptRequest` that
-  omitted permitted Evidence/deterministic facts/instruction/context. Corrective
-  pass binds criterion identity from orchestration only, validates response
-  against `EvaluationModelExpectedInvocation`, maps trusted `EvaluationId` and
-  deterministic invocation into drafts, and passes verified deterministic facts
-  through the canonical request. Hosted CI green at `8e0a5fc0` (Documentation
-  `34509859951`; Implementation `34509859841` all six jobs).
+  0 Medium — criterion override and parallel port contract. Corrective `7bc3ff4f`
+  closes both structurally. External review on `7bc3ff4f` 2026-09-11: **not approved**
+  0 Blocker / 1 High / 0 Medium — assisted deterministic-fact reconciliation was
+  one-way (verified subset only); permitted Evidence list/binding set not enforced;
+  protected ref not reconciled to verified digest. Second corrective pass builds
+  `EvaluationModelDeterministicFactV1` only from verified projections plus trusted
+  protected refs with exact set equality both directions; permitted Evidence and
+  bindings must match exactly; response citations authorize against canonical
+  request Evidence set. Hosted CI at `7bc3ff4f`: Documentation `34553726423`
+  green; Implementation `34553726442` in progress when checked (do not treat
+  combined status as proof until all six jobs finish).
 - [>] Keep Session generation and Evaluation judgment contracts separate.
   Extract only genuinely generic protocol/credential plumbing if dependency
   and architecture tests prove the abstraction is stable; otherwise add an
@@ -1160,16 +1163,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- Next: submit Phase 6 slice 1 corrective pass for re-review; then **slice 2** —
-  prompt-injection/confused-deputy suites, credential fail-closed adapter
-  selection, protected artifact persistence, and fuller response validation.
-  **Phase 5 is closed** through slice 4 chain `4acfa4b` + `a179b085` +
-  `0c63e403`. Phase 6 slice 1 at `8e0a5fc0` reviewed **not approved**
-  2026-09-11 (0 Blocker / 2 High / 0 Medium; hosted CI green). Corrective pass
-  closes authority-binding and canonical contract/port alignment. Focused
-  verification: `AgentEvaluatorOrchestrationValidatorTests` 5;
-  `EvaluationModelResponseValidatorTests` 4;
-  `EvaluationModelExecutionServiceTests` 6; Evaluation unit 233; contract 269;
+- Next: submit Phase 6 slice 1 second corrective pass for re-review; then **slice 2**.
+  **Phase 5 is closed.** Slice 1 at `7bc3ff4f` reviewed **not approved**
+  2026-09-11 (0 Blocker / 1 High). Second corrective pass hardens deterministic-
+  fact and permitted-Evidence set reconciliation. Focused verification:
+  `EvaluationModelRequestComposerTests` 7;
+  `EvaluationModelExecutionServiceTests` 7;
+  `EvaluationModelResponseValidatorTests` 5; Evaluation unit 242; contract 269;
   `verify-dotnet.sh` green. Worker processing remains disabled.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes

@@ -110,6 +110,32 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
+    public async Task Extra_unverified_deterministic_fact_fails_before_provider_call()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var context = CreateAssistedContext() with
+        {
+            DeterministicFactProtectedRefs = new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal)
+            {
+                ["detfact.synthetic.schema"] = new ProtectedPayloadRefV1("prot.eval.fact.0002", new string('c', 64)),
+                ["detfact.synthetic.forged"] = new ProtectedPayloadRefV1("prot.eval.fact.forged", new string('f', 64)),
+            },
+        };
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("deterministic_facts", result.Field);
+    }
+
+    [Fact]
     public async Task Synthetic_adapter_can_return_insufficient_evidence()
     {
         var facts = AssistedFacts("""{"valid":true}""");
@@ -156,12 +182,12 @@ public sealed class EvaluationModelExecutionServiceTests
             {
                 [evidenceStableId] = EvidenceId,
             },
-            [
-                new EvaluationModelDeterministicFactV1(
-                    "detfact.synthetic.schema",
-                    new string('c', 64),
-                    new ProtectedPayloadRefV1("prot.eval.fact.0002", new string('c', 64))),
-            ],
+            new Dictionary<string, ProtectedPayloadRefV1>(StringComparer.Ordinal)
+            {
+                ["detfact.synthetic.schema"] = new ProtectedPayloadRefV1(
+                    "prot.eval.fact.0002",
+                    new string('c', 64)),
+            },
             DeterministicInvocationId,
             "dinv.synthetic.0002",
             syntheticScenario);

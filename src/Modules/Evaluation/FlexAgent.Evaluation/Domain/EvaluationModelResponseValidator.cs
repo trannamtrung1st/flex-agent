@@ -122,7 +122,8 @@ internal static class EvaluationModelResponseMapper
         var evidenceIds = new List<Guid>(response.EvidenceIds.Count);
         foreach (var evidenceId in response.EvidenceIds)
         {
-            if (!expected.PermittedEvidenceIdBindings.TryGetValue(evidenceId, out var evidenceGuid)
+            if (!expected.PermittedEvidenceStableIds.Contains(evidenceId)
+                || !expected.PermittedEvidenceIdBindings.TryGetValue(evidenceId, out var evidenceGuid)
                 || evidenceGuid == Guid.Empty)
             {
                 return EvaluationDecision<CriterionJudgmentDraft>.Fail(EvaluationFailureCodes.InvalidJudgment, "evidence_ids");

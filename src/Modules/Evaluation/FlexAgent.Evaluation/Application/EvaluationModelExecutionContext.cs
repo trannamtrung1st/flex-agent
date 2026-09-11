@@ -13,7 +13,7 @@ public sealed record EvaluationModelExecutionContext(
     string InstructionVersion,
     IReadOnlyList<EvaluationModelPermittedEvidenceV1> PermittedEvidence,
     IReadOnlyDictionary<string, Guid> PermittedEvidenceIdBindings,
-    IReadOnlyList<EvaluationModelDeterministicFactV1>? DeterministicFacts,
+    IReadOnlyDictionary<string, ProtectedPayloadRefV1>? DeterministicFactProtectedRefs,
     Guid? DeterministicInvocationId,
     string? DeterministicInvocationStableId,
     string? SyntheticScenario = null);

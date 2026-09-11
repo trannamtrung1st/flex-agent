@@ -77,6 +77,23 @@ public sealed class EvaluationModelResponseValidatorTests
         Assert.Equal("criterion_id", result.Field);
     }
 
+    [Fact]
+    public void Response_evidence_outside_permitted_set_is_rejected()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var expected = CreateExpectedInvocation();
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.") with
+        {
+            EvidenceIds = ["evidence.forged.extra"],
+        };
+
+        var result = EvaluationModelResponseValidator.TryValidate(Procedure, expected, response, facts);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("evidence_ids", result.Field);
+    }
+
     private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json) =>
         new(StringComparer.Ordinal)
         {
@@ -97,6 +114,10 @@ public sealed class EvaluationModelResponseValidatorTests
             EvaluationId,
             DeterministicInvocationId,
             "dinv.synthetic.0002",
+            new HashSet<string>(StringComparer.Ordinal)
+            {
+                evidenceStableId,
+            },
             new Dictionary<string, Guid>(StringComparer.Ordinal)
             {
                 [evidenceStableId] = EvidenceId,
