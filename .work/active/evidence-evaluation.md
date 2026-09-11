@@ -1232,7 +1232,7 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   Documentation `34574753938` green; Implementation `34574753257` green — all six
   jobs. Hosted CI at `2db28254`: Documentation `34573333205` green;
   Implementation `34573333223` green — all six jobs. **Credential fail-closed
-  adapter selection confirmed locally:** `EvaluationModelExecutionCompositionComposer`,
+  adapter selection confirmed at `fb0c79fb`:** `EvaluationModelExecutionCompositionComposer`,
   `EvaluationModelCredentialBindingAdmission`, `EvaluationSyntheticDevelopmentModelProfile`;
   fixtures aligned to profile constants. Focused: `EvaluationModelExecutionCompositionTests`
   11; Evaluation unit **285**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green
