@@ -7,8 +7,8 @@ namespace FlexAgent.Evaluation.Tests.Application;
 
 public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
 {
-    private static readonly Guid OrganizationId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
-    private static readonly Guid RequestId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    private static readonly EvaluationOwnership Ownership = EvaluationFixtures.Ownership();
+    private static readonly Guid RequestId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab");
     private static readonly Guid AttemptId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
     [Fact]
@@ -17,8 +17,9 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
         var verified = CreateVerifiedFacts("""{"valid":true}""");
 
         var result = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
-            EvaluationFixtures.Ownership(),
+            Ownership,
             RequestId,
+            AttemptId,
             "crit.assisted.structure",
             "crit.assisted.structure.v1",
             verified,
@@ -36,8 +37,9 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
         var verified = CreateVerifiedFacts("""{"valid":true}""");
 
         var result = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
-            EvaluationFixtures.Ownership(),
+            Ownership,
             RequestId,
+            AttemptId,
             "crit.assisted.structure",
             "crit.assisted.structure.v1",
             verified,
@@ -55,8 +57,9 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
         var verified = CreateVerifiedFacts("""{"valid":true}""");
 
         var result = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
-            EvaluationFixtures.Ownership(),
+            Ownership,
             RequestId,
+            AttemptId,
             "crit.assisted.structure",
             "crit.assisted.structure.v1",
             verified,
@@ -65,6 +68,26 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.ProtectedContent, result.OutcomeCode);
+        Assert.Equal("deterministic_facts", result.Field);
+    }
+
+    [Fact]
+    public async Task Loader_fails_when_verified_fact_attempt_does_not_match_expected_invocation()
+    {
+        var verified = CreateVerifiedFacts("""{"valid":true}""");
+
+        var result = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
+            Ownership,
+            RequestId,
+            Guid.Parse("44444444-4444-4444-8444-444444444444"),
+            "crit.assisted.structure",
+            "crit.assisted.structure.v1",
+            verified,
+            new FakeOutputStore(verified.Values.Single(), "prot.eval.fact.0002"),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.DeterministicConflict, result.OutcomeCode);
         Assert.Equal("deterministic_facts", result.Field);
     }
 
@@ -103,7 +126,7 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
             Task.FromResult(projection);
 
         public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-            Guid organizationId,
+            EvaluationOwnership ownership,
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,
@@ -112,7 +135,8 @@ public sealed class EvaluationModelDeterministicFactAuthorityLoaderTests
             CancellationToken cancellationToken)
         {
             if (projection is null
-                || organizationId != OrganizationId
+                || ownership.OrganizationId != Ownership.OrganizationId
+                || ownership.ActivityId != Ownership.ActivityId
                 || requestId != RequestId
                 || deterministicAttemptId != AttemptId)
             {

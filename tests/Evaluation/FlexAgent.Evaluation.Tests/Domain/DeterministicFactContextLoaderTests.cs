@@ -217,7 +217,7 @@ public sealed class DeterministicFactContextLoaderTests
         }
 
         public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-            Guid organizationId,
+            EvaluationOwnership ownership,
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,

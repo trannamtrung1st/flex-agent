@@ -33,7 +33,7 @@ public interface IProtectedDeterministicOutputStore
         CancellationToken cancellationToken);
 
     Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-        Guid organizationId,
+        EvaluationOwnership ownership,
         Guid requestId,
         Guid deterministicAttemptId,
         string expectedContentDigest,

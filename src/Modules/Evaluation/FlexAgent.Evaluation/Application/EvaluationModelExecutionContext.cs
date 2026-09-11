@@ -9,6 +9,7 @@ public sealed record EvaluationModelExecutionContext(
     EvaluationOwnership OwnershipScope,
     Guid RequestId,
     string RequestStableId,
+    Guid InvocationAttemptId,
     string InvocationAttemptStableId,
     Guid EvaluationId,
     FrozenModelIdentity ModelIdentity,

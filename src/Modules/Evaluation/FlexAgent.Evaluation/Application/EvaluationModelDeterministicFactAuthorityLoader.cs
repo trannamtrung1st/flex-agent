@@ -8,6 +8,7 @@ public static class EvaluationModelDeterministicFactAuthorityLoader
     public static async Task<EvaluationDecision<IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>>> TryLoadAsync(
         EvaluationOwnership ownership,
         Guid requestId,
+        Guid expectedDeterministicInvocationId,
         string criterionId,
         string criterionVersion,
         IReadOnlyDictionary<string, EvaluationSafeFactProjection> verifiedDeterministicFacts,
@@ -19,6 +20,7 @@ public static class EvaluationModelDeterministicFactAuthorityLoader
         ArgumentNullException.ThrowIfNull(outputStore);
 
         if (requestId == Guid.Empty
+            || expectedDeterministicInvocationId == Guid.Empty
             || string.IsNullOrWhiteSpace(criterionId)
             || string.IsNullOrWhiteSpace(criterionVersion)
             || verifiedDeterministicFacts.Count == 0)
@@ -45,8 +47,15 @@ public static class EvaluationModelDeterministicFactAuthorityLoader
                     "deterministic_facts");
             }
 
+            if (deterministicAttemptId != expectedDeterministicInvocationId)
+            {
+                return EvaluationDecision<IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>>.Fail(
+                    EvaluationFailureCodes.DeterministicConflict,
+                    "deterministic_facts");
+            }
+
             var material = await outputStore.TryLoadVerifiedMaterialAsync(
-                ownership.OrganizationId,
+                ownership,
                 requestId,
                 deterministicAttemptId,
                 verifiedFact.ContentDigest,

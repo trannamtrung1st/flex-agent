@@ -203,14 +203,18 @@ public sealed class EvaluationModelRequestComposerTests
 
     private static EvaluationModelExecutionContext CreateAssistedContext()
     {
+        var ownership = EvaluationFixtures.Ownership();
+        var requestId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab");
+        var invocationAttemptId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc");
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(
             Guid.Parse("22222222-2222-4222-8222-222222222222"));
         return new EvaluationModelExecutionContext(
-            OwnershipRef(),
-            EvaluationFixtures.Ownership(),
-            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"),
-            "ereq.synthetic.0001",
-            "eatt.synthetic.0001",
+            EvaluationStableOwnershipReferenceFactory.ToSessionOwnershipRef(ownership),
+            ownership,
+            requestId,
+            EvaluationStableOwnershipReferenceFactory.StableRequestId(requestId),
+            invocationAttemptId,
+            EvaluationStableOwnershipReferenceFactory.StableInvocationAttemptId(invocationAttemptId),
             Guid.Parse("11111111-1111-4111-8111-111111111115"),
             EvaluationFixtures.Model(),
             "eval.instructions.p0.v1",
@@ -225,14 +229,9 @@ public sealed class EvaluationModelRequestComposerTests
                 [evidenceStableId] = Guid.Parse("22222222-2222-4222-8222-222222222222"),
             },
             DeterministicAttemptId,
-            "dinv.synthetic.0002");
+            EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicAttemptId));
     }
 
     private static SessionOwnershipRefV1 OwnershipRef() =>
-        new(
-            "org.synthetic.demo",
-            "act.synthetic.demo",
-            "part.synthetic.demo",
-            "att.synthetic.demo",
-            "sess.synthetic.demo");
+        EvaluationStableOwnershipReferenceFactory.ToSessionOwnershipRef(EvaluationFixtures.Ownership());
 }

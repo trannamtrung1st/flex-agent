@@ -147,7 +147,7 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
             Task.FromResult<EvaluationSafeFactProjection?>(null);
 
         public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-            Guid organizationId,
+            EvaluationOwnership ownership,
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,

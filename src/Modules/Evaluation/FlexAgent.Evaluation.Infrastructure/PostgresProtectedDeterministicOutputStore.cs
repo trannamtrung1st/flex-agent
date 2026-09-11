@@ -147,26 +147,6 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         string expectedCriterionVersion,
         CancellationToken cancellationToken)
     {
-        var material = await TryLoadVerifiedMaterialAsync(
-            organizationId,
-            requestId,
-            deterministicAttemptId,
-            expectedContentDigest,
-            expectedCriterionId,
-            expectedCriterionVersion,
-            cancellationToken);
-        return material?.Projection;
-    }
-
-    public async Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-        Guid organizationId,
-        Guid requestId,
-        Guid deterministicAttemptId,
-        string expectedContentDigest,
-        string expectedCriterionId,
-        string expectedCriterionVersion,
-        CancellationToken cancellationToken)
-    {
         if (organizationId == Guid.Empty
             || requestId == Guid.Empty
             || deterministicAttemptId == Guid.Empty
@@ -202,6 +182,79 @@ public sealed class PostgresProtectedDeterministicOutputStore(
                     OrganizationId = organizationId,
                     RequestId = requestId,
                     DeterministicAttemptId = deterministicAttemptId,
+                    ExpectedContentDigest = expectedContentDigest,
+                    ExpectedCriterionId = expectedCriterionId,
+                    ExpectedCriterionVersion = expectedCriterionVersion,
+                },
+                cancellationToken: cancellationToken));
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var projection = EvaluationDeterministicFactProjector.TryCreate(
+            deterministicAttemptId,
+            row.output_utf8,
+            row.content_digest);
+        return projection.Succeeded ? projection.Value : null;
+    }
+
+    public async Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+        EvaluationOwnership ownership,
+        Guid requestId,
+        Guid deterministicAttemptId,
+        string expectedContentDigest,
+        string expectedCriterionId,
+        string expectedCriterionVersion,
+        CancellationToken cancellationToken)
+    {
+        if (ownership.OrganizationId == Guid.Empty
+            || requestId == Guid.Empty
+            || deterministicAttemptId == Guid.Empty
+            || !EvaluationIdentity.IsSha256Hex(expectedContentDigest)
+            || string.IsNullOrWhiteSpace(expectedCriterionId)
+            || string.IsNullOrWhiteSpace(expectedCriterionVersion))
+        {
+            return null;
+        }
+
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
+            new CommandDefinition(
+                """
+                SELECT payload.protected_ref, payload.content_digest, payload.output_utf8
+                FROM evaluation_deterministic_payloads AS payload
+                INNER JOIN evaluation_deterministic_attempts AS attempt
+                  ON attempt.organization_id = payload.organization_id
+                 AND attempt.request_id = payload.request_id
+                 AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
+                INNER JOIN evaluation_requests AS request
+                  ON request.organization_id = payload.organization_id
+                 AND request.request_id = payload.request_id
+                WHERE payload.organization_id = @OrganizationId
+                  AND payload.deterministic_attempt_id = @DeterministicAttemptId
+                  AND payload.request_id = @RequestId
+                  AND request.activity_id = @ActivityId
+                  AND request.participant_id = @ParticipantId
+                  AND request.attempt_id = @AttemptId
+                  AND request.session_id = @SessionId
+                  AND attempt.criterion_id = @ExpectedCriterionId
+                  AND attempt.criterion_version = @ExpectedCriterionVersion
+                  AND attempt.outcome = 'succeeded'
+                  AND payload.protected_ref = attempt.protected_output_ref
+                  AND payload.content_digest = @ExpectedContentDigest
+                  AND attempt.output_content_digest = @ExpectedContentDigest;
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    RequestId = requestId,
+                    DeterministicAttemptId = deterministicAttemptId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
                     ExpectedContentDigest = expectedContentDigest,
                     ExpectedCriterionId = expectedCriterionId,
                     ExpectedCriterionVersion = expectedCriterionVersion,

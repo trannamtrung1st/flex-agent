@@ -153,6 +153,7 @@ public sealed class EvaluationModelExecutionService
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
         EvaluationModelExecutionContext executionContext,
         IEvaluationModelExecutionPort executionPort,
+        IEvaluationRequestAuthorityStore requestAuthorityStore,
         IProtectedDeterministicOutputStore? deterministicOutputStore,
         CancellationToken cancellationToken)
     {
@@ -160,6 +161,7 @@ public sealed class EvaluationModelExecutionService
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(executionContext);
         ArgumentNullException.ThrowIfNull(executionPort);
+        ArgumentNullException.ThrowIfNull(requestAuthorityStore);
 
         if (executionContext.EvaluationId == Guid.Empty)
         {
@@ -181,10 +183,32 @@ public sealed class EvaluationModelExecutionService
 
         var authorizedCriterion = orchestration.Value;
 
+        var boundContext = EvaluationModelExecutionAuthorityVerifier.TryValidateBoundContext(
+            executionContext,
+            authorizedCriterion.EvaluatorMode);
+        if (!boundContext.Succeeded)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                boundContext.OutcomeCode,
+                boundContext.Field);
+        }
+
+        var reloadedAuthority = await EvaluationModelExecutionAuthorityVerifier.TryReloadAuthorityAsync(
+            executionContext,
+            requestAuthorityStore,
+            cancellationToken);
+        if (!reloadedAuthority.Succeeded)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                reloadedAuthority.OutcomeCode,
+                reloadedAuthority.Field);
+        }
+
         IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>? storeBackedDeterministicFacts = null;
         if (authorizedCriterion.EvaluatorMode == EvaluatorModes.AgentAssisted)
         {
-            if (deterministicOutputStore is null)
+            if (deterministicOutputStore is null
+                || executionContext.DeterministicInvocationId is null)
             {
                 return EvaluationDecision<CriterionJudgmentDraft>.Fail(
                     EvaluationFailureCodes.InvalidJudgment,
@@ -194,6 +218,7 @@ public sealed class EvaluationModelExecutionService
             var authority = await EvaluationModelDeterministicFactAuthorityLoader.TryLoadAsync(
                 executionContext.OwnershipScope,
                 executionContext.RequestId,
+                executionContext.DeterministicInvocationId.Value,
                 authorizedCriterion.CriterionId,
                 authorizedCriterion.CriterionVersion,
                 verifiedDeterministicFacts!,

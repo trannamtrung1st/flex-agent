@@ -11,8 +11,10 @@ public sealed class EvaluationModelExecutionServiceTests
 {
     private static readonly EvaluationProcedureV1 Procedure = EvaluationFixtures.LoadSyntheticProcedure();
     private static readonly EvaluationModelExecutionService Service = new();
+    private static readonly EvaluationOwnership Ownership = EvaluationFixtures.Ownership();
     private static readonly Guid EvaluationId = Guid.Parse("11111111-1111-4111-8111-111111111115");
     private static readonly Guid RequestId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab");
+    private static readonly Guid InvocationAttemptId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc");
     private static readonly Guid EvidenceId = Guid.Parse("22222222-2222-4222-8222-222222222222");
     private static readonly Guid DeterministicInvocationId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
@@ -25,6 +27,7 @@ public sealed class EvaluationModelExecutionServiceTests
             verifiedDeterministicFacts: null,
             CreateJudgmentContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
             deterministicOutputStore: null,
             CancellationToken.None);
 
@@ -42,6 +45,7 @@ public sealed class EvaluationModelExecutionServiceTests
             verifiedDeterministicFacts: null,
             CreateAssistedContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
             new FakeOutputStore(AssistedFacts("""{"valid":true}""").Values.Single()),
             CancellationToken.None);
 
@@ -62,6 +66,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(),
             capturingPort,
+            CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
@@ -78,6 +83,61 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
+    public async Task Claimed_deterministic_invocation_mismatch_fails_before_provider_call()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var context = CreateAssistedContext() with
+        {
+            DeterministicInvocationId = Guid.Parse("44444444-4444-4444-8444-444444444444"),
+            DeterministicInvocationStableId = EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(
+                Guid.Parse("44444444-4444-4444-8444-444444444444")),
+        };
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.DeterministicConflict, result.OutcomeCode);
+        Assert.Equal("deterministic_facts", result.Field);
+    }
+
+    [Fact]
+    public async Task Mismatched_session_ownership_ref_fails_before_provider_call()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var context = CreateAssistedContext() with
+        {
+            Ownership = new SessionOwnershipRefV1(
+                "org.forged.demo",
+                "act.forged.demo",
+                "part.forged.demo",
+                "att.forged.demo",
+                "sess.forged.demo"),
+        };
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.IncompleteOwnership, result.OutcomeCode);
+        Assert.Equal("ownership", result.Field);
+    }
+
+    [Fact]
     public async Task Provider_response_for_different_criterion_is_rejected()
     {
         var facts = AssistedFacts("""{"valid":true}""");
@@ -88,6 +148,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(syntheticScenario: "wrong_criterion"),
             new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
@@ -107,6 +168,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(),
             new FailClosedEvaluationModelExecutionPort(),
+            CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
@@ -125,6 +187,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(),
             new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
             new FakeOutputStore(projection: null),
             CancellationToken.None);
 
@@ -144,6 +207,7 @@ public sealed class EvaluationModelExecutionServiceTests
             facts,
             CreateAssistedContext(syntheticScenario: "insufficient"),
             new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
             new FakeOutputStore(facts.Values.Single()),
             CancellationToken.None);
 
@@ -169,11 +233,12 @@ public sealed class EvaluationModelExecutionServiceTests
     {
         var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId);
         return new EvaluationModelExecutionContext(
-            OwnershipRef(),
-            EvaluationFixtures.Ownership(),
+            EvaluationStableOwnershipReferenceFactory.ToSessionOwnershipRef(Ownership),
+            Ownership,
             RequestId,
-            "ereq.synthetic.0001",
-            "eatt.synthetic.0001",
+            EvaluationStableOwnershipReferenceFactory.StableRequestId(RequestId),
+            InvocationAttemptId,
+            EvaluationStableOwnershipReferenceFactory.StableInvocationAttemptId(InvocationAttemptId),
             EvaluationId,
             EvaluationFixtures.Model(),
             "eval.instructions.p0.v1",
@@ -188,17 +253,18 @@ public sealed class EvaluationModelExecutionServiceTests
                 [evidenceStableId] = EvidenceId,
             },
             DeterministicInvocationId,
-            "dinv.synthetic.0002",
+            EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicInvocationId),
             syntheticScenario);
     }
 
     private static EvaluationModelExecutionContext CreateJudgmentContext() =>
         new(
-            OwnershipRef(),
-            EvaluationFixtures.Ownership(),
+            EvaluationStableOwnershipReferenceFactory.ToSessionOwnershipRef(Ownership),
+            Ownership,
             RequestId,
-            "ereq.synthetic.0002",
-            "eatt.synthetic.0002",
+            EvaluationStableOwnershipReferenceFactory.StableRequestId(RequestId),
+            InvocationAttemptId,
+            EvaluationStableOwnershipReferenceFactory.StableInvocationAttemptId(InvocationAttemptId),
             EvaluationId,
             EvaluationFixtures.Model(),
             "eval.instructions.p0.v1",
@@ -216,13 +282,15 @@ public sealed class EvaluationModelExecutionServiceTests
             null,
             null);
 
-    private static SessionOwnershipRefV1 OwnershipRef() =>
+    private static FixedAuthorityStore CreateAuthorityStore() =>
         new(
-            "org.synthetic.demo",
-            "act.synthetic.demo",
-            "part.synthetic.demo",
-            "att.synthetic.demo",
-            "sess.synthetic.demo");
+            new AdmittedEvaluationRequestAuthority(
+                RequestId,
+                InvocationAttemptId,
+                Ownership,
+                new string('f', 64),
+                EvaluationFixtures.SyntheticProcedureRef(),
+                EvaluatorRegistryVersions.P0));
 
     private sealed class CapturingEvaluationModelExecutionPort(IEvaluationModelExecutionPort inner) : IEvaluationModelExecutionPort
     {
@@ -235,6 +303,29 @@ public sealed class EvaluationModelExecutionServiceTests
         {
             LastRequest = request;
             return await inner.ExecuteAsync(request, context, cancellationToken);
+        }
+    }
+
+    private sealed class FixedAuthorityStore(AdmittedEvaluationRequestAuthority authority) : IEvaluationRequestAuthorityStore
+    {
+        public Task<AdmittedEvaluationRequestAuthority?> TryLoadAsync(
+            EvaluationOwnership ownership,
+            Guid requestId,
+            Guid invocationAttemptId,
+            CancellationToken cancellationToken)
+        {
+            if (requestId != authority.RequestId
+                || invocationAttemptId != authority.InvocationAttemptId
+                || ownership.OrganizationId != authority.Ownership.OrganizationId
+                || ownership.ActivityId != authority.Ownership.ActivityId
+                || ownership.ParticipantId != authority.Ownership.ParticipantId
+                || ownership.AttemptId != authority.Ownership.AttemptId
+                || ownership.SessionId != authority.Ownership.SessionId)
+            {
+                return Task.FromResult<AdmittedEvaluationRequestAuthority?>(null);
+            }
+
+            return Task.FromResult<AdmittedEvaluationRequestAuthority?>(authority);
         }
     }
 
@@ -256,7 +347,7 @@ public sealed class EvaluationModelExecutionServiceTests
             Task.FromResult(projection);
 
         public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
-            Guid organizationId,
+            EvaluationOwnership ownership,
             Guid requestId,
             Guid deterministicAttemptId,
             string expectedContentDigest,
@@ -265,6 +356,9 @@ public sealed class EvaluationModelExecutionServiceTests
             CancellationToken cancellationToken)
         {
             if (projection is null
+                || ownership.OrganizationId != Ownership.OrganizationId
+                || ownership.ActivityId != Ownership.ActivityId
+                || requestId != RequestId
                 || deterministicAttemptId != DeterministicInvocationId
                 || !string.Equals(expectedCriterionId, "crit.assisted.structure", StringComparison.Ordinal)
                 || !string.Equals(expectedCriterionVersion, "crit.assisted.structure.v1", StringComparison.Ordinal)
