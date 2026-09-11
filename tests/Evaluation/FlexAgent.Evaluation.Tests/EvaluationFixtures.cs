@@ -1,4 +1,5 @@
 using FlexAgent.Contracts.Evaluation;
+using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Tests;
@@ -25,13 +26,13 @@ internal static class EvaluationFixtures
 
     public static FrozenModelIdentity Model() =>
         FrozenModelIdentity.TryCreate(
-            "mdl.p0.text.synthetic",
-            "mdl.p0.text.synthetic.v1",
+            EvaluationSyntheticDevelopmentModelProfile.ProfileId,
+            EvaluationSyntheticDevelopmentModelProfile.ProfileVersion,
             new string('a', 64),
-            "provider.synthetic",
-            "organization_byok",
-            "cred.bind.synthetic",
-            "cred.bind.synthetic.v1").Value!;
+            EvaluationSyntheticDevelopmentModelProfile.ProviderId,
+            EvaluationSyntheticDevelopmentModelProfile.CredentialMode,
+            EvaluationSyntheticDevelopmentModelProfile.CredentialBindingReference,
+            EvaluationSyntheticDevelopmentModelProfile.CredentialBindingVersion).Value!;
 
     public static ExactSourceIdentity Rubric() =>
         ExactSourceIdentity.TryCreate(
