@@ -2,6 +2,7 @@ using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Postgres;
+using Npgsql;
 
 namespace FlexAgent.Evaluation.Infrastructure;
 
@@ -16,7 +17,9 @@ public sealed class PostgresEvaluationProviderArtifactStore(
             || command.RequestId == Guid.Empty
             || command.InvocationAttemptId == Guid.Empty
             || command.ProviderArtifactId == Guid.Empty
-            || string.IsNullOrWhiteSpace(command.ProtectedRequestRef))
+            || string.IsNullOrWhiteSpace(command.ProtectedRequestRef)
+            || string.IsNullOrWhiteSpace(command.CriterionId)
+            || string.IsNullOrWhiteSpace(command.CriterionVersion))
         {
             return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.InvalidField);
         }
@@ -27,11 +30,13 @@ public sealed class PostgresEvaluationProviderArtifactStore(
                 """
                 INSERT INTO evaluation_provider_artifacts (
                     organization_id, provider_artifact_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version,
                     model_profile_id, model_profile_version, model_profile_digest,
                     credential_binding_reference, protected_request_ref, protected_response_ref,
                     outcome, failure_category)
                 SELECT
                     @OrganizationId, @ProviderArtifactId, @RequestId, @InvocationAttemptId,
+                    @CriterionId, @CriterionVersion,
                     @ModelProfileId, @ModelProfileVersion, @ModelProfileDigest,
                     @CredentialBindingReference, @ProtectedRequestRef, @ProtectedResponseRef,
                     @Outcome, @FailureCategory
@@ -46,11 +51,7 @@ public sealed class PostgresEvaluationProviderArtifactStore(
                   AND request.participant_id = @ParticipantId
                   AND request.attempt_id = @AttemptId
                   AND request.session_id = @SessionId
-                  AND NOT EXISTS (
-                        SELECT 1
-                        FROM evaluation_provider_artifacts AS existing
-                        WHERE existing.organization_id = @OrganizationId
-                          AND existing.provider_artifact_id = @ProviderArtifactId);
+                ON CONFLICT (organization_id, provider_artifact_id) DO NOTHING;
                 """,
                 new
                 {
@@ -58,6 +59,8 @@ public sealed class PostgresEvaluationProviderArtifactStore(
                     command.ProviderArtifactId,
                     command.RequestId,
                     command.InvocationAttemptId,
+                    command.CriterionId,
+                    command.CriterionVersion,
                     ModelProfileId = command.ModelIdentity.ProfileId,
                     ModelProfileVersion = command.ModelIdentity.ProfileVersion,
                     ModelProfileDigest = command.ModelIdentity.ProfileDigest,
@@ -78,11 +81,21 @@ public sealed class PostgresEvaluationProviderArtifactStore(
             return EvaluationDecision<Guid>.Ok(command.ProviderArtifactId);
         }
 
+        return await TryReconcileExistingAsync(connection, command, cancellationToken);
+    }
+
+    private static async Task<EvaluationDecision<Guid>> TryReconcileExistingAsync(
+        NpgsqlConnection connection,
+        ProviderArtifactAppendCommand command,
+        CancellationToken cancellationToken)
+    {
         var existing = await connection.QuerySingleOrDefaultAsync<PersistedProviderArtifactRow>(
             new CommandDefinition(
                 """
                 SELECT
                     invocation_attempt_id,
+                    criterion_id,
+                    criterion_version,
                     model_profile_id,
                     model_profile_version,
                     model_profile_digest,
@@ -110,8 +123,8 @@ public sealed class PostgresEvaluationProviderArtifactStore(
         var candidate = ProviderArtifactProvenance.FromAppendCommand(command);
         var persisted = new ProviderArtifactProvenanceSnapshot(
             existing.invocation_attempt_id,
-            command.CriterionId,
-            command.CriterionVersion,
+            existing.criterion_id,
+            existing.criterion_version,
             existing.model_profile_id,
             existing.model_profile_version,
             existing.model_profile_digest,
@@ -131,6 +144,8 @@ public sealed class PostgresEvaluationProviderArtifactStore(
 
     private sealed record PersistedProviderArtifactRow(
         Guid invocation_attempt_id,
+        string criterion_id,
+        string criterion_version,
         string model_profile_id,
         string model_profile_version,
         string model_profile_digest,

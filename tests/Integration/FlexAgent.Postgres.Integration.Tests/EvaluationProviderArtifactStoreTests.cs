@@ -45,6 +45,38 @@ public sealed class EvaluationProviderArtifactStoreTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Concurrent_equivalent_appends_reconcile_to_one_provider_artifact_row()
+    {
+        var context = await SeedClaimedAsync();
+        var store = new PostgresEvaluationProviderArtifactStore(Fixture.Services.ConnectionAccessor);
+        var command = CreateCommand(context);
+
+        var results = await Task.WhenAll(
+            Enumerable.Range(0, 8)
+                .Select(_ => store.TryAppendAsync(command, CancellationToken))
+                .ToArray());
+
+        Assert.All(results, result => Assert.True(result.Succeeded, result.OutcomeCode));
+        Assert.All(results, result => Assert.Equal(command.ProviderArtifactId, result.Value));
+
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var count = await connection.QuerySingleAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluation_provider_artifacts
+            WHERE organization_id = @OrganizationId
+              AND provider_artifact_id = @ProviderArtifactId;
+            """,
+            new
+            {
+                context.Claimed.Ownership.OrganizationId,
+                ProviderArtifactId = command.ProviderArtifactId,
+            });
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
     public async Task Conflicting_response_ref_on_same_artifact_id_fails_with_deterministic_conflict()
     {
         var context = await SeedClaimedAsync();

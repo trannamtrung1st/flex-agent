@@ -319,11 +319,13 @@ internal static class EvaluationPersistenceTestSeed
                 """
                 INSERT INTO evaluation_provider_artifacts (
                     organization_id, provider_artifact_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version,
                     model_profile_id, model_profile_version, model_profile_digest,
                     credential_binding_reference, protected_request_ref, protected_response_ref,
                     outcome, failure_category, created_at)
                 SELECT
                     organization_id, @ProviderArtifactId, request_id, @InvocationAttemptId,
+                    'crit.judgment.quality', 'crit.judgment.quality.v1',
                     model_profile_id, model_profile_version, model_profile_digest,
                     credential_binding_reference, 'protected.request.ref', 'protected.response.ref',
                     'succeeded', NULL, clock_timestamp()
