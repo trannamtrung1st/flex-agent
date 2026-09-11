@@ -4,6 +4,23 @@ namespace FlexAgent.Evaluation.Domain;
 
 public static class EvaluationModelResponseValidator
 {
+    public static EvaluationDecision<CriterionJudgmentDraft> TryValidateFromDocument(
+        ReadOnlySpan<byte> canonicalUtf8,
+        EvaluationProcedureV1 procedure,
+        EvaluationModelExpectedInvocation expected,
+        IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts)
+    {
+        var read = EvaluationModelResponseDocumentReader.Read(canonicalUtf8);
+        if (!read.Succeeded || read.Value is null)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                EvaluationFailureCodes.InvalidJudgment,
+                read.Field);
+        }
+
+        return TryValidate(procedure, expected, read.Value, verifiedDeterministicFacts);
+    }
+
     public static EvaluationDecision<CriterionJudgmentDraft> TryValidate(
         EvaluationProcedureV1 procedure,
         EvaluationModelExpectedInvocation expected,

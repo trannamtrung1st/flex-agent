@@ -94,6 +94,94 @@ public sealed class EvaluationModelResponseValidatorTests
         Assert.Equal("evidence_ids", result.Field);
     }
 
+    [Fact]
+    public void Invalid_confidence_is_rejected()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var expected = CreateExpectedInvocation();
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.") with
+        {
+            Confidence = "unsupported",
+        };
+
+        var result = EvaluationModelResponseValidator.TryValidate(Procedure, expected, response, facts);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Score_outside_integer_range_is_rejected_for_judgment_criterion()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var criterion = Procedure.Criteria.Single(item =>
+            string.Equals(item.CriterionId, "crit.judgment.quality", StringComparison.Ordinal));
+        var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId);
+        var expected = new EvaluationModelExpectedInvocation(
+            criterion,
+            EvaluationId,
+            null,
+            null,
+            new HashSet<string>(StringComparer.Ordinal) { evidenceStableId },
+            new Dictionary<string, Guid>(StringComparer.Ordinal) { [evidenceStableId] = EvidenceId });
+        var response = new EvaluationModelResponseV1(
+            "v1",
+            "eval.agent.judgment.output.v1",
+            criterion.CriterionId,
+            criterion.CriterionVersion,
+            EvaluatorModes.AgentJudgment,
+            CriterionStatuses.Satisfied,
+            "medium",
+            ["limited_context"],
+            "Quality matches the rubric.",
+            [evidenceStableId],
+            new ProtectedPayloadRefV1("prot.eval.res.judgment", new string('d', 64)),
+            99,
+            null,
+            null);
+
+        var result = EvaluationModelResponseValidator.TryValidate(Procedure, expected, response, facts);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("score", result.Field);
+    }
+
+    [Fact]
+    public void Catalog_valid_fixture_passes_document_and_semantic_validation()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "contracts",
+            "fixtures",
+            "schema",
+            "v1",
+            "evaluation",
+            "evaluation-model-response",
+            "valid-agent-assisted-satisfied.json");
+        var utf8Json = File.ReadAllBytes(fixturePath);
+        var expected = CreateExpectedInvocation() with
+        {
+            PermittedEvidenceStableIds = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "evid.synthetic.0001",
+            },
+            PermittedEvidenceIdBindings = new Dictionary<string, Guid>(StringComparer.Ordinal)
+            {
+                ["evid.synthetic.0001"] = EvidenceId,
+            },
+        };
+
+        var result = EvaluationModelResponseValidator.TryValidateFromDocument(
+            utf8Json,
+            Procedure,
+            expected,
+            AssistedFacts("""{"valid":true}"""));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(EvaluationId, result.Value!.EvaluationId);
+    }
+
     private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json) =>
         new(StringComparer.Ordinal)
         {

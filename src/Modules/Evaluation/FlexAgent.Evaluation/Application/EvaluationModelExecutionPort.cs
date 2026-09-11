@@ -325,10 +325,10 @@ public sealed class EvaluationModelExecutionService
                 .ToHashSet(StringComparer.Ordinal),
             executionContext.PermittedEvidenceIdBindings);
 
-        return EvaluationModelResponseValidator.TryValidate(
+        return EvaluationModelResponseValidator.TryValidateFromDocument(
+            EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(succeeded.Response),
             procedure,
             expected,
-            succeeded.Response,
             verifiedDeterministicFacts);
     }
 }

@@ -12,6 +12,9 @@
     <Content Include="..\..\..\contracts\fixtures\schema\v1\evaluation\evaluation-procedure\**\*"
              Link="contracts\fixtures\schema\v1\evaluation\evaluation-procedure\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\schema\v1\evaluation\evaluation-model-response\**\*"
+             Link="contracts\fixtures\schema\v1\evaluation\evaluation-model-response\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

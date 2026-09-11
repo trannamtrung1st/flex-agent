@@ -5,4 +5,11 @@
     <AssemblyName>FlexAgent.Contracts</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\contracts\schemas\v1\evaluation\evaluation-model-response.v1.schema.json"
+                      LogicalName="FlexAgent.Contracts.evaluation-model-response.v1.schema.json" />
+    <EmbeddedResource Include="..\..\..\contracts\schemas\v1\common\primitives.v1.schema.json"
+                      LogicalName="FlexAgent.Contracts.primitives.v1.schema.json" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,15 @@
+{
+  "schema_version": "v1",
+  "output_schema_id": "eval.agent.assisted.output.v1",
+  "criterion_id": "crit.assisted.structure",
+  "criterion_version": "crit.assisted.structure.v1",
+  "evaluator_mode": "agent_assisted",
+  "status": "satisfied",
+  "score": "pass",
+  "confidence": "high",
+  "uncertainty": ["ambiguous_language"],
+  "rationale": "Structure is complete.",
+  "provisional_feedback": null,
+  "evidence_ids": ["evid.synthetic.0001"],
+  "deterministic_invocation_id": "dinv.synthetic.0002"
+}

@@ -157,7 +157,8 @@
         "type": "Project",
         "dependencies": {
           "FlexAgent.CanonicalJson": "[1.0.0, )",
-          "FlexAgent.Contracts": "[1.0.0, )"
+          "FlexAgent.Contracts": "[1.0.0, )",
+          "JsonSchema.Net": "[9.4.0, )"
         }
       },
       "flexagent.identityaccess": {
