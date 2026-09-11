@@ -342,6 +342,83 @@ public sealed class EvaluationModelExecutionServiceTests
         Assert.Null(store.LastCommand.ProtectedResponseRef);
     }
 
+    [Fact]
+    public async Task Wire_document_with_additional_property_is_rejected_before_semantic_validation()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var wirePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "contracts",
+            "fixtures",
+            "schema",
+            "v1",
+            "evaluation",
+            "evaluation-model-response",
+            "invalid-hidden-prompt.json");
+        var wireUtf8 = await File.ReadAllBytesAsync(wirePath, TestContext.Current.CancellationToken);
+        Assert.False(
+            EvaluationModelResponseDocumentReader.Read(wireUtf8).Succeeded,
+            "Schema gate must reject additional wire properties before semantic validation.");
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            CreateAssistedContext(),
+            new FixedWireEvaluationModelExecutionPort(
+                wireUtf8,
+                new ProtectedPayloadRefV1("prot.eval.res.wire", new string('e', 64))),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("model_response", result.Field);
+    }
+
+    [Fact]
+    public async Task Post_validation_schema_failure_persists_invalid_output_with_response_ref()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var store = new RecordingProviderArtifactStore();
+        var wirePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "contracts",
+            "fixtures",
+            "schema",
+            "v1",
+            "evaluation",
+            "evaluation-model-response",
+            "invalid-hidden-prompt.json");
+        var wireUtf8 = await File.ReadAllBytesAsync(wirePath, TestContext.Current.CancellationToken);
+        var responseDigest = new string('e', 64);
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            CreateAssistedContext(),
+            new FixedWireEvaluationModelExecutionPort(
+                wireUtf8,
+                new ProtectedPayloadRefV1("prot.eval.res.wire", responseDigest)),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            store,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("model_response", result.Field);
+        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, store.LastCommand!.Outcome);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, store.LastCommand.FailureCategory);
+        Assert.Equal(
+            ProviderArtifactProvenance.ProtectedResponseRef(responseDigest),
+            store.LastCommand.ProtectedResponseRef);
+    }
+
     private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json)
     {
         var digest = new string('c', 64);
@@ -418,6 +495,24 @@ public sealed class EvaluationModelExecutionServiceTests
                 new string('f', 64),
                 EvaluationFixtures.SyntheticProcedureRef(),
                 EvaluatorRegistryVersions.P0));
+
+    private sealed class FixedWireEvaluationModelExecutionPort(
+        byte[] wireUtf8,
+        ProtectedPayloadRefV1 responseRef) : IEvaluationModelExecutionPort
+    {
+        public Task<EvaluationModelAttemptResult> ExecuteAsync(
+            EvaluationModelRequestV1 request,
+            EvaluationModelExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            _ = request;
+            _ = context;
+            _ = cancellationToken;
+            return Task.FromResult<EvaluationModelAttemptResult>(
+                new EvaluationModelAttemptSucceeded(
+                    new EvaluationModelWireResponse(wireUtf8, responseRef)));
+        }
+    }
 
     private sealed class CapturingEvaluationModelExecutionPort(IEvaluationModelExecutionPort inner) : IEvaluationModelExecutionPort
     {

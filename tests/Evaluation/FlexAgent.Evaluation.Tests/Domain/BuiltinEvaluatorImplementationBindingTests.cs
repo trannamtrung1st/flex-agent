@@ -80,6 +80,13 @@ public sealed class BuiltinEvaluatorImplementationBindingTests
             "FlexAgent.Evaluation",
             "FlexAgent.Evaluation.csproj");
         AssertSourceArtifactMatches(
+            BuiltinEvaluatorImplementationBinding.EvaluationDirectoryBuildTargetsSourceArtifactDigest,
+            "src",
+            "Modules",
+            "Evaluation",
+            "FlexAgent.Evaluation",
+            "Directory.Build.targets");
+        AssertSourceArtifactMatches(
             BuiltinEvaluatorImplementationBinding.EvaluationInfrastructureProjectSourceArtifactDigest,
             "src",
             "Modules",

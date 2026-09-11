@@ -71,22 +71,7 @@ public sealed class EvaluationProviderArtifactPersistenceTests
         var criterion = EvaluationFixtures.LoadSyntheticProcedure().Criteria[2];
         var request = CreateRequest(criterion);
         var responseDigest = new string('d', 64);
-        var result = new EvaluationModelAttemptSucceeded(
-            new EvaluationModelResponseV1(
-                "v1",
-                criterion.AgentIo!.OutputSchemaId,
-                criterion.CriterionId,
-                criterion.CriterionVersion,
-                criterion.EvaluatorMode,
-                CriterionStatuses.Satisfied,
-                "high",
-                [],
-                "Synthetic evaluation model response.",
-                [],
-                new ProtectedPayloadRefV1("prot.eval.res.synthetic", responseDigest),
-                3,
-                null,
-                null));
+        var result = CreateSucceededWireResult(criterion, responseDigest);
 
         var decision = EvaluationProviderArtifactPersistence.TryBuildAppendCommand(
             context,
@@ -101,6 +86,55 @@ public sealed class EvaluationProviderArtifactPersistenceTests
             decision.Value.ProtectedResponseRef);
     }
 
+    [Fact]
+    public void Build_append_command_maps_post_validation_schema_invalid_with_response_ref()
+    {
+        var context = CreateContext();
+        var criterion = EvaluationFixtures.LoadSyntheticProcedure().Criteria[2];
+        var request = CreateRequest(criterion);
+        var responseDigest = new string('d', 64);
+        var result = CreateSucceededWireResult(criterion, responseDigest);
+
+        var decision = EvaluationProviderArtifactPersistence.TryBuildAppendCommand(
+            context,
+            criterion,
+            request,
+            result,
+            EvaluationModelExecutionOutcomeCategories.SchemaInvalid);
+
+        Assert.True(decision.Succeeded, decision.OutcomeCode);
+        Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, decision.Value!.Outcome);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, decision.Value.FailureCategory);
+        Assert.Equal(
+            ProviderArtifactProvenance.ProtectedResponseRef(responseDigest),
+            decision.Value.ProtectedResponseRef);
+    }
+
+    private static EvaluationModelAttemptSucceeded CreateSucceededWireResult(
+        EvaluationProcedureCriterionV1 criterion,
+        string responseDigest)
+    {
+        var response = new EvaluationModelResponseV1(
+            "v1",
+            criterion.AgentIo!.OutputSchemaId,
+            criterion.CriterionId,
+            criterion.CriterionVersion,
+            criterion.EvaluatorMode,
+            CriterionStatuses.Satisfied,
+            "high",
+            ["ambiguous_language"],
+            "Synthetic evaluation model response.",
+            [EvaluationEvidenceSourceIdentity.StableEvidenceId(Guid.Parse("22222222-2222-4222-8222-222222222222"))],
+            new ProtectedPayloadRefV1("prot.eval.res.synthetic", responseDigest),
+            3,
+            null,
+            null);
+        return new EvaluationModelAttemptSucceeded(
+            new EvaluationModelWireResponse(
+                EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(response),
+                response.ResponseRef));
+    }
+
     private static ProviderArtifactAppendCommand CreateCommand()
     {
         var context = CreateContext();
@@ -110,22 +144,9 @@ public sealed class EvaluationProviderArtifactPersistenceTests
             context,
             criterion,
             request,
-            new EvaluationModelAttemptSucceeded(
-                new EvaluationModelResponseV1(
-                    "v1",
-                    criterion.AgentIo!.OutputSchemaId,
-                    criterion.CriterionId,
-                    criterion.CriterionVersion,
-                    criterion.EvaluatorMode,
-                    CriterionStatuses.Satisfied,
-                    "high",
-                    [],
-                    "Synthetic evaluation model response.",
-                    [],
-                    new ProtectedPayloadRefV1("prot.eval.res.synthetic", new string('d', 64)),
-                    3,
-                    null,
-                    null)));
+            CreateSucceededWireResult(
+                criterion,
+                new string('d', 64)));
 
         return decision.Value!;
     }

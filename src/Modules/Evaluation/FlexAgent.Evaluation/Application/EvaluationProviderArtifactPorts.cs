@@ -16,7 +16,8 @@ public static class EvaluationProviderArtifactPersistence
         EvaluationModelExecutionContext context,
         EvaluationProcedureCriterionV1 authorizedCriterion,
         EvaluationModelRequestV1 request,
-        EvaluationModelAttemptResult result)
+        EvaluationModelAttemptResult result,
+        string? validatedExecutionOutcomeCategory = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(authorizedCriterion);
@@ -46,9 +47,15 @@ public static class EvaluationProviderArtifactPersistence
         switch (result)
         {
             case EvaluationModelAttemptSucceeded succeeded:
-                outcomeCategory = EvaluationModelExecutionOutcomeCategories.Succeeded;
                 protectedResponseRef = ProviderArtifactProvenance.ProtectedResponseRef(
-                    succeeded.Response.ResponseRef.ContentDigest);
+                    succeeded.WireResponse.ResponseRef.ContentDigest);
+                outcomeCategory = validatedExecutionOutcomeCategory
+                    ?? EvaluationModelExecutionOutcomeCategories.Succeeded;
+                if (outcomeCategory != EvaluationModelExecutionOutcomeCategories.Succeeded)
+                {
+                    failureCategory = outcomeCategory;
+                }
+
                 break;
             case EvaluationModelAttemptFailed failed:
                 outcomeCategory = failed.OutcomeCategory;
@@ -81,10 +88,16 @@ public static class EvaluationProviderArtifactPersistence
         EvaluationModelRequestV1 request,
         EvaluationModelAttemptResult result,
         IEvaluationProviderArtifactStore store,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? validatedExecutionOutcomeCategory = null)
     {
         ArgumentNullException.ThrowIfNull(store);
-        var commandDecision = TryBuildAppendCommand(context, authorizedCriterion, request, result);
+        var commandDecision = TryBuildAppendCommand(
+            context,
+            authorizedCriterion,
+            request,
+            result,
+            validatedExecutionOutcomeCategory);
         if (!commandDecision.Succeeded || commandDecision.Value is null)
         {
             return EvaluationDecision<Guid>.Fail(commandDecision.OutcomeCode, commandDecision.Field);

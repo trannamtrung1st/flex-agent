@@ -22,6 +22,9 @@ public static class BuiltinEvaluatorImplementationBinding
     public const string EvaluationProjectSourceArtifactDigest =
         "c2ed165823783e0445b3002afb12b58bf2c1307bd1c10fd30f731e4ea3895dbc";
 
+    public const string EvaluationDirectoryBuildTargetsSourceArtifactDigest =
+        "3210fcb1318916017a1ea30bd7287510fd0c7602a73d69b69209f0ffcc4287aa";
+
     public const string EvaluationInfrastructureProjectSourceArtifactDigest =
         "d5b07dd4d033902d5e1ca47369396462fc11c220ef5dcf9727f60376c9e31aad";
 
@@ -32,6 +35,7 @@ public static class BuiltinEvaluatorImplementationBinding
             ["evaluation_identity"] = EvaluationIdentitySourceArtifactDigest,
             ["evaluation_positive_duration"] = EvaluationPositiveDurationSourceArtifactDigest,
             ["flex_agent.evaluation.csproj"] = EvaluationProjectSourceArtifactDigest,
+            ["flex_agent.evaluation.directory_build.targets"] = EvaluationDirectoryBuildTargetsSourceArtifactDigest,
             ["flex_agent.evaluation.infrastructure.csproj"] = EvaluationInfrastructureProjectSourceArtifactDigest,
             ["in_process_execution_contract"] = InProcessExecutionContractSourceArtifactDigest,
             ["runner"] = RunnerSourceArtifactDigest,

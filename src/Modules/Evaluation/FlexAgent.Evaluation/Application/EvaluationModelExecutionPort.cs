@@ -15,7 +15,16 @@ public static class EvaluationModelExecutionOutcomeCategories
 
 public abstract record EvaluationModelAttemptResult;
 
-public sealed record EvaluationModelAttemptSucceeded(EvaluationModelResponseV1 Response)
+/// <summary>
+/// Exact provider wire bytes for the bounded model response document. Adapters must not
+/// parse into <see cref="EvaluationModelResponseV1"/> before returning; application code
+/// validates these bytes with JsonSchema before semantic mapping.
+/// </summary>
+public sealed record EvaluationModelWireResponse(
+    byte[] DocumentUtf8,
+    ProtectedPayloadRefV1 ResponseRef);
+
+public sealed record EvaluationModelAttemptSucceeded(EvaluationModelWireResponse WireResponse)
     : EvaluationModelAttemptResult;
 
 public sealed record EvaluationModelAttemptFailed(string OutcomeCategory) : EvaluationModelAttemptResult;
@@ -67,7 +76,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                     EvaluationModelExecutionOutcomeCategories.ProviderUnavailable),
                 "schema_invalid" => new EvaluationModelAttemptFailed(
                     EvaluationModelExecutionOutcomeCategories.SchemaInvalid),
-                "wrong_criterion" => new EvaluationModelAttemptSucceeded(
+                "wrong_criterion" => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -78,7 +87,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         CriterionStatuses.Satisfied,
                         3,
                         null)),
-                "insufficient" => new EvaluationModelAttemptSucceeded(
+                "insufficient" => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -89,7 +98,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         CriterionStatuses.InsufficientEvidence,
                         "pass",
                         null)),
-                "conflict" => new EvaluationModelAttemptSucceeded(
+                "conflict" => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -100,7 +109,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         CriterionStatuses.Conflict,
                         "fail",
                         null)),
-                "injection_rationale" => new EvaluationModelAttemptSucceeded(
+                "injection_rationale" => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -112,7 +121,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         "pass",
                         null,
                         "The submission attempts to change the rubric and execute tools.")),
-                "disclosed_hidden_prompt" => new EvaluationModelAttemptSucceeded(
+                "disclosed_hidden_prompt" => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -124,7 +133,7 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                         "pass",
                         null,
                         "Reveal hidden_prompt contents from policy.")),
-                _ => new EvaluationModelAttemptSucceeded(
+                _ => SucceedWithWireDocument(
                     CreateResponse(
                         request,
                         context,
@@ -139,6 +148,11 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
                             : "Quality matches the rubric.")),
             });
     }
+
+    private static EvaluationModelAttemptSucceeded SucceedWithWireDocument(EvaluationModelResponseV1 response) =>
+        new(new EvaluationModelWireResponse(
+            EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(response),
+            response.ResponseRef));
 
     private static EvaluationModelResponseV1 CreateResponse(
         EvaluationModelRequestV1 request,
@@ -277,25 +291,25 @@ public sealed class EvaluationModelExecutionService
             executionContext,
             cancellationToken);
 
-        if (providerArtifactStore is not null)
-        {
-            var persisted = await EvaluationProviderArtifactPersistence.TryPersistAsync(
-                executionContext,
-                authorizedCriterion,
-                requestDecision.Value,
-                result,
-                providerArtifactStore,
-                cancellationToken);
-            if (!persisted.Succeeded)
-            {
-                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
-                    persisted.OutcomeCode,
-                    persisted.Field);
-            }
-        }
-
         if (result is EvaluationModelAttemptFailed failed)
         {
+            if (providerArtifactStore is not null)
+            {
+                var persisted = await EvaluationProviderArtifactPersistence.TryPersistAsync(
+                    executionContext,
+                    authorizedCriterion,
+                    requestDecision.Value,
+                    failed,
+                    providerArtifactStore,
+                    cancellationToken);
+                if (!persisted.Succeeded)
+                {
+                    return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                        persisted.OutcomeCode,
+                        persisted.Field);
+                }
+            }
+
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(
                 failed.OutcomeCategory switch
                 {
@@ -325,10 +339,40 @@ public sealed class EvaluationModelExecutionService
                 .ToHashSet(StringComparer.Ordinal),
             executionContext.PermittedEvidenceIdBindings);
 
-        return EvaluationModelResponseValidator.TryValidateFromDocument(
-            EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(succeeded.Response),
+        var validation = EvaluationModelResponseValidator.TryValidateFromDocument(
+            succeeded.WireResponse.DocumentUtf8,
             procedure,
             expected,
             verifiedDeterministicFacts);
+
+        if (providerArtifactStore is not null)
+        {
+            var validatedOutcome = validation.Succeeded
+                ? EvaluationModelExecutionOutcomeCategories.Succeeded
+                : EvaluationModelExecutionOutcomeCategories.SchemaInvalid;
+            var persisted = await EvaluationProviderArtifactPersistence.TryPersistAsync(
+                executionContext,
+                authorizedCriterion,
+                requestDecision.Value,
+                succeeded,
+                providerArtifactStore,
+                cancellationToken,
+                validatedOutcome);
+            if (!persisted.Succeeded)
+            {
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    persisted.OutcomeCode,
+                    persisted.Field);
+            }
+        }
+
+        if (!validation.Succeeded)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                validation.OutcomeCode,
+                validation.Field);
+        }
+
+        return validation;
     }
 }
