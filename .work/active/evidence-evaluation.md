@@ -2,9 +2,12 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-11T12:40:00+07:00
-phase6_slice2: in-progress-b8b5efad-authority-binding
-phase6_slice2_review: pending-re-review-b8b5efad-corrective-2466f1be
+updated: 2026-09-11T13:35:00+07:00
+phase6_slice2: in-progress-store-authority-approved-2466f1be-b8b5efad
+phase6_slice2_store_authority: approved-2466f1be-b8b5efad
+phase6_slice2_store_authority_review: approved-b8b5efad-0-blocker-0-high-0-medium
+phase6_slice2_store_authority_ci: approved-34566336207-34566336176
+phase6_slice2_review: approved-b8b5efad-0-blocker-0-high-0-medium
 activation_gate: explicit-implementation-start-after-plan-review
 phase3_review: approved-13fd2f3-4e2fb53
 phase3_ci_review: approved-3c0c1c3-4a2a86a
@@ -841,21 +844,25 @@ approved layout families and donors already exist.
   schema/deterministic invocation), deterministic conflict (`"valid":false` fact +
   `satisfied`), trusted draft mapping, and `CriterionJudgmentValidator`. Full
   schema/citation/aggregation matrix deferred to slice 2+.
-- [>] Obtain verified deterministic-fact protected refs from
+- [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
-  **Committed at `2466f1be`; corrective at `b8b5efad` after review `2466f1be` (0 Blocker /
-  1 High / 1 Medium):** bind full `EvaluationOwnership` + admitted request authority reload;
-  reconcile session ownership ref, request/invocation stable IDs, and
-  `DeterministicInvocationId` before provider; enforce ownership chain in Postgres
-  verified-material load; negatives for forged ownership, claimed-invocation mismatch,
-  and wrong same-org scope. Confirmation at `b8b5efad`:
+  **Approved 2026-09-11** through chain `2466f1be` → `b8b5efad` (+ confirmation
+  `9ae78e36`): external review **0 Blocker / 0 High / 0 Medium**; closes High
+  (invocation/ownership provenance) and Medium (work-plan drift) from `2466f1be`.
+  Store-backed protected refs; admitted request authority reload; session ownership
+  and stable request/invocation/deterministic-ID reconciliation; full ownership
+  chain on Postgres verified-material load; negatives for forged ownership,
+  claimed-invocation mismatch, and wrong same-org scope. Focused:
   `EvaluationModelExecutionAuthorityVerifierTests` 5;
   `EvaluationModelDeterministicFactAuthorityLoaderTests` 4;
   `EvaluationModelExecutionServiceTests` 10;
-  `EvaluationModelRequestComposerTests` 7; Evaluation unit 253; `verify-dotnet.sh` green.
-  Pending external re-review. Remaining slice 2: prompt-injection/confused-deputy suites,
-  credential fail-closed adapter selection, protected provider artifact persistence,
-  fuller response validation.
+  `EvaluationModelRequestComposerTests` 7; Evaluation unit 253. Hosted CI green at
+  `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all
+  six jobs. `EvaluationId` authoritative binding deferred to Phase 6/7 completion
+  persistence (no admitted-request Evaluation ID at this boundary). **Slice 2
+  remainder open:** prompt-injection/confused-deputy suites, credential fail-closed
+  adapter selection, protected provider artifact persistence, fuller response
+  validation.
 - [ ] Persist protected provider request/response references and bounded
   attempt outcomes, never full model output in queue, log, metric, audit, or
   error payloads.
@@ -1175,20 +1182,18 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   closed. Durable work has positive bounds, Organization backlog locking,
   Organization-aware fair claims, leases, renewal, retry, exhaustion, and
   expired-lease recovery.
-- **Phase 6 slice 2 in progress.** Store-backed deterministic-fact authority at
-  `2466f1be`; review found 1 High + 1 Medium; corrective **committed and pushed at
-  `b8b5efad`**. Binds admitted request authority reload, full ownership chain on
-  verified-material load, deterministic invocation identity, and session/request
-  stable-ID reconciliation before provider. Confirmation at `b8b5efad`:
-  `EvaluationModelExecutionAuthorityVerifierTests` 5;
-  `EvaluationModelDeterministicFactAuthorityLoaderTests` 4;
-  `EvaluationModelExecutionServiceTests` 10; `EvaluationModelRequestComposerTests` 7;
-  Evaluation unit 253; `verify-dotnet.sh` green. **Pending external re-review.**
-  **Remaining slice 2:** prompt-injection/confused-deputy suites, credential
-  fail-closed adapter selection, protected provider artifact persistence, fuller
-  response validation (schema parse gate). **Phase 6 slice 1 closed and approved**
-  through `8e0a5fc0` → `7bc3ff4f` → `78190660`. Worker processing and
-  `EvaluationInfrastructure.ProcessingEnabled` remain disabled.
+- **Phase 6 slice 2 in progress; store/authority-binding increment approved.**
+  External review 2026-09-11 on `b8b5efad` (+ confirmation `9ae78e36`): **0 Blocker /
+  0 High / 0 Medium**; closes `2466f1be` High + Medium. Chain `2466f1be` → `b8b5efad`:
+  store-backed deterministic facts, admitted request reload, ownership/stable-ID
+  reconciliation, deterministic invocation binding, Postgres full-chain verified-material
+  load. Hosted CI green at `b8b5efad`: Documentation `34566336207`; Implementation
+  `34566336176` — all six jobs; `9ae78e36` Documentation `34566378273`; Implementation
+  `34566378258` green. **Next slice 2:** prompt-injection/confused-deputy suites,
+  credential fail-closed adapter selection, protected provider artifact persistence,
+  fuller response validation (schema parse gate). **Do not** close slice 2, enable Worker
+  processing, or Production/Staging model adapters yet. **Phase 6 slice 1 closed and
+  approved** through `8e0a5fc0` → `7bc3ff4f` → `78190660`.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8
@@ -1372,6 +1377,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 5 slice 4 completion linkage (`428c835` + `b3b37b4`) | approved | External review 2026-09-10 on full chain: **0 Blocker / 0 High / 0 Medium**. `428c835`: `DeterministicFactContextLoader` + completion service store-backed context; persists `deterministic.fact` `evaluation_evidence_items`. Review: cross-criterion reuse High (load bound request/attempt/digest only). `b3b37b4`: criterion id/version on `TryLoadProjectionAsync` SQL + loader; `Completion_service_rejects_cross_criterion_deterministic_fact_reuse` negative (both criteria permit `deterministic.fact`). Focused: `DeterministicFactContextLoaderTests` 5; `DeterministicEvidenceCompletionTests` 3; `verify-dotnet.sh` 2327 passed / 4 skipped. Hosted CI green at `b3b37b4` (Documentation `34480110188`; Implementation `34480110154` all six jobs). Worker disabled |
 | Phase 5 slice 4 runner negatives + Worker lane scaffold (`4acfa4b` + `a179b085` + `0c63e403`) | approved | External review 2026-09-10 on `4acfa4b`: **0 Blocker / 0 High / 0 Medium**. Forbidden `environment`/`env`/`secret` runner regression tests (including nested secret). Worker: `IEvaluationDurableWorkProcessor`, idle lane registration, background polling, readiness/capability reporting, config + compile-time fail-closed gate. Hosted at `4acfa4b`: Documentation `34495832537` green; Implementation `34495832645` **failed** on unrelated enrollment admission window-boundary race. Corrective `a179b085`: `WaitUntilAwayFromAdmissionWindowBoundaryAsync()` before current-window counter insert; `0c63e403` + `22c17489` record confirmation and external approval. External review on corrective chain: **0 Blocker / 0 High / 0 Medium**. Hosted at `a179b085`: Documentation `34503812220` green; Implementation `34503812163` green — all six jobs. Local: `verify-dotnet.sh` 2337 passed / 4 skipped. Phase 5 slice 4 closed. Worker disabled |
 | Phase 6 slice 1 model execution foundation (`8e0a5fc0` + `7bc3ff4f` + `78190660`) | approved | External review 2026-09-11 on `78190660`: **0 Blocker / 0 High / 0 Medium**. Chain: `8e0a5fc0` canonical model request/response contracts + orchestration gates + synthetic adapter; `7bc3ff4f` closes criterion/provenance override and parallel port contract; `78190660` closes bidirectional verified-fact/protected-ref and permitted Evidence set reconciliation. Focused: `EvaluationModelRequestComposerTests` 7; `EvaluationModelExecutionServiceTests` 7; `EvaluationModelResponseValidatorTests` 5; `AgentEvaluatorOrchestrationValidatorTests` 5; Evaluation unit 242; contract 269; `verify-dotnet.sh` green. Hosted CI green at `78190660`: Documentation `34554419421`; Implementation `34554419477` — all six jobs including `supply-chain` and `oci-oidc-smoke`. Slice 2 carry-forward: obtain protected refs from deterministic-output store before real adapter dereference. Worker disabled |
+| Phase 6 slice 2 store/authority binding (`2466f1be` + `b8b5efad` + `9ae78e36`) | approved | External review 2026-09-11 on `b8b5efad`: **0 Blocker / 0 High / 0 Medium**; closes `2466f1be` High (invocation/ownership provenance) + Medium (work-plan drift). Chain: `2466f1be` store-backed protected refs; `b8b5efad` admitted request reload, ownership/stable-ID reconciliation, deterministic invocation binding, Postgres full-chain verified-material load; `9ae78e36` work-plan confirmation. Focused: `EvaluationModelExecutionAuthorityVerifierTests` 5; `EvaluationModelDeterministicFactAuthorityLoaderTests` 4; `EvaluationModelExecutionServiceTests` 10; `EvaluationModelRequestComposerTests` 7; Evaluation unit 253. Hosted CI green at `b8b5efad`: Documentation `34566336207`; Implementation `34566336176` — all six jobs; `9ae78e36` Documentation `34566378273`; Implementation `34566378258`. **Slice 2 not closed** — prompt-injection, credential fail-closed, provider artifact persistence, fuller response validation remain. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
