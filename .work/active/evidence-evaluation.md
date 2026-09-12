@@ -2,7 +2,10 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-12T17:50:00+07:00
+updated: 2026-09-12T18:30:00+07:00
+phase6_slice2_schema_parse: approved-83309967-9bbb6c35
+phase6_slice2_schema_parse_review: approved-9bbb6c35-0-blocker-0-high-0-medium-0-low
+phase6_slice2_schema_parse_ci: approved-34689229774-34689229816
 phase6_slice2_provider_artifacts: confirmed-16da6ef2
 phase6_slice2_provider_artifacts_review: approved-d9c7b6a5-16da6ef2-591f1381-0-blocker-0-high-0-medium-0-low
 phase6_slice2_provider_artifacts_ci: approved-34614235430-34614235435
@@ -894,20 +897,17 @@ approved layout families and donors already exist.
   validates against explicit expected invocation identity (criterion/mode/output
   schema/deterministic invocation), deterministic conflict (`"valid":false` fact +
   `satisfied`), trusted draft mapping, and `CriterionJudgmentValidator`. **Slice 2
-  schema parse gate in progress (local, uncommitted):** embedded
-  `evaluation-model-response.v1` + `primitives.v1` schemas in Contracts;
-  `EvaluationModelResponseDocumentParser`/`Writer` in Contracts; JsonSchema gate +
-  `EvaluationModelResponseDocumentReader` in Evaluation Domain (Sessions
-  `AgentDecisionEnvelopeReader` pattern; JsonSchema via `Directory.Build.targets`
-  to preserve `flex_agent.evaluation.csproj` implementation digest); execution port
-  round-trips adapter output through canonical writer + `TryValidateFromDocument`;
-  schema tightened with `minItems: 1` on `uncertainty`/`evidence_ids`; invalid
-  catalog fixtures + boundary test (`invalid-score-above-max.json`). Focused:
-  `EvaluationModelResponseDocumentReaderTests` 10; expanded
-  `EvaluationModelResponseValidatorTests`; Evaluation unit **311**; contract
-  **274**; architecture **65**; `verify-dotnet.sh` green (local). **Remainder:**
-  aggregation/citation/protected-response-bytes matrix; credential fail-closed
-  external review/CI for `fb0c79fb`.
+  schema parse gate approved/closed** (`83309967` → `09ca54ab` → `4609f7be` →
+  `9bbb6c35`; external review **0 Blocker / 0 High / 0 Medium / 0 Low**):
+  provider wire bytes → JsonSchema gate → document/adapter `response_ref` binding
+  → semantic validation → artifact persistence; `output_semantic_invalid` distinct
+  from `schema_invalid`; adapter-side `response_ref` on binding failure.
+  Authoritative implementation head `9bbb6c35`; hosted CI Implementation
+  `34689229774` and Documentation `34689229816` — all six jobs green; docs-only
+  reconciliation `ad2105b8` (Implementation `34689256500` skipped implementation
+  jobs). Focused: Evaluation unit **324**; contract **274**; `verify-dotnet.sh`
+  green (local). **Remainder:** aggregation/citation/protected-response-bytes
+  matrix; credential fail-closed external review/CI for `fb0c79fb`.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
   **Approved 2026-09-11** through chain `2466f1be` → `b8b5efad` (+ confirmation
@@ -1298,20 +1298,17 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `EvaluationProviderArtifactStoreTests` 3; Evaluation unit **298**; `verify-dotnet.sh`
   green (local). Hosted CI green at corrective `591f1381`: Documentation
   `34614235435`; Implementation `34614235430` — all six jobs. **Provider artifact
-  increment closed.** **Schema parse gate:** `83309967` → `09ca54ab` → `4609f7be`
-  → `9bbb6c35` closes wire-trust-boundary, artifact-ordering, binding,
-  semantic-category, digest, and mismatch-provenance gaps. `4609f7be` adds
-  document/side-channel `response_ref` equality, `output_semantic_invalid`, and
-  `Directory.Packages.props` binding; `9bbb6c35` persists adapter/storage-side
-  `response_ref` when binding fails (no rejected-document promotion). Hosted CI
-  green at `4609f7be`: Documentation `34668923086`; Implementation
-  `34668923075` — all six jobs. `9bbb6c35` committed at HEAD; awaiting hosted
-  CI and external re-review for final **0/0/0/0** approval. Focused: mismatch
-  provenance tests; Evaluation unit **324**; `verify-dotnet.sh` green (local).
-  **Slice 2 not closed** — aggregation/citation/protected-response-bytes matrix;
-  credential fail-closed external review/CI for `fb0c79fb`. Wider AC-EVAL-24
-  matrix item remains `[>]` at Phase 6 gate. **Do not** close slice 2, enable
-  Worker processing, or wire real provider adapters until remainder + review.
+  increment closed.** **Schema parse gate approved/closed** (`83309967` →
+  `09ca54ab` → `4609f7be` → `9bbb6c35`): external review **0 Blocker / 0 High /
+  0 Medium / 0 Low**; authoritative implementation head `9bbb6c35`; hosted CI
+  Implementation `34689229774` and Documentation `34689229816` — all six jobs
+  green. Docs-only reconciliation `ad2105b8` (Documentation `34689256524`;
+  Implementation `34689256500` change-detector only — not implementation
+  evidence). **Slice 2 not closed** — aggregation/citation/protected-response-
+  bytes matrix; credential fail-closed external review/CI for `fb0c79fb`. Wider
+  AC-EVAL-24 matrix item remains `[>]` at Phase 6 gate. Worker disabled. **Do
+  not** close slice 2, enable Worker processing, or wire real provider adapters
+  until remainder + review.
 - Phase 4 foundation (`437401b` + `2461466`) approved 2026-09-08: 0 Blocker /
   0 High / 0 Medium on corrective commit. Session owner port cutoff-scopes
   participant material via authoritative `admitted_session_sequence`; UTF-8
@@ -1500,7 +1497,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 credential fail-closed adapter selection (`fb0c79fb`) | pending | Confirmation pass 2026-09-11 at `fb0c79fb`: fail-closed compose gates + non-secret credential binding admission; Production/Staging fail closed; Development/Testing synthetic gated on workload identity + frozen profile + catalog binding; fixtures aligned to profile constants. Focused: `EvaluationModelExecutionCompositionTests` 11; Evaluation unit 285; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green (local). Awaiting external review and hosted CI. Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI. **Provider artifact increment closed.** **Slice 2 not closed** — credential fail-closed external review/CI for `fb0c79fb`; fuller response validation remain. Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** **Slice 2 not closed** — credential fail-closed external review/CI for `fb0c79fb`; fuller response validation remain. Worker disabled |
-| Phase 6 slice 2 model response schema parse gate (`83309967` → `09ca54ab` → `4609f7be` → `9bbb6c35`) | pending | **2026-09-11:** `83309967` embeds schema authority, JsonSchema gate, structural constraints, negative fixtures. **2026-09-12:** `09ca54ab` closes original review Mediums; `4609f7be` closes binding/semantic-category/digest Lows; `9bbb6c35` closes mismatch-provenance Medium from `4609f7be` review (adapter-side `response_ref` on binding failure). Hosted CI green at `4609f7be`: Documentation `34668923086`; Implementation `34668923075` — all six jobs. `9bbb6c35` at HEAD; awaiting hosted CI and external re-review for final **0/0/0/0** approval. Focused: mismatch provenance tests; Evaluation unit **324**; `verify-dotnet.sh` green (local). **Remainder:** aggregation/citation/protected-response-bytes matrix; credential fail-closed review for `fb0c79fb`. Worker disabled |
+| Phase 6 slice 2 model response schema parse gate (`83309967` → `09ca54ab` → `4609f7be` → `9bbb6c35`) | approved | External review 2026-09-12 on full chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `83309967` embeds schema authority, JsonSchema gate, structural constraints, negative fixtures. `09ca54ab` closes wire-trust-boundary and artifact-ordering Mediums. `4609f7be` closes binding, semantic-category, and digest Lows. `9bbb6c35` closes mismatch-provenance Medium (adapter-side `response_ref` on binding failure). Authoritative implementation head `9bbb6c35`; hosted CI Implementation `34689229774` and Documentation `34689229816` — all six jobs including `dotnet`, `web`, `oidc`, `supply-chain`, `oci-oidc-smoke`. Docs-only `ad2105b8` (Documentation `34689256524`; Implementation `34689256500` skipped implementation jobs — not implementation evidence). Focused: Evaluation unit **324**; contract **274**; `verify-dotnet.sh` green (local). **Schema parse increment closed.** **Slice 2 not closed** — aggregation/citation/protected-response-bytes matrix; credential fail-closed review for `fb0c79fb`. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | pending | Populate during implementation |
