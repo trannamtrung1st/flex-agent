@@ -58,6 +58,12 @@ paths = ['''(?i)\.work/active/''']
 regexes = ['''(?i)^cmd-(1|denied-refresh|401|stale-401)$''']
 
 [[rules.allowlists]]
+description = "Evidence-evaluation task frontmatter bookkeeping tokens (commit SHAs, CI run ids)."
+condition = "AND"
+paths = ['''(?i)\.work/active/evidence-evaluation\.md$''']
+regexes = ['''(?i)^(approved|not-approved|confirmed|corrective|pending)(-[a-z0-9_.-]+)+$''']
+
+[[rules.allowlists]]
 description = "SHA-256 content hashes of copied design-lab stylesheets."
 condition = "AND"
 paths = ['''(?i)web/src/design-lab/copied-styles\.test\.ts$''']
