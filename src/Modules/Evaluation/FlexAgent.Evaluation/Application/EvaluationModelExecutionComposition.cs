@@ -105,6 +105,8 @@ public static class EvaluationModelCredentialBindingAdmission
         var record = catalog.TryGet(model.CredentialBindingReference, model.CredentialBindingVersion);
         if (record is null
             || record.Revoked
+            || !string.Equals(record.BindingReference, model.CredentialBindingReference, StringComparison.Ordinal)
+            || !string.Equals(record.BindingVersion, model.CredentialBindingVersion, StringComparison.Ordinal)
             || !string.Equals(record.ProviderId, model.ProviderId, StringComparison.Ordinal)
             || !string.Equals(record.CredentialMode, model.CredentialMode, StringComparison.Ordinal)
             || (record.OrganizationId != Guid.Empty && record.OrganizationId != organizationId))
@@ -172,6 +174,12 @@ public static class EvaluationModelExecutionCompositionComposer
         EvaluationModelExecutionCompositionRequest request)
     {
         if (!IsSyntheticHostProfile(request.EnvironmentName))
+        {
+            return EvaluationModelExecutionComposition.FailClosed(
+                EvaluationModelAdapterKinds.SyntheticDevelopment);
+        }
+
+        if (!request.Qualified)
         {
             return EvaluationModelExecutionComposition.FailClosed(
                 EvaluationModelAdapterKinds.SyntheticDevelopment);

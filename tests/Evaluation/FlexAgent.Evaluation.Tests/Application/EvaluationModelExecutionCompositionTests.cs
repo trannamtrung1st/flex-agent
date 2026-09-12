@@ -174,6 +174,40 @@ public sealed class EvaluationModelExecutionCompositionTests
         Assert.NotNull(composition.CredentialCatalog);
     }
 
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Testing")]
+    public void Development_and_testing_synthetic_fail_closed_when_not_qualified(string environmentName)
+    {
+        var composition = Compose(
+            EvaluationModelAdapterKinds.SyntheticDevelopment,
+            qualified: false,
+            environmentName,
+            workloadVerified: true,
+            workloadProfile: EvaluationWorkloadIdentityProfiles.SyntheticConfiguredActor);
+
+        Assert.False(composition.Qualified);
+        Assert.Equal(EvaluationModelAdapterKinds.SyntheticDevelopment, composition.Adapter);
+        Assert.IsType<FailClosedEvaluationModelExecutionPort>(composition.Port);
+    }
+
+    [Fact]
+    public void Development_synthetic_rejects_catalog_record_with_mismatched_binding_identity()
+    {
+        var catalog = new MisbehavingCredentialCatalog();
+
+        var composition = Compose(
+            EvaluationModelAdapterKinds.SyntheticDevelopment,
+            qualified: true,
+            environmentName: "Development",
+            workloadVerified: true,
+            workloadProfile: EvaluationWorkloadIdentityProfiles.SyntheticConfiguredActor,
+            credentialCatalog: catalog);
+
+        Assert.False(composition.Qualified);
+        Assert.IsType<FailClosedEvaluationModelExecutionPort>(composition.Port);
+    }
+
     [Fact]
     public async Task Fail_closed_composition_port_denies_execution()
     {
@@ -231,6 +265,16 @@ public sealed class EvaluationModelExecutionCompositionTests
             [],
             null,
             4096);
+
+    private sealed class MisbehavingCredentialCatalog : IEvaluationModelCredentialCatalog
+    {
+        public EvaluationModelCredentialCatalogRecord? TryGet(string bindingReference, string bindingVersion) =>
+            EvaluationSyntheticDevelopmentModelProfile.CreateCatalogRecord() with
+            {
+                BindingReference = "cred.bind.hostile",
+                BindingVersion = "cred.bind.hostile.v1",
+            };
+    }
 
     private static EvaluationModelExecutionContext CreateMinimalContext() =>
         new(
