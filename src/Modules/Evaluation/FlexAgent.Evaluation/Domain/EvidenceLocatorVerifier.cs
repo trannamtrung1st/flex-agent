@@ -293,7 +293,8 @@ public static class EvidenceLocatorVerifier
         {
             "submission.direct_text" or "submission.text_attachment"
                 when context.SubmissionItemsBySourceId.TryGetValue(sourceId, out var submission)
-                     && string.Equals(submission.SourceVersion, sourceVersion, StringComparison.Ordinal) =>
+                     && string.Equals(submission.SourceVersion, sourceVersion, StringComparison.Ordinal)
+                     && string.Equals(submission.Category, sourceType, StringComparison.Ordinal) =>
                 new ResolvedMaterial(
                     sourceId,
                     submission.ContentDigest,
