@@ -118,6 +118,33 @@ public sealed class EvaluationProviderArtifactPersistenceTests
     }
 
     [Fact]
+    public void Build_append_command_prefers_adapter_response_ref_when_bound_ref_is_null()
+    {
+        var context = CreateContext();
+        var criterion = EvaluationFixtures.LoadSyntheticProcedure().Criteria[2];
+        var request = CreateRequest(criterion);
+        var adapterDigest = new string('f', 64);
+        var documentDigest = new string('d', 64);
+        var result = CreateSucceededWireResult(criterion, adapterDigest);
+
+        var decision = EvaluationProviderArtifactPersistence.TryBuildAppendCommand(
+            context,
+            criterion,
+            request,
+            result,
+            EvaluationModelExecutionOutcomeCategories.SchemaInvalid,
+            boundResponseRef: null);
+
+        Assert.True(decision.Succeeded, decision.OutcomeCode);
+        Assert.Equal(
+            ProviderArtifactProvenance.ProtectedResponseRef(adapterDigest),
+            decision.Value!.ProtectedResponseRef);
+        Assert.NotEqual(
+            ProviderArtifactProvenance.ProtectedResponseRef(documentDigest),
+            decision.Value.ProtectedResponseRef);
+    }
+
+    [Fact]
     public void Build_append_command_maps_post_validation_schema_invalid_with_response_ref()
     {
         var context = CreateContext();

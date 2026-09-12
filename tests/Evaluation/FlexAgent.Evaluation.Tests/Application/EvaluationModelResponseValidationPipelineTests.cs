@@ -32,9 +32,7 @@ public sealed class EvaluationModelResponseValidationPipelineTests
         Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, result.OutcomeCategory);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.Decision.OutcomeCode);
         Assert.Equal("response_ref", result.Decision.Field);
-        Assert.NotNull(result.BoundResponseRef);
-        Assert.Equal(response.ResponseRef.ProtectedRef, result.BoundResponseRef!.ProtectedRef);
-        Assert.Equal(response.ResponseRef.ContentDigest, result.BoundResponseRef.ContentDigest);
+        Assert.Null(result.BoundResponseRef);
     }
 
     [Fact]

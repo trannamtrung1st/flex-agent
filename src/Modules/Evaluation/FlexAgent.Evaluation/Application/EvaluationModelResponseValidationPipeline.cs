@@ -31,7 +31,7 @@ public static class EvaluationModelResponseValidationPipeline
                 EvaluationDecision<CriterionJudgmentDraft>.Fail(
                     EvaluationFailureCodes.InvalidJudgment,
                     "response_ref"),
-                read.Value.ResponseRef);
+                null);
         }
 
         var semantic = EvaluationModelResponseValidator.TryValidate(

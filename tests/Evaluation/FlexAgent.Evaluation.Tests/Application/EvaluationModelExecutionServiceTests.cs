@@ -379,7 +379,7 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
-    public async Task Side_channel_response_ref_mismatch_is_rejected_and_persists_document_ref()
+    public async Task Side_channel_response_ref_mismatch_is_rejected_and_persists_adapter_ref()
     {
         var facts = AssistedFacts("""{"valid":true}""");
         var store = new RecordingProviderArtifactStore();
@@ -419,10 +419,10 @@ public sealed class EvaluationModelExecutionServiceTests
         Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, store.LastCommand!.Outcome);
         Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, store.LastCommand.FailureCategory);
         Assert.Equal(
-            ProviderArtifactProvenance.ProtectedResponseRef(response.ResponseRef.ContentDigest),
+            ProviderArtifactProvenance.ProtectedResponseRef(forgedRef.ContentDigest),
             store.LastCommand.ProtectedResponseRef);
         Assert.NotEqual(
-            ProviderArtifactProvenance.ProtectedResponseRef(forgedRef.ContentDigest),
+            ProviderArtifactProvenance.ProtectedResponseRef(response.ResponseRef.ContentDigest),
             store.LastCommand.ProtectedResponseRef);
     }
 
