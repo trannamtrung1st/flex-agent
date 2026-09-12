@@ -10,6 +10,7 @@ public static class EvaluationModelExecutionOutcomeCategories
     public const string ProviderTimeout = "provider_timeout";
     public const string ProviderUnavailable = "provider_unavailable";
     public const string SchemaInvalid = "schema_invalid";
+    public const string OutputSemanticInvalid = "output_semantic_invalid";
     public const string AuthorizationDenied = "authorization_denied";
 }
 
@@ -339,17 +340,15 @@ public sealed class EvaluationModelExecutionService
                 .ToHashSet(StringComparer.Ordinal),
             executionContext.PermittedEvidenceIdBindings);
 
-        var validation = EvaluationModelResponseValidator.TryValidateFromDocument(
+        var validation = EvaluationModelResponseValidationPipeline.Validate(
             succeeded.WireResponse.DocumentUtf8,
+            succeeded.WireResponse.ResponseRef,
             procedure,
             expected,
             verifiedDeterministicFacts);
 
         if (providerArtifactStore is not null)
         {
-            var validatedOutcome = validation.Succeeded
-                ? EvaluationModelExecutionOutcomeCategories.Succeeded
-                : EvaluationModelExecutionOutcomeCategories.SchemaInvalid;
             var persisted = await EvaluationProviderArtifactPersistence.TryPersistAsync(
                 executionContext,
                 authorizedCriterion,
@@ -357,7 +356,8 @@ public sealed class EvaluationModelExecutionService
                 succeeded,
                 providerArtifactStore,
                 cancellationToken,
-                validatedOutcome);
+                validation.OutcomeCategory,
+                validation.BoundResponseRef);
             if (!persisted.Succeeded)
             {
                 return EvaluationDecision<CriterionJudgmentDraft>.Fail(
@@ -369,10 +369,10 @@ public sealed class EvaluationModelExecutionService
         if (!validation.Succeeded)
         {
             return EvaluationDecision<CriterionJudgmentDraft>.Fail(
-                validation.OutcomeCode,
-                validation.Field);
+                validation.Decision.OutcomeCode,
+                validation.Decision.Field);
         }
 
-        return validation;
+        return validation.Decision;
     }
 }

@@ -25,6 +25,9 @@ public static class BuiltinEvaluatorImplementationBinding
     public const string EvaluationDirectoryBuildTargetsSourceArtifactDigest =
         "3210fcb1318916017a1ea30bd7287510fd0c7602a73d69b69209f0ffcc4287aa";
 
+    public const string DirectoryPackagesPropsSourceArtifactDigest =
+        "6e3ba7eaf329cb8b3195f84b7f0535381829419ea351bf13f673ac01fa831db4";
+
     public const string EvaluationInfrastructureProjectSourceArtifactDigest =
         "d5b07dd4d033902d5e1ca47369396462fc11c220ef5dcf9727f60376c9e31aad";
 
@@ -32,6 +35,7 @@ public static class BuiltinEvaluatorImplementationBinding
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["deterministic_execution_bounds"] = DeterministicExecutionBoundsSourceArtifactDigest,
+            ["directory_packages_props"] = DirectoryPackagesPropsSourceArtifactDigest,
             ["evaluation_identity"] = EvaluationIdentitySourceArtifactDigest,
             ["evaluation_positive_duration"] = EvaluationPositiveDurationSourceArtifactDigest,
             ["flex_agent.evaluation.csproj"] = EvaluationProjectSourceArtifactDigest,

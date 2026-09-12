@@ -379,6 +379,82 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
+    public async Task Side_channel_response_ref_mismatch_is_rejected_and_persists_document_ref()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var store = new RecordingProviderArtifactStore();
+        var response = new EvaluationModelResponseV1(
+            "v1",
+            "eval.agent.assisted.output.v1",
+            "crit.assisted.structure",
+            "crit.assisted.structure.v1",
+            EvaluatorModes.AgentAssisted,
+            CriterionStatuses.Satisfied,
+            "high",
+            ["ambiguous_language"],
+            "Structure is complete.",
+            [EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId)],
+            new ProtectedPayloadRefV1("prot.eval.res.document", new string('a', 64)),
+            "pass",
+            null,
+            EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicInvocationId));
+        var wireUtf8 = EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(response);
+        var forgedRef = new ProtectedPayloadRefV1("prot.eval.res.forged", new string('f', 64));
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            CreateAssistedContext(),
+            new FixedWireEvaluationModelExecutionPort(wireUtf8, forgedRef),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            store,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("response_ref", result.Field);
+        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, store.LastCommand!.Outcome);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, store.LastCommand.FailureCategory);
+        Assert.Equal(
+            ProviderArtifactProvenance.ProtectedResponseRef(response.ResponseRef.ContentDigest),
+            store.LastCommand.ProtectedResponseRef);
+        Assert.NotEqual(
+            ProviderArtifactProvenance.ProtectedResponseRef(forgedRef.ContentDigest),
+            store.LastCommand.ProtectedResponseRef);
+    }
+
+    [Fact]
+    public async Task Post_validation_semantic_failure_persists_invalid_output_with_output_semantic_invalid()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var store = new RecordingProviderArtifactStore();
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            CreateAssistedContext(syntheticScenario: "wrong_criterion"),
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            store,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        Assert.Equal("criterion_id", result.Field);
+        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, store.LastCommand!.Outcome);
+        Assert.Equal(
+            EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid,
+            store.LastCommand.FailureCategory);
+        Assert.NotNull(store.LastCommand.ProtectedResponseRef);
+    }
+
+    [Fact]
     public async Task Post_validation_schema_failure_persists_invalid_output_with_response_ref()
     {
         var facts = AssistedFacts("""{"valid":true}""");

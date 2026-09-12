@@ -1,4 +1,5 @@
 using FlexAgent.Contracts.Evaluation;
+using FlexAgent.Contracts.Manifest;
 using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Application;
@@ -17,7 +18,8 @@ public static class EvaluationProviderArtifactPersistence
         EvaluationProcedureCriterionV1 authorizedCriterion,
         EvaluationModelRequestV1 request,
         EvaluationModelAttemptResult result,
-        string? validatedExecutionOutcomeCategory = null)
+        string? validatedExecutionOutcomeCategory = null,
+        ProtectedPayloadRefV1? boundResponseRef = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(authorizedCriterion);
@@ -48,7 +50,7 @@ public static class EvaluationProviderArtifactPersistence
         {
             case EvaluationModelAttemptSucceeded succeeded:
                 protectedResponseRef = ProviderArtifactProvenance.ProtectedResponseRef(
-                    succeeded.WireResponse.ResponseRef.ContentDigest);
+                    (boundResponseRef ?? succeeded.WireResponse.ResponseRef).ContentDigest);
                 outcomeCategory = validatedExecutionOutcomeCategory
                     ?? EvaluationModelExecutionOutcomeCategories.Succeeded;
                 if (outcomeCategory != EvaluationModelExecutionOutcomeCategories.Succeeded)
@@ -89,7 +91,8 @@ public static class EvaluationProviderArtifactPersistence
         EvaluationModelAttemptResult result,
         IEvaluationProviderArtifactStore store,
         CancellationToken cancellationToken,
-        string? validatedExecutionOutcomeCategory = null)
+        string? validatedExecutionOutcomeCategory = null,
+        ProtectedPayloadRefV1? boundResponseRef = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         var commandDecision = TryBuildAppendCommand(
@@ -97,7 +100,8 @@ public static class EvaluationProviderArtifactPersistence
             authorizedCriterion,
             request,
             result,
-            validatedExecutionOutcomeCategory);
+            validatedExecutionOutcomeCategory,
+            boundResponseRef);
         if (!commandDecision.Succeeded || commandDecision.Value is null)
         {
             return EvaluationDecision<Guid>.Fail(commandDecision.OutcomeCode, commandDecision.Field);

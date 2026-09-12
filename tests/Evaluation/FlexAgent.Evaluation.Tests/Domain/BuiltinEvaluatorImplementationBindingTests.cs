@@ -70,6 +70,14 @@ public sealed class BuiltinEvaluatorImplementationBindingTests
     }
 
     [Fact]
+    public void Directory_packages_props_source_artifact_digest_matches_checked_in_source()
+    {
+        AssertSourceArtifactMatches(
+            BuiltinEvaluatorImplementationBinding.DirectoryPackagesPropsSourceArtifactDigest,
+            "Directory.Packages.props");
+    }
+
+    [Fact]
     public void Project_source_artifact_digests_match_checked_in_source()
     {
         AssertSourceArtifactMatches(

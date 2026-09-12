@@ -87,6 +87,37 @@ public sealed class EvaluationProviderArtifactPersistenceTests
     }
 
     [Fact]
+    public void Build_append_command_maps_post_validation_output_semantic_invalid_with_bound_response_ref()
+    {
+        var context = CreateContext();
+        var criterion = EvaluationFixtures.LoadSyntheticProcedure().Criteria[2];
+        var request = CreateRequest(criterion);
+        var responseDigest = new string('d', 64);
+        var result = CreateSucceededWireResult(criterion, responseDigest);
+        var boundRef = new ProtectedPayloadRefV1("prot.eval.res.document", new string('e', 64));
+
+        var decision = EvaluationProviderArtifactPersistence.TryBuildAppendCommand(
+            context,
+            criterion,
+            request,
+            result,
+            EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid,
+            boundRef);
+
+        Assert.True(decision.Succeeded, decision.OutcomeCode);
+        Assert.Equal(ProviderArtifactOutcomes.InvalidOutput, decision.Value!.Outcome);
+        Assert.Equal(
+            EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid,
+            decision.Value.FailureCategory);
+        Assert.Equal(
+            ProviderArtifactProvenance.ProtectedResponseRef(boundRef.ContentDigest),
+            decision.Value.ProtectedResponseRef);
+        Assert.NotEqual(
+            ProviderArtifactProvenance.ProtectedResponseRef(responseDigest),
+            decision.Value.ProtectedResponseRef);
+    }
+
+    [Fact]
     public void Build_append_command_maps_post_validation_schema_invalid_with_response_ref()
     {
         var context = CreateContext();

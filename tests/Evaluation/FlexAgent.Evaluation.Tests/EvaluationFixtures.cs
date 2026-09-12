@@ -141,5 +141,5 @@ internal static class EvaluationFixtures
             "rubric_evaluation",
             Guid.Parse("22222222-2222-2222-2222-222222222206"),
             Guid.Parse("33333333-3333-3333-3333-333333333316"),
-            "36d492272fdf8baa1a9d0a45d10cfd1aff5dcea2ee4381eed4c411dcb01d6a9a").Value!;
+            "cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de").Value!;
 }

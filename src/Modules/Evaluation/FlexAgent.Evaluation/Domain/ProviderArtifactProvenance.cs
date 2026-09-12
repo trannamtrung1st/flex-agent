@@ -20,6 +20,7 @@ public static class ProviderArtifactOutcomes
             "succeeded" => Succeeded,
             "provider_timeout" => TimedOut,
             "schema_invalid" => InvalidOutput,
+            "output_semantic_invalid" => InvalidOutput,
             _ => Failed,
         };
 }
