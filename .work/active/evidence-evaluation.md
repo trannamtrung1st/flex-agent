@@ -923,8 +923,18 @@ approved layout families and donors already exist.
   before model execution. Focused: `ProtectedModelResponseWireBytesDigestTests` 4;
   `EvaluationModelPermittedEvidenceAuthorityVerifierTests` 2;
   `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **335**;
-  `verify-dotnet.sh` green (local). **Pending:** hosted CI on `abe4e902`,
-  external re-review; do not close Phase 6 slice 2 or enable Worker.
+  `verify-dotnet.sh` green (local). External review on `abe4e902` → `debe1251`:
+  **0 Blocker / 0 High / 1 Medium / 0 Low** — citation-authority Medium closed;
+  hosted CI Implementation `34700298235` + Documentation `34700298213` green at
+  `abe4e902`; docs-only `debe1251` Documentation `34700304491` green. Remaining
+  Medium: structural `response_ref.content_digest` byte location must not assume
+  canonical lexical JSON. **Structural locator corrective (pending push):**
+  `EvaluationModelResponseContentDigestWireLocator` (`Utf8JsonReader` span +
+  zero-fill); total `TryVerify`/`TryCompute`; provider-format negatives
+  (whitespace, reordered properties, missing/malformed digest). Focused:
+  `ProtectedModelResponseWireBytesDigestTests` 9; Evaluation unit **340**;
+  `verify-dotnet.sh` green (local). **Pending:** hosted Implementation CI on
+  code head, external re-review; do not close Phase 6 slice 2 or enable Worker.
   Credential fail-closed external review/CI for `fb0c79fb` still pending.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).

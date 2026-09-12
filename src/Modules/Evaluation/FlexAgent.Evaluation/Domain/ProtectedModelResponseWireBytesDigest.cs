@@ -6,8 +6,6 @@ public static class ProtectedModelResponseWireBytesDigest
 {
     public const string DigestProcedureId = "evaluation-model-response-wire-content-digest-sha256-v1";
 
-    private static readonly string ZeroDigest = new('0', 64);
-
     public static EvaluationDecision<string> TryVerify(
         ReadOnlySpan<byte> wireUtf8,
         string expectedContentDigest)
@@ -20,7 +18,13 @@ public static class ProtectedModelResponseWireBytesDigest
                 "response_ref");
         }
 
-        var actualDigest = Compute(wireUtf8);
+        if (!TryCompute(wireUtf8, out var actualDigest))
+        {
+            return EvaluationDecision<string>.Fail(
+                EvaluationFailureCodes.InvalidJudgment,
+                "response_ref");
+        }
+
         if (!string.Equals(actualDigest, expectedContentDigest, StringComparison.Ordinal))
         {
             return EvaluationDecision<string>.Fail(
@@ -31,21 +35,22 @@ public static class ProtectedModelResponseWireBytesDigest
         return EvaluationDecision<string>.Ok(actualDigest);
     }
 
-    internal static string Compute(ReadOnlySpan<byte> wireUtf8)
+    internal static string Compute(ReadOnlySpan<byte> wireUtf8) =>
+        TryCompute(wireUtf8, out var digest)
+            ? digest
+            : throw new InvalidOperationException("Model response wire-content digest could not be computed.");
+
+    internal static bool TryCompute(ReadOnlySpan<byte> wireUtf8, out string digest)
     {
-        var embeddedDigest = EvaluationModelResponseDocumentBinder.TryExtractContentDigest(wireUtf8);
-        if (embeddedDigest is null)
+        digest = string.Empty;
+        if (!EvaluationModelResponseContentDigestWireLocator.TryBuildZeroFilledPreimage(
+                wireUtf8,
+                out var preimageUtf8))
         {
-            throw new InvalidOperationException("Model response wire document is missing content_digest.");
+            return false;
         }
 
-        var preimageUtf8 = string.Equals(embeddedDigest, ZeroDigest, StringComparison.Ordinal)
-            ? wireUtf8.ToArray()
-            : EvaluationModelResponseDocumentBinder.ReplaceContentDigestValue(
-                wireUtf8,
-                embeddedDigest,
-                ZeroDigest);
-
-        return Convert.ToHexString(SHA256.HashData(preimageUtf8)).ToLowerInvariant();
+        digest = Convert.ToHexString(SHA256.HashData(preimageUtf8)).ToLowerInvariant();
+        return true;
     }
 }
