@@ -928,13 +928,14 @@ approved layout families and donors already exist.
   hosted CI Implementation `34700298235` + Documentation `34700298213` green at
   `abe4e902`; docs-only `debe1251` Documentation `34700304491` green. Remaining
   Medium: structural `response_ref.content_digest` byte location must not assume
-  canonical lexical JSON. **Structural locator corrective (pending push):**
+  canonical lexical JSON. **Structural locator corrective (`86877105`, pushed):**
   `EvaluationModelResponseContentDigestWireLocator` (`Utf8JsonReader` span +
   zero-fill); total `TryVerify`/`TryCompute`; provider-format negatives
-  (whitespace, reordered properties, missing/malformed digest). Focused:
-  `ProtectedModelResponseWireBytesDigestTests` 9; Evaluation unit **340**;
-  `verify-dotnet.sh` green (local). **Pending:** hosted Implementation CI on
-  code head, external re-review; do not close Phase 6 slice 2 or enable Worker.
+  (whitespace, reordered properties, missing/malformed digest). Confirmation pass
+  2026-09-12: `ProtectedModelResponseWireBytesDigestTests` 9; Evaluation unit
+  **340**; `verify-dotnet.sh` green (local). **Pending:** hosted Implementation
+  CI on `86877105`, external re-review; do not close Phase 6 slice 2 or enable
+  Worker.
   Credential fail-closed external review/CI for `fb0c79fb` still pending.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
