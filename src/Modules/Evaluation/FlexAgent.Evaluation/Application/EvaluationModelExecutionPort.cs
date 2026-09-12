@@ -150,10 +150,11 @@ public sealed class SyntheticEvaluationModelExecutionAdapter : IEvaluationModelE
             });
     }
 
-    private static EvaluationModelAttemptSucceeded SucceedWithWireDocument(EvaluationModelResponseV1 response) =>
-        new(new EvaluationModelWireResponse(
-            EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(response),
-            response.ResponseRef));
+    private static EvaluationModelAttemptSucceeded SucceedWithWireDocument(EvaluationModelResponseV1 response)
+    {
+        var bound = EvaluationModelResponseDocumentBinder.Bind(response);
+        return new(new EvaluationModelWireResponse(bound.WireUtf8, bound.ResponseRef));
+    }
 
     private static EvaluationModelResponseV1 CreateResponse(
         EvaluationModelRequestV1 request,
@@ -338,7 +339,11 @@ public sealed class EvaluationModelExecutionService
             requestDecision.Value.PermittedEvidence
                 .Select(item => item.EvidenceId)
                 .ToHashSet(StringComparer.Ordinal),
-            executionContext.PermittedEvidenceIdBindings);
+            executionContext.PermittedEvidenceIdBindings,
+            executionContext.PermittedEvidence.ToDictionary(
+                item => item.EvidenceId,
+                item => item.SourceType,
+                StringComparer.Ordinal));
 
         var validation = EvaluationModelResponseValidationPipeline.Validate(
             succeeded.WireResponse.DocumentUtf8,

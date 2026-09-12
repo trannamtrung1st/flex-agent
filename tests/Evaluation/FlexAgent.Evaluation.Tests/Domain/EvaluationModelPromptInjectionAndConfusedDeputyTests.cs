@@ -182,6 +182,10 @@ public sealed class EvaluationModelPromptInjectionAndConfusedDeputyTests
             new Dictionary<string, Guid>(StringComparer.Ordinal)
             {
                 [evidenceStableId] = EvidenceId,
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [evidenceStableId] = "submission.direct_text",
             });
     }
 

@@ -143,7 +143,19 @@ internal static class EvaluationModelResponseMapper
                 || !expected.PermittedEvidenceIdBindings.TryGetValue(evidenceId, out var evidenceGuid)
                 || evidenceGuid == Guid.Empty)
             {
-                return EvaluationDecision<CriterionJudgmentDraft>.Fail(EvaluationFailureCodes.InvalidJudgment, "evidence_ids");
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    EvaluationFailureCodes.InvalidJudgment,
+                    "evidence_ids");
+            }
+
+            if (!expected.PermittedEvidenceSourceTypes.TryGetValue(evidenceId, out var sourceType)
+                || !expected.Criterion.EvidenceRequirements.PermittedSourceTypes.Contains(
+                    sourceType,
+                    StringComparer.Ordinal))
+            {
+                return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "evidence_ids");
             }
 
             evidenceIds.Add(evidenceGuid);

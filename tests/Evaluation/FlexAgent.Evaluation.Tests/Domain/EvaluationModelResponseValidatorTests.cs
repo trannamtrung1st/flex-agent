@@ -123,7 +123,11 @@ public sealed class EvaluationModelResponseValidatorTests
             null,
             null,
             new HashSet<string>(StringComparer.Ordinal) { evidenceStableId },
-            new Dictionary<string, Guid>(StringComparer.Ordinal) { [evidenceStableId] = EvidenceId });
+            new Dictionary<string, Guid>(StringComparer.Ordinal) { [evidenceStableId] = EvidenceId },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [evidenceStableId] = "submission.direct_text",
+            });
         var response = new EvaluationModelResponseV1(
             "v1",
             "eval.agent.judgment.output.v1",
@@ -170,6 +174,10 @@ public sealed class EvaluationModelResponseValidatorTests
             {
                 ["evid.synthetic.0001"] = EvidenceId,
             },
+            PermittedEvidenceSourceTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["evid.synthetic.0001"] = "submission.direct_text",
+            },
         };
 
         var result = EvaluationModelResponseValidator.TryValidateFromDocument(
@@ -209,7 +217,31 @@ public sealed class EvaluationModelResponseValidatorTests
             new Dictionary<string, Guid>(StringComparer.Ordinal)
             {
                 [evidenceStableId] = EvidenceId,
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [evidenceStableId] = "submission.direct_text",
             });
+    }
+
+    [Fact]
+    public void Citation_with_disallowed_source_type_is_rejected()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var expected = CreateExpectedInvocation() with
+        {
+            PermittedEvidenceSourceTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId)] = "session.transcript_item",
+            },
+        };
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
+
+        var result = EvaluationModelResponseValidator.TryValidate(Procedure, expected, response, facts);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("evidence_ids", result.Field);
     }
 
     private static EvaluationModelResponseV1 CreateAssistedResponse(string status, string rationale)

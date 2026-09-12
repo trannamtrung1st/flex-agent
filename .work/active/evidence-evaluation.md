@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-12T18:30:00+07:00
+updated: 2026-09-12T19:30:00+07:00
 phase6_slice2_schema_parse: approved-83309967-9bbb6c35
 phase6_slice2_schema_parse_review: approved-9bbb6c35-0-blocker-0-high-0-medium-0-low
 phase6_slice2_schema_parse_ci: approved-34689229774-34689229816
@@ -906,8 +906,16 @@ approved layout families and donors already exist.
   `34689229774` and Documentation `34689229816` — all six jobs green; docs-only
   reconciliation `ad2105b8` (Implementation `34689256500` skipped implementation
   jobs). Focused: Evaluation unit **324**; contract **274**; `verify-dotnet.sh`
-  green (local). **Remainder:** aggregation/citation/protected-response-bytes
-  matrix; credential fail-closed external review/CI for `fb0c79fb`.
+  green (local). **Remainder (local 2026-09-12):** aggregation/citation/
+  protected-response-bytes matrix in progress — `ProtectedModelResponseContentDigest`
+  (JCS payload digest excluding `response_ref`), pipeline gate, citation source-type
+  validation on `evidence_ids`, aggregation-blocking status negatives;
+  `EvaluationModelResponseDocumentBinder` for synthetic wire binding. Focused:
+  `ProtectedModelResponseContentDigestTests` 2;
+  `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **330** (local);
+  confirmation pass 2026-09-12 green (focused 36; full unit 330; `verify-dotnet.sh`
+  green). Uncommitted pending push. Credential fail-closed external review/CI for
+  `fb0c79fb` still pending.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
   **Approved 2026-09-11** through chain `2466f1be` → `b8b5efad` (+ confirmation

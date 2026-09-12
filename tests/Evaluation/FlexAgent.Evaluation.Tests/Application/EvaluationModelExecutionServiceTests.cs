@@ -398,7 +398,8 @@ public sealed class EvaluationModelExecutionServiceTests
             "pass",
             null,
             EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicInvocationId));
-        var wireUtf8 = EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(response);
+        var bound = EvaluationModelResponseDocumentBinder.Bind(response);
+        var wireUtf8 = bound.WireUtf8;
         var forgedRef = new ProtectedPayloadRefV1("prot.eval.res.forged", new string('f', 64));
 
         var result = await Service.TryExecuteAsync(

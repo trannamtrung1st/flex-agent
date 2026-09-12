@@ -8,4 +8,5 @@ public sealed record EvaluationModelExpectedInvocation(
     Guid? DeterministicInvocationId,
     string? DeterministicInvocationStableId,
     IReadOnlySet<string> PermittedEvidenceStableIds,
-    IReadOnlyDictionary<string, Guid> PermittedEvidenceIdBindings);
+    IReadOnlyDictionary<string, Guid> PermittedEvidenceIdBindings,
+    IReadOnlyDictionary<string, string> PermittedEvidenceSourceTypes);

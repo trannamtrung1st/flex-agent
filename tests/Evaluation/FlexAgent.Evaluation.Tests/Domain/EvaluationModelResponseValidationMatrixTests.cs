@@ -4,9 +4,9 @@ using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Tests;
 
-namespace FlexAgent.Evaluation.Tests.Application;
+namespace FlexAgent.Evaluation.Tests.Domain;
 
-public sealed class EvaluationModelResponseValidationPipelineTests
+public sealed class EvaluationModelResponseValidationMatrixTests
 {
     private static readonly EvaluationProcedureV1 Procedure = EvaluationFixtures.LoadSyntheticProcedure();
     private static readonly Guid EvaluationId = Guid.Parse("11111111-1111-4111-8111-111111111115");
@@ -14,54 +14,70 @@ public sealed class EvaluationModelResponseValidationPipelineTests
     private static readonly Guid DeterministicInvocationId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
     [Fact]
-    public void Response_ref_mismatch_fails_before_semantic_validation()
+    public void Payload_digest_mismatch_fails_before_semantic_validation()
     {
-        var facts = AssistedFacts("""{"valid":true}""");
         var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
         var bound = EvaluationModelResponseDocumentBinder.Bind(response);
-        var wireUtf8 = bound.WireUtf8;
-        var mismatchedRef = new ProtectedPayloadRefV1("prot.eval.res.forged", new string('f', 64));
+        var forgedRef = new ProtectedPayloadRefV1(
+            bound.ResponseRef.ProtectedRef,
+            new string('f', 64));
 
         var result = EvaluationModelResponseValidationPipeline.Validate(
-            wireUtf8,
-            mismatchedRef,
+            bound.WireUtf8,
+            forgedRef,
             Procedure,
             CreateExpectedInvocation(),
-            facts);
+            AssistedFacts("""{"valid":true}"""));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationModelExecutionOutcomeCategories.SchemaInvalid, result.OutcomeCategory);
-        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.Decision.OutcomeCode);
         Assert.Equal("response_ref", result.Decision.Field);
-        Assert.Null(result.BoundResponseRef);
     }
 
     [Fact]
-    public void Semantic_failure_uses_output_semantic_invalid_category()
+    public void Citation_with_disallowed_source_type_is_rejected()
     {
-        var facts = AssistedFacts("""{"valid":true}""");
-        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.") with
+        var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId);
+        var expected = CreateExpectedInvocation() with
         {
-            CriterionId = "crit.judgment.quality",
-            CriterionVersion = "crit.judgment.quality.v1",
-            EvaluatorMode = EvaluatorModes.AgentJudgment,
-            OutputSchemaId = "eval.agent.judgment.output.v1",
-            DeterministicInvocationId = null,
+            PermittedEvidenceSourceTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [evidenceStableId] = "session.transcript_item",
+            },
         };
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
         var bound = EvaluationModelResponseDocumentBinder.Bind(response);
-        var wireUtf8 = bound.WireUtf8;
 
         var result = EvaluationModelResponseValidationPipeline.Validate(
-            wireUtf8,
+            bound.WireUtf8,
+            bound.ResponseRef,
+            Procedure,
+            expected,
+            AssistedFacts("""{"valid":true}"""));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid, result.OutcomeCategory);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.Decision.OutcomeCode);
+        Assert.Equal("evidence_ids", result.Decision.Field);
+    }
+
+    [Fact]
+    public void Aggregation_blocking_status_is_rejected_for_assisted_criterion()
+    {
+        var response = CreateAssistedResponse(CriterionStatuses.NotApplicable, "Not applicable.");
+        var bound = EvaluationModelResponseDocumentBinder.Bind(response);
+
+        var result = EvaluationModelResponseValidationPipeline.Validate(
+            bound.WireUtf8,
             bound.ResponseRef,
             Procedure,
             CreateExpectedInvocation(),
-            facts);
+            AssistedFacts("""{"valid":true}"""));
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid, result.OutcomeCategory);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.Decision.OutcomeCode);
-        Assert.Equal("criterion_id", result.Decision.Field);
+        Assert.Equal("status", result.Decision.Field);
     }
 
     private static EvaluationModelExpectedInvocation CreateExpectedInvocation()
@@ -100,22 +116,18 @@ public sealed class EvaluationModelResponseValidationPipelineTests
             ["ambiguous_language"],
             rationale,
             [EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId)],
-            new ProtectedPayloadRefV1("prot.eval.res.pipeline", new string('d', 64)),
+            new ProtectedPayloadRefV1("prot.eval.res.matrix", new string('0', 64)),
             "pass",
             null,
             "dinv.synthetic.0002");
 
-    private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json)
-    {
-        var digest = new string('c', 64);
-        var sourceId = EvaluationEvidenceSourceIdentity.DeterministicFactSourceId(DeterministicInvocationId);
-        return new Dictionary<string, EvaluationSafeFactProjection>(StringComparer.Ordinal)
+    private static Dictionary<string, EvaluationSafeFactProjection> AssistedFacts(string json) =>
+        new(StringComparer.Ordinal)
         {
-            [sourceId] = new(
-                sourceId,
-                EvaluationEvidenceSourceIdentity.DigestBoundSourceVersion(digest),
-                digest,
+            ["detfact.synthetic.schema"] = new(
+                "detfact.synthetic.schema",
+                "detfact.synthetic.schema.v1",
+                new string('c', 64),
                 System.Text.Encoding.UTF8.GetBytes(json)),
         };
-    }
 }

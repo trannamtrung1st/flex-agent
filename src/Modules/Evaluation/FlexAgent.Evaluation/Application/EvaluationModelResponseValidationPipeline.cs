@@ -24,6 +24,19 @@ public static class EvaluationModelResponseValidationPipeline
                 null);
         }
 
+        var payloadDigest = ProtectedModelResponseContentDigest.TryVerify(
+            wireUtf8,
+            read.Value.ResponseRef.ContentDigest);
+        if (!payloadDigest.Succeeded)
+        {
+            return EvaluationModelResponseValidationResult.Fail(
+                EvaluationModelExecutionOutcomeCategories.SchemaInvalid,
+                EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                    payloadDigest.OutcomeCode,
+                    payloadDigest.Field),
+                null);
+        }
+
         if (!ProtectedPayloadRefComparer.Matches(read.Value.ResponseRef, wireResponseRef))
         {
             return EvaluationModelResponseValidationResult.Fail(
