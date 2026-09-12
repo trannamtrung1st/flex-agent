@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Gates which repository paths trigger hosted Implementation workflow jobs.
 
 matches_implementation_path() {
   local path="$1"
