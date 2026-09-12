@@ -245,6 +245,7 @@ public sealed class EvaluationModelExecutionCompositionTests
             "eval.instructions.p0.v1",
             [],
             new Dictionary<string, Guid>(StringComparer.Ordinal),
+            [],
             null,
             null);
 }

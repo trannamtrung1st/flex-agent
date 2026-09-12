@@ -2,6 +2,7 @@ using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 
+
 namespace FlexAgent.Evaluation.Tests;
 
 internal static class EvaluationFixtures
@@ -142,4 +143,22 @@ internal static class EvaluationFixtures
             Guid.Parse("22222222-2222-2222-2222-222222222206"),
             Guid.Parse("33333333-3333-3333-3333-333333333316"),
             "cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de").Value!;
+
+    public static VerifiedPermittedEvidenceMaterial VerifiedPermittedEvidenceItem(
+        string evidenceStableId,
+        Guid evidenceId,
+        string sourceType = "submission.direct_text",
+        string? contentDigest = null) =>
+        new(
+            evidenceStableId,
+            evidenceId,
+            sourceType,
+            contentDigest ?? new string('b', 64));
+
+    public static IReadOnlyList<VerifiedPermittedEvidenceMaterial> VerifiedPermittedEvidence(
+        string evidenceStableId,
+        Guid evidenceId,
+        string sourceType = "submission.direct_text",
+        string? contentDigest = null) =>
+        [VerifiedPermittedEvidenceItem(evidenceStableId, evidenceId, sourceType, contentDigest)];
 }

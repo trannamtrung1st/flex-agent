@@ -8,6 +8,7 @@ public static class EvaluationModelRequestComposer
     public static EvaluationDecision<EvaluationModelRequestV1> TryCompose(
         EvaluationProcedureCriterionV1 authorizedCriterion,
         EvaluationModelExecutionContext context,
+        IReadOnlyList<EvaluationModelPermittedEvidenceV1> authoritativePermittedEvidence,
         IReadOnlyDictionary<string, EvaluationSafeFactProjection>? verifiedDeterministicFacts,
         IReadOnlyDictionary<string, VerifiedDeterministicOutputMaterial>? storeBackedDeterministicFacts)
     {
@@ -21,7 +22,9 @@ public static class EvaluationModelRequestComposer
                 "agent_io");
         }
 
-        var permittedEvidenceDecision = TryValidatePermittedEvidence(context);
+        var permittedEvidenceDecision = TryValidatePermittedEvidence(
+            context,
+            authoritativePermittedEvidence);
         if (!permittedEvidenceDecision.Succeeded)
         {
             return EvaluationDecision<EvaluationModelRequestV1>.Fail(
@@ -69,7 +72,7 @@ public static class EvaluationModelRequestComposer
                 context.ModelIdentity.ProfileVersion,
                 context.ModelIdentity.ProfileDigest,
                 context.ModelIdentity.CredentialBindingReference,
-                context.PermittedEvidence,
+                authoritativePermittedEvidence,
                 deterministicFacts,
                 authorizedCriterion.AgentIo.MaxContextUnicodeScalars));
     }
@@ -132,9 +135,11 @@ public static class EvaluationModelRequestComposer
         return EvaluationDecision<IReadOnlyList<EvaluationModelDeterministicFactV1>>.Ok(facts);
     }
 
-    private static EvaluationDecision<object?> TryValidatePermittedEvidence(EvaluationModelExecutionContext context)
+    private static EvaluationDecision<object?> TryValidatePermittedEvidence(
+        EvaluationModelExecutionContext context,
+        IReadOnlyList<EvaluationModelPermittedEvidenceV1> authoritativePermittedEvidence)
     {
-        if (context.PermittedEvidence.Count == 0
+        if (authoritativePermittedEvidence.Count == 0
             || context.PermittedEvidenceIdBindings.Count == 0)
         {
             return EvaluationDecision<object?>.Fail(
@@ -142,8 +147,8 @@ public static class EvaluationModelRequestComposer
                 "permitted_evidence");
         }
 
-        if (context.PermittedEvidence.Count
-            != context.PermittedEvidence
+        if (authoritativePermittedEvidence.Count
+            != authoritativePermittedEvidence
                 .Select(item => item.EvidenceId)
                 .Distinct(StringComparer.Ordinal)
                 .Count())
@@ -153,7 +158,7 @@ public static class EvaluationModelRequestComposer
                 "permitted_evidence");
         }
 
-        var permittedEvidenceIds = context.PermittedEvidence
+        var permittedEvidenceIds = authoritativePermittedEvidence
             .Select(item => item.EvidenceId)
             .ToHashSet(StringComparer.Ordinal);
         if (permittedEvidenceIds.Count != context.PermittedEvidenceIdBindings.Count)

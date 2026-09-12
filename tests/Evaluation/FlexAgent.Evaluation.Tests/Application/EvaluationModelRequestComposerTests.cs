@@ -18,9 +18,11 @@ public sealed class EvaluationModelRequestComposerTests
         var verified = VerifiedFacts("""{"valid":true}""");
         var storeBacked = StoreBacked(verified);
 
+        var context = CreateAssistedContext();
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(),
+            context,
+            context.PermittedEvidence,
             verified,
             storeBacked);
 
@@ -41,9 +43,11 @@ public sealed class EvaluationModelRequestComposerTests
                 verified.Values.Single(),
                 new ProtectedPayloadRefV1("prot.eval.fact.forged", new string('f', 64)));
 
+        var context = CreateAssistedContext();
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(),
+            context,
+            context.PermittedEvidence,
             verified,
             storeBacked);
 
@@ -57,9 +61,11 @@ public sealed class EvaluationModelRequestComposerTests
     {
         var verified = VerifiedFacts("""{"valid":true}""");
 
+        var context = CreateAssistedContext();
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(),
+            context,
+            context.PermittedEvidence,
             verified,
             storeBackedDeterministicFacts: new Dictionary<string, VerifiedDeterministicOutputMaterial>(StringComparer.Ordinal));
 
@@ -80,9 +86,11 @@ public sealed class EvaluationModelRequestComposerTests
                 new ProtectedPayloadRefV1("prot.eval.fact.0002", new string('f', 64))),
         };
 
+        var context = CreateAssistedContext();
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
-            CreateAssistedContext(),
+            context,
+            context.PermittedEvidence,
             verified,
             storeBacked);
 
@@ -109,6 +117,7 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
+            context.PermittedEvidence,
             verified,
             StoreBacked(verified));
 
@@ -135,6 +144,7 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
+            context.PermittedEvidence,
             verified,
             StoreBacked(verified));
 
@@ -161,6 +171,7 @@ public sealed class EvaluationModelRequestComposerTests
         var result = EvaluationModelRequestComposer.TryCompose(
             AssistedCriterion(),
             context,
+            context.PermittedEvidence,
             verified,
             StoreBacked(verified));
 
@@ -228,6 +239,9 @@ public sealed class EvaluationModelRequestComposerTests
             {
                 [evidenceStableId] = Guid.Parse("22222222-2222-4222-8222-222222222222"),
             },
+            EvaluationFixtures.VerifiedPermittedEvidence(
+                evidenceStableId,
+                Guid.Parse("22222222-2222-4222-8222-222222222222")),
             DeterministicAttemptId,
             EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicAttemptId));
     }

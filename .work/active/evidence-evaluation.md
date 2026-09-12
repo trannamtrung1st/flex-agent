@@ -906,16 +906,26 @@ approved layout families and donors already exist.
   `34689229774` and Documentation `34689229816` — all six jobs green; docs-only
   reconciliation `ad2105b8` (Implementation `34689256500` skipped implementation
   jobs). Focused: Evaluation unit **324**; contract **274**; `verify-dotnet.sh`
-  green (local). **Remainder (local 2026-09-12):** aggregation/citation/
-  protected-response-bytes matrix in progress — `ProtectedModelResponseContentDigest`
-  (JCS payload digest excluding `response_ref`), pipeline gate, citation source-type
-  validation on `evidence_ids`, aggregation-blocking status negatives;
-  `EvaluationModelResponseDocumentBinder` for synthetic wire binding. Focused:
-  `ProtectedModelResponseContentDigestTests` 2;
-  `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **330** (local);
-  confirmation pass 2026-09-12 green (focused 36; full unit 330; `verify-dotnet.sh`
-  green). Uncommitted pending push. Credential fail-closed external review/CI for
-  `fb0c79fb` still pending.
+  green (local). **Payload-digest/citation remainder (`87b72647`):** pushed
+  2026-09-12; hosted CI Implementation `34692385856` and Documentation
+  `34692385860` — all six jobs green. External review on `cec7d6c2` → `87b72647`:
+  **0 Blocker / 0 High / 2 Medium / 1 Low** — increment **not approved**;
+  schema parse gate (`… → 9bbb6c35`) stays **closed**. Medium findings: (1)
+  digest must be explicit versioned wire-content procedure, not ambiguous JCS
+  logical payload or non-convergent raw self-hash; (2) citation source type must
+  reconcile execution-context claims against `VerifiedPermittedEvidenceMaterial`.
+  **Corrective pass (local, uncommitted):** `ProtectedModelResponseWireBytesDigest`
+  with `evaluation-model-response-wire-content-digest-sha256-v1` (SHA-256 over
+  wire UTF-8 with `response_ref.content_digest` zero-filled); one-shot
+  `EvaluationModelResponseDocumentBinder`; `EvaluationModelPermittedEvidenceAuthorityVerifier`
+  + authoritative expected-invocation source types; matrix negatives including
+  mutated-wire-content before ref/semantic checks and forged context source type
+  before model execution. Focused: `ProtectedModelResponseWireBytesDigestTests` 4;
+  `EvaluationModelPermittedEvidenceAuthorityVerifierTests` 2;
+  `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **335**;
+  `verify-dotnet.sh` green (local). **Pending:** commit/push corrective chain,
+  hosted CI, external re-review; do not close Phase 6 slice 2 or enable Worker.
+  Credential fail-closed external review/CI for `fb0c79fb` still pending.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
   **Approved 2026-09-11** through chain `2466f1be` → `b8b5efad` (+ confirmation

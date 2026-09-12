@@ -379,6 +379,43 @@ public sealed class EvaluationModelExecutionServiceTests
     }
 
     [Fact]
+    public async Task Forged_execution_context_source_type_is_rejected_before_model_execution()
+    {
+        var facts = AssistedFacts("""{"valid":true}""");
+        var evidenceStableId = EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId);
+        var context = CreateAssistedContext() with
+        {
+            PermittedEvidence =
+            [
+                new EvaluationModelPermittedEvidenceV1(
+                    evidenceStableId,
+                    "session.transcript_item",
+                    new string('b', 64)),
+            ],
+            VerifiedPermittedEvidence = EvaluationFixtures.VerifiedPermittedEvidence(
+                evidenceStableId,
+                EvidenceId,
+                "submission.direct_text",
+                new string('b', 64)),
+        };
+
+        var result = await Service.TryExecuteAsync(
+            Procedure,
+            new EvaluationModelInvocationContext("crit.assisted.structure", "crit.assisted.structure.v1"),
+            facts,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            CreateAuthorityStore(),
+            new FakeOutputStore(facts.Values.Single()),
+            providerArtifactStore: null,
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.CitationIntegrity, result.OutcomeCode);
+        Assert.Equal("permitted_evidence", result.Field);
+    }
+
+    [Fact]
     public async Task Side_channel_response_ref_mismatch_is_rejected_and_persists_adapter_ref()
     {
         var facts = AssistedFacts("""{"valid":true}""");
@@ -533,6 +570,11 @@ public sealed class EvaluationModelExecutionServiceTests
             {
                 [evidenceStableId] = EvidenceId,
             },
+            EvaluationFixtures.VerifiedPermittedEvidence(
+                evidenceStableId,
+                EvidenceId,
+                "submission.direct_text",
+                new string('b', 64)),
             DeterministicInvocationId,
             EvaluationStableOwnershipReferenceFactory.StableDeterministicInvocationId(DeterministicInvocationId),
             syntheticScenario);
@@ -559,6 +601,9 @@ public sealed class EvaluationModelExecutionServiceTests
             {
                 [EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId)] = EvidenceId,
             },
+            EvaluationFixtures.VerifiedPermittedEvidence(
+                EvaluationEvidenceSourceIdentity.StableEvidenceId(EvidenceId),
+                EvidenceId),
             null,
             null,
             null);

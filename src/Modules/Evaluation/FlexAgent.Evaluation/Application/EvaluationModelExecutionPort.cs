@@ -276,9 +276,19 @@ public sealed class EvaluationModelExecutionService
             storeBackedDeterministicFacts = authority.Value;
         }
 
+        var permittedEvidenceDecision = EvaluationModelPermittedEvidenceAuthorityVerifier.TryResolve(
+            executionContext);
+        if (!permittedEvidenceDecision.Succeeded || permittedEvidenceDecision.Value is null)
+        {
+            return EvaluationDecision<CriterionJudgmentDraft>.Fail(
+                permittedEvidenceDecision.OutcomeCode,
+                permittedEvidenceDecision.Field);
+        }
+
         var requestDecision = EvaluationModelRequestComposer.TryCompose(
             authorizedCriterion,
             executionContext,
+            permittedEvidenceDecision.Value,
             verifiedDeterministicFacts,
             storeBackedDeterministicFacts);
         if (!requestDecision.Succeeded || requestDecision.Value is null)
@@ -336,11 +346,11 @@ public sealed class EvaluationModelExecutionService
             executionContext.EvaluationId,
             executionContext.DeterministicInvocationId,
             executionContext.DeterministicInvocationStableId,
-            requestDecision.Value.PermittedEvidence
+            permittedEvidenceDecision.Value
                 .Select(item => item.EvidenceId)
                 .ToHashSet(StringComparer.Ordinal),
             executionContext.PermittedEvidenceIdBindings,
-            executionContext.PermittedEvidence.ToDictionary(
+            permittedEvidenceDecision.Value.ToDictionary(
                 item => item.EvidenceId,
                 item => item.SourceType,
                 StringComparer.Ordinal));

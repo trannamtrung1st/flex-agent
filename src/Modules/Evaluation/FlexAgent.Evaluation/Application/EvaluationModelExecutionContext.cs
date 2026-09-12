@@ -16,6 +16,7 @@ public sealed record EvaluationModelExecutionContext(
     string InstructionVersion,
     IReadOnlyList<EvaluationModelPermittedEvidenceV1> PermittedEvidence,
     IReadOnlyDictionary<string, Guid> PermittedEvidenceIdBindings,
+    IReadOnlyList<VerifiedPermittedEvidenceMaterial> VerifiedPermittedEvidence,
     Guid? DeterministicInvocationId,
     string? DeterministicInvocationStableId,
     string? SyntheticScenario = null);

@@ -14,17 +14,20 @@ public sealed class EvaluationModelResponseValidationMatrixTests
     private static readonly Guid DeterministicInvocationId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
     [Fact]
-    public void Payload_digest_mismatch_fails_before_semantic_validation()
+    public void Mutated_wire_content_fails_before_ref_and_semantic_validation()
     {
         var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
         var bound = EvaluationModelResponseDocumentBinder.Bind(response);
-        var forgedRef = new ProtectedPayloadRefV1(
-            bound.ResponseRef.ProtectedRef,
-            new string('f', 64));
+        var mutated = response with
+        {
+            Rationale = "Forged rationale after binding.",
+            ResponseRef = bound.ResponseRef,
+        };
+        var mutatedWireUtf8 = EvaluationModelResponseDocumentWriter.WriteCanonicalUtf8(mutated);
 
         var result = EvaluationModelResponseValidationPipeline.Validate(
-            bound.WireUtf8,
-            forgedRef,
+            mutatedWireUtf8,
+            bound.ResponseRef,
             Procedure,
             CreateExpectedInvocation(),
             AssistedFacts("""{"valid":true}"""));

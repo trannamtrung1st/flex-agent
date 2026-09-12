@@ -24,16 +24,16 @@ public static class EvaluationModelResponseValidationPipeline
                 null);
         }
 
-        var payloadDigest = ProtectedModelResponseContentDigest.TryVerify(
+        var wireBytesDigest = ProtectedModelResponseWireBytesDigest.TryVerify(
             wireUtf8,
-            read.Value.ResponseRef.ContentDigest);
-        if (!payloadDigest.Succeeded)
+            wireResponseRef.ContentDigest);
+        if (!wireBytesDigest.Succeeded)
         {
             return EvaluationModelResponseValidationResult.Fail(
                 EvaluationModelExecutionOutcomeCategories.SchemaInvalid,
                 EvaluationDecision<CriterionJudgmentDraft>.Fail(
-                    payloadDigest.OutcomeCode,
-                    payloadDigest.Field),
+                    wireBytesDigest.OutcomeCode,
+                    wireBytesDigest.Field),
                 null);
         }
 
