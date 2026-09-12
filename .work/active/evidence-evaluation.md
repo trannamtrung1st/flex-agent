@@ -914,7 +914,7 @@ approved layout families and donors already exist.
   digest must be explicit versioned wire-content procedure, not ambiguous JCS
   logical payload or non-convergent raw self-hash; (2) citation source type must
   reconcile execution-context claims against `VerifiedPermittedEvidenceMaterial`.
-  **Corrective pass (local, uncommitted):** `ProtectedModelResponseWireBytesDigest`
+  **Corrective pass (`abe4e902`, pushed):** `ProtectedModelResponseWireBytesDigest`
   with `evaluation-model-response-wire-content-digest-sha256-v1` (SHA-256 over
   wire UTF-8 with `response_ref.content_digest` zero-filled); one-shot
   `EvaluationModelResponseDocumentBinder`; `EvaluationModelPermittedEvidenceAuthorityVerifier`
@@ -923,8 +923,8 @@ approved layout families and donors already exist.
   before model execution. Focused: `ProtectedModelResponseWireBytesDigestTests` 4;
   `EvaluationModelPermittedEvidenceAuthorityVerifierTests` 2;
   `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **335**;
-  `verify-dotnet.sh` green (local). **Pending:** commit/push corrective chain,
-  hosted CI, external re-review; do not close Phase 6 slice 2 or enable Worker.
+  `verify-dotnet.sh` green (local). **Pending:** hosted CI on `abe4e902`,
+  external re-review; do not close Phase 6 slice 2 or enable Worker.
   Credential fail-closed external review/CI for `fb0c79fb` still pending.
 - [x] Obtain verified deterministic-fact protected refs from
   `IProtectedDeterministicOutputStore` before model compose (slice 1 carry-forward).
