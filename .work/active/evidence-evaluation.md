@@ -2,9 +2,10 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-13T01:10:00+07:00
-phase6_slice2_wider_ac_eval24: confirmed-3750a3bf
-phase6_slice2_wider_ac_eval24_review: not-approved-661e1ef8-0-blocker-0-high-1-medium-0-low
+updated: 2026-09-13T01:30:00+07:00
+phase6_slice2_wider_ac_eval24: approved-661e1ef8-3750a3bf-pending-ci
+phase6_slice2_wider_ac_eval24_review: approved-3750a3bf-0-blocker-0-high-0-medium-0-low
+phase6_slice2_wider_ac_eval24_initial_review: not-approved-661e1ef8-0-blocker-0-high-1-medium-0-low
 phase6_slice2_schema_parse: approved-83309967-9bbb6c35
 phase6_slice2_schema_parse_review: approved-9bbb6c35-0-blocker-0-high-0-medium-0-low
 phase6_slice2_schema_parse_ci: approved-34689229774-34689229816
@@ -935,8 +936,11 @@ approved layout families and donors already exist.
   **354** green. Hosted Documentation `34707380647` green at `3750a3bf`;
   Implementation `34707380669` **cancelled** (superseded by `9ea6f07d` push — not
   authoritative). Docs-only `c250d556` / `9ea6f07d` not implementation evidence.
-  Authoritative corrective head `3750a3bf`. **Pending terminal Implementation
-  CI on `3750a3bf` and external re-review; not approved.**
+  External corrective re-review at `3750a3bf`: **0 Blocker / 0 High / 0 Medium /
+  0 Low** — technically approved; **not formally closed** until terminal
+  Implementation CI on corrective head. Authoritative corrective head `3750a3bf`;
+  Documentation `34707380647` green; Implementation `34707380669` **cancelled**
+  (superseded by bookkeeping push). **Pending fresh Implementation CI.**
   **Slice 2 remainder:** wider AC-EVAL-24 matrix corrective review/CI; credential
   fail-closed **closed** at `68b35ee7`.
 - [>] Independently validate every model response for schema, exact criterion

@@ -291,6 +291,7 @@ public static class EvidenceLocatorVerifier
 
         return sourceType switch
         {
+            // Trusted Submission port category must match locator source_type (AC-EVAL-24).
             "submission.direct_text" or "submission.text_attachment"
                 when context.SubmissionItemsBySourceId.TryGetValue(sourceId, out var submission)
                      && string.Equals(submission.SourceVersion, sourceVersion, StringComparison.Ordinal)
