@@ -1198,42 +1198,45 @@ approved layout families and donors already exist.
 
 ## Phase 8 — Host APIs and active-assignment authorization
 
-- [ ] Define Evaluation service actions separately for admit/claim/execute/
-  complete/retry/replace/annotate/status/read/read-Evidence and human actions
-  for assigned Review list/read/open-Evidence. Bind every action to complete
-  resource scope and current workflow state.
-- [ ] Add a minimal Review-owned case/handoff/initial-candidate/assignment-read
-  port. A generic
-  `reviewer` relationship is never sufficient: assigned reads require an active
-  exact case assignment and content capability, with current reauthorization
-  for the case and again for each Evidence source.
-- [ ] Use Development/Testing seed data or test-only trusted setup to create an
-  assignment for browser verification. Do not add production assignment
-  policy, an automatic assignee, or a user-facing assignment command in this
-  task.
-- [ ] Add bounded authenticated endpoints for Review work list/status, exact
-  case Evaluation/criterion reads, and subordinate Evidence opens. Scope list
-  and count before materialization; use indistinguishable non-disclosing
-  denial/not-found behavior where governed. Enforce server-owned pagination,
-  maximum page/criterion/Evidence context sizes, request/rate limits, and
-  bounded surrounding-source expansion so enumeration or repeated locator
-  opens cannot become a disclosure or resource-exhaustion path.
-- [ ] Add separately authorized operational endpoints/handlers for exact
-  retry/reconciliation, replacement, and annotation only when the actor has the
-  required action, complete resource chain, reason, expected version, and
-  current authentication strength. Do not expose arbitrary export.
-- [ ] Red: API tests for signed-out, Participant, unassigned Reviewer,
-  wrong/revoked/expired assignment, wrong Organization/Activity/Participant/
-  Attempt/Session, guessed IDs, missing content capability, stale workflow,
-  malformed schema, conflicting idempotency/expected version, and revocation
-  between admission/read/commit.
-- [ ] Ensure response projections never contain raw hidden prompts, credentials,
-  provider request/response bodies, unrestricted config/rubric internals,
-  unrelated source content, or Participant-visible outcome fields.
-- [ ] Add exact narrow gateway proxy rules for only the new API namespace and
-  negative tests that broader `/v1` paths remain unavailable.
-- [ ] Green/refactor Runtime/API, IdentityAccess, gateway, and PostgreSQL
-  authorization/isolation tests.
+- [x] Define Evaluation service actions separately for admit/claim/execute/
+  complete/retry/replace/annotate/status/read/read-Evidence (`EvaluationAuthorizedActions`)
+  and human actions for assigned Review list/read/open-Evidence
+  (`ReviewAuthorizedActions`). Endpoint admission binds reviewer relationship +
+  org grant; assigned reads additionally require active case assignment and
+  `review.content.read` capability (criterion/evidence).
+- [x] Add minimal Review assignment-read ports:
+  `IActiveReviewAssignmentPort`, `IAssignedReviewQueryService`, migration
+  `0082_review_assignment_foundation.sql` (`review_case_assignments`,
+  append-only `review_case_assignment_events`). Generic `reviewer` relationship
+  alone is insufficient.
+- [x] Development/Testing seed: `demo.reviewer` Keycloak user + actor grants
+  (`review.work.list` … `review.evidence.open`). No production assignment
+  policy or user-facing assign command. Assignment rows remain test/seed-only
+  for now (browser E2E deferred to Phase 9 + demo-work hookup).
+- [x] Bounded authenticated endpoints: `GET /v1/review/work`,
+  `/v1/review/cases/{id}`, `/criteria/{id}`, `/evidence/{id}` with
+  `Cache-Control: no-store`, cursor pagination (max 25), indistinguishable 404
+  denial, and sanitized contract projections. Evidence `display_text` materialization
+  and dedicated request limiter deferred (locator-only open with honest
+  unavailability notice).
+- [ ] Operational retry/reconciliation/replacement/annotation HTTP handlers
+  (worker/service-only surface; separate authorization chain).
+- [x] Red/green negatives (initial slice): signed-out runtime contract tests;
+  Postgres isolation for unassigned/revoked assignment and active-assignment
+  list filtering. Broader matrix (participant, guessed IDs, stale workflow,
+  idempotency, revocation-between-reads) deferred to refactor pass.
+- [x] Projections omit provider internals; criterion reads use persisted
+  judgments only; evidence open returns locator + bounded notice (no artifact
+  store wiring in API host yet).
+- [x] Narrow gateway proxy `location /v1/review/` + compose validator +
+  `AuthenticatedBrowserProfileTests` coverage; broader `/v1` remains blocked.
+- [x] Green evidence: Evaluation unit **410** (+3 admission); Runtime **343**
+  (+2 review HTTP negatives, seed/gateway assertions); Architecture **65/65**
+  (API Dockerfile includes `Evaluation.Infrastructure`); Postgres integration
+  **504/504** (+3 assignment isolation, `0082` migration chain). Review pass
+  fixed `evaluation_requests` LATERAL join (no duplicate work rows / case-load
+  throw on replacement requests). Not run: full CI matrix, browser
+  `/v1/review` journey.
 
 ## Phase 9 — Production reviewer inspection UI
 

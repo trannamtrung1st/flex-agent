@@ -240,6 +240,8 @@
           "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
           "FlexAgent.AssessmentConfiguration.Infrastructure": "[1.0.0, )",
           "FlexAgent.Contracts": "[1.0.0, )",
+          "FlexAgent.Evaluation": "[1.0.0, )",
+          "FlexAgent.Evaluation.Infrastructure": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",

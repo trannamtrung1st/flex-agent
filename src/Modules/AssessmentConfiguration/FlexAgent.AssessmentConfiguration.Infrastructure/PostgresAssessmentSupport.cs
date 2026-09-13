@@ -804,7 +804,9 @@ public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAcc
                 WHERE organization_id = @OrganizationId
                   AND actor_id = @ActorId
                   AND revoked_at IS NULL
-                  AND granted_action LIKE 'assessment.%'
+                  AND (
+                        granted_action LIKE 'assessment.%'
+                        OR granted_action LIKE 'review.%')
                 """,
                 new { OrganizationId = organizationId, ActorId = actorId },
                 cancellationToken: cancellationToken))).ToArray();

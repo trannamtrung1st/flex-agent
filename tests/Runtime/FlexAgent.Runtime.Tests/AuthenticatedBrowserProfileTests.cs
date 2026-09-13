@@ -70,6 +70,7 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("location /auth/", nginx);
         Assert.Contains("location /v1/assessment", nginx);
         Assert.Contains("location /v2/assessment", nginx);
+        Assert.Contains("location /v1/review/", nginx);
         Assert.Contains("location = /v1/sessions", nginx);
         Assert.Contains("location /v1/sessions/", nginx);
         Assert.DoesNotContain("location /v1/sessions {", nginx);
@@ -207,6 +208,9 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("cccccccc-cccc-4ccc-8ccc-cccccccccccd", seed);
         Assert.Contains("identity_human_display_profiles", seed);
         Assert.Contains("demo.participant", seed);
+        Assert.Contains("demo.reviewer", seed);
+        Assert.Contains("review.work.list", seed);
+        Assert.Contains("f1000000-0000-4000-8000-000000000001", seed);
         Assert.Contains("d2000000-0000-4000-8000-", seed);
         Assert.Contains("e2000000-0000-4000-8000-", seed);
         Assert.Contains("generate_series(1, 5)", seed);

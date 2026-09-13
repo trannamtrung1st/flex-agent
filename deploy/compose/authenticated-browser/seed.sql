@@ -110,6 +110,51 @@ ON CONFLICT (organization_id, actor_id) DO UPDATE
 SET display_label = EXCLUDED.display_label,
     updated_at = EXCLUDED.updated_at;
 
+-- demo.reviewer actor, display profile, and assigned-inspection grants.
+INSERT INTO actors (id, created_at)
+VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag', CLOCK_TIMESTAMP())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO human_identity_bindings (
+    binding_id, issuer, subject, actor_id, created_at, disabled_at)
+VALUES (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbf',
+    'http://localhost:18080/realms/flex-agent',
+    'f1000000-0000-4000-8000-000000000001',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    CLOCK_TIMESTAMP(),
+    NULL)
+ON CONFLICT (issuer, subject) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+SELECT
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    1,
+    granted_action,
+    CLOCK_TIMESTAMP()
+FROM (
+    VALUES
+        ('review.work.list'),
+        ('review.case.read'),
+        ('review.criterion.read'),
+        ('review.evidence.open')
+) AS grants(granted_action)
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+INSERT INTO identity_human_display_profiles (
+    organization_id, actor_id, display_label, created_at, updated_at)
+VALUES (
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    'Demo Reviewer',
+    CLOCK_TIMESTAMP(),
+    CLOCK_TIMESTAMP())
+ON CONFLICT (organization_id, actor_id) DO UPDATE
+SET display_label = EXCLUDED.display_label,
+    updated_at = EXCLUDED.updated_at;
+
 -- Numbered extras: demo.admin1–5 and demo.participant1–30 (Keycloak ids d2000000 / e2000000).
 INSERT INTO actors (id, created_at)
 SELECT format('a2000000-0000-4000-8000-%1$s', lpad(gs.i::text, 12, '0'))::uuid, CLOCK_TIMESTAMP()

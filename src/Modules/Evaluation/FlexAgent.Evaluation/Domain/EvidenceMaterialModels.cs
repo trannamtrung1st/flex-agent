@@ -30,6 +30,19 @@ public static class EvaluationEvidenceSourceIdentity
     public static string StableEvidenceId(Guid evidenceId) =>
         $"evidence.{evidenceId:N}";
 
+    public static bool TryParseStableEvidenceId(string stableEvidenceId, out Guid evidenceId)
+    {
+        evidenceId = Guid.Empty;
+        if (!stableEvidenceId.StartsWith("evidence.", StringComparison.Ordinal)
+            || stableEvidenceId.Length != "evidence.".Length + 32
+            || !Guid.TryParse(stableEvidenceId["evidence.".Length..], out evidenceId))
+        {
+            return false;
+        }
+
+        return evidenceId != Guid.Empty;
+    }
+
     public static bool TryParseSubmissionItemSourceId(string sourceId, out Guid itemId)
     {
         itemId = Guid.Empty;

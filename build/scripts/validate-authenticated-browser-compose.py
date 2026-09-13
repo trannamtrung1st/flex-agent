@@ -189,6 +189,7 @@ def validate_nginx(nginx_text: str) -> None:
         "location /auth/",
         "location /v1/assessment",
         "location /v2/assessment",
+        "location /v1/review/",
         "location ~ ^/sessions/[^/]+/events",
         "proxy_pass http://api:8080",
         "location /realms/flex-agent",

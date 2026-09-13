@@ -31,6 +31,7 @@
         <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions.Infrastructure\FlexAgent.Submissions.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\..\src\Modules\Evaluation\FlexAgent.Evaluation\FlexAgent.Evaluation.csproj" />
   </ItemGroup>
 
 </Project>

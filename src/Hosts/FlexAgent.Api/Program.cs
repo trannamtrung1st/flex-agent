@@ -21,6 +21,7 @@ builder.Services.AddProductionSessionEvents(builder.Configuration, builder.Envir
 builder.Services.AddHumanAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddAssessmentConfiguration(builder.Configuration, builder.Environment);
 builder.Services.AddEnrollment(builder.Configuration, builder.Environment);
+builder.Services.AddReview(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 var humanAuthentication = app.Services.GetRequiredService<HumanAuthenticationHostOptions>();
@@ -52,5 +53,6 @@ app.MapAssessmentEndpoints();
 app.MapEnrollmentEndpoints();
 app.MapProductionSessionEventEndpoints();
 app.MapHostedSessionEndpoints();
+app.MapReviewEndpoints();
 
 app.Run();
