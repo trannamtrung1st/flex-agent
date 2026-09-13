@@ -288,12 +288,12 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                             organization_id, evaluation_id, evidence_id, request_id, activity_id,
                             participant_id, attempt_id, session_id, source_type, source_id,
                             source_version_id, source_content_digest, locator_schema, locator_digest,
-                            precision, integrity_state, created_by_service, created_at)
+                            precision, integrity_state, locator_canonical_json, created_by_service, created_at)
                         VALUES (
                             @OrganizationId, @EvaluationId, @EvidenceId, @RequestId, @ActivityId,
                             @ParticipantId, @AttemptId, @SessionId, @SourceType, @SourceId,
                             @SourceVersionId, @SourceContentDigest, @LocatorSchema, @LocatorDigest,
-                            @Precision, @IntegrityState, @CreationServiceId, @CompletedAt);
+                            @Precision, @IntegrityState, CAST(@LocatorCanonicalJson AS jsonb), @CreationServiceId, @CompletedAt);
                         """,
                         new
                         {
@@ -313,6 +313,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                             LocatorDigest = record.LocatorDigest,
                             record.Precision,
                             IntegrityState = record.IntegrityState,
+                            LocatorCanonicalJson = record.LocatorCanonicalJson,
                             CreationServiceId = command.Completed.CreationServiceId,
                             CompletedAt = completedAtUtc,
                         },
@@ -401,6 +402,29 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                         },
                         scope.Transaction,
                         cancellationToken: cancellationToken));
+
+                var evidenceOrdinal = 0;
+                foreach (var evidenceId in judgment.EvidenceIds)
+                {
+                    await scope.Connection.ExecuteAsync(
+                        new CommandDefinition(
+                            """
+                            INSERT INTO evaluation_criterion_judgment_evidence_refs (
+                                organization_id, evaluation_id, judgment_id, evidence_id, reference_ordinal)
+                            VALUES (
+                                @OrganizationId, @EvaluationId, @JudgmentId, @EvidenceId, @ReferenceOrdinal);
+                            """,
+                            new
+                            {
+                                command.Completed.Ownership.OrganizationId,
+                                command.Completed.EvaluationId,
+                                judgment.JudgmentId,
+                                EvidenceId = evidenceId,
+                                ReferenceOrdinal = evidenceOrdinal++,
+                            },
+                            scope.Transaction,
+                            cancellationToken: cancellationToken));
+                }
             }
 
             await scope.Connection.ExecuteAsync(
@@ -1017,7 +1041,8 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     locator_schema AS LocatorSchema,
                     locator_digest AS LocatorDigest,
                     precision AS Precision,
-                    integrity_state AS IntegrityState
+                    integrity_state AS IntegrityState,
+                    locator_canonical_json::text AS LocatorCanonicalJson
                 FROM evaluation_evidence_items
                 WHERE organization_id = @OrganizationId
                   AND evaluation_id = @EvaluationId

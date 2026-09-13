@@ -172,7 +172,8 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             "evidence-locator.v1",
             new string('d', 64),
             "exact_range",
-            "verified");
+            "verified",
+            "{}");
         var judgment = CreateJudgment(correctAttemptId, criterion, evidenceId);
 
         var valid = EvaluationCompletionDeterministicProvenanceVerifier.IsJudgmentProvenanceValid(

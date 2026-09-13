@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
@@ -40,12 +41,12 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
                         organization_id, evaluation_id, evidence_id, request_id, activity_id,
                         participant_id, attempt_id, session_id, source_type, source_id,
                         source_version_id, source_content_digest, locator_schema, locator_digest,
-                        precision, integrity_state, created_by_service, created_at)
+                        precision, integrity_state, locator_canonical_json, created_by_service, created_at)
                     SELECT
                         @OrganizationId, @EvaluationId, @EvidenceId, @RequestId, @ActivityId,
                         @ParticipantId, @AttemptId, @SessionId, @SourceType, @SourceId,
                         @SourceVersionId, @SourceContentDigest, @LocatorSchema, @LocatorDigest,
-                        @Precision, @IntegrityState, @CreatedByService, clock_timestamp()
+                        @Precision, @IntegrityState, CAST(@LocatorCanonicalJson AS jsonb), @CreatedByService, clock_timestamp()
                     FROM evaluation_requests AS request
                     WHERE request.organization_id = @OrganizationId
                       AND request.activity_id = @ActivityId
@@ -78,6 +79,7 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
                         LocatorDigest = record.LocatorDigest,
                         record.Precision,
                         IntegrityState = record.IntegrityState,
+                        LocatorCanonicalJson = record.LocatorCanonicalJson,
                         CreatedByService = createdByService,
                     },
                     transaction,
@@ -92,7 +94,8 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
                 new CommandDefinition(
                     """
                     SELECT source_type, source_id, source_version_id, source_content_digest,
-                           locator_schema, locator_digest, precision, integrity_state
+                           locator_schema, locator_digest, precision, integrity_state,
+                           locator_canonical_json::text AS locator_canonical_json
                     FROM evaluation_evidence_items
                     WHERE organization_id = @OrganizationId
                       AND evaluation_id = @EvaluationId
@@ -107,7 +110,15 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
                     transaction,
                     cancellationToken: cancellationToken));
 
-            if (existing is null || !Matches(record, existing))
+            if (existing is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return EvaluationDecision<IReadOnlyList<Guid>>.Fail(
+                    EvaluationFailureCodes.InvalidField,
+                    "request_binding");
+            }
+
+            if (!Matches(record, existing))
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return EvaluationDecision<IReadOnlyList<Guid>>.Fail(EvaluationFailureCodes.DuplicateIdentity);
@@ -128,7 +139,25 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
         && record.LocatorSchema == existing.locator_schema
         && string.Equals(record.LocatorDigest, existing.locator_digest, StringComparison.Ordinal)
         && record.Precision == existing.precision
-        && record.IntegrityState == existing.integrity_state;
+        && record.IntegrityState == existing.integrity_state
+        && CanonicalLocatorJsonMatches(record.LocatorCanonicalJson, existing.locator_canonical_json);
+
+    private static bool CanonicalLocatorJsonMatches(string left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) && string.IsNullOrWhiteSpace(right))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        using var leftDocument = JsonDocument.Parse(left);
+        using var rightDocument = JsonDocument.Parse(right);
+        return JsonElement.DeepEquals(leftDocument.RootElement, rightDocument.RootElement);
+    }
 
     private sealed record PersistedEvidenceItemRow(
         string source_type,
@@ -138,5 +167,6 @@ public sealed class PostgresEvaluationEvidenceLocatorStore(
         string locator_schema,
         string locator_digest,
         string precision,
-        string integrity_state);
+        string integrity_state,
+        string? locator_canonical_json);
 }

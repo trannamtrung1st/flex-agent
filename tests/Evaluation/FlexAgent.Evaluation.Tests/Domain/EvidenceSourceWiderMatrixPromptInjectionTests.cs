@@ -477,7 +477,8 @@ public sealed class EvidenceSourceWiderMatrixPromptInjectionTests
             "verified",
             sourceDigest,
             "whole_item",
-            new string('e', 64));
+            new string('e', 64),
+            locatorDocument.RootElement.GetRawText());
 
         var result = EvidenceLocatorMetadataProjector.TryCreate(
             evidenceId,

@@ -22,7 +22,8 @@ public static class EvaluationCompletionEvidenceSeal
                 "evidence-locator.v1",
                 item.Source.ContentDigest,
                 item.Precision,
-                "verified")).ToArray());
+                "verified",
+                "{}")).ToArray());
 
     public static EvaluationDecision<string> TryComputeFromPersistedRecords(
         Guid evidenceSetId,

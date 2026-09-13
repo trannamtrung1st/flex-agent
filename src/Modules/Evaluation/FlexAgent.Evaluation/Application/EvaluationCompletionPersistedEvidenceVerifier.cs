@@ -11,7 +11,8 @@ public sealed record PersistedEvaluationEvidenceRow(
     string LocatorSchema,
     string LocatorDigest,
     string Precision,
-    string IntegrityState);
+    string IntegrityState,
+    string? LocatorCanonicalJson);
 
 public static class EvaluationCompletionPersistedEvidenceVerifier
 {
@@ -83,6 +84,13 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
                     "source_binding");
             }
 
+            if (string.IsNullOrWhiteSpace(persisted.LocatorCanonicalJson))
+            {
+                return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "locator_canonical_json");
+            }
+
             authoritative.Add(
                 new EvaluationEvidenceLocatorRecord(
                     persisted.EvidenceId,
@@ -93,7 +101,8 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
                     persisted.LocatorSchema,
                     persisted.LocatorDigest,
                     persisted.Precision,
-                    persisted.IntegrityState));
+                    persisted.IntegrityState,
+                    persisted.LocatorCanonicalJson));
         }
 
         return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Ok(authoritative);
@@ -187,7 +196,8 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
             record.LocatorSchema,
             record.LocatorDigest,
             record.Precision,
-            record.IntegrityState);
+            record.IntegrityState,
+            record.LocatorCanonicalJson);
 
     public static bool LocatorRecordsEquivalent(
         IReadOnlyList<EvaluationEvidenceLocatorRecord> persisted,
@@ -225,7 +235,8 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
         && string.Equals(left.LocatorSchema, right.LocatorSchema, StringComparison.Ordinal)
         && string.Equals(left.LocatorDigest, right.LocatorDigest, StringComparison.Ordinal)
         && string.Equals(left.Precision, right.Precision, StringComparison.Ordinal)
-        && string.Equals(left.IntegrityState, right.IntegrityState, StringComparison.Ordinal);
+        && string.Equals(left.IntegrityState, right.IntegrityState, StringComparison.Ordinal)
+        && string.Equals(left.LocatorCanonicalJson, right.LocatorCanonicalJson, StringComparison.Ordinal);
 
     private static bool MatchesCommandItem(
         EvidenceItem commandItem,

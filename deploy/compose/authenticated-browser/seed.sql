@@ -112,7 +112,7 @@ SET display_label = EXCLUDED.display_label,
 
 -- demo.reviewer actor, display profile, and assigned-inspection grants.
 INSERT INTO actors (id, created_at)
-VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag', CLOCK_TIMESTAMP())
+VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaafb', CLOCK_TIMESTAMP())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO human_identity_bindings (
@@ -121,7 +121,7 @@ VALUES (
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbf',
     'http://localhost:18080/realms/flex-agent',
     'f1000000-0000-4000-8000-000000000001',
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaafb',
     CLOCK_TIMESTAMP(),
     NULL)
 ON CONFLICT (issuer, subject) DO NOTHING;
@@ -130,7 +130,7 @@ INSERT INTO actor_organization_grants (
     organization_id, actor_id, relationship_version, granted_action, created_at)
 SELECT
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaafb',
     1,
     granted_action,
     CLOCK_TIMESTAMP()
@@ -147,7 +147,7 @@ INSERT INTO identity_human_display_profiles (
     organization_id, actor_id, display_label, created_at, updated_at)
 VALUES (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaag',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaafb',
     'Demo Reviewer',
     CLOCK_TIMESTAMP(),
     CLOCK_TIMESTAMP())

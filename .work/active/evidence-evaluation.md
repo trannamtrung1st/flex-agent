@@ -1230,13 +1230,32 @@ approved layout families and donors already exist.
   store wiring in API host yet).
 - [x] Narrow gateway proxy `location /v1/review/` + compose validator +
   `AuthenticatedBrowserProfileTests` coverage; broader `/v1` remains blocked.
-- [x] Green evidence: Evaluation unit **410** (+3 admission); Runtime **343**
+- [x] Green evidence (initial `e827d83e`): Evaluation unit **410** (+3 admission); Runtime **343**
   (+2 review HTTP negatives, seed/gateway assertions); Architecture **65/65**
   (API Dockerfile includes `Evaluation.Infrastructure`); Postgres integration
   **504/504** (+3 assignment isolation, `0082` migration chain). Review pass
   fixed `evaluation_requests` LATERAL join (no duplicate work rows / case-load
   throw on replacement requests). Not run: full CI matrix, browser
   `/v1/review` journey.
+- [x] **Corrective pass (review `not-approved`, pending re-review):**
+  - [x] `REQ-EVAL-37/38` — `IAssignedReviewProtectedEvidenceResolver` reauthorizes
+    protected sources via session/submission/deterministic ports +
+    `EvidenceLocatorVerifier` (no evaluation-as-token); API registers evidence
+    source ports in `AddReview`.
+  - [x] Persist `locator_canonical_json` at completion/locator-store; evidence-open
+    returns verified locator via `EvidenceLocatorContractMapper` (range/pointer/
+    whole-item), not reconstructed `whole_item` from `source_id`.
+  - [x] Migration `0083_review_evidence_corrective.sql`:
+    `evaluation_criterion_judgment_evidence_refs`; criterion reads join judgment
+    refs only.
+  - [x] Fix invalid `demo.reviewer` actor UUID (`…aaag` → `…aafb`) for
+    `oci-oidc-smoke` seed.
+  - [x] Tests: `EvidenceLocatorContractMapperTests`, `AssignedReviewCorrectiveTests`
+    (disjoint criterion evidence + missing canonical unavailable), locator-store
+    idempotency with JSON-normalized canonical compare.
+  - [x] Local green: Evaluation **413/413**; Runtime **343/343**; Architecture
+    **65/65**; Postgres **506/506** (+1 skipped). Not run: exact-head
+    Implementation CI on corrective commit.
 
 ## Phase 9 — Production reviewer inspection UI
 

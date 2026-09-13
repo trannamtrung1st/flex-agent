@@ -13,7 +13,8 @@ public sealed record EvaluationEvidenceLocatorRecord(
     string LocatorSchema,
     string LocatorDigest,
     string Precision,
-    string IntegrityState);
+    string IntegrityState,
+    string LocatorCanonicalJson);
 
 public interface IEvaluationEvidenceLocatorStore
 {
@@ -59,6 +60,13 @@ public static class EvidenceLocatorMetadataProjector
                 "source_ref");
         }
 
+        if (string.IsNullOrWhiteSpace(verified.CanonicalLocatorJson))
+        {
+            return EvaluationDecision<EvaluationEvidenceLocatorRecord>.Fail(
+                EvaluationFailureCodes.CitationIntegrity,
+                "locator_canonical_json");
+        }
+
         return EvaluationDecision<EvaluationEvidenceLocatorRecord>.Ok(
             new EvaluationEvidenceLocatorRecord(
                 evidenceId,
@@ -69,7 +77,8 @@ public static class EvidenceLocatorMetadataProjector
                 locatorSchema,
                 verified.VerifiedLocatorDigest,
                 verified.VerifiedPrecision,
-                verified.VerificationState));
+                verified.VerificationState,
+                verified.CanonicalLocatorJson));
     }
 
     private static (Guid SourceId, Guid SourceVersionId)? TryResolveProtectedSource(

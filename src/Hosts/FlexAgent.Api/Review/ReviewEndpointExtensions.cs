@@ -1,6 +1,11 @@
+using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Application.Review;
 using FlexAgent.Evaluation.Domain;
+using FlexAgent.Evaluation.Infrastructure;
+using FlexAgent.Evaluation.Infrastructure.Review;
 using FlexAgent.IdentityAccess.Application;
+using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Infrastructure;
 
 namespace FlexAgent.Api;
 
@@ -14,8 +19,13 @@ public static class ReviewEndpointExtensions
             return services;
         }
 
-        services.AddSingleton<IActiveReviewAssignmentPort, FlexAgent.Evaluation.Infrastructure.Review.PostgresActiveReviewAssignmentPort>();
-        services.AddSingleton<IAssignedReviewQueryService, FlexAgent.Evaluation.Infrastructure.Review.PostgresAssignedReviewQueryService>();
+        services.AddSingleton<IActiveReviewAssignmentPort, PostgresActiveReviewAssignmentPort>();
+        services.AddSingleton<IEvaluationHandoffSource, PostgresEvaluationHandoffSource>();
+        services.AddSingleton<IEvaluationSessionEvidenceSource, PostgresEvaluationSessionEvidenceSource>();
+        services.AddSingleton<IEvaluationSubmissionEvidenceSource, PostgresEvaluationSubmissionEvidenceSource>();
+        services.AddSingleton<IProtectedDeterministicOutputStore, PostgresProtectedDeterministicOutputStore>();
+        services.AddSingleton<IAssignedReviewProtectedEvidenceResolver, PostgresAssignedReviewProtectedEvidenceResolver>();
+        services.AddSingleton<IAssignedReviewQueryService, PostgresAssignedReviewQueryService>();
         return services;
     }
 

@@ -1,7 +1,11 @@
 using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Application.Review;
+using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Evaluation.Infrastructure.Review;
+using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Infrastructure;
 using FlexAgent.Postgres.Integration.Tests.Support;
 
 namespace FlexAgent.Postgres.Integration.Tests;
@@ -17,9 +21,7 @@ public sealed class AssignedReviewAuthorizationTests(PostgresIntegrationFixture 
         var reviewerId = Guid.CreateVersion7();
         var reviewCaseId = Guid.CreateVersion7();
         await SeedReviewCaseAsync(organizationId, reviewCaseId);
-        var service = new PostgresAssignedReviewQueryService(
-            Fixture.Services.ConnectionAccessor,
-            new PostgresActiveReviewAssignmentPort(Fixture.Services.ConnectionAccessor));
+        var service = CreateQueryService();
         var actor = new AssignedReviewActorContext(
             organizationId,
             reviewerId,
@@ -47,9 +49,7 @@ public sealed class AssignedReviewAuthorizationTests(PostgresIntegrationFixture 
         await SeedReviewCaseAsync(organizationId, assignedCaseId);
         await SeedReviewCaseAsync(organizationId, unassignedCaseId);
         await SeedAssignmentAsync(organizationId, assignedCaseId, reviewerId);
-        var service = new PostgresAssignedReviewQueryService(
-            Fixture.Services.ConnectionAccessor,
-            new PostgresActiveReviewAssignmentPort(Fixture.Services.ConnectionAccessor));
+        var service = CreateQueryService();
         var actor = new AssignedReviewActorContext(
             organizationId,
             reviewerId,
@@ -74,9 +74,7 @@ public sealed class AssignedReviewAuthorizationTests(PostgresIntegrationFixture 
         var reviewCaseId = Guid.CreateVersion7();
         await SeedReviewCaseAsync(organizationId, reviewCaseId);
         await SeedAssignmentAsync(organizationId, reviewCaseId, reviewerId, revoked: true);
-        var service = new PostgresAssignedReviewQueryService(
-            Fixture.Services.ConnectionAccessor,
-            new PostgresActiveReviewAssignmentPort(Fixture.Services.ConnectionAccessor));
+        var service = CreateQueryService();
         var actor = new AssignedReviewActorContext(
             organizationId,
             reviewerId,
@@ -116,6 +114,19 @@ public sealed class AssignedReviewAuthorizationTests(PostgresIntegrationFixture 
                 AttemptId = Guid.CreateVersion7(),
                 SessionId = Guid.CreateVersion7(),
             });
+    }
+
+    private PostgresAssignedReviewQueryService CreateQueryService()
+    {
+        var connections = Fixture.Services.ConnectionAccessor;
+        return new PostgresAssignedReviewQueryService(
+            connections,
+            new PostgresActiveReviewAssignmentPort(connections),
+            new PostgresAssignedReviewProtectedEvidenceResolver(
+                connections,
+                new PostgresEvaluationSessionEvidenceSource(connections, new PostgresEvaluationHandoffSource(connections)),
+                new PostgresEvaluationSubmissionEvidenceSource(connections, new InMemoryArtifactStore()),
+                new PostgresProtectedDeterministicOutputStore(connections)));
     }
 
     private async Task SeedAssignmentAsync(

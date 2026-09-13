@@ -13,7 +13,8 @@ namespace FlexAgent.Evaluation.Infrastructure.Review;
 
 public sealed class PostgresAssignedReviewQueryService(
     PostgresConnectionAccessor connections,
-    IActiveReviewAssignmentPort assignments) : IAssignedReviewQueryService
+    IActiveReviewAssignmentPort assignments,
+    IAssignedReviewProtectedEvidenceResolver evidenceResolver) : IAssignedReviewQueryService
 {
     public async Task<EvaluationDecision<AssignedReviewWorkListPage>> ListWorkAsync(
         AssignedReviewActorContext actor,
@@ -165,6 +166,7 @@ public sealed class PostgresAssignedReviewQueryService(
             new CommandDefinition(
                 """
                 SELECT
+                    judgment_id,
                     criterion_id,
                     criterion_version,
                     evaluator_mode,
@@ -195,17 +197,27 @@ public sealed class PostgresAssignedReviewQueryService(
             new CommandDefinition(
                 """
                 SELECT
-                    evidence_id,
-                    source_type,
-                    precision,
-                    integrity_state
-                FROM evaluation_evidence_items
-                WHERE organization_id = @OrganizationId
-                  AND evaluation_id = @EvaluationId
-                ORDER BY created_at, evidence_id
+                    evidence.evidence_id,
+                    evidence.source_type,
+                    evidence.precision,
+                    evidence.integrity_state
+                FROM evaluation_criterion_judgment_evidence_refs AS evidence_ref
+                INNER JOIN evaluation_evidence_items AS evidence
+                  ON evidence.organization_id = evidence_ref.organization_id
+                 AND evidence.evaluation_id = evidence_ref.evaluation_id
+                 AND evidence.evidence_id = evidence_ref.evidence_id
+                WHERE evidence_ref.organization_id = @OrganizationId
+                  AND evidence_ref.evaluation_id = @EvaluationId
+                  AND evidence_ref.judgment_id = @JudgmentId
+                ORDER BY evidence_ref.reference_ordinal, evidence.evidence_id
                 LIMIT 32;
                 """,
-                new { OrganizationId = actor.OrganizationId, EvaluationId = evaluationId },
+                new
+                {
+                    OrganizationId = actor.OrganizationId,
+                    EvaluationId = evaluationId,
+                    JudgmentId = criterion.judgment_id,
+                },
                 cancellationToken: cancellationToken));
         var evidenceReferences = evidenceRows
             .Select(item => AssignedReviewProjectionMapper.MapEvidenceReference(
@@ -258,12 +270,14 @@ public sealed class PostgresAssignedReviewQueryService(
                 """
                 SELECT
                     evidence.evidence_id,
+                    evidence.request_id,
                     evidence.source_type,
-                    evidence.source_id,
-                    evidence.source_version_id,
+                    evidence.source_id::text AS source_id,
+                    evidence.source_version_id::text AS source_version_id,
                     evidence.source_content_digest,
                     evidence.locator_schema,
                     evidence.locator_digest,
+                    evidence.locator_canonical_json::text AS locator_canonical_json,
                     evidence.precision,
                     evidence.integrity_state,
                     evidence.activity_id,
@@ -295,17 +309,34 @@ public sealed class PostgresAssignedReviewQueryService(
             return EvaluationDecision<ReviewEvidenceOpenV1>.Fail(ReviewFailureCodes.Denied);
         }
 
-        var availability = AssignedReviewProjectionMapper.MapEvidenceAvailability(evidence.integrity_state);
-        var locator = BuildLocator(actor.OrganizationId, evidence, evaluationId);
+        var resolved = await evidenceResolver.TryResolveAsync(
+            new AssignedReviewProtectedEvidenceRequest(
+                actor.OrganizationId,
+                evaluationId,
+                evidence.request_id,
+                evidence.activity_id,
+                evidence.participant_id,
+                evidence.attempt_id,
+                evidence.session_id,
+                evidenceGuid,
+                evidence.locator_canonical_json ?? string.Empty,
+                evidence.locator_digest,
+                evidence.integrity_state),
+            cancellationToken);
+        if (!resolved.Succeeded || resolved.Value is null)
+        {
+            return EvaluationDecision<ReviewEvidenceOpenV1>.Fail(resolved.OutcomeCode);
+        }
+
         return EvaluationDecision<ReviewEvidenceOpenV1>.Ok(
             AssignedReviewProjectionMapper.MapEvidenceOpen(
                 reviewCaseId,
                 evaluationId,
                 evidenceGuid,
-                locator,
-                availability == "available" ? "unavailable" : availability,
-                null,
-                "Protected evidence material is not available through this API surface."));
+                resolved.Value.Locator,
+                resolved.Value.Availability,
+                resolved.Value.DisplayText,
+                resolved.Value.UnavailabilityNotice));
     }
 
     private static async Task<CaseRow?> LoadCaseRowAsync(
@@ -455,29 +486,6 @@ public sealed class PostgresAssignedReviewQueryService(
     private static string FormatCriterionLabel(string criterionId) =>
         criterionId.Replace('.', ' ');
 
-    private static EvidenceLocatorV1 BuildLocator(Guid organizationId, EvidenceDetailRow evidence, Guid evaluationId) =>
-        new(
-            evidence.locator_schema,
-            evidence.source_type,
-            new EvidenceSourceRefV1(
-                evidence.source_id,
-                evidence.source_version_id,
-                null),
-            new EvidenceOwnershipRefV1(
-                organizationId.ToString(),
-                evidence.activity_id.ToString(),
-                evidence.participant_id.ToString(),
-                evidence.attempt_id.ToString(),
-                evidence.session_id.ToString(),
-                evaluationId.ToString()),
-            new WholeItemLocationV1("whole_item", evidence.source_id),
-            evidence.precision,
-            new EvidenceIntegrityV1(
-                evidence.source_content_digest,
-                EvaluationEvidenceSourceIdentity.LocatorAdapterVersion,
-                AssignedReviewProjectionMapper.MapVerificationState(evidence.integrity_state)),
-            new EvidenceCreatedByV1("review.inspection", evidence.evidence_id.ToString()));
-
     private static async Task<LabelLookup> LoadLabelsAsync(
         Npgsql.NpgsqlConnection connection,
         Guid organizationId,
@@ -600,6 +608,7 @@ public sealed class PostgresAssignedReviewQueryService(
         string? request_state);
 
     private sealed record CriterionRow(
+        Guid judgment_id,
         string criterion_id,
         string criterion_version,
         string evaluator_mode,
@@ -618,12 +627,14 @@ public sealed class PostgresAssignedReviewQueryService(
 
     private sealed record EvidenceDetailRow(
         Guid evidence_id,
+        Guid request_id,
         string source_type,
         string source_id,
         string source_version_id,
         string source_content_digest,
         string locator_schema,
         string locator_digest,
+        string? locator_canonical_json,
         string precision,
         string integrity_state,
         Guid activity_id,

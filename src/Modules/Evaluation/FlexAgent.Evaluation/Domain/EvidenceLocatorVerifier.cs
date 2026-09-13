@@ -140,7 +140,8 @@ public static class EvidenceLocatorVerifier
                 verificationState,
                 material.ContentDigest,
                 verifiedPrecision,
-                verifiedLocatorDigest.Value!));
+                verifiedLocatorDigest.Value!,
+                effectiveLocator.Value.GetRawText()));
     }
 
     private static LocationVerificationResult VerifyLocation(

@@ -144,4 +144,5 @@ public sealed record VerifiedEvidenceLocator(
     string VerificationState,
     string ResolvedSourceDigest,
     string VerifiedPrecision,
-    string VerifiedLocatorDigest);
+    string VerifiedLocatorDigest,
+    string CanonicalLocatorJson);

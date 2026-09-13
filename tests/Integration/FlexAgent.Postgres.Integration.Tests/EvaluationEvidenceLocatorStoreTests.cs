@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
@@ -36,6 +37,29 @@ public sealed class EvaluationEvidenceLocatorStoreTests(PostgresIntegrationFixtu
 
         var ownership = prepared.Request.FrozenInput.Ownership;
         var evidenceId = Guid.CreateVersion7();
+        const string canonicalLocatorJson =
+            """
+            {
+              "locator_schema":"evidence-locator.v1",
+              "source_type":"submission.direct_text",
+              "source_ref":{"source_id":"item","source_version":"rev"},
+              "ownership_ref":{
+                "organization_id":"org","activity_id":"act","participant_id":"part",
+                "attempt_id":"att","session_id":"sess","evaluation_id":"eval"
+              },
+              "location":{"location_type":"whole_item","item_id":"item"},
+              "precision":"whole_item",
+              "integrity":{
+                "source_digest":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "adapter_version":"locator-adapter.v1",
+                "verification_state":"verified"
+              },
+              "created_by":{"service_id":"evaluation-service","invocation_id":"inv"}
+            }
+            """;
+        using var canonicalDocument = JsonDocument.Parse(canonicalLocatorJson);
+        var locatorDigest = EvidenceLocatorDigestComputer.TryComputeLocatorDigest(canonicalDocument.RootElement);
+        Assert.True(locatorDigest.Succeeded, locatorDigest.OutcomeCode);
         var records = new[]
         {
             new EvaluationEvidenceLocatorRecord(
@@ -45,9 +69,10 @@ public sealed class EvaluationEvidenceLocatorStoreTests(PostgresIntegrationFixtu
                 prepared.BoundSubmission.VersionId,
                 prepared.BoundSubmission.ContentDigest,
                 "evidence-locator.v1",
-                new string('a', 64),
+                locatorDigest.Value!,
                 "whole_item",
-                "verified"),
+                "verified",
+                canonicalLocatorJson),
         };
         var store = new PostgresEvaluationEvidenceLocatorStore(Fixture.Services.ConnectionAccessor);
 

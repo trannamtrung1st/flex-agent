@@ -72,7 +72,8 @@ public sealed class EvidenceLocatorMetadataProjectorTests
             "verified",
             sourceDigest,
             "whole_item",
-            new string('e', 64));
+            new string('e', 64),
+            locatorDocument.RootElement.GetRawText());
 
         var result = EvidenceLocatorMetadataProjector.TryCreate(
             evidenceId,
@@ -131,7 +132,8 @@ public sealed class EvidenceLocatorMetadataProjectorTests
             "verified",
             new string('d', 64),
             "whole_item",
-            new string('e', 64));
+            new string('e', 64),
+            locatorDocument.RootElement.GetRawText());
         var handoff = new EvaluationHandoffSnapshot(
             "handoff.metadata.0002",
             new EvaluationOwnership(
@@ -205,7 +207,8 @@ public sealed class EvidenceLocatorMetadataProjectorTests
             "verified",
             sourceDigest,
             "exact_range",
-            new string('e', 64));
+            new string('e', 64),
+            locatorDocument.RootElement.GetRawText());
 
         var result = EvidenceLocatorMetadataProjector.TryCreate(
             evidenceId,
