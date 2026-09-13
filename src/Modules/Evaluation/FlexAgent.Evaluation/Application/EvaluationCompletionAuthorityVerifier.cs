@@ -8,11 +8,13 @@ public static class EvaluationCompletionAuthorityVerifier
     public static EvaluationDecision<CompletedEvaluation> TryVerify(
         EvaluationRequest authoritativeRequest,
         EvaluationProcedureV1 procedure,
-        EvaluationCompletionCommand command)
+        EvaluationCompletionCommand command,
+        IReadOnlyList<EvidenceItem> authoritativeEvidenceItems)
     {
         ArgumentNullException.ThrowIfNull(authoritativeRequest);
         ArgumentNullException.ThrowIfNull(procedure);
         ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(authoritativeEvidenceItems);
 
         if (command.Completed.Ownership != authoritativeRequest.FrozenInput.Ownership)
         {
@@ -75,7 +77,7 @@ public static class EvaluationCompletionAuthorityVerifier
             command.Completed.EvidenceSetId,
             command.InvocationAttemptId,
             authoritativeRequest.FrozenInput,
-            command.EvidenceItems);
+            authoritativeEvidenceItems);
         if (!expectedSealDigest.Succeeded || expectedSealDigest.Value is null)
         {
             return EvaluationDecision<CompletedEvaluation>.Fail(
@@ -97,7 +99,7 @@ public static class EvaluationCompletionAuthorityVerifier
             command.Completed.EvidenceSetId,
             command.Completed.EvaluationId,
             authoritativeRequest.FrozenInput.Ownership,
-            command.EvidenceItems,
+            authoritativeEvidenceItems,
             expectedSealDigest.Value);
         if (!evidenceSet.Succeeded || evidenceSet.Value is null)
         {
@@ -115,7 +117,7 @@ public static class EvaluationCompletionAuthorityVerifier
             completingRequest,
             procedure,
             evidenceSet.Value,
-            command.EvidenceItems,
+            authoritativeEvidenceItems,
             validatedJudgments,
             command.Completed.CompletedAtUtc,
             command.Completed.CreationServiceId);

@@ -24,7 +24,8 @@ public sealed class EvaluationCompletionAuthorityVerifierTests
         var verified = EvaluationCompletionAuthorityVerifier.TryVerify(
             context.Request,
             context.Procedure,
-            forgedCommand);
+            forgedCommand,
+            context.EvidenceItems);
 
         Assert.False(verified.Succeeded);
         Assert.Equal(EvaluationCompletionOutcomeCodes.IntegrityConflict, verified.OutcomeCode);
@@ -58,7 +59,8 @@ public sealed class EvaluationCompletionAuthorityVerifierTests
         var verified = EvaluationCompletionAuthorityVerifier.TryVerify(
             context.Request,
             context.Procedure,
-            command);
+            command,
+            context.EvidenceItems);
 
         Assert.False(verified.Succeeded);
         Assert.Equal(EvaluationCompletionOutcomeCodes.IntegrityConflict, verified.OutcomeCode);
@@ -75,7 +77,8 @@ public sealed class EvaluationCompletionAuthorityVerifierTests
         var verified = EvaluationCompletionAuthorityVerifier.TryVerify(
             context.Request,
             context.Procedure,
-            forgedCommand);
+            forgedCommand,
+            context.EvidenceItems);
 
         Assert.False(verified.Succeeded);
         Assert.True(
@@ -93,7 +96,8 @@ public sealed class EvaluationCompletionAuthorityVerifierTests
         var verified = EvaluationCompletionAuthorityVerifier.TryVerify(
             context.Request,
             context.Procedure,
-            command);
+            command,
+            context.EvidenceItems);
 
         Assert.True(verified.Succeeded, verified.OutcomeCode);
         Assert.Equal(command.Completed.AggregateStatus, verified.Value!.AggregateStatus);

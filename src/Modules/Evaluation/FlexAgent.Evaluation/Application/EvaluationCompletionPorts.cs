@@ -49,7 +49,6 @@ public sealed record EvaluationAnnotationAppendCommand(
     Guid EvaluationId,
     Guid DelegationId,
     Guid ActorId,
-    string ActorType,
     Guid CorrelationId,
     string SourceChannel,
     string Kind,
@@ -72,7 +71,6 @@ public sealed record EvaluationReplacementStaleCommand(
     Guid DelegationId,
     string Reason,
     Guid ActorId,
-    string ActorType,
     Guid CorrelationId,
     string SourceChannel,
     DateTimeOffset OccurredAtUtc);

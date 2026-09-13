@@ -32,14 +32,15 @@ public sealed class PostgresEvaluationAnnotationService(
         }
 
         var annotationId = Guid.CreateVersion7();
+        var serviceActorReference = EvaluationServiceActorReference.Format(command.ActorId);
         var created = EvaluationAnnotation.TryCreate(
             annotationId,
             command.EvaluationId,
             command.Kind,
             command.Disposition,
             command.Reason,
-            command.ActorType,
-            "evaluation.annotation",
+            EvaluationActorTypes.Service,
+            serviceActorReference,
             command.OccurredAtUtc,
             command.EvidenceId);
         if (!created.Succeeded || created.Value is null)
@@ -109,7 +110,7 @@ public sealed class PostgresEvaluationAnnotationService(
                         command.Kind,
                         command.Disposition,
                         command.Reason,
-                        command.ActorType,
+                        ActorType = EvaluationActorTypes.Service,
                         ActorId = command.ActorId,
                         OccurredAt = command.OccurredAtUtc,
                     },
@@ -149,7 +150,7 @@ public sealed class PostgresEvaluationAnnotationService(
                     "evaluation.annotation.appended.v1",
                     command.OccurredAtUtc,
                     command.CorrelationId,
-                    command.ActorType,
+                    EvaluationActorTypes.Service,
                     command.ActorId,
                     "evaluation.annotate",
                     "evaluation.annotation",

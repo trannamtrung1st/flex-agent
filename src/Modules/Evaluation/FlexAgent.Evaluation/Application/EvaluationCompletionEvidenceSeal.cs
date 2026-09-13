@@ -8,10 +8,30 @@ public static class EvaluationCompletionEvidenceSeal
         Guid evidenceSetId,
         Guid invocationAttemptId,
         FrozenInputIdentity frozenInput,
-        IReadOnlyList<EvidenceItem> evidenceItems)
+        IReadOnlyList<EvidenceItem> evidenceItems) =>
+        TryComputeFromPersistedRecords(
+            evidenceSetId,
+            invocationAttemptId,
+            frozenInput,
+            evidenceItems.Select(item => new EvaluationEvidenceLocatorRecord(
+                item.EvidenceId,
+                item.SourceType,
+                item.Source.SourceId,
+                item.Source.SourceVersionId,
+                item.Source.ContentDigest,
+                "evidence-locator.v1",
+                item.Source.ContentDigest,
+                item.Precision,
+                "verified")).ToArray());
+
+    public static EvaluationDecision<string> TryComputeFromPersistedRecords(
+        Guid evidenceSetId,
+        Guid invocationAttemptId,
+        FrozenInputIdentity frozenInput,
+        IReadOnlyList<EvaluationEvidenceLocatorRecord> records)
     {
         ArgumentNullException.ThrowIfNull(frozenInput);
-        ArgumentNullException.ThrowIfNull(evidenceItems);
+        ArgumentNullException.ThrowIfNull(records);
 
         var ownership = new EvidenceSetOwnershipReference(
             frozenInput.Ownership.OrganizationId.ToString("D"),
@@ -20,13 +40,13 @@ public static class EvaluationCompletionEvidenceSeal
             frozenInput.Ownership.AttemptId.ToString("D"),
             frozenInput.Ownership.SessionId.ToString("D"));
 
-        var sealedItems = evidenceItems
-            .Select(item => new SealedEvidenceItemReference(
-                EvaluationEvidenceSourceIdentity.StableEvidenceId(item.EvidenceId),
-                item.SourceType,
-                item.Source.ContentDigest,
-                item.Source.ContentDigest,
-                "verified"))
+        var sealedItems = records
+            .Select(record => new SealedEvidenceItemReference(
+                EvaluationEvidenceSourceIdentity.StableEvidenceId(record.EvidenceId),
+                record.SourceType,
+                record.SourceContentDigest,
+                record.LocatorDigest,
+                record.IntegrityState))
             .ToArray();
 
         return EvidenceSetSealComputer.TryComputeDigest(

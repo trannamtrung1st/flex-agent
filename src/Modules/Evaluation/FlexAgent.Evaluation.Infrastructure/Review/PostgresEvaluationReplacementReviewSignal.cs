@@ -109,7 +109,7 @@ public sealed class PostgresEvaluationReplacementReviewSignal(
                     PublishReplacementAvailable: true,
                     ReplacementReason: command.Reason,
                     command.ActorId,
-                    command.ActorType,
+                    EvaluationActorTypes.Service,
                     command.OccurredAtUtc),
                 cancellationToken);
 
@@ -120,7 +120,7 @@ public sealed class PostgresEvaluationReplacementReviewSignal(
                     "evaluation.replacement.available.v1",
                     command.OccurredAtUtc,
                     command.CorrelationId,
-                    command.ActorType,
+                    EvaluationActorTypes.Service,
                     command.ActorId,
                     "evaluation.replacement.signal",
                     "evaluation.review_handoff",

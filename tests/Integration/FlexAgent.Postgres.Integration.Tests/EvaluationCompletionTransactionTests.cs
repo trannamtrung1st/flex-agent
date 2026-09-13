@@ -511,7 +511,6 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                 completed.EvaluationId!.Value,
                 annotateDelegationId,
                 prepared.WorkerActorId,
-                EvaluationActorTypes.Service,
                 Guid.CreateVersion7(),
                 "integration.test",
                 EvaluationAnnotationKinds.SourceLawfullyUnavailable,
@@ -583,7 +582,6 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                 completed.EvaluationId!.Value,
                 prepared.DelegationId,
                 prepared.WorkerActorId,
-                EvaluationActorTypes.Service,
                 Guid.CreateVersion7(),
                 "integration.test",
                 EvaluationAnnotationKinds.SourceLawfullyUnavailable,
@@ -610,6 +608,191 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
               AND event_schema_version = 'evaluation.annotation.appended.v1';
             """,
             new { claimed.Ownership.OrganizationId }));
+    }
+
+    [Fact]
+    public async Task Unbound_evidence_identity_with_recomputed_seal_rejects_without_publication()
+    {
+        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+            Fixture,
+            Guid.CreateVersion7().ToString("N"),
+            CancellationToken);
+        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
+        var claimed = await prepared.Work.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+        Assert.NotNull(claimed);
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed!,
+            CancellationToken);
+        var forgedSource = ExactSourceIdentity.TryCreate(
+            "task_submission",
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            new string('9', 64)).Value!;
+        var forgedItems = bundle.Command.EvidenceItems
+            .Select(item => EvidenceItem.TryCreate(
+                item.EvidenceId,
+                item.SourceType,
+                forgedSource,
+                item.Ownership,
+                item.EvaluationId,
+                item.Precision).Value!)
+            .ToArray();
+        var forgedSeal = EvaluationCompletionEvidenceSeal.TryComputeExpectedDigest(
+            bundle.Command.Completed.EvidenceSetId,
+            bundle.Command.InvocationAttemptId,
+            prepared.Request.FrozenInput,
+            forgedItems);
+        Assert.True(forgedSeal.Succeeded, forgedSeal.OutcomeCode);
+        var forgedCompleted = bundle.Command.Completed with
+        {
+            EvidenceSetDigest = forgedSeal.Value!,
+        };
+        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with
+            {
+                Completed = forgedCompleted,
+                EvidenceItems = forgedItems,
+            },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.True(
+            result.OutcomeCode is EvaluationCompletionOutcomeCodes.IntegrityConflict
+                or EvaluationFailureCodes.CitationIntegrity,
+            result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed!);
+    }
+
+    [Fact]
+    public async Task Judgment_citing_failed_deterministic_attempt_rejects_without_publication()
+    {
+        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+            Fixture,
+            Guid.CreateVersion7().ToString("N"),
+            CancellationToken);
+        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
+        var claimed = await prepared.Work.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+        Assert.NotNull(claimed);
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed!,
+            CancellationToken);
+        var citedJudgment = bundle.Command.Judgments
+            .First(judgment => judgment.DeterministicInvocationId is not null);
+        var failedAttemptId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var sourceAttempt = await connection.QuerySingleAsync<DeterministicAttemptRow>(
+                """
+                SELECT criterion_id, criterion_version, evaluator_id, evaluator_version,
+                       evaluator_digest, canonical_input_digest, dependency_digest,
+                       configuration_digest, started_at, finished_at
+                FROM evaluation_deterministic_attempts
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId
+                  AND deterministic_attempt_id = @DeterministicAttemptId;
+                """,
+                new
+                {
+                    claimed!.Ownership.OrganizationId,
+                    claimed.RequestId,
+                    DeterministicAttemptId = citedJudgment.DeterministicInvocationId,
+                });
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO evaluation_deterministic_attempts (
+                    organization_id, deterministic_attempt_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version, evaluator_id, evaluator_version, evaluator_digest,
+                    canonical_input_digest, dependency_digest, configuration_digest, outcome,
+                    protected_input_ref, protected_output_ref, output_content_digest,
+                    started_at, finished_at)
+                VALUES (
+                    @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
+                    @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
+                    @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'failed',
+                    'protected.input.ref', 'protected.output.ref', @OutputContentDigest,
+                    @StartedAt, @FinishedAt);
+                """,
+                new
+                {
+                    OrganizationId = claimed.Ownership.OrganizationId,
+                    DeterministicAttemptId = failedAttemptId,
+                    RequestId = claimed.RequestId,
+                    InvocationAttemptId = bundle.Command.InvocationAttemptId,
+                    CriterionId = sourceAttempt.criterion_id,
+                    CriterionVersion = sourceAttempt.criterion_version,
+                    EvaluatorId = sourceAttempt.evaluator_id,
+                    EvaluatorVersion = sourceAttempt.evaluator_version,
+                    EvaluatorDigest = sourceAttempt.evaluator_digest,
+                    CanonicalInputDigest = sourceAttempt.canonical_input_digest,
+                    DependencyDigest = sourceAttempt.dependency_digest,
+                    ConfigurationDigest = sourceAttempt.configuration_digest,
+                    OutputContentDigest = new string('2', 64),
+                    StartedAt = sourceAttempt.started_at,
+                    FinishedAt = sourceAttempt.finished_at,
+                });
+        }
+
+        var forgedJudgments = bundle.Command.Judgments
+            .Select(judgment => judgment.JudgmentId == citedJudgment.JudgmentId
+                ? judgment with { DeterministicInvocationId = failedAttemptId }
+                : judgment)
+            .ToArray();
+        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with { Judgments = forgedJudgments },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed!);
+    }
+
+    [Fact]
+    public async Task Conflicting_completion_replay_with_same_evaluation_id_returns_integrity_conflict()
+    {
+        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+            Fixture,
+            Guid.CreateVersion7().ToString("N"),
+            CancellationToken);
+        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
+        var claimed = await prepared.Work.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+        Assert.NotNull(claimed);
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed!,
+            CancellationToken);
+        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var conflicting = bundle.Command.Completed with
+        {
+            AggregateStatus = EvaluationAggregateStatuses.ConflictReviewRequired,
+        };
+        var replay = await coordinator.TryCompleteAsync(
+            bundle.Command with { Completed = conflicting },
+            CancellationToken);
+
+        Assert.False(replay.Succeeded);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.IntegrityConflict, replay.OutcomeCode);
     }
 
     [Fact]
@@ -651,7 +834,6 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     completed.EvaluationId!.Value,
                     annotateDelegationId,
                     prepared.WorkerActorId,
-                    EvaluationActorTypes.Service,
                     Guid.CreateVersion7(),
                     "integration.test",
                     EvaluationAnnotationKinds.SourceLawfullyUnavailable,
@@ -696,6 +878,18 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             new { claimed.Ownership.OrganizationId }));
         await EvaluationProhibitedSideEffectAssertions.AssertAbsentAsync(connection);
     }
+
+    private sealed record DeterministicAttemptRow(
+        string criterion_id,
+        string criterion_version,
+        string evaluator_id,
+        string evaluator_version,
+        string evaluator_digest,
+        string canonical_input_digest,
+        string dependency_digest,
+        string configuration_digest,
+        DateTimeOffset started_at,
+        DateTimeOffset finished_at);
 
     private sealed class ThrowingAuditEventWriter : IAuditEventWriter
     {
