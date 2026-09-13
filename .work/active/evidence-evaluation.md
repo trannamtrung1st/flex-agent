@@ -2,8 +2,11 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-13T16:00:00+07:00
-phase7_status: corrective-pending-review
+updated: 2026-09-13T16:36:00+07:00
+phase7: approved-ea401127
+phase7_status: approved
+phase7_review: approved-ea401127-0-blocker-0-high-0-medium-0-low
+phase7_ci: approved-34748779148-34748779101
 phase6_green_matrix: approved-8ffd4b8a
 phase6_green_matrix_review: approved-8ffd4b8a-0-blocker-0-high-0-medium-0-low
 phase6_green_matrix_initial_review: not-approved-250e91ea-0-blocker-0-high-1-medium-0-low
@@ -1177,14 +1180,21 @@ approved layout families and donors already exist.
   and annotation paths; API/E2E deferred to Phase 8.
 - [x] Green/refactor completion, rollback, concurrency, replacement, annotation,
   lineage, manifest/audit reconstruction, and prohibited-side-effect tests.
-  Focused green: preparer **3/3**; completion transaction integration **13/13**
-  (hostile forged procedure/aggregate/evidence-seal negatives, annotation
-  delegation/audit rollback, replacement E2E, concurrent reconcile, empty-
-  judgments rejection); authority verifier unit **4/4**; Evaluation unit **399**
-  (local Release). Corrective for `169fb6ba` review: coordinator rehydrates
-  authoritative request/procedure and runs `EvaluationCompletionAuthorityVerifier`
-  + deterministic provenance + evidence-seal binding before publication;
-  annotation/replacement ports require scoped delegation + audit/outbox.
+  Focused green: preparer **3/3**; completion transaction integration **26/26**
+  (hostile forged procedure/aggregate/evidence-seal/canonical-input negatives,
+  annotation delegation/audit rollback, replacement E2E, concurrent reconcile,
+  empty-judgments rejection, source-unavailable reconcile vs first-publication
+  fail-closed); deterministic provenance unit **5/5**; authority verifier unit
+  **4/4**; Evaluation unit **407** (local). Corrective chain `909d5f66` →
+  `ea401127` → `11f88f45`: timestamp canonicalization + reconcile-before-reverify;
+  immutable `evaluation_deterministic_input_authority` (`0081`) with production
+  `PostgresProtectedDeterministicInputAuthorityStore`; hostile both-fields-forged
+  canonical input rejected. External review at authoritative head `ea401127`:
+  **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED. Hosted CI at
+  `ea4011275e38d7a319f3aa771b84a2b0100f6770`: Implementation `34748779148`;
+  Documentation `34748779101` — all six jobs green. `11f88f45` docs-only
+  bookkeeping. Worker disabled; Evaluation processing/Release activation remain
+  separate gates.
 
 ## Phase 8 — Host APIs and active-assignment authorization
 
@@ -1698,7 +1708,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 credential fail-closed adapter selection (`fb0c79fb` → `68b35ee7`) | approved | External review chain: initial `fb0c79fb` → `6c5ffe3a` **0 Blocker / 0 High / 1 Medium / 1 Low**; corrective `68b35ee7` closes `Qualified` gate Medium and catalog binding-identity Low; re-review at `68b35ee7` **0 Blocker / 0 High / 0 Medium / 0 Low**. Authoritative head `68b35ee7`; hosted CI Implementation `34706092150` and Documentation `34706092168` — all six jobs green. Docs-only `88d70dd4` / `dbf024f6` / `9a20b112` not implementation evidence. Focused: `EvaluationModelExecutionCompositionTests` 14; Evaluation unit **343**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green (local). **Credential fail-closed increment closed.** Worker disabled |
 | Phase 6 slice 2 wider AC-EVAL-24 matrix (`661e1ef8` → `3750a3bf` → `d1b90ae0`) | approved | External review chain: initial `661e1ef8` **0 Blocker / 0 High / 1 Medium / 0 Low** (submission category not bound); corrective `3750a3bf` closes Medium; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**; closure review at `f80b6e81` **0 Blocker / 0 High / 0 Medium / 0 Low**. `EvidenceSourceWiderMatrixPromptInjectionTests` 11; combined injection suites **28**; Evaluation unit **354**; `verify-dotnet.sh` green (local). Authoritative corrective head `3750a3bf`; `d1b90ae0` gitleaks allowlist (comment-only evaluation delta); Documentation `34707380647`; Implementation `34709712367` — all six jobs green. Docs-only `171c2d09` / `f80b6e81` not implementation evidence. **Wider AC-EVAL-24 matrix increment fully closed/approved.** `session.work_trace` deferred. Worker disabled |
 | Phase 6 slice 2 model-response wider validation matrix (`8be2a125` → `d2d5c35d`) | approved | External review chain: initial `8be2a125` **0 Blocker / 0 High / 1 Medium / 0 Low** (lexical `"valid":false` scan); corrective `d2d5c35d` closes Medium via `VerifiedDeterministicOutputConflictInterpreter` schema-bound to `eval.builtin.schema-validate.output.v1`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8be2a125`: Implementation `34735843429`; Documentation `34735843445` green. Authoritative head `d2d5c35d`; Implementation `34736764600`; Documentation `34736764589` — all six jobs green. `VerifiedDeterministicOutputConflictInterpreterTests` 11; `EvaluationModelResponseWiderValidationMatrixTests` 14; focused model-response suites **29**; Evaluation unit **379**; `verify-dotnet.sh` green (local). **Model-response validation parent gate closed.** **Phase 6 slice 2 closed/approved.** Worker disabled |
-| Phase 7 completion transaction + Review handoff (`0080` + coordinator) | corrective-pending-review | Re-review `909d5f66`: **0 Blocker / 0 High / 1 Medium / 1 Low** — digest-encoded `protected_input_ref` still self-consistent. Corrective pass 6 at `ea401127` (pushed): migration `0081` + `evaluation_deterministic_input_authority` immutable per-criterion canonical-input records; `IProtectedDeterministicInputAuthorityStore` on succeeded deterministic execution; completion binds cited attempts to authority rows (not ref parsing). Hostile: both `canonical_input_digest` and `protected_input_ref` forged consistently while authority unchanged → reject. Prior hosted CI at `909d5f66`: Implementation `34745485658`; Documentation `34745485600` — all six jobs green. Re-verification at `ea401127` (local): Postgres integration **501/501** (1 skipped); completion integration **26/26**; deterministic provenance **5/5**; Evaluation unit **407/407**. Worker disabled |
+| Phase 7 completion transaction + Review handoff (`0080` + `0081` + coordinator) | approved | External review at authoritative head `ea401127`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-ea401127-0-blocker-0-high-0-medium-0-low`). Chain: `909d5f66` reconcile/timestamp/provenance; `ea401127` immutable per-criterion `evaluation_deterministic_input_authority` + production `PostgresProtectedDeterministicInputAuthorityStore`; `11f88f45` work-plan bookkeeping. Hosted CI at `ea401127`: Implementation `34748779148`; Documentation `34748779101` — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke`). Focused: completion integration **26/26**; deterministic provenance **5/5**; Evaluation unit **407**; Postgres integration **501/501** (1 skipped). Worker disabled; processing/Release activation remain separate gates |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
