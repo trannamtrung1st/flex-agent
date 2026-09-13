@@ -240,6 +240,44 @@ public sealed class EvaluationModelResponseWiderValidationMatrixTests
     }
 
     [Fact]
+    public void Satisfied_assisted_response_conflicts_with_spaced_false_deterministic_fact()
+    {
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
+        var bound = EvaluationModelResponseDocumentBinder.Bind(response);
+
+        var result = EvaluationModelResponseValidationPipeline.Validate(
+            bound.WireUtf8,
+            bound.ResponseRef,
+            Procedure,
+            CreateAssistedExpectedInvocation(),
+            AssistedFacts("""{"valid": false, "schema": "eval.agent.assisted.input.v1"}"""));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationModelExecutionOutcomeCategories.OutputSemanticInvalid, result.OutcomeCategory);
+        Assert.Equal(EvaluationFailureCodes.DeterministicConflict, result.Decision.OutcomeCode);
+        Assert.Equal("status", result.Decision.Field);
+    }
+
+    [Fact]
+    public void Nested_valid_false_substring_does_not_manufacture_conflict_in_pipeline()
+    {
+        var response = CreateAssistedResponse(CriterionStatuses.Satisfied, "Structure is complete.");
+        var bound = EvaluationModelResponseDocumentBinder.Bind(response);
+
+        var result = EvaluationModelResponseValidationPipeline.Validate(
+            bound.WireUtf8,
+            bound.ResponseRef,
+            Procedure,
+            CreateAssistedExpectedInvocation(),
+            AssistedFacts(
+                """
+                {"valid":true,"note":"literal substring valid:false must not override schema"}
+                """));
+
+        Assert.True(result.Succeeded, result.Decision.OutcomeCode);
+    }
+
+    [Fact]
     public void Schema_invalid_wire_bytes_fail_before_semantic_validation()
     {
         var wireUtf8 = """{"schema_version":"v1","status":"satisfied"}"""u8.ToArray();

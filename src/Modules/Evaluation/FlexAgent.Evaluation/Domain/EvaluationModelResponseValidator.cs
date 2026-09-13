@@ -196,8 +196,9 @@ internal static class EvaluationModelResponseValidatorHelpers
 
         foreach (var fact in verifiedDeterministicFacts.Values)
         {
-            var projection = System.Text.Encoding.UTF8.GetString(fact.ProjectionUtf8.Span);
-            if (projection.Contains("\"valid\":false", StringComparison.Ordinal))
+            if (VerifiedDeterministicOutputConflictInterpreter.TryIndicatesAgentOverrideConflict(
+                    criterion,
+                    fact.ProjectionUtf8.Span))
             {
                 return true;
             }
