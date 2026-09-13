@@ -451,6 +451,23 @@ internal static class EvaluationPersistenceTestSeed
         string ArtifactObjectKey,
         byte[] Content);
 
+    internal static PreparedEvaluation WithReplacementRequest(
+        PreparedEvaluation prepared,
+        Guid predecessorEvaluationId,
+        string key) =>
+        prepared with
+        {
+            Request = EvaluationRequest.TryCreate(
+                Guid.CreateVersion7(),
+                EvaluationRequestKinds.Replacement,
+                prepared.Request.FrozenInput,
+                $"idem.eval.replacement.{key}",
+                prepared.Request.DelegationRef,
+                EvaluationRequestStates.Queued,
+                predecessorEvaluationId,
+                "authorized.replacement").Value!,
+        };
+
     internal sealed record PreparedEvaluation(
         PostgresEvaluationAdmissionStore Admission,
         PostgresEvaluationDurableWorkStore Work,

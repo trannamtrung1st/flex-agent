@@ -2,7 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-13T13:40:00+07:00
+updated: 2026-09-13T16:20:00+07:00
+phase7_status: complete-pending-review
 phase6_green_matrix: approved-8ffd4b8a-pending-ci
 phase6_green_matrix_review: approved-8ffd4b8a-0-blocker-0-high-0-medium-0-low
 phase6_green_matrix_initial_review: not-approved-250e91ea-0-blocker-0-high-1-medium-0-low
@@ -1124,11 +1125,14 @@ approved layout families and donors already exist.
 
 ## Phase 7 — Commit immutable Evaluation and Review handoff
 
-- [ ] Red: prove partial Evidence/criteria/provider artifacts cannot become a
+- [x] Red: prove partial Evidence/criteria/provider artifacts cannot become a
   completed Evaluation, audit/outbox failure rolls back authority, equivalent
   completion races reconcile, and conflicting completions raise integrity
-  failure without overwrite.
-- [ ] Implement one infrastructure/composition-owned completion transaction
+  failure without overwrite. `EvaluationCompletionPreparerTests.Missing_criterion_blocks_preparation`
+  (unit); `EvaluationCompletionTransactionTests.Audit_failure_rolls_back_completion_writes`,
+  `Equivalent_completion_retry_reconciles_without_duplicate_evaluation`,
+  `Conflicting_evaluation_identity_returns_integrity_conflict` (integration).
+- [x] Implement one infrastructure/composition-owned completion transaction
   that reauthorizes
   service scope and exact inputs; re-verifies all criteria, Evidence locators,
   deterministic outcomes, aggregation, seals, lifecycle policy, and lineage;
@@ -1137,30 +1141,47 @@ approved layout families and donors already exist.
   non-releasing handoff port. Evaluation application/domain ports must not
   expose `NpgsqlTransaction`, Dapper, SQL, or Review implementation types; the
   Review infrastructure adapter owns Review writes inside the shared primary-
-  store transaction.
-- [ ] Create or refresh only an `evaluation_available` Review handoff/case
+  store transaction. `PostgresEvaluationCompletionCoordinator`,
+  `EvaluationCompletionPorts`, `EvaluationCompletionPreparer`,
+  `PostgresReviewEvaluationHandoffWriter`.
+- [x] Create or refresh only an `evaluation_available` Review handoff/case
   state. When the case has no candidate and exactly one eligible Evaluation,
   the Review-owned adapter records one immutable exact initial-candidate event
   with a bounded reason and durable audit. It must not assign a human; use
   arrival order or `latest`; switch a replacement; create a revision or
   decision; construct a Result; emit a Participant notification; or change
-  Participant visibility.
-- [ ] Implement equivalent post-completion retry as read/reconcile of the same
+  Participant visibility. Migration `0080_review_case_foundation.sql`;
+  `Completion_coordinator_commits_evaluation_review_handoff_and_work_state`.
+- [x] Implement equivalent post-completion retry as read/reconcile of the same
   authority. Implement replacement as a separately authorized request with one
   exact predecessor, bounded approved reason, actor/service, time, input
-  identity, and disposition; never mutate the original.
-- [ ] Publish a replacement-available event to Review so its current exact
+  identity, and disposition; never mutate the original. Reconcile path +
+  `evaluation_lineage` insert on replacement requests in coordinator;
+  `Replacement_completion_records_lineage_and_marks_review_candidate_stale`.
+- [x] Publish a replacement-available event to Review so its current exact
   candidate is marked stale/attention-required when applicable. Preserve that
   selected candidate and block any future decision eligibility; do not switch
-  Review candidate authority in Evaluation or this task's UI.
-- [ ] Implement append-only annotations/current disposition for later source
+  Review candidate authority in Evaluation or this task's UI. Coordinator +
+  `PostgresReviewEvaluationHandoffWriter` `replacement_available` branch sets
+  `case_state = candidate_stale` per `REV-DEC-2`; `PostgresEvaluationReplacementReviewSignal`
+  standalone port; replacement E2E asserts lineage, `candidate_stale` +
+  `replacement_available`, preserved candidate.
+- [x] Implement append-only annotations/current disposition for later source
   integrity or lawful availability findings while retaining the historical
-  completion state and original locator.
-- [ ] Assert at database, domain, API, and end-to-end levels that completion and
+  completion state and original locator. `PostgresEvaluationAnnotationService`;
+  `Annotation_service_appends_disposition_without_mutating_evaluation_row`.
+- [x] Assert at database, domain, API, and end-to-end levels that completion and
   replacement create no Human revision, Review decision, Result, Release,
-  notification, memory, learning, calibration, or harness record.
-- [ ] Green/refactor completion, rollback, concurrency, replacement, annotation,
+  notification, memory, learning, calibration, or harness record. Shared
+  `EvaluationProhibitedSideEffectAssertions` on initial completion, replacement,
+  and annotation paths; API/E2E deferred to Phase 8.
+- [x] Green/refactor completion, rollback, concurrency, replacement, annotation,
   lineage, manifest/audit reconstruction, and prohibited-side-effect tests.
+  Focused green: preparer **3/3**; completion transaction integration **8/8**
+  (includes replacement E2E, concurrent reconcile with advisory lock, empty-
+  judgments rejection); Evaluation unit **395** (local Release). Migration upgrade
+  tail extended for `0080`. Coordinator reconcile/idempotency: equivalent-retry,
+  unique-race handler, `pg_advisory_xact_lock` serialization.
 
 ## Phase 8 — Host APIs and active-assignment authorization
 
@@ -1674,6 +1695,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 credential fail-closed adapter selection (`fb0c79fb` → `68b35ee7`) | approved | External review chain: initial `fb0c79fb` → `6c5ffe3a` **0 Blocker / 0 High / 1 Medium / 1 Low**; corrective `68b35ee7` closes `Qualified` gate Medium and catalog binding-identity Low; re-review at `68b35ee7` **0 Blocker / 0 High / 0 Medium / 0 Low**. Authoritative head `68b35ee7`; hosted CI Implementation `34706092150` and Documentation `34706092168` — all six jobs green. Docs-only `88d70dd4` / `dbf024f6` / `9a20b112` not implementation evidence. Focused: `EvaluationModelExecutionCompositionTests` 14; Evaluation unit **343**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green (local). **Credential fail-closed increment closed.** Worker disabled |
 | Phase 6 slice 2 wider AC-EVAL-24 matrix (`661e1ef8` → `3750a3bf` → `d1b90ae0`) | approved | External review chain: initial `661e1ef8` **0 Blocker / 0 High / 1 Medium / 0 Low** (submission category not bound); corrective `3750a3bf` closes Medium; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**; closure review at `f80b6e81` **0 Blocker / 0 High / 0 Medium / 0 Low**. `EvidenceSourceWiderMatrixPromptInjectionTests` 11; combined injection suites **28**; Evaluation unit **354**; `verify-dotnet.sh` green (local). Authoritative corrective head `3750a3bf`; `d1b90ae0` gitleaks allowlist (comment-only evaluation delta); Documentation `34707380647`; Implementation `34709712367` — all six jobs green. Docs-only `171c2d09` / `f80b6e81` not implementation evidence. **Wider AC-EVAL-24 matrix increment fully closed/approved.** `session.work_trace` deferred. Worker disabled |
 | Phase 6 slice 2 model-response wider validation matrix (`8be2a125` → `d2d5c35d`) | approved | External review chain: initial `8be2a125` **0 Blocker / 0 High / 1 Medium / 0 Low** (lexical `"valid":false` scan); corrective `d2d5c35d` closes Medium via `VerifiedDeterministicOutputConflictInterpreter` schema-bound to `eval.builtin.schema-validate.output.v1`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8be2a125`: Implementation `34735843429`; Documentation `34735843445` green. Authoritative head `d2d5c35d`; Implementation `34736764600`; Documentation `34736764589` — all six jobs green. `VerifiedDeterministicOutputConflictInterpreterTests` 11; `EvaluationModelResponseWiderValidationMatrixTests` 14; focused model-response suites **29**; Evaluation unit **379**; `verify-dotnet.sh` green (local). **Model-response validation parent gate closed.** **Phase 6 slice 2 closed/approved.** Worker disabled |
+| Phase 7 completion transaction + Review handoff (`0080` + coordinator) | complete-pending-review | Migration `0080_review_case_foundation.sql`; `PostgresEvaluationCompletionCoordinator` (advisory lock + reconcile/race), `PostgresReviewEvaluationHandoffWriter`, `PostgresEvaluationAnnotationService`, `PostgresEvaluationReplacementReviewSignal`, application ports/preparer; integration **8/8**; preparer **3/3**; Evaluation unit **395** (local Release). Worker disabled |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved-pending-ci | Initial `250e91ea`: external review **0 Blocker / 0 High / 1 Medium / 0 Low** — same-attempt test incorrectly claimed distinct provider artifacts (`AppendCount` only); Documentation `34737615483` green; Implementation `34737615428` incomplete. Corrective `8ffd4b8a`: `New_invocation_attempt_persists_distinct_provider_artifact` + `Same_invocation_attempt_retry_reconciles_provider_artifact_idempotently`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` in progress at review time (`changes`, `dotnet`, `web`, `oidc` green; `supply-chain`, `oci-oidc-smoke` pending). Matrix **13**; Evaluation unit **392**; green matrix **13/13** (local Release). **Do not close Phase 6 green matrix or Phase 6 until full six-job Implementation CI.** Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
