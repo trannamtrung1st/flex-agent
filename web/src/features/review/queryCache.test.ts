@@ -32,6 +32,36 @@ describe("purgeReviewProtectedCache", () => {
     expect(queryClient.getQueryData(reviewKeys.criterion(scope, caseId, "eval-1", "crit-1"))).toBeUndefined();
     expect(queryClient.getQueryData(reviewKeys.evidence(scope, caseId, "eval-1", "ev-1"))).toBeUndefined();
   });
+
+  it("aborts other in-flight Review reads but not the denying query", async () => {
+    const queryClient = createFlexQueryClient();
+    const denyingKey = reviewKeys.criterion(scope, caseId, "eval-1", "crit-1");
+    const workKey = reviewKeys.work(scope);
+
+    let workSignal: AbortSignal | undefined;
+    const workFetch = queryClient.fetchQuery({
+      queryKey: workKey,
+      queryFn: ({ signal }) => {
+        workSignal = signal;
+        return new Promise(() => {});
+      },
+    });
+
+    let denyingSignal: AbortSignal | undefined;
+    const denyingFetch = queryClient.fetchQuery({
+      queryKey: denyingKey,
+      queryFn: async ({ signal }) => {
+        denyingSignal = signal;
+        await purgeReviewProtectedCache(queryClient, scope, denyingKey);
+        throw new ProductionApiError(404, "Denied", "review.denied");
+      },
+    });
+
+    await expect(denyingFetch).rejects.toMatchObject({ outcomeCode: "review.denied" });
+    await expect(workFetch).rejects.toBeTruthy();
+    expect(workSignal?.aborted).toBe(true);
+    expect(denyingSignal?.aborted).toBe(false);
+  });
 });
 
 describe("purgeReviewEvaluationCache", () => {

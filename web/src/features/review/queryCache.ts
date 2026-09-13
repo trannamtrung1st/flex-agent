@@ -6,20 +6,30 @@ function hasCachedPayload(query: Query) {
   return query.state.data !== undefined;
 }
 
-function isEvaluationQueryKey(queryKey: readonly unknown[]) {
-  return queryKey.includes("evaluations");
+function resolveDenyingQueryHash(
+  queryClient: QueryClient,
+  denyingQueryKey?: readonly unknown[],
+) {
+  if (!denyingQueryKey) {
+    return undefined;
+  }
+
+  return queryClient.getQueryCache().find({ queryKey: denyingQueryKey, exact: true })?.queryHash;
 }
 
 export async function purgeReviewProtectedCache(
   queryClient: QueryClient,
   scope: ReviewQueryScope,
+  denyingQueryKey?: readonly unknown[],
 ) {
   const queryKey = reviewKeys.all(scope);
+  const denyingQueryHash = resolveDenyingQueryHash(queryClient, denyingQueryKey);
 
   await queryClient.cancelQueries({
     queryKey,
     predicate: (query) =>
-      query.state.fetchStatus === "fetching" && isEvaluationQueryKey(query.queryKey),
+      query.state.fetchStatus === "fetching"
+      && query.queryHash !== denyingQueryHash,
   });
 
   for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
@@ -27,7 +37,7 @@ export async function purgeReviewProtectedCache(
       continue;
     }
 
-    if (query.getObserversCount() > 0) {
+    if (query.getObserversCount() > 0 || query.queryHash === denyingQueryHash) {
       query.setState({
         data: undefined,
       });

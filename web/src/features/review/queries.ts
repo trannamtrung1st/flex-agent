@@ -11,6 +11,7 @@ const PROCESSING_POLL_MS = 2000;
 async function runReviewQuery<T>(
   queryClient: QueryClient,
   scope: ReviewQueryScope,
+  denyingQueryKey: readonly unknown[],
   query: () => Promise<T>,
 ): Promise<T> {
   try {
@@ -18,7 +19,7 @@ async function runReviewQuery<T>(
   } catch (error) {
     if (isReviewAccessLoss(error)) {
       await Promise.resolve();
-      await purgeReviewProtectedCache(queryClient, scope);
+      await purgeReviewProtectedCache(queryClient, scope, denyingQueryKey);
     }
     throw error;
   }
@@ -68,9 +69,10 @@ export function useReviewWorkQuery(
 
   return useQuery({
     queryKey: reviewKeys.work(resolvedScope, cursor),
-    queryFn: ({ signal }) => runReviewQuery(
+    queryFn: ({ signal, queryKey }) => runReviewQuery(
       queryClient,
       resolvedScope,
+      queryKey,
       () => client.listWork(cursor, signal),
     ),
     enabled: Boolean(scope?.actorId && scope.organizationId),
@@ -93,9 +95,10 @@ export function useReviewCaseQuery(
 
   return useQuery({
     queryKey: reviewKeys.case(resolvedScope, reviewCaseId ?? ""),
-    queryFn: ({ signal }) => runReviewQuery(
+    queryFn: ({ signal, queryKey }) => runReviewQuery(
       queryClient,
       resolvedScope,
+      queryKey,
       () => client.getCase(reviewCaseId!, signal),
     ),
     enabled: Boolean(scope?.actorId && scope.organizationId && reviewCaseId),
@@ -122,10 +125,11 @@ export function useReviewCriterionQuery(
       evaluationId ?? "",
       criterionId ?? "",
     ),
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ signal, queryKey }) => {
       const result = await runReviewQuery(
         queryClient,
         resolvedScope,
+        queryKey,
         () => client.getCriterion(reviewCaseId!, criterionId!, signal),
       );
       assertSelectedEvaluationIdentity(result, evaluationId!);
@@ -160,10 +164,11 @@ export function useReviewEvidenceQuery(
       evaluationId ?? "",
       evidenceId ?? "",
     ),
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ signal, queryKey }) => {
       const result = await runReviewQuery(
         queryClient,
         resolvedScope,
+        queryKey,
         () => client.openEvidence(reviewCaseId!, evidenceId!, signal),
       );
       assertSelectedEvaluationIdentity(result, evaluationId!);
