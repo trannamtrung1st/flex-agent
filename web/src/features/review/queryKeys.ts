@@ -4,12 +4,24 @@ export const reviewKeys = {
   all: (scope: ReviewQueryScope) => ["review", "v1", scope.organizationId, scope.actorId] as const,
   work: (scope: ReviewQueryScope, cursor?: string | null) =>
     [...reviewKeys.all(scope), "work", cursor ?? ""] as const,
-  case: (scope: ReviewQueryScope, reviewCaseId: string) =>
+  caseRoot: (scope: ReviewQueryScope, reviewCaseId: string) =>
     [...reviewKeys.all(scope), "cases", reviewCaseId] as const,
-  criterion: (scope: ReviewQueryScope, reviewCaseId: string, criterionId: string) =>
-    [...reviewKeys.case(scope, reviewCaseId), "criteria", criterionId] as const,
-  evidence: (scope: ReviewQueryScope, reviewCaseId: string, evidenceId: string) =>
-    [...reviewKeys.case(scope, reviewCaseId), "evidence", evidenceId] as const,
+  case: (scope: ReviewQueryScope, reviewCaseId: string) =>
+    [...reviewKeys.caseRoot(scope, reviewCaseId), "read"] as const,
+  evaluation: (scope: ReviewQueryScope, reviewCaseId: string, evaluationId: string) =>
+    [...reviewKeys.caseRoot(scope, reviewCaseId), "evaluations", evaluationId] as const,
+  criterion: (
+    scope: ReviewQueryScope,
+    reviewCaseId: string,
+    evaluationId: string,
+    criterionId: string,
+  ) => [...reviewKeys.evaluation(scope, reviewCaseId, evaluationId), "criteria", criterionId] as const,
+  evidence: (
+    scope: ReviewQueryScope,
+    reviewCaseId: string,
+    evaluationId: string,
+    evidenceId: string,
+  ) => [...reviewKeys.evaluation(scope, reviewCaseId, evaluationId), "evidence", evidenceId] as const,
 };
 
 export function isProcessingReviewState(state: string | undefined) {

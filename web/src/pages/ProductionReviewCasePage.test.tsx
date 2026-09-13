@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
-import { FlexQueryProvider } from "../api/query-client";
+import { createFlexQueryClient, FlexQueryProvider } from "../api/query-client";
 import { ProductionReviewCasePage } from "./ProductionReviewCasePage";
 import { RUNNING_CRITERION_UNAVAILABLE } from "../features/review/presentation";
+import { reviewKeys } from "../features/review/queryKeys";
 import type { ReviewCaseReadV1, ReviewCriterionReadV1, ReviewEvidenceOpenV1 } from "../contracts/v1";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -41,6 +42,7 @@ function runningCase(): ReviewCaseReadV1 {
 function completedCase(): ReviewCaseReadV1 {
   return {
     ...runningCase(),
+    evaluation_id: "eval-1",
     evaluation_processing_state: "completed",
     processing_notice: null,
     criterion_summaries: [
@@ -151,20 +153,23 @@ function stubAuthenticatedFetch(handler: (url: string) => ReturnType<typeof json
   }));
 }
 
-function renderCase(path: string) {
-  return render(
-    <FlexQueryProvider>
-      <ProductionApiProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="/review/:reviewId" element={<ProductionReviewCasePage />} />
-            <Route path="/review/:reviewId/criteria/:criterionId" element={<ProductionReviewCasePage />} />
-            <Route path="/review/:reviewId/criteria/:criterionId/evidence/:evidenceId" element={<ProductionReviewCasePage />} />
-          </Routes>
-        </MemoryRouter>
-      </ProductionApiProvider>
-    </FlexQueryProvider>,
-  );
+function renderCase(path: string, queryClient = createFlexQueryClient()) {
+  return {
+    queryClient,
+    ...render(
+      <FlexQueryProvider client={queryClient}>
+        <ProductionApiProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route path="/review/:reviewId" element={<ProductionReviewCasePage />} />
+              <Route path="/review/:reviewId/criteria/:criterionId" element={<ProductionReviewCasePage />} />
+              <Route path="/review/:reviewId/criteria/:criterionId/evidence/:evidenceId" element={<ProductionReviewCasePage />} />
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    ),
+  };
 }
 
 describe("ProductionReviewCasePage", () => {
@@ -237,7 +242,7 @@ describe("ProductionReviewCasePage", () => {
       "href",
       `/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`,
     );
-    expect(screen.getByText("Rule-based")).toBeVisible();
+    expect(screen.getByText("Rule-based (deterministic)")).toBeVisible();
     expect(screen.getAllByText("Internal Evaluation · Not a released Result").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /human revision/i })).not.toBeInTheDocument();
   });
@@ -254,6 +259,9 @@ describe("ProductionReviewCasePage", () => {
     });
     renderCase(`/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`);
     expect(await screen.findByText(/<script>alert\(1\)<\/script> cited text/)).toBeVisible();
+    expect(screen.getByLabelText("Evidence provenance")).toBeVisible();
+    expect(screen.getByText("Whole item item-1")).toBeVisible();
+    expect(screen.getByText("Verified")).toBeVisible();
     expect(document.querySelector("script")).toBeNull();
     const backLinks = screen.getAllByRole("link", { name: "Back to criterion" });
     expect(backLinks).toHaveLength(2);
@@ -276,8 +284,17 @@ describe("ProductionReviewCasePage", () => {
       }
       return jsonResponse({}, 404);
     });
-    renderCase(`/review/${CASE_ID}`);
+    const queryClient = createFlexQueryClient();
+    const scope = { actorId: "actor-1", organizationId: "org-1" };
+    queryClient.setQueryData(
+      reviewKeys.criterion(scope, CASE_ID, "eval-1", "crit-1"),
+      criterion(),
+    );
+    renderCase(`/review/${CASE_ID}`, queryClient);
     expect(await screen.findByText(/no longer assigned to you/i)).toBeVisible();
     expect(screen.queryByText("The accepted Submission states the required fact.")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(reviewKeys.criterion(scope, CASE_ID, "eval-1", "crit-1"))).toBeUndefined();
+    });
   });
 });

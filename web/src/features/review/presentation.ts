@@ -1,4 +1,5 @@
 import type {
+  EvidenceLocationV1,
   ReviewCaseReadV1,
   ReviewCriterionReadV1,
   ReviewEvidenceOpenV1,
@@ -97,6 +98,43 @@ export function evaluatorModeCopy(
   label?: string | null,
 ) {
   return label || MODE_COPY[mode];
+}
+
+export function canonicalEvaluatorModeCopy(mode: ReviewCriterionReadV1["evaluator_mode"]) {
+  return mode;
+}
+
+export function evaluatorModePresentation(
+  mode: ReviewCriterionReadV1["evaluator_mode"],
+  label?: string | null,
+) {
+  const friendly = evaluatorModeCopy(mode, label);
+  return friendly === mode ? friendly : `${friendly} (${mode})`;
+}
+
+export function verificationStateCopy(
+  state: ReviewEvidenceOpenV1["locator"]["integrity"]["verification_state"],
+) {
+  if (state === "verified") {
+    return "Verified";
+  }
+  if (state === "degraded") {
+    return "Degraded";
+  }
+  return "Failed";
+}
+
+export function evidenceLocationCopy(location: EvidenceLocationV1) {
+  if (location.location_type === "whole_item") {
+    return `Whole item ${location.item_id}`;
+  }
+  if (location.location_type === "line_range") {
+    return `Lines ${location.start_line_inclusive}–${location.end_line_inclusive} of ${location.item_id}`;
+  }
+  if (location.location_type === "utf8_byte_range") {
+    return `Bytes ${location.start_inclusive}–${location.end_exclusive} of ${location.item_id}`;
+  }
+  return `JSON pointer ${location.json_pointer}`;
 }
 
 export function evidenceAvailabilityCopy(availability: ReviewEvidenceOpenV1["availability"]) {

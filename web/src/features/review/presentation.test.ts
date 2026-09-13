@@ -4,10 +4,14 @@ import {
   OPEN_EVIDENCE,
   RUNNING_CRITERION_UNAVAILABLE,
   WHOLE_ITEM_PRECISION,
+  canonicalEvaluatorModeCopy,
   evaluationProcessingCopy,
   evaluatorModeCopy,
+  evaluatorModePresentation,
+  evidenceLocationCopy,
   isInspectableReviewState,
   processingWellCopy,
+  verificationStateCopy,
 } from "./presentation";
 
 describe("review presentation", () => {
@@ -16,10 +20,14 @@ describe("review presentation", () => {
     expect(OPEN_EVIDENCE).toBe("Open Evidence");
     expect(BACK_TO_CRITERION).toBe("Back to criterion");
     expect(evaluationProcessingCopy("retryable_failure")).toBe("Failed — retryable");
-    expect(evaluatorModeCopy("deterministic")).toBe("Rule-based");
     expect(evaluatorModeCopy("agent_assisted")).toBe("Agent-assisted");
-    expect(evaluatorModeCopy("agent_judgment")).toBe("Agent judgment");
+    expect(evaluatorModePresentation("deterministic")).toBe("Rule-based (deterministic)");
+    expect(canonicalEvaluatorModeCopy("agent_judgment")).toBe("agent_judgment");
     expect(processingWellCopy({ evaluation_processing_state: "running" })).toBe(RUNNING_CRITERION_UNAVAILABLE);
+    expect(evidenceLocationCopy({ location_type: "json_pointer", json_pointer: "/answer" })).toBe(
+      "JSON pointer /answer",
+    );
+    expect(verificationStateCopy("verified")).toBe("Verified");
     expect(WHOLE_ITEM_PRECISION).toMatch(/Whole item cited/);
     expect(isInspectableReviewState("completed")).toBe(true);
     expect(isInspectableReviewState("review_required")).toBe(true);

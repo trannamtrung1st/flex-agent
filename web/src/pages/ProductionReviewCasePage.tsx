@@ -22,6 +22,7 @@ import { AssignmentStationLayout } from "../components/work/AssignmentStationLay
 import { AssignmentStatusReadout } from "../components/work/AssignmentStatusReadout";
 import { ReviewerSealedReadout } from "../components/work/ReviewerSealedReadout";
 import {
+  usePruneStaleReviewEvaluationCache,
   useReviewCaseQuery,
   useReviewCriterionQuery,
   useReviewEvidenceQuery,
@@ -34,13 +35,15 @@ import {
   candidateCopy,
   caseTitle,
   criterionStatusCopy,
-  evaluatorModeCopy,
   evaluationProcessingCopy,
+  evaluatorModePresentation,
   evidenceAvailabilityCopy,
+  evidenceLocationCopy,
   evidencePrecisionCopy,
   integrityCopy,
   processingIndicatorVariant,
   processingWellCopy,
+  verificationStateCopy,
   isInspectableReviewState,
 } from "../features/review/presentation";
 import { maxWidthQuery } from "../lib/breakpoints";
@@ -90,6 +93,8 @@ export function ProductionReviewCasePage() {
   const evidenceFocusId = restoreEvidenceId ? `evidence-ref-${restoreEvidenceId}` : null;
   const caseQuery = useReviewCaseQuery(client, scope, reviewId);
   const record = caseQuery.data;
+  const evaluationId = record?.evaluation_id;
+  usePruneStaleReviewEvaluationCache(scope, reviewId, evaluationId);
   const inspectable = isInspectableReviewState(record?.evaluation_processing_state);
   const summaries = inspectable ? record.criterion_summaries : [];
   const activeCriterionId = criterionId ?? summaries[0]?.criterion_id;
@@ -98,6 +103,7 @@ export function ProductionReviewCasePage() {
     client,
     scope,
     reviewId,
+    evaluationId,
     activeCriterionId,
     Boolean(inspectable && activeCriterionId && !inspectingEvidence),
   );
@@ -105,6 +111,7 @@ export function ProductionReviewCasePage() {
     client,
     scope,
     reviewId,
+    evaluationId,
     evidenceId,
     inspectingEvidence,
   );
@@ -305,9 +312,19 @@ export function ProductionReviewCasePage() {
             ) : evidence ? (
               <Stack gap="4">
                 <p>{INTERNAL_EVALUATION_NOTICE}</p>
-                <p>{evidenceAvailabilityCopy(evidence.availability)}</p>
-                <p>{evidencePrecisionCopy(evidence.locator.precision)}</p>
-                <p>Source {evidence.locator.source_type} · version {evidence.locator.source_ref.source_version}</p>
+                <ReadoutList
+                  label="Evidence provenance"
+                  rows={[
+                    { term: "Evaluation", value: evidence.evaluation_id },
+                    { term: "Source", value: `${evidence.locator.source_type} · ${evidence.locator.source_ref.source_id}` },
+                    { term: "Version", value: evidence.locator.source_ref.source_version },
+                    { term: "Location", value: evidenceLocationCopy(evidence.locator.location) },
+                    { term: "Precision", value: evidencePrecisionCopy(evidence.locator.precision) },
+                    { term: "Verification", value: verificationStateCopy(evidence.locator.integrity.verification_state) },
+                    { term: "Availability", value: evidenceAvailabilityCopy(evidence.availability) },
+                    { term: "Adapter", value: evidence.locator.integrity.adapter_version },
+                  ]}
+                />
                 {evidence.unavailability_notice ? <p>{evidence.unavailability_notice}</p> : null}
                 {evidence.display_text ? (
                   <pre className="review-evidence-source">{evidence.display_text}</pre>
@@ -407,7 +424,7 @@ export function ProductionReviewCasePage() {
             ) : criterion ? (
               <Stack gap="4">
                 <p>{INTERNAL_EVALUATION_NOTICE}</p>
-                <p>{evaluatorModeCopy(criterion.evaluator_mode, criterion.evaluator_mode_label)}</p>
+                <p>{evaluatorModePresentation(criterion.evaluator_mode, criterion.evaluator_mode_label)}</p>
                 <p>{criterionStatusCopy(criterion.status)}</p>
                 {criterion.score != null ? <p>Score {String(criterion.score)}</p> : null}
                 {criterion.confidence ? <p>Confidence {criterion.confidence}</p> : null}

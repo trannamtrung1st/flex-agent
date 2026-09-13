@@ -76,7 +76,7 @@ export function ProductionReviewWorkPage() {
   }
 
   const items = workQuery.data?.items ?? [];
-  const hasMore = Boolean(workQuery.data?.has_more);
+  const hasMore = workQuery.data?.has_more ?? false;
   const nextCursor = workQuery.data?.next_cursor ?? null;
 
   return (
