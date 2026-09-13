@@ -111,12 +111,24 @@ internal static class EvaluationCompletionTestSupport
                 claimed.Ownership,
                 evaluationId,
                 "exact_range").Value!).ToArray();
+        var evidenceSetId = Guid.CreateVersion7();
+        var evidenceSetDigest = EvaluationCompletionEvidenceSeal.TryComputeExpectedDigest(
+            evidenceSetId,
+            claimed.InvocationAttemptId,
+            prepared.Request.FrozenInput,
+            items);
+        if (!evidenceSetDigest.Succeeded || evidenceSetDigest.Value is null)
+        {
+            throw new InvalidOperationException(
+                $"evidence seal rejected: {evidenceSetDigest.OutcomeCode}");
+        }
+
         var evidenceSet = EvidenceSet.TryCreate(
-            Guid.CreateVersion7(),
+            evidenceSetId,
             evaluationId,
             claimed.Ownership,
             items,
-            new string('d', 64)).Value!;
+            evidenceSetDigest.Value).Value!;
         var request = EvaluationRequest.TryCreate(
             claimed.RequestId,
             requestKind,

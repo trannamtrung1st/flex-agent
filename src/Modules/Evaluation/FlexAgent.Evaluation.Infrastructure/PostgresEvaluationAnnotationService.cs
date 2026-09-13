@@ -2,17 +2,35 @@ using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Postgres;
+using FlexAgent.Postgres.Audit;
+using FlexAgent.Postgres.Outbox;
 
 namespace FlexAgent.Evaluation.Infrastructure;
 
 public sealed class PostgresEvaluationAnnotationService(
-    PostgresConnectionAccessor connectionAccessor) : IEvaluationAnnotationService
+    PostgresConnectionAccessor connectionAccessor,
+    IAuditEventWriter? auditEventWriter = null,
+    IOutboxItemWriter? outboxItemWriter = null) : IEvaluationAnnotationService
 {
+    private readonly IAuditEventWriter _auditEventWriter =
+        auditEventWriter ?? new PostgresAuditEventWriter();
+    private readonly IOutboxItemWriter _outboxItemWriter =
+        outboxItemWriter ?? new PostgresOutboxItemWriter();
+
     public async Task<EvaluationDecision<Guid>> TryAppendAsync(
         EvaluationAnnotationAppendCommand command,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (command.EvaluationId == Guid.Empty
+            || command.DelegationId == Guid.Empty
+            || command.ActorId == Guid.Empty
+            || command.CorrelationId == Guid.Empty
+            || !EvaluationIdentity.IsStableId(command.SourceChannel))
+        {
+            return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.InvalidField);
+        }
+
         var annotationId = Guid.CreateVersion7();
         var created = EvaluationAnnotation.TryCreate(
             annotationId,
@@ -34,6 +52,44 @@ public sealed class PostgresEvaluationAnnotationService(
             cancellationToken);
         try
         {
+            var evaluationRow = await scope.Connection.QuerySingleOrDefaultAsync<EvaluationScopeRow>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        evaluation.organization_id,
+                        evaluation.activity_id,
+                        evaluation.participant_id,
+                        evaluation.attempt_id,
+                        evaluation.session_id
+                    FROM evaluations AS evaluation
+                    WHERE evaluation.evaluation_id = @EvaluationId
+                    FOR UPDATE;
+                    """,
+                    new { command.EvaluationId },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            if (evaluationRow is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return EvaluationDecision<Guid>.Fail(EvaluationFailureCodes.InvalidField, "evaluation_id");
+            }
+
+            if (!await PostgresEvaluationServiceDelegation.IsAuthorizedAsync(
+                    scope,
+                    command.DelegationId,
+                    evaluationRow.organization_id,
+                    evaluationRow.activity_id,
+                    evaluationRow.participant_id,
+                    evaluationRow.attempt_id,
+                    evaluationRow.session_id,
+                    command.ActorId,
+                    EvaluationAuthorizedActions.Annotate,
+                    cancellationToken))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return EvaluationDecision<Guid>.Fail(EvaluationPersistenceOutcomeCodes.Denied);
+            }
+
             await scope.Connection.ExecuteAsync(
                 new CommandDefinition(
                     """
@@ -46,7 +102,7 @@ public sealed class PostgresEvaluationAnnotationService(
                     """,
                     new
                     {
-                        command.OrganizationId,
+                        OrganizationId = evaluationRow.organization_id,
                         AnnotationId = annotationId,
                         command.EvaluationId,
                         command.EvidenceId,
@@ -77,7 +133,7 @@ public sealed class PostgresEvaluationAnnotationService(
                     """,
                     new
                     {
-                        command.OrganizationId,
+                        OrganizationId = evaluationRow.organization_id,
                         command.EvaluationId,
                         command.Disposition,
                         AnnotationId = annotationId,
@@ -85,6 +141,40 @@ public sealed class PostgresEvaluationAnnotationService(
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
+
+            await _auditEventWriter.InsertAsync(
+                new AuditEventWriteModel(
+                    Guid.CreateVersion7(),
+                    evaluationRow.organization_id,
+                    "evaluation.annotation.appended.v1",
+                    command.OccurredAtUtc,
+                    command.CorrelationId,
+                    command.ActorType,
+                    command.ActorId,
+                    "evaluation.annotate",
+                    "evaluation.annotation",
+                    annotationId,
+                    "succeeded",
+                    null,
+                    null,
+                    command.SourceChannel,
+                    command.Reason,
+                    "service_delegation",
+                    command.DelegationId),
+                scope.Transaction,
+                cancellationToken);
+            await _outboxItemWriter.InsertAsync(
+                new OutboxItemWriteModel(
+                    Guid.CreateVersion7(),
+                    evaluationRow.organization_id,
+                    "evaluation.annotation.appended.v1",
+                    "evaluation.annotation",
+                    annotationId,
+                    command.CorrelationId,
+                    command.Reason,
+                    command.OccurredAtUtc),
+                scope.Transaction,
+                cancellationToken);
 
             await scope.CommitAsync(cancellationToken);
             return EvaluationDecision<Guid>.Ok(annotationId);
@@ -95,4 +185,11 @@ public sealed class PostgresEvaluationAnnotationService(
             throw;
         }
     }
+
+    private sealed record EvaluationScopeRow(
+        Guid organization_id,
+        Guid activity_id,
+        Guid participant_id,
+        Guid attempt_id,
+        Guid session_id);
 }

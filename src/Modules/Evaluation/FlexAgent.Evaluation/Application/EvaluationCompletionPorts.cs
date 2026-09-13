@@ -47,9 +47,11 @@ public interface IEvaluationCompletionCoordinator
 
 public sealed record EvaluationAnnotationAppendCommand(
     Guid EvaluationId,
-    Guid OrganizationId,
+    Guid DelegationId,
     Guid ActorId,
     string ActorType,
+    Guid CorrelationId,
+    string SourceChannel,
     string Kind,
     string Disposition,
     string Reason,
@@ -64,13 +66,15 @@ public interface IEvaluationAnnotationService
 }
 
 public sealed record EvaluationReplacementStaleCommand(
-    Guid OrganizationId,
     Guid PredecessorEvaluationId,
     Guid SuccessorEvaluationId,
     Guid RequestId,
+    Guid DelegationId,
     string Reason,
     Guid ActorId,
     string ActorType,
+    Guid CorrelationId,
+    string SourceChannel,
     DateTimeOffset OccurredAtUtc);
 
 public interface IEvaluationReplacementReviewSignal

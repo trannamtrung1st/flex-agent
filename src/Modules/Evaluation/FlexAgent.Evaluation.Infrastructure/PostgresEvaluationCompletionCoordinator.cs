@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dapper;
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure.Review;
@@ -67,13 +68,38 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                         request.state,
                         request.predecessor_evaluation_id,
                         request.replacement_reason,
+                        request.organization_id,
                         request.activity_id,
                         request.participant_id,
                         request.attempt_id,
                         request.session_id,
+                        request.handoff_id,
+                        request.terminal_record_id,
+                        request.handoff_terminal_state,
+                        request.cutoff_sequence,
+                        request.manifest_seal_procedure_id,
+                        request.terminal_seal_digest,
+                        request.configuration_record_id,
+                        request.configuration_digest,
+                        request.manifest_record_id,
+                        request.manifest_digest,
                         request.rubric_source_id,
                         request.rubric_source_version_id,
                         request.rubric_content_digest,
+                        request.submission_source_id,
+                        request.submission_version_id,
+                        request.submission_content_digest,
+                        request.model_profile_id,
+                        request.model_profile_version,
+                        request.model_profile_digest,
+                        request.provider_id,
+                        request.credential_mode,
+                        request.credential_binding_reference,
+                        request.credential_binding_version,
+                        request.evaluator_registry_version,
+                        request.lifecycle_policy_ref,
+                        request.idempotency_key,
+                        request.delegation_id,
                         existing.evaluation_id AS existing_evaluation_id,
                         existing.evidence_set_id AS existing_evidence_set_id
                     FROM evaluation_requests AS request
@@ -98,7 +124,17 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
             }
 
-            if (!await IsAuthorizedAsync(scope, command, cancellationToken))
+            if (!await PostgresEvaluationServiceDelegation.IsAuthorizedAsync(
+                    scope,
+                    command.DelegationId,
+                    command.Completed.Ownership.OrganizationId,
+                    command.Completed.Ownership.ActivityId,
+                    command.Completed.Ownership.ParticipantId,
+                    command.Completed.Ownership.AttemptId,
+                    command.Completed.Ownership.SessionId,
+                    command.ActorId,
+                    EvaluationAuthorizedActions.Execute,
+                    cancellationToken))
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
@@ -126,6 +162,59 @@ public sealed class PostgresEvaluationCompletionCoordinator(
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
+            }
+
+            var authoritativeRequest = EvaluationRequestRehydration.TryRebuild(
+                MapAuthoritativeSnapshot(requestRow));
+            if (!authoritativeRequest.Succeeded || authoritativeRequest.Value is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
+            }
+
+            var procedureSource = new PostgresProtectedEvaluationProcedureSource(connectionAccessor);
+            var procedurePayload = await procedureSource.GetCanonicalUtf8Async(
+                requestRow.organization_id,
+                requestRow.rubric_source_id,
+                requestRow.rubric_source_version_id,
+                requestRow.rubric_content_digest,
+                cancellationToken);
+            if (procedurePayload is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
+            }
+
+            var procedure = EvaluationProcedureResolver.TryResolve(procedurePayload.Utf8);
+            if (!procedure.Succeeded || procedure.Value is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
+            }
+
+            var verifiedCompletion = EvaluationCompletionAuthorityVerifier.TryVerify(
+                authoritativeRequest.Value,
+                procedure.Value,
+                command);
+            if (!verifiedCompletion.Succeeded || verifiedCompletion.Value is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new(
+                    false,
+                    verifiedCompletion.OutcomeCode,
+                    null,
+                    null,
+                    false);
+            }
+
+            if (!await VerifyDeterministicProvenanceAsync(
+                    scope,
+                    command,
+                    procedure.Value,
+                    cancellationToken))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new(false, EvaluationFailureCodes.InvalidJudgment, null, null, false);
             }
 
             foreach (var item in command.EvidenceItems)
@@ -484,7 +573,17 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     scope.Transaction,
                     cancellationToken: cancellationToken));
 
-            if (!await IsAuthorizedAsync(scope, command, cancellationToken))
+            if (!await PostgresEvaluationServiceDelegation.IsAuthorizedAsync(
+                    scope,
+                    command.DelegationId,
+                    command.Completed.Ownership.OrganizationId,
+                    command.Completed.Ownership.ActivityId,
+                    command.Completed.Ownership.ParticipantId,
+                    command.Completed.Ownership.AttemptId,
+                    command.Completed.Ownership.SessionId,
+                    command.ActorId,
+                    EvaluationAuthorizedActions.Execute,
+                    cancellationToken))
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new(false, EvaluationCompletionOutcomeCodes.Denied, null, null, false);
@@ -529,44 +628,89 @@ public sealed class PostgresEvaluationCompletionCoordinator(
         }
     }
 
-    private static async Task<bool> IsAuthorizedAsync(
+    private static async Task<bool> VerifyDeterministicProvenanceAsync(
         PostgresTransactionScope scope,
         EvaluationCompletionCommand command,
+        EvaluationProcedureV1 procedure,
         CancellationToken cancellationToken)
     {
-        var authorized = await scope.Connection.QuerySingleOrDefaultAsync<Guid?>(
-            new CommandDefinition(
-                """
-                SELECT delegation_id
-                FROM service_delegations
-                WHERE delegation_id = @DelegationId
-                  AND organization_id = @OrganizationId
-                  AND activity_id = @ActivityId
-                  AND participant_id = @ParticipantId
-                  AND attempt_id = @AttemptId
-                  AND session_id = @SessionId
-                  AND service_actor_id = @ActorId
-                  AND allowed_action = 'evaluation.execute'
-                  AND revoked_at IS NULL
-                  AND effective_at <= clock_timestamp()
-                  AND (expires_at IS NULL OR expires_at > clock_timestamp())
-                FOR UPDATE;
-                """,
-                new
-                {
-                    command.DelegationId,
-                    command.Completed.Ownership.OrganizationId,
-                    command.Completed.Ownership.ActivityId,
-                    command.Completed.Ownership.ParticipantId,
-                    command.Completed.Ownership.AttemptId,
-                    command.Completed.Ownership.SessionId,
-                    command.ActorId,
-                },
-                scope.Transaction,
-                cancellationToken: cancellationToken));
+        foreach (var judgment in command.Judgments)
+        {
+            if (judgment.DeterministicInvocationId is null)
+            {
+                continue;
+            }
 
-        return authorized is not null;
+            var exists = await scope.Connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM evaluation_deterministic_attempts
+                        WHERE organization_id = @OrganizationId
+                          AND request_id = @RequestId
+                          AND invocation_attempt_id = @InvocationAttemptId
+                          AND deterministic_attempt_id = @DeterministicAttemptId
+                          AND criterion_id = @CriterionId);
+                    """,
+                    new
+                    {
+                        command.Completed.Ownership.OrganizationId,
+                        command.RequestId,
+                        command.InvocationAttemptId,
+                        DeterministicAttemptId = judgment.DeterministicInvocationId,
+                        judgment.CriterionId,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            if (!exists)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
+
+    private static AuthoritativeEvaluationRequestSnapshot MapAuthoritativeSnapshot(RequestRow row) =>
+        new(
+            row.request_id,
+            row.request_kind,
+            row.state,
+            row.predecessor_evaluation_id,
+            row.replacement_reason,
+            row.idempotency_key,
+            row.delegation_id,
+            row.organization_id,
+            row.activity_id,
+            row.participant_id,
+            row.attempt_id,
+            row.session_id,
+            row.handoff_id,
+            row.terminal_record_id,
+            row.handoff_terminal_state,
+            row.cutoff_sequence,
+            row.manifest_seal_procedure_id,
+            row.terminal_seal_digest,
+            row.configuration_record_id,
+            row.configuration_digest,
+            row.manifest_record_id,
+            row.manifest_digest,
+            row.rubric_source_id,
+            row.rubric_source_version_id,
+            row.rubric_content_digest,
+            row.submission_source_id,
+            row.submission_version_id,
+            row.submission_content_digest,
+            row.model_profile_id,
+            row.model_profile_version,
+            row.model_profile_digest,
+            row.provider_id,
+            row.credential_mode,
+            row.credential_binding_reference,
+            row.credential_binding_version,
+            row.evaluator_registry_version,
+            row.lifecycle_policy_ref);
 
     private static async Task ReconcileWorkAsync(
         PostgresTransactionScope scope,
@@ -612,13 +756,38 @@ public sealed class PostgresEvaluationCompletionCoordinator(
         string state,
         Guid? predecessor_evaluation_id,
         string? replacement_reason,
+        Guid organization_id,
         Guid activity_id,
         Guid participant_id,
         Guid attempt_id,
         Guid session_id,
+        string handoff_id,
+        Guid terminal_record_id,
+        string handoff_terminal_state,
+        long cutoff_sequence,
+        string manifest_seal_procedure_id,
+        string terminal_seal_digest,
+        Guid configuration_record_id,
+        string configuration_digest,
+        Guid manifest_record_id,
+        string manifest_digest,
         Guid rubric_source_id,
         Guid rubric_source_version_id,
         string rubric_content_digest,
+        Guid submission_source_id,
+        Guid submission_version_id,
+        string submission_content_digest,
+        string model_profile_id,
+        string model_profile_version,
+        string model_profile_digest,
+        string provider_id,
+        string credential_mode,
+        string credential_binding_reference,
+        string credential_binding_version,
+        string evaluator_registry_version,
+        string lifecycle_policy_ref,
+        string idempotency_key,
+        Guid delegation_id,
         Guid? existing_evaluation_id,
         Guid? existing_evidence_set_id);
 }
