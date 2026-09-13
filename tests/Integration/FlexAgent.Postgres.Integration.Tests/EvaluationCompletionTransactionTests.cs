@@ -4,6 +4,7 @@ using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
+using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Infrastructure;
 using Npgsql;
@@ -724,6 +725,148 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Persisted_evidence_reverified_after_source_becomes_unavailable_rejects_without_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var replayCoordinator = EvaluationCompletionTestSupport.CreateCoordinator(
+            Fixture,
+            new InMemoryArtifactStore());
+        var replay = await replayCoordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+
+        Assert.False(replay.Succeeded);
+        Assert.True(
+            replay.OutcomeCode is EvaluationFailureCodes.CitationIntegrity
+                or EvaluationFailureCodes.ProtectedContent
+                or EvaluationCompletionOutcomeCodes.IntegrityConflict,
+            replay.OutcomeCode);
+        await using var verifyConnection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await verifyConnection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluations
+            WHERE organization_id = @OrganizationId AND request_id = @RequestId;
+            """,
+            new { claimed.Ownership.OrganizationId, claimed.RequestId }));
+    }
+
+    [Fact]
+    public async Task Judgment_citing_wrong_canonical_input_attempt_rejects_without_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var citedJudgment = bundle.Command.Judgments
+            .First(judgment => judgment.DeterministicInvocationId is not null);
+        var alternateAttemptId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var sourceAttempt = await connection.QuerySingleAsync<DeterministicAttemptSeedRow>(
+                """
+                SELECT criterion_id, criterion_version, evaluator_id, evaluator_version,
+                       evaluator_digest, dependency_digest, configuration_digest,
+                       started_at, finished_at
+                FROM evaluation_deterministic_attempts
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId
+                  AND deterministic_attempt_id = @DeterministicAttemptId;
+                """,
+                new
+                {
+                    claimed!.Ownership.OrganizationId,
+                    claimed.RequestId,
+                    DeterministicAttemptId = citedJudgment.DeterministicInvocationId,
+                });
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO evaluation_deterministic_attempts (
+                    organization_id, deterministic_attempt_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version, evaluator_id, evaluator_version, evaluator_digest,
+                    canonical_input_digest, dependency_digest, configuration_digest, outcome,
+                    protected_input_ref, protected_output_ref, output_content_digest,
+                    started_at, finished_at)
+                VALUES (
+                    @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
+                    @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
+                    @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'succeeded',
+                    'protected.input.ref', 'protected.output.ref', @OutputContentDigest,
+                    @StartedAt, @FinishedAt);
+                """,
+                new
+                {
+                    OrganizationId = claimed.Ownership.OrganizationId,
+                    DeterministicAttemptId = alternateAttemptId,
+                    RequestId = claimed.RequestId,
+                    InvocationAttemptId = bundle.Command.InvocationAttemptId,
+                    CriterionId = sourceAttempt.criterion_id,
+                    CriterionVersion = sourceAttempt.criterion_version,
+                    EvaluatorId = sourceAttempt.evaluator_id,
+                    EvaluatorVersion = sourceAttempt.evaluator_version,
+                    EvaluatorDigest = sourceAttempt.evaluator_digest,
+                    CanonicalInputDigest = new string('e', 64),
+                    DependencyDigest = sourceAttempt.dependency_digest,
+                    ConfigurationDigest = sourceAttempt.configuration_digest,
+                    OutputContentDigest = new string('2', 64),
+                    StartedAt = sourceAttempt.started_at,
+                    FinishedAt = sourceAttempt.finished_at,
+                });
+        }
+
+        var forgedJudgments = bundle.Command.Judgments
+            .Select(judgment => judgment.JudgmentId == citedJudgment.JudgmentId
+                ? judgment with { DeterministicInvocationId = alternateAttemptId }
+                : judgment)
+            .ToArray();
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with { Judgments = forgedJudgments },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed);
+    }
+
+    [Fact]
+    public async Task Reconcile_with_forged_ownership_scope_is_denied()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var forgedOwnership = claimed!.Ownership with { SessionId = Guid.CreateVersion7() };
+        var replay = await coordinator.TryCompleteAsync(
+            bundle.Command with
+            {
+                Completed = bundle.Command.Completed with { Ownership = forgedOwnership },
+            },
+            CancellationToken);
+
+        Assert.False(replay.Succeeded);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.Denied, replay.OutcomeCode);
+    }
+
+    [Fact]
     public async Task Completion_succeeds_with_non_fixture_deterministic_canonical_digest()
     {
         var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
@@ -885,6 +1028,17 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
         string evaluator_version,
         string evaluator_digest,
         string canonical_input_digest,
+        string dependency_digest,
+        string configuration_digest,
+        DateTimeOffset started_at,
+        DateTimeOffset finished_at);
+
+    private sealed record DeterministicAttemptSeedRow(
+        string criterion_id,
+        string criterion_version,
+        string evaluator_id,
+        string evaluator_version,
+        string evaluator_digest,
         string dependency_digest,
         string configuration_digest,
         DateTimeOffset started_at,

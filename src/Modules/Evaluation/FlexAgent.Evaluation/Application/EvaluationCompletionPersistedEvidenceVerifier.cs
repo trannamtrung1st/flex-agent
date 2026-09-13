@@ -189,6 +189,44 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
             record.Precision,
             record.IntegrityState);
 
+    public static bool LocatorRecordsEquivalent(
+        IReadOnlyList<EvaluationEvidenceLocatorRecord> persisted,
+        IReadOnlyList<EvaluationEvidenceLocatorRecord> verified)
+    {
+        ArgumentNullException.ThrowIfNull(persisted);
+        ArgumentNullException.ThrowIfNull(verified);
+
+        if (persisted.Count != verified.Count)
+        {
+            return false;
+        }
+
+        var verifiedById = verified.ToDictionary(record => record.EvidenceId);
+        foreach (var record in persisted)
+        {
+            if (!verifiedById.TryGetValue(record.EvidenceId, out var current)
+                || !LocatorRecordMatches(record, current))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool LocatorRecordMatches(
+        EvaluationEvidenceLocatorRecord left,
+        EvaluationEvidenceLocatorRecord right) =>
+        left.EvidenceId == right.EvidenceId
+        && string.Equals(left.SourceType, right.SourceType, StringComparison.Ordinal)
+        && left.SourceId == right.SourceId
+        && left.SourceVersionId == right.SourceVersionId
+        && string.Equals(left.SourceContentDigest, right.SourceContentDigest, StringComparison.Ordinal)
+        && string.Equals(left.LocatorSchema, right.LocatorSchema, StringComparison.Ordinal)
+        && string.Equals(left.LocatorDigest, right.LocatorDigest, StringComparison.Ordinal)
+        && string.Equals(left.Precision, right.Precision, StringComparison.Ordinal)
+        && string.Equals(left.IntegrityState, right.IntegrityState, StringComparison.Ordinal);
+
     private static bool MatchesCommandItem(
         EvidenceItem commandItem,
         PersistedEvaluationEvidenceRow persisted) =>
