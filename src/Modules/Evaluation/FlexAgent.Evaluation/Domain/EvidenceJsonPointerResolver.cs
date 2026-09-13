@@ -19,12 +19,6 @@ public static class EvidenceJsonPointerResolver
         {
             using var document = JsonDocument.Parse(projectionUtf8);
             var element = document.RootElement;
-            if (jsonPointer.Length == 1)
-            {
-                resolvedJson = element.GetRawText();
-                return true;
-            }
-
             foreach (var segment in jsonPointer[1..].Split('/'))
             {
                 var unescaped = UnescapeReferenceToken(segment);

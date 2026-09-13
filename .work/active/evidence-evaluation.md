@@ -1271,6 +1271,12 @@ approved layout families and donors already exist.
     - [x] Tests: `EvidenceJsonPointerResolverTests` (scalar `/score/value`, `/0` object key,
       invalid array index, empty tokens).
     - [x] Local green: Evaluation **425/425**.
+  - [x] **Fourth corrective pass (review `not-approved`, pending re-review):**
+    - [x] `REQ-EVAL-13/14/41` — remove `"/"` whole-projection shortcut; traverse one empty
+      reference token like all other pointers.
+    - [x] Test: `"/"` on `{"":"allowed","sibling":"hidden"}` discloses only `"allowed"`.
+    - [x] Local green: Evaluation **426/426**. Exact-head Implementation CI
+      **34757530706** green on `d62591b0`.
 
 ## Phase 9 — Production reviewer inspection UI
 

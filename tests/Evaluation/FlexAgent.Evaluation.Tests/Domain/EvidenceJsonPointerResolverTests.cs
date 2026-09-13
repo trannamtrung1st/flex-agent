@@ -42,6 +42,23 @@ public sealed class EvidenceJsonPointerResolverTests
     }
 
     [Fact]
+    public void Root_empty_reference_token_discloses_only_the_empty_named_member()
+    {
+        const string projectionJson =
+            """
+            {
+              "":"allowed",
+              "sibling":"hidden"
+            }
+            """;
+
+        Assert.True(Resolve(projectionJson, "/", out var resolvedJson));
+        Assert.Equal("\"allowed\"", resolvedJson);
+        Assert.DoesNotContain("hidden", resolvedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("sibling", resolvedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Empty_reference_token_on_array_fails()
     {
         const string projectionJson = """{"items":[1,2]}""";
