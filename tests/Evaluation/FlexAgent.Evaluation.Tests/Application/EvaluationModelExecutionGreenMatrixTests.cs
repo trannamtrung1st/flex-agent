@@ -15,6 +15,7 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
     private static readonly Guid EvaluationId = Guid.Parse("11111111-1111-4111-8111-111111111115");
     private static readonly Guid RequestId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab");
     private static readonly Guid InvocationAttemptId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc");
+    private static readonly Guid SecondInvocationAttemptId = Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccd");
     private static readonly Guid EvidenceId = Guid.Parse("22222222-2222-4222-8222-222222222222");
     private static readonly Guid DeterministicInvocationId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
@@ -110,36 +111,75 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
     }
 
     [Fact]
-    public async Task Equivalent_reexecution_appends_distinct_provider_artifacts()
+    public async Task New_invocation_attempt_persists_distinct_provider_artifact()
     {
         var store = new RecordingProviderArtifactStore();
-        var context = CreateJudgmentContext();
+        var invocation = new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1");
+        var authorityStore = CreateAuthorityStore(InvocationAttemptId, SecondInvocationAttemptId);
 
         var first = await Service.TryExecuteAsync(
             Procedure,
-            new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1"),
+            invocation,
             verifiedDeterministicFacts: null,
-            context,
+            CreateJudgmentContext(InvocationAttemptId),
             new SyntheticEvaluationModelExecutionAdapter(),
-            CreateAuthorityStore(),
+            authorityStore,
             deterministicOutputStore: null,
             store,
             CancellationToken.None);
         var second = await Service.TryExecuteAsync(
             Procedure,
-            new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1"),
+            invocation,
             verifiedDeterministicFacts: null,
-            context,
+            CreateJudgmentContext(SecondInvocationAttemptId),
             new SyntheticEvaluationModelExecutionAdapter(),
-            CreateAuthorityStore(),
+            authorityStore,
             deterministicOutputStore: null,
             store,
             CancellationToken.None);
 
         Assert.True(first.Succeeded, first.OutcomeCode);
         Assert.True(second.Succeeded, second.OutcomeCode);
-        Assert.Equal(2, store.AppendCount);
+        Assert.Equal(2, store.AppendResults.Count);
+        Assert.NotEqual(store.AppendResults[0], store.AppendResults[1]);
+        Assert.Equal(2, store.DistinctStoredArtifactCount);
         Assert.Equal(ProviderArtifactOutcomes.Succeeded, store.LastCommand!.Outcome);
+    }
+
+    [Fact]
+    public async Task Same_invocation_attempt_retry_reconciles_provider_artifact_idempotently()
+    {
+        var store = new RecordingProviderArtifactStore();
+        var invocation = new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1");
+        var context = CreateJudgmentContext(InvocationAttemptId);
+        var authorityStore = CreateAuthorityStore(InvocationAttemptId);
+
+        var first = await Service.TryExecuteAsync(
+            Procedure,
+            invocation,
+            verifiedDeterministicFacts: null,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            authorityStore,
+            deterministicOutputStore: null,
+            store,
+            CancellationToken.None);
+        var second = await Service.TryExecuteAsync(
+            Procedure,
+            invocation,
+            verifiedDeterministicFacts: null,
+            context,
+            new SyntheticEvaluationModelExecutionAdapter(),
+            authorityStore,
+            deterministicOutputStore: null,
+            store,
+            CancellationToken.None);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.True(second.Succeeded, second.OutcomeCode);
+        Assert.Equal(2, store.AppendResults.Count);
+        Assert.Equal(store.AppendResults[0], store.AppendResults[1]);
+        Assert.Equal(1, store.DistinctStoredArtifactCount);
     }
 
     [Fact]
@@ -245,7 +285,7 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
             Procedure,
             new EvaluationModelInvocationContext("crit.judgment.quality", "crit.judgment.quality.v1"),
             verifiedDeterministicFacts: null,
-            CreateJudgmentContext(syntheticScenario),
+            CreateJudgmentContext(InvocationAttemptId, syntheticScenario),
             port,
             CreateAuthorityStore(),
             deterministicOutputStore: null,
@@ -316,14 +356,16 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
             syntheticScenario);
     }
 
-    private static EvaluationModelExecutionContext CreateJudgmentContext(string? syntheticScenario = null) =>
+    private static EvaluationModelExecutionContext CreateJudgmentContext(
+        Guid invocationAttemptId,
+        string? syntheticScenario = null) =>
         new(
             EvaluationStableOwnershipReferenceFactory.ToSessionOwnershipRef(Ownership),
             Ownership,
             RequestId,
             EvaluationStableOwnershipReferenceFactory.StableRequestId(RequestId),
-            InvocationAttemptId,
-            EvaluationStableOwnershipReferenceFactory.StableInvocationAttemptId(InvocationAttemptId),
+            invocationAttemptId,
+            EvaluationStableOwnershipReferenceFactory.StableInvocationAttemptId(invocationAttemptId),
             EvaluationId,
             EvaluationFixtures.Model(),
             "eval.instructions.p0.v1",
@@ -344,26 +386,39 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
             null,
             syntheticScenario);
 
-    private static FixedAuthorityStore CreateAuthorityStore() =>
-        new(
-            new AdmittedEvaluationRequestAuthority(
+    private static FixedAuthorityStore CreateAuthorityStore(params Guid[] invocationAttemptIds)
+    {
+        var attemptIds = invocationAttemptIds.Length == 0
+            ? [InvocationAttemptId]
+            : invocationAttemptIds;
+        var authorities = attemptIds
+            .Select(attemptId => new AdmittedEvaluationRequestAuthority(
                 RequestId,
-                InvocationAttemptId,
+                attemptId,
                 Ownership,
                 new string('f', 64),
                 EvaluationFixtures.SyntheticProcedureRef(),
-                EvaluatorRegistryVersions.P0));
+                EvaluatorRegistryVersions.P0))
+            .ToArray();
+        return new FixedAuthorityStore(authorities);
+    }
 
-    private sealed class FixedAuthorityStore(AdmittedEvaluationRequestAuthority authority) : IEvaluationRequestAuthorityStore
+    private sealed class FixedAuthorityStore(IReadOnlyDictionary<Guid, AdmittedEvaluationRequestAuthority> authoritiesByAttemptId)
+        : IEvaluationRequestAuthorityStore
     {
+        public FixedAuthorityStore(IEnumerable<AdmittedEvaluationRequestAuthority> authorities)
+            : this(authorities.ToDictionary(item => item.InvocationAttemptId))
+        {
+        }
+
         public Task<AdmittedEvaluationRequestAuthority?> TryLoadAsync(
             EvaluationOwnership ownership,
             Guid requestId,
             Guid invocationAttemptId,
             CancellationToken cancellationToken)
         {
-            if (requestId != authority.RequestId
-                || invocationAttemptId != authority.InvocationAttemptId
+            if (!authoritiesByAttemptId.TryGetValue(invocationAttemptId, out var authority)
+                || requestId != authority.RequestId
                 || ownership.OrganizationId != authority.Ownership.OrganizationId)
             {
                 return Task.FromResult<AdmittedEvaluationRequestAuthority?>(null);
@@ -419,18 +474,31 @@ public sealed class EvaluationModelExecutionGreenMatrixTests
     private sealed class RecordingProviderArtifactStore : IEvaluationProviderArtifactStore
     {
         private readonly InMemoryEvaluationProviderArtifactStore _inner = new();
+        private readonly List<Guid> _appendResults = [];
+        private readonly HashSet<Guid> _distinctStoredArtifactIds = [];
 
         public int AppendCount { get; private set; }
 
         public ProviderArtifactAppendCommand? LastCommand { get; private set; }
 
-        public Task<EvaluationDecision<Guid>> TryAppendAsync(
+        public IReadOnlyList<Guid> AppendResults => _appendResults;
+
+        public int DistinctStoredArtifactCount => _distinctStoredArtifactIds.Count;
+
+        public async Task<EvaluationDecision<Guid>> TryAppendAsync(
             ProviderArtifactAppendCommand command,
             CancellationToken cancellationToken)
         {
             AppendCount++;
             LastCommand = command;
-            return _inner.TryAppendAsync(command, cancellationToken);
+            var result = await _inner.TryAppendAsync(command, cancellationToken);
+            if (result.Succeeded)
+            {
+                _appendResults.Add(result.Value);
+                _distinctStoredArtifactIds.Add(result.Value);
+            }
+
+            return result;
         }
     }
 }
