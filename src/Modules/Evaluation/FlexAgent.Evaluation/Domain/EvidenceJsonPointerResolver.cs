@@ -10,34 +10,25 @@ public static class EvidenceJsonPointerResolver
         out string? resolvedJson)
     {
         resolvedJson = null;
+        if (string.IsNullOrEmpty(jsonPointer) || jsonPointer[0] != '/')
+        {
+            return false;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(projectionUtf8);
             var element = document.RootElement;
-            if (jsonPointer == "/")
+            if (jsonPointer.Length == 1)
             {
                 resolvedJson = element.GetRawText();
                 return true;
             }
 
-            foreach (var segment in jsonPointer.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var segment in jsonPointer[1..].Split('/'))
             {
-                var unescaped = segment.Replace("~1", "/", StringComparison.Ordinal)
-                    .Replace("~0", "~", StringComparison.Ordinal);
-                if (int.TryParse(unescaped, out var index))
-                {
-                    if (element.ValueKind != JsonValueKind.Array
-                        || index < 0
-                        || index >= element.GetArrayLength())
-                    {
-                        return false;
-                    }
-
-                    element = element[index];
-                    continue;
-                }
-
-                if (!element.TryGetProperty(unescaped, out element))
+                var unescaped = UnescapeReferenceToken(segment);
+                if (!TryTraverse(ref element, unescaped))
                 {
                     return false;
                 }
@@ -51,4 +42,32 @@ public static class EvidenceJsonPointerResolver
             return false;
         }
     }
+
+    private static bool TryTraverse(ref JsonElement element, string referenceToken)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return element.TryGetProperty(referenceToken, out element);
+            case JsonValueKind.Array:
+                if (!TryParseArrayIndex(referenceToken, out var index)
+                    || index < 0
+                    || index >= element.GetArrayLength())
+                {
+                    return false;
+                }
+
+                element = element[index];
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryParseArrayIndex(string referenceToken, out int index) =>
+        int.TryParse(referenceToken, out index);
+
+    private static string UnescapeReferenceToken(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
 }

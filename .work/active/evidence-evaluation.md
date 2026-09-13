@@ -1265,6 +1265,12 @@ approved layout families and donors already exist.
       `EvaluationCompletionEquivalenceTests` evidence-id cases,
       `Conflicting_completion_replay_with_swapped_criterion_evidence_returns_integrity_conflict`.
     - [x] Local green: Evaluation **419/419**; Postgres **507/507** (+1 skipped).
+  - [x] **Third corrective pass (review `not-approved`, pending re-review):**
+    - [x] `REQ-EVAL-13/14/41` — `EvidenceJsonPointerResolver` container-type dispatch;
+      scalar traversal fail-closed; numeric object keys; empty reference tokens preserved.
+    - [x] Tests: `EvidenceJsonPointerResolverTests` (scalar `/score/value`, `/0` object key,
+      invalid array index, empty tokens).
+    - [x] Local green: Evaluation **425/425**.
 
 ## Phase 9 — Production reviewer inspection UI
 
