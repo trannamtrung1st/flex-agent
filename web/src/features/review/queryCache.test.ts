@@ -39,7 +39,7 @@ describe("purgeReviewProtectedCache", () => {
     const workKey = reviewKeys.work(scope);
 
     let workSignal: AbortSignal | undefined;
-    const workFetch = queryClient.fetchQuery({
+    const workFetch = queryClient.query({
       queryKey: workKey,
       queryFn: ({ signal }) => {
         workSignal = signal;
@@ -48,7 +48,7 @@ describe("purgeReviewProtectedCache", () => {
     });
 
     let denyingSignal: AbortSignal | undefined;
-    const denyingFetch = queryClient.fetchQuery({
+    const denyingFetch = queryClient.query({
       queryKey: denyingKey,
       queryFn: async ({ signal }) => {
         denyingSignal = signal;

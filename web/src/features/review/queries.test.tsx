@@ -16,17 +16,28 @@ function wrapper(queryClient: ReturnType<typeof createFlexQueryClient>) {
   );
 }
 
+function abortError(signal?: AbortSignal): Error {
+  const reason = signal?.reason;
+  if (reason instanceof Error) {
+    return reason;
+  }
+  if (typeof reason === "string") {
+    return new Error(reason);
+  }
+  return new DOMException("Aborted", "AbortError");
+}
+
 function waitForAbort(signal?: AbortSignal) {
   return new Promise<never>((_, reject) => {
     if (signal?.aborted) {
-      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      reject(abortError(signal));
       return;
     }
 
     signal?.addEventListener(
       "abort",
       () => {
-        reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+        reject(abortError(signal));
       },
       { once: true },
     );
