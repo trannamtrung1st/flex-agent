@@ -2,10 +2,12 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-13T13:00:00+07:00
-phase6_green_matrix: corrective-pending-review
+updated: 2026-09-13T13:40:00+07:00
+phase6_green_matrix: approved-8ffd4b8a-pending-ci
+phase6_green_matrix_review: approved-8ffd4b8a-0-blocker-0-high-0-medium-0-low
 phase6_green_matrix_initial_review: not-approved-250e91ea-0-blocker-0-high-1-medium-0-low
 phase6_green_matrix_initial_ci: documentation-34737615483-implementation-34737615428-incomplete
+phase6_green_matrix_ci: documentation-34737826854-implementation-34737826888-in-progress
 phase6_slice2_model_response_wider_matrix: approved-8be2a125-d2d5c35d
 phase6_slice2_model_response_wider_matrix_review: approved-d2d5c35d-0-blocker-0-high-0-medium-0-low
 phase6_slice2_model_response_wider_matrix_initial_review: not-approved-8be2a125-0-blocker-0-high-1-medium-0-low
@@ -1110,11 +1112,15 @@ approved layout families and donors already exist.
   `EvaluationModelResponseWiderValidationMatrixTests` 14,
   `EvaluationProviderArtifactPersistenceTests` 4. Initial head `250e91ea`
   external review **0 Blocker / 0 High / 1 Medium / 0 Low** — same-attempt
-  “distinct artifact” claim incorrect; corrective replaces with
-  attempt-lineage positive/negative pair. Evaluation unit **392**; green matrix
-  **13/13** (local Release). **Phase 6 checklist complete locally**; external
-  approval pending corrective re-review and full hosted Implementation CI.
-  Worker/processing remain disabled; `session.work_trace` deferred.
+  “distinct artifact” claim incorrect; corrective `8ffd4b8a` replaces with
+  attempt-lineage positive/negative pair. Corrective re-review **0 Blocker /
+  0 High / 0 Medium / 0 Low** at `8ffd4b8a`. Evaluation unit **392**; green
+  matrix **13/13** (local Release). Hosted CI at `8ffd4b8a`: Documentation
+  `34737826854` green; Implementation `34737826888` in progress at review time
+  (`changes`, `dotnet`, `web`, `oidc` green; `supply-chain` and
+  `oci-oidc-smoke` pending). **Phase 6 green matrix and Phase 6 not externally
+  closed until full six-job Implementation CI.** Worker/processing remain
+  disabled; `session.work_trace` deferred.
 
 ## Phase 7 — Commit immutable Evaluation and Review handoff
 
@@ -1470,10 +1476,13 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   **0/0/0/0**; Implementation `34736764600`; Documentation `34736764589`).
   `EvaluationModelResponseWiderValidationMatrixTests` **14**; focused
   model-response suites **29**; Evaluation unit **379**. **Phase 6 slice 2
-  closed/approved.**   **Phase 6 green/refactor matrix corrective in flight** after initial review
-  **0/0/1/0** on `250e91ea` (attempt-lineage Medium); corrective matrix **13**
-  with distinct new-attempt vs same-attempt idempotent artifact IDs; Evaluation
-  unit **392**. **Phase 6 not externally approved yet** (Worker disabled). **Do not**
+  closed/approved.** **Phase 6 green/refactor matrix** (`250e91ea` → `8ffd4b8a`):
+  initial review **0/0/1/0** on `250e91ea` (attempt-lineage Medium); corrective
+  re-review **0/0/0/0** at `8ffd4b8a`; matrix **13** with distinct new-attempt
+  vs same-attempt idempotent artifact IDs; Evaluation unit **392**. Hosted CI at
+  `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888`
+  in progress at review time. **Phase 6 green matrix and Phase 6 not externally
+  closed until full six-job Implementation CI** (Worker disabled). **Do not**
   enable Worker processing or
   wire real provider adapters until upstream rollout/activation gate is
   independently satisfied.
@@ -1665,7 +1674,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 credential fail-closed adapter selection (`fb0c79fb` → `68b35ee7`) | approved | External review chain: initial `fb0c79fb` → `6c5ffe3a` **0 Blocker / 0 High / 1 Medium / 1 Low**; corrective `68b35ee7` closes `Qualified` gate Medium and catalog binding-identity Low; re-review at `68b35ee7` **0 Blocker / 0 High / 0 Medium / 0 Low**. Authoritative head `68b35ee7`; hosted CI Implementation `34706092150` and Documentation `34706092168` — all six jobs green. Docs-only `88d70dd4` / `dbf024f6` / `9a20b112` not implementation evidence. Focused: `EvaluationModelExecutionCompositionTests` 14; Evaluation unit **343**; `EvaluationBoundaryTests` 6; `verify-dotnet.sh` green (local). **Credential fail-closed increment closed.** Worker disabled |
 | Phase 6 slice 2 wider AC-EVAL-24 matrix (`661e1ef8` → `3750a3bf` → `d1b90ae0`) | approved | External review chain: initial `661e1ef8` **0 Blocker / 0 High / 1 Medium / 0 Low** (submission category not bound); corrective `3750a3bf` closes Medium; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**; closure review at `f80b6e81` **0 Blocker / 0 High / 0 Medium / 0 Low**. `EvidenceSourceWiderMatrixPromptInjectionTests` 11; combined injection suites **28**; Evaluation unit **354**; `verify-dotnet.sh` green (local). Authoritative corrective head `3750a3bf`; `d1b90ae0` gitleaks allowlist (comment-only evaluation delta); Documentation `34707380647`; Implementation `34709712367` — all six jobs green. Docs-only `171c2d09` / `f80b6e81` not implementation evidence. **Wider AC-EVAL-24 matrix increment fully closed/approved.** `session.work_trace` deferred. Worker disabled |
 | Phase 6 slice 2 model-response wider validation matrix (`8be2a125` → `d2d5c35d`) | approved | External review chain: initial `8be2a125` **0 Blocker / 0 High / 1 Medium / 0 Low** (lexical `"valid":false` scan); corrective `d2d5c35d` closes Medium via `VerifiedDeterministicOutputConflictInterpreter` schema-bound to `eval.builtin.schema-validate.output.v1`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8be2a125`: Implementation `34735843429`; Documentation `34735843445` green. Authoritative head `d2d5c35d`; Implementation `34736764600`; Documentation `34736764589` — all six jobs green. `VerifiedDeterministicOutputConflictInterpreterTests` 11; `EvaluationModelResponseWiderValidationMatrixTests` 14; focused model-response suites **29**; Evaluation unit **379**; `verify-dotnet.sh` green (local). **Model-response validation parent gate closed.** **Phase 6 slice 2 closed/approved.** Worker disabled |
-| Phase 6 green/refactor execution matrix (`EvaluationModelExecutionGreenMatrixTests`) | corrective-pending-review | Initial head `250e91ea`: external review **0 Blocker / 0 High / 1 Medium / 0 Low** — same-attempt test incorrectly claimed distinct provider artifacts (`AppendCount` only); Documentation `34737615483` green; Implementation `34737615428` incomplete at review time. Corrective: `New_invocation_attempt_persists_distinct_provider_artifact` (different `InvocationAttemptId`, distinct stored artifact IDs) + `Same_invocation_attempt_retry_reconciles_provider_artifact_idempotently` (complementary negative). Matrix **13**; Evaluation unit **392**; green matrix **13/13** (local Release). Composes with `EvaluationModelExecutionServiceTests` 19, `EvaluationModelExecutionCompositionTests` 14, `EvaluationProviderArtifactPersistenceTests` 4. **Phase 6 checklist complete locally; external re-review and full Implementation CI pending.** Worker disabled |
+| Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved-pending-ci | Initial `250e91ea`: external review **0 Blocker / 0 High / 1 Medium / 0 Low** — same-attempt test incorrectly claimed distinct provider artifacts (`AppendCount` only); Documentation `34737615483` green; Implementation `34737615428` incomplete. Corrective `8ffd4b8a`: `New_invocation_attempt_persists_distinct_provider_artifact` + `Same_invocation_attempt_retry_reconciles_provider_artifact_idempotently`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` in progress at review time (`changes`, `dotnet`, `web`, `oidc` green; `supply-chain`, `oci-oidc-smoke` pending). Matrix **13**; Evaluation unit **392**; green matrix **13/13** (local Release). **Do not close Phase 6 green matrix or Phase 6 until full six-job Implementation CI.** Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
 | Phase 6 slice 2 model response schema parse gate (`83309967` → `09ca54ab` → `4609f7be` → `9bbb6c35`) | approved | External review 2026-09-12 on full chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `83309967` embeds schema authority, JsonSchema gate, structural constraints, negative fixtures. `09ca54ab` closes wire-trust-boundary and artifact-ordering Mediums. `4609f7be` closes binding, semantic-category, and digest Lows. `9bbb6c35` closes mismatch-provenance Medium (adapter-side `response_ref` on binding failure). Authoritative implementation head `9bbb6c35`; hosted CI Implementation `34689229774` and Documentation `34689229816` — all six jobs including `dotnet`, `web`, `oidc`, `supply-chain`, `oci-oidc-smoke`. Docs-only `ad2105b8` (Documentation `34689256524`; Implementation `34689256500` skipped implementation jobs — not implementation evidence). Focused: Evaluation unit **324**; contract **274**; `verify-dotnet.sh` green (local). **Schema parse increment closed.** Worker disabled |
