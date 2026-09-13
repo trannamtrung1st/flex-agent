@@ -42,7 +42,8 @@ internal static class EvaluationCompletionTestSupport
         CancellationToken cancellationToken,
         string requestKind = EvaluationRequestKinds.Initial,
         Guid? predecessorEvaluationId = null,
-        string? replacementReason = null)
+        string? replacementReason = null,
+        string? forgedCanonicalInputDigest = null)
     {
         await using var connection = await fixture.Services.ConnectionAccessor.OpenConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(
@@ -103,7 +104,7 @@ internal static class EvaluationCompletionTestSupport
                     @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
                     @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
                     @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'succeeded',
-                    'protected.input.ref', 'protected.output.ref', @OutputContentDigest,
+                    @ProtectedInputRef, 'protected.output.ref', @OutputContentDigest,
                     @StartedAt, @FinishedAt);
                 """,
                 new
@@ -117,7 +118,9 @@ internal static class EvaluationCompletionTestSupport
                     criterion.DeterministicEvaluator.EvaluatorId,
                     criterion.DeterministicEvaluator.EvaluatorVersion,
                     criterion.DeterministicEvaluator.EvaluatorDigest,
-                    CanonicalInputDigest = IntegrationCanonicalInputDigest,
+                    CanonicalInputDigest = forgedCanonicalInputDigest ?? IntegrationCanonicalInputDigest,
+                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(
+                        IntegrationCanonicalInputDigest),
                     criterion.DeterministicEvaluator.DependencyDigest,
                     criterion.DeterministicEvaluator.ConfigurationDigest,
                     OutputContentDigest = new string('2', 64),

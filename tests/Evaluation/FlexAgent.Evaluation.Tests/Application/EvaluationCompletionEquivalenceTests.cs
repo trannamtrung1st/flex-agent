@@ -25,4 +25,14 @@ public sealed class EvaluationCompletionEquivalenceTests
             """["evaluator_bound"]""",
             """["ambiguous_language"]"""));
     }
+
+    [Fact]
+    public void Completed_at_equivalent_after_postgres_microsecond_truncation()
+    {
+        var stored = EvaluationCompletionTimestampCanonicalization.ToPostgresUtc(
+            DateTimeOffset.Parse("2026-09-13T12:34:56.7891234+00:00"));
+        var retry = DateTimeOffset.Parse("2026-09-13T12:34:56.7891234+00:00");
+
+        Assert.True(EvaluationCompletionTimestampCanonicalization.AreEquivalent(retry, stored));
+    }
 }

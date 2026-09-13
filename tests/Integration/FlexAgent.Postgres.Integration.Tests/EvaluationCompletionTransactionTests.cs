@@ -686,7 +686,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
                     @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
                     @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'failed',
-                    'protected.input.ref', 'protected.output.ref', @OutputContentDigest,
+                    @ProtectedInputRef, 'protected.output.ref', @OutputContentDigest,
                     @StartedAt, @FinishedAt);
                 """,
                 new
@@ -701,6 +701,8 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     EvaluatorVersion = sourceAttempt.evaluator_version,
                     EvaluatorDigest = sourceAttempt.evaluator_digest,
                     CanonicalInputDigest = sourceAttempt.canonical_input_digest,
+                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(
+                        sourceAttempt.canonical_input_digest),
                     DependencyDigest = sourceAttempt.dependency_digest,
                     ConfigurationDigest = sourceAttempt.configuration_digest,
                     OutputContentDigest = new string('2', 64),
@@ -725,7 +727,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     }
 
     [Fact]
-    public async Task Persisted_evidence_reverified_after_source_becomes_unavailable_rejects_without_publication()
+    public async Task Equivalent_completion_retry_reconciles_after_source_becomes_unavailable()
     {
         var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
@@ -743,12 +745,8 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             new InMemoryArtifactStore());
         var replay = await replayCoordinator.TryCompleteAsync(bundle.Command, CancellationToken);
 
-        Assert.False(replay.Succeeded);
-        Assert.True(
-            replay.OutcomeCode is EvaluationFailureCodes.CitationIntegrity
-                or EvaluationFailureCodes.ProtectedContent
-                or EvaluationCompletionOutcomeCodes.IntegrityConflict,
-            replay.OutcomeCode);
+        Assert.True(replay.Succeeded, replay.OutcomeCode);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.Reconciled, replay.OutcomeCode);
         await using var verifyConnection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
         Assert.Equal(1, await verifyConnection.ExecuteScalarAsync<int>(
             """
@@ -756,7 +754,31 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             FROM evaluations
             WHERE organization_id = @OrganizationId AND request_id = @RequestId;
             """,
-            new { claimed.Ownership.OrganizationId, claimed.RequestId }));
+            new { claimed!.Ownership.OrganizationId, claimed.RequestId }));
+    }
+
+    [Fact]
+    public async Task Completion_rejects_when_source_unavailable_before_first_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(
+            Fixture,
+            new InMemoryArtifactStore());
+        var result = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.True(
+            result.OutcomeCode is EvaluationFailureCodes.CitationIntegrity
+                or EvaluationFailureCodes.ProtectedContent
+                or EvaluationCompletionOutcomeCodes.IntegrityConflict,
+            result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed!);
     }
 
     [Fact]
@@ -802,7 +824,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
                     @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
                     @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'succeeded',
-                    'protected.input.ref', 'protected.output.ref', @OutputContentDigest,
+                    @ProtectedInputRef, 'protected.output.ref', @OutputContentDigest,
                     @StartedAt, @FinishedAt);
                 """,
                 new
@@ -817,6 +839,8 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     EvaluatorVersion = sourceAttempt.evaluator_version,
                     EvaluatorDigest = sourceAttempt.evaluator_digest,
                     CanonicalInputDigest = new string('e', 64),
+                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(
+                        EvaluationCompletionTestSupport.IntegrationCanonicalInputDigest),
                     DependencyDigest = sourceAttempt.dependency_digest,
                     ConfigurationDigest = sourceAttempt.configuration_digest,
                     OutputContentDigest = new string('2', 64),
@@ -864,6 +888,26 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
 
         Assert.False(replay.Succeeded);
         Assert.Equal(EvaluationCompletionOutcomeCodes.Denied, replay.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Single_succeeded_attempt_with_wrong_canonical_input_digest_rejects_without_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken,
+            forgedCanonicalInputDigest: new string('f', 64));
+
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed);
     }
 
     [Fact]

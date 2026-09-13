@@ -14,6 +14,7 @@ public sealed record DeterministicAttemptProvenanceRow(
     string DependencyDigest,
     string ConfigurationDigest,
     string CanonicalInputDigest,
+    string? ProtectedInputRef,
     string Outcome);
 
 public static class EvaluationCompletionDeterministicProvenanceVerifier
@@ -61,6 +62,14 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
             return false;
         }
 
+        if (!DeterministicInvocationProvenance.TryParseCanonicalInputDigest(
+                citedAttempt.ProtectedInputRef,
+                out var expectedDigest))
+        {
+            failureField = "protected_input_ref";
+            return false;
+        }
+
         var succeededAttempts = invocationAttempts
             .Where(attempt =>
                 attempt.InvocationAttemptId == invocationAttemptId
@@ -69,22 +78,14 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
                 && MatchesEvaluatorBinding(attempt, criterion.DeterministicEvaluator)
                 && string.Equals(attempt.Outcome, "succeeded", StringComparison.Ordinal))
             .ToArray();
-        var distinctDigests = succeededAttempts
-            .Select(attempt => attempt.CanonicalInputDigest)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
-        var expectedDigest = distinctDigests.Length switch
+        if (succeededAttempts.Length > 1
+            && !EvidenceBindsCitedAttempt(judgment, authoritativeEvidence, citedAttempt.DeterministicAttemptId))
         {
-            0 => null,
-            1 => distinctDigests[0],
-            _ => TryResolveCanonicalInputFromEvidence(
-                judgment,
-                authoritativeEvidence,
-                invocationAttempts),
-        };
-        if (expectedDigest is null
-            || !string.Equals(citedAttempt.CanonicalInputDigest, expectedDigest, StringComparison.Ordinal))
+            failureField = "deterministic_attempt_id";
+            return false;
+        }
+
+        if (!string.Equals(citedAttempt.CanonicalInputDigest, expectedDigest, StringComparison.Ordinal))
         {
             failureField = "canonical_input_digest";
             return false;
@@ -93,10 +94,10 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
         return true;
     }
 
-    private static string? TryResolveCanonicalInputFromEvidence(
+    private static bool EvidenceBindsCitedAttempt(
         CriterionJudgment judgment,
         IReadOnlyList<EvaluationEvidenceLocatorRecord> authoritativeEvidence,
-        IReadOnlyList<DeterministicAttemptProvenanceRow> invocationAttempts)
+        Guid citedAttemptId)
     {
         var evidenceById = authoritativeEvidence.ToDictionary(record => record.EvidenceId);
         foreach (var evidenceId in judgment.EvidenceIds)
@@ -107,18 +108,13 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
                 continue;
             }
 
-            var boundAttempt = invocationAttempts.FirstOrDefault(attempt =>
-                attempt.DeterministicAttemptId == record.SourceId
-                && string.Equals(attempt.Outcome, "succeeded", StringComparison.Ordinal));
-            if (boundAttempt is null)
+            if (record.SourceId == citedAttemptId)
             {
-                continue;
+                return true;
             }
-
-            return boundAttempt.CanonicalInputDigest;
         }
 
-        return null;
+        return false;
     }
 
     private static bool MatchesEvaluatorBinding(

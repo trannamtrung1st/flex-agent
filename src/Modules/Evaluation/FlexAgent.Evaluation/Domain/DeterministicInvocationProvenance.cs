@@ -58,8 +58,26 @@ public static class DeterministicInvocationProvenance
         && string.Equals(existing.Outcome, candidate.Outcome, StringComparison.Ordinal)
         && string.Equals(existing.FailureCategory, candidate.FailureCategory, StringComparison.Ordinal);
 
+    public const string ProtectedInputRefPrefix = "prot.eval.det-in.";
+
     public static string ProtectedInputRef(string canonicalInputDigest) =>
-        $"prot.eval.det-in.{canonicalInputDigest}";
+        $"{ProtectedInputRefPrefix}{canonicalInputDigest}";
+
+    public static bool TryParseCanonicalInputDigest(
+        string? protectedInputRef,
+        out string canonicalInputDigest)
+    {
+        canonicalInputDigest = string.Empty;
+        if (string.IsNullOrWhiteSpace(protectedInputRef)
+            || !protectedInputRef.StartsWith(ProtectedInputRefPrefix, StringComparison.Ordinal)
+            || protectedInputRef.Length != ProtectedInputRefPrefix.Length + 64)
+        {
+            return false;
+        }
+
+        canonicalInputDigest = protectedInputRef[ProtectedInputRefPrefix.Length..];
+        return EvaluationIdentity.IsSha256Hex(canonicalInputDigest);
+    }
 
     public static string? ProtectedOutputRef(string? outputContentDigest) =>
         outputContentDigest is null

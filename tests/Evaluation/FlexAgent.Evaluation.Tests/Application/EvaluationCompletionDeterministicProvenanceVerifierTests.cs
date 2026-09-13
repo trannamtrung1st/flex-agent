@@ -37,6 +37,43 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
     }
 
     [Fact]
+    public void Single_succeeded_attempt_with_wrong_canonical_input_digest_fails()
+    {
+        var invocationAttemptId = Guid.CreateVersion7();
+        var attemptId = Guid.CreateVersion7();
+        var criterion = Criterion();
+        var expectedDigest = new string('a', 64);
+        var attempts = new[]
+        {
+            new DeterministicAttemptProvenanceRow(
+                attemptId,
+                invocationAttemptId,
+                criterion.CriterionId,
+                criterion.CriterionVersion,
+                criterion.DeterministicEvaluator!.EvaluatorId,
+                criterion.DeterministicEvaluator.EvaluatorVersion,
+                criterion.DeterministicEvaluator.EvaluatorDigest,
+                criterion.DeterministicEvaluator.DependencyDigest,
+                criterion.DeterministicEvaluator.ConfigurationDigest,
+                new string('f', 64),
+                DeterministicInvocationProvenance.ProtectedInputRef(expectedDigest),
+                "succeeded"),
+        };
+        var judgment = CreateJudgment(attemptId, criterion, Guid.CreateVersion7());
+
+        var valid = EvaluationCompletionDeterministicProvenanceVerifier.IsJudgmentProvenanceValid(
+            judgment,
+            criterion,
+            invocationAttemptId,
+            attempts,
+            [],
+            out var field);
+
+        Assert.False(valid);
+        Assert.Equal("canonical_input_digest", field);
+    }
+
+    [Fact]
     public void Conflicting_canonical_input_digests_require_evidence_binding()
     {
         var invocationAttemptId = Guid.CreateVersion7();
@@ -69,7 +106,7 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             out var field);
 
         Assert.False(valid);
-        Assert.Equal("canonical_input_digest", field);
+        Assert.Equal("deterministic_attempt_id", field);
     }
 
     [Fact]
@@ -140,6 +177,7 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             criterion.DeterministicEvaluator.DependencyDigest,
             criterion.DeterministicEvaluator.ConfigurationDigest,
             canonicalInputDigest,
+            DeterministicInvocationProvenance.ProtectedInputRef(canonicalInputDigest),
             outcome);
 
     private static CriterionJudgment CreateJudgment(

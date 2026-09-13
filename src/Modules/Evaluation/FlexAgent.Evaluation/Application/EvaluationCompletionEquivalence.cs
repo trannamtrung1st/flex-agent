@@ -66,7 +66,9 @@ public static class EvaluationCompletionEquivalence
             && completed.EvidenceSetId == stored.EvidenceSetId
             && string.Equals(completed.AggregateStatus, stored.AggregateStatus, StringComparison.Ordinal)
             && string.Equals(completed.EvidenceSetDigest, stored.EvidenceSetDigest, StringComparison.Ordinal)
-            && completed.CompletedAtUtc == stored.CompletedAtUtc
+            && EvaluationCompletionTimestampCanonicalization.AreEquivalent(
+                completed.CompletedAtUtc,
+                stored.CompletedAtUtc)
             && string.Equals(completed.CreationServiceId, stored.CreationServiceId, StringComparison.Ordinal)
             && completed.PredecessorEvaluationId == stored.PredecessorEvaluationId
             && completed.PredecessorEvaluationId == authoritativeRequest.PredecessorEvaluationId
