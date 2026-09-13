@@ -14,12 +14,15 @@ namespace FlexAgent.Evaluation.Infrastructure;
 public sealed class PostgresEvaluationCompletionCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null) : IEvaluationCompletionCoordinator
+    IOutboxItemWriter? outboxItemWriter = null,
+    IEvidenceLocatorCompletionService? evidenceLocatorCompletionService = null) : IEvaluationCompletionCoordinator
 {
     private readonly IAuditEventWriter _auditEventWriter =
         auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter =
         outboxItemWriter ?? new PostgresOutboxItemWriter();
+    private readonly IEvidenceLocatorCompletionService? _evidenceLocatorCompletionService =
+        evidenceLocatorCompletionService;
 
     public async Task<EvaluationCompletionResult> TryCompleteAsync(
         EvaluationCompletionCommand command,
@@ -179,11 +182,14 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 scope,
                 command,
                 cancellationToken);
-            var authoritativeRecords = EvaluationCompletionPersistedEvidenceVerifier.TryBindAuthoritative(
-                authoritativeRequest.Value.FrozenInput,
-                command.Completed.EvaluationId,
-                command.EvidenceItems,
-                persistedRows);
+            var authoritativeRecords = await TryResolveAuthoritativeEvidenceRecordsAsync(
+                scope,
+                authoritativeRequest.Value,
+                procedure.Value,
+                requestRow.handoff_id,
+                command,
+                persistedRows,
+                cancellationToken);
             if (!authoritativeRecords.Succeeded || authoritativeRecords.Value is null)
             {
                 await scope.RollbackAsync(cancellationToken);
@@ -219,7 +225,10 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     command,
                     cancellationToken);
                 if (storedCompletion is null
-                    || !EvaluationCompletionEquivalence.IsEquivalent(command.Completed, storedCompletion))
+                    || !EvaluationCompletionEquivalence.IsEquivalent(
+                        command.Completed,
+                        storedCompletion,
+                        command.Judgments))
                 {
                     await scope.RollbackAsync(cancellationToken);
                     return new(false, EvaluationCompletionOutcomeCodes.IntegrityConflict, null, null, false);
@@ -245,7 +254,8 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 authoritativeRequest.Value,
                 procedure.Value,
                 command,
-                authoritativeEvidenceItems);
+                authoritativeEvidenceItems,
+                authoritativeRecords.Value);
             if (!verifiedCompletion.Succeeded || verifiedCompletion.Value is null)
             {
                 await scope.RollbackAsync(cancellationToken);
@@ -480,7 +490,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                             SuccessorRequestId = command.RequestId,
                             SuccessorEvaluationId = command.Completed.EvaluationId,
                             Reason = requestRow.replacement_reason,
-                            command.ActorType,
+                            ActorType = EvaluationActorTypes.Service,
                             command.ActorId,
                             OccurredAt = command.Completed.CompletedAtUtc,
                         },
@@ -530,7 +540,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     PublishReplacementAvailable: isReplacement,
                     ReplacementReason: requestRow.replacement_reason,
                     command.ActorId,
-                    command.ActorType,
+                    EvaluationActorTypes.Service,
                     command.Completed.CompletedAtUtc),
                 cancellationToken);
 
@@ -560,7 +570,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     "evaluation.completed.v1",
                     command.Completed.CompletedAtUtc,
                     command.CorrelationId,
-                    command.ActorType,
+                    EvaluationActorTypes.Service,
                     command.ActorId,
                     "evaluation.complete",
                     "evaluation",
@@ -675,7 +685,10 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 command,
                 cancellationToken);
             if (storedCompletion is null
-                || !EvaluationCompletionEquivalence.IsEquivalent(command.Completed, storedCompletion))
+                || !EvaluationCompletionEquivalence.IsEquivalent(
+                    command.Completed,
+                    storedCompletion,
+                    command.Judgments))
             {
                 await scope.RollbackAsync(cancellationToken);
                 return new(false, EvaluationCompletionOutcomeCodes.IntegrityConflict, null, null, false);
@@ -695,6 +708,56 @@ public sealed class PostgresEvaluationCompletionCoordinator(
             await scope.RollbackAsync(CancellationToken.None);
             throw;
         }
+    }
+
+    private async Task<EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>> TryResolveAuthoritativeEvidenceRecordsAsync(
+        PostgresTransactionScope scope,
+        EvaluationRequest authoritativeRequest,
+        EvaluationProcedureV1 procedure,
+        string handoffId,
+        EvaluationCompletionCommand command,
+        IReadOnlyList<PersistedEvaluationEvidenceRow> persistedRows,
+        CancellationToken cancellationToken)
+    {
+        if (persistedRows.Count > 0)
+        {
+            return EvaluationCompletionPersistedEvidenceVerifier.TryBindAuthoritative(
+                authoritativeRequest.FrozenInput,
+                command.Completed.EvaluationId,
+                command.EvidenceItems,
+                persistedRows);
+        }
+
+        if (_evidenceLocatorCompletionService is null
+            || command.EvidenceLocators.Count == 0
+            || command.EvidenceLocators.Count != command.EvidenceItems.Count)
+        {
+            return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                EvaluationFailureCodes.CitationIntegrity,
+                "persisted_evidence");
+        }
+
+        var locatorRequest = new EvidenceLocatorCompletionRequest(
+            command.Completed.EvaluationId,
+            command.RequestId,
+            handoffId,
+            command.EvidenceLocators);
+        var verified = await _evidenceLocatorCompletionService.TryVerifyAsync(
+            command.Completed.Ownership.OrganizationId,
+            command.Completed.Ownership.SessionId,
+            procedure,
+            locatorRequest,
+            cancellationToken);
+        if (!verified.Succeeded || verified.Value is null)
+        {
+            return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                verified.OutcomeCode,
+                verified.Field);
+        }
+
+        return EvaluationCompletionPersistedEvidenceVerifier.TryBindVerifiedLocatorRecords(
+            command.EvidenceItems,
+            verified.Value.LocatorRecords);
     }
 
     private static async Task<bool> VerifyDeterministicProvenanceAsync(
@@ -733,7 +796,6 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                           AND evaluator_id = @EvaluatorId
                           AND evaluator_version = @EvaluatorVersion
                           AND evaluator_digest = @EvaluatorDigest
-                          AND canonical_input_digest = @CanonicalInputDigest
                           AND dependency_digest = @DependencyDigest
                           AND configuration_digest = @ConfigurationDigest
                           AND outcome = 'succeeded');
@@ -749,7 +811,6 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                         criterion.DeterministicEvaluator.EvaluatorId,
                         criterion.DeterministicEvaluator.EvaluatorVersion,
                         criterion.DeterministicEvaluator.EvaluatorDigest,
-                        CanonicalInputDigest = new string('1', 64),
                         criterion.DeterministicEvaluator.DependencyDigest,
                         criterion.DeterministicEvaluator.ConfigurationDigest,
                     },
@@ -803,8 +864,9 @@ public sealed class PostgresEvaluationCompletionCoordinator(
     private static async Task<StoredCompletionSnapshot?> LoadStoredCompletionSnapshotAsync(
         PostgresTransactionScope scope,
         EvaluationCompletionCommand command,
-        CancellationToken cancellationToken) =>
-        await scope.Connection.QuerySingleOrDefaultAsync<StoredCompletionSnapshot>(
+        CancellationToken cancellationToken)
+    {
+        var evaluation = await scope.Connection.QuerySingleOrDefaultAsync<StoredCompletionSnapshotRow>(
             new CommandDefinition(
                 """
                 SELECT
@@ -830,6 +892,48 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 },
                 scope.Transaction,
                 cancellationToken: cancellationToken));
+        if (evaluation is null)
+        {
+            return null;
+        }
+
+        var judgments = await scope.Connection.QueryAsync<StoredJudgmentSnapshot>(
+            new CommandDefinition(
+                """
+                SELECT
+                    judgment_id AS JudgmentId,
+                    criterion_id AS CriterionId,
+                    criterion_version AS CriterionVersion,
+                    evaluator_mode AS EvaluatorMode,
+                    status AS Status,
+                    confidence AS Confidence,
+                    uncertainty_json::text AS UncertaintyJson,
+                    rationale AS Rationale,
+                    score_json::text AS ScoreJson,
+                    provisional_feedback AS ProvisionalFeedback,
+                    deterministic_attempt_id AS DeterministicAttemptId
+                FROM evaluation_criterion_judgments
+                WHERE organization_id = @OrganizationId
+                  AND evaluation_id = @EvaluationId
+                  AND request_id = @RequestId;
+                """,
+                new
+                {
+                    command.Completed.Ownership.OrganizationId,
+                    command.Completed.EvaluationId,
+                    command.RequestId,
+                },
+                scope.Transaction,
+                cancellationToken: cancellationToken));
+
+        return new StoredCompletionSnapshot(
+            evaluation.EvaluationId,
+            evaluation.EvidenceSetId,
+            evaluation.ProcedureDigest,
+            evaluation.AggregateStatus,
+            evaluation.EvidenceSetDigest,
+            judgments.AsList());
+    }
 
     private static AuthoritativeEvaluationRequestSnapshot MapAuthoritativeSnapshot(RequestRow row) =>
         new(
@@ -908,6 +1012,13 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 scope.Transaction,
                 cancellationToken: cancellationToken));
     }
+
+    private sealed record StoredCompletionSnapshotRow(
+        Guid EvaluationId,
+        Guid EvidenceSetId,
+        string ProcedureDigest,
+        string AggregateStatus,
+        string EvidenceSetDigest);
 
     private sealed record RequestRow(
         Guid request_id,

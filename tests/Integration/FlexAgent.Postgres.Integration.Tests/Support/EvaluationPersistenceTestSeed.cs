@@ -238,7 +238,7 @@ internal static class EvaluationPersistenceTestSeed
                 organization_id, version_id, item_id, category, filename, byte_count, content_digest,
                 artifact_object_key, artifact_version_id)
             VALUES (
-                @OrganizationId, @VersionId, @ItemId, 'direct_text', NULL,
+                @OrganizationId, @VersionId, @ItemId, 'submission.direct_text', NULL,
                 @ByteCount, @ContentDigest, @ArtifactObjectKey, @ArtifactVersionId);
             """,
             new

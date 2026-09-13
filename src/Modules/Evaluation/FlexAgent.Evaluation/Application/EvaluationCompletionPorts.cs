@@ -23,11 +23,11 @@ public sealed record EvaluationCompletionCommand(
     Guid InvocationAttemptId,
     Guid DelegationId,
     Guid ActorId,
-    string ActorType,
     Guid CorrelationId,
     string SourceChannel,
     CompletedEvaluation Completed,
     IReadOnlyList<EvidenceItem> EvidenceItems,
+    IReadOnlyList<EvidenceLocatorVerificationEntry> EvidenceLocators,
     IReadOnlyList<CriterionJudgment> Judgments,
     IReadOnlyList<EvaluationManifestRefDraft> ManifestRefs);
 

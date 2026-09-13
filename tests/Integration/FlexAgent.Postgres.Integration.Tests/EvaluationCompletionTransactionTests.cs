@@ -4,6 +4,8 @@ using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Infrastructure;
 using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests;
@@ -11,12 +13,13 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixture fixture)
     : PostgresIntegrationTest(fixture)
 {
-    [Fact]
-    public async Task Completion_coordinator_commits_evaluation_review_handoff_and_work_state()
+    private async Task<(EvaluationPersistenceTestSeed.PreparedEvaluation Prepared, InMemoryArtifactStore Artifacts, EvaluationDurableWorkItem Claimed)> PrepareClaimedAsync(
+        string? key = null)
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+        key ??= Guid.CreateVersion7().ToString("N");
+        var (prepared, artifacts) = await EvaluationPersistenceTestSeed.PrepareBoundSubmissionEvidenceAsync(
             Fixture,
-            Guid.CreateVersion7().ToString("N"),
+            key,
             CancellationToken);
         Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
         var claimed = await prepared.Work.TryClaimAsync(
@@ -25,12 +28,20 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             perOrganizationConcurrency: 1,
             CancellationToken);
         Assert.NotNull(claimed);
+        return (prepared, artifacts, claimed!);
+    }
+
+    [Fact]
+    public async Task Completion_coordinator_commits_evaluation_review_handoff_and_work_state()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
 
         var result = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
 
@@ -75,23 +86,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Equivalent_completion_retry_reconciles_without_duplicate_evaluation()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
 
         var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
         var second = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
@@ -113,24 +115,16 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Audit_failure_rolls_back_completion_writes()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(
-            Fixture.Services.ConnectionAccessor,
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(
+            Fixture,
+            artifacts,
             new ThrowingAuditEventWriter());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -150,20 +144,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     public async Task Replacement_completion_records_lineage_and_marks_review_candidate_stale()
     {
         var key = Guid.CreateVersion7().ToString("N");
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(Fixture, key, CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var initialClaimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(initialClaimed);
+        var (prepared, artifacts, initialClaimed) = await PrepareClaimedAsync(key);
         var initialBundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            initialClaimed!,
+            initialClaimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var initialCompleted = await coordinator.TryCompleteAsync(initialBundle.Command, CancellationToken);
         Assert.True(initialCompleted.Succeeded, initialCompleted.OutcomeCode);
         Assert.NotNull(initialCompleted.EvaluationId);
@@ -185,6 +173,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             Fixture,
             replacementPrepared,
             replacementClaimed!,
+            artifacts,
             CancellationToken,
             EvaluationRequestKinds.Replacement,
             initialCompleted.EvaluationId,
@@ -267,23 +256,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Concurrent_completion_attempts_reconcile_to_one_evaluation()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
 
         var results = await Task.WhenAll(
             coordinator.TryCompleteAsync(bundle.Command, CancellationToken),
@@ -307,23 +287,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Empty_judgments_are_rejected_before_persistence()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var invalid = bundle.Command with { Judgments = [] };
 
         var result = await coordinator.TryCompleteAsync(invalid, CancellationToken);
@@ -335,32 +306,23 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Conflicting_evaluation_identity_returns_integrity_conflict()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         await using (var connection = await Fixture.Services.ConnectionAccessor
             .OpenConnectionAsync(CancellationToken))
         {
             await EvaluationPersistenceTestSeed.InsertCompletedEvaluationAsync(
                 connection,
-                claimed!,
+                claimed,
                 CancellationToken);
         }
 
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
 
         Assert.False(result.Succeeded);
@@ -370,21 +332,12 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Forged_procedure_identity_rejects_without_publication()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
         var forged = bundle.Command.Completed with
         {
@@ -393,7 +346,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                 SourceId = Guid.CreateVersion7(),
             },
         };
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(
             bundle.Command with { Completed = forged },
             CancellationToken);
@@ -406,21 +359,12 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Forged_aggregate_status_rejects_without_publication()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
         var forgedJudgments = bundle.Command.Judgments
             .Select(judgment => judgment with { Status = CriterionStatuses.InsufficientEvidence })
@@ -429,7 +373,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
         {
             AggregateStatus = EvaluationAggregateStatuses.Complete,
         };
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(
             bundle.Command with
             {
@@ -446,27 +390,18 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Forged_evidence_set_digest_rejects_without_publication()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
         var forged = bundle.Command.Completed with
         {
             EvidenceSetDigest = new string('e', 64),
         };
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(
             bundle.Command with { Completed = forged },
             CancellationToken);
@@ -479,23 +414,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Annotation_service_appends_disposition_without_mutating_evaluation_row()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var completed = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
         Assert.True(completed.Succeeded, completed.OutcomeCode);
 
@@ -556,23 +482,14 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Annotation_without_delegation_is_denied_without_writes()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var completed = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
         Assert.True(completed.Succeeded, completed.OutcomeCode);
 
@@ -613,21 +530,12 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     [Fact]
     public async Task Unbound_evidence_identity_with_recomputed_seal_rejects_without_publication()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
         var forgedSource = ExactSourceIdentity.TryCreate(
             "task_submission",
@@ -653,7 +561,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
         {
             EvidenceSetDigest = forgedSeal.Value!,
         };
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(
             bundle.Command with
             {
@@ -667,27 +575,82 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
             result.OutcomeCode is EvaluationCompletionOutcomeCodes.IntegrityConflict
                 or EvaluationFailureCodes.CitationIntegrity,
             result.OutcomeCode);
-        await AssertNoCompletionPublicationAsync(claimed!);
+        await AssertNoCompletionPublicationAsync(claimed);
+    }
+
+    [Fact]
+    public async Task Forged_source_type_over_bound_submission_rejects_without_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var forgedItems = bundle.Command.EvidenceItems
+            .Select(item => EvidenceItem.TryCreate(
+                item.EvidenceId,
+                "submission.text_attachment",
+                item.Source,
+                item.Ownership,
+                item.EvaluationId,
+                item.Precision).Value!)
+            .ToArray();
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with { EvidenceItems = forgedItems },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.True(
+            result.OutcomeCode is EvaluationCompletionOutcomeCodes.IntegrityConflict
+                or EvaluationFailureCodes.CitationIntegrity,
+            result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed);
+    }
+
+    [Fact]
+    public async Task Forged_evidence_precision_over_verified_locator_rejects_without_publication()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var forgedItems = bundle.Command.EvidenceItems
+            .Select(item => EvidenceItem.TryCreate(
+                item.EvidenceId,
+                item.SourceType,
+                item.Source,
+                item.Ownership,
+                item.EvaluationId,
+                "exact_range").Value!)
+            .ToArray();
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with { EvidenceItems = forgedItems },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.True(
+            result.OutcomeCode is EvaluationCompletionOutcomeCodes.IntegrityConflict
+                or EvaluationFailureCodes.CitationIntegrity,
+            result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed);
     }
 
     [Fact]
     public async Task Judgment_citing_failed_deterministic_attempt_rejects_without_publication()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
         var citedJudgment = bundle.Command.Judgments
             .First(judgment => judgment.DeterministicInvocationId is not null);
@@ -750,36 +713,56 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                 ? judgment with { DeterministicInvocationId = failedAttemptId }
                 : judgment)
             .ToArray();
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var result = await coordinator.TryCompleteAsync(
             bundle.Command with { Judgments = forgedJudgments },
             CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
-        await AssertNoCompletionPublicationAsync(claimed!);
+        await AssertNoCompletionPublicationAsync(claimed);
+    }
+
+    [Fact]
+    public async Task Completion_succeeds_with_non_fixture_deterministic_canonical_digest()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.Completed, result.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(
+            EvaluationCompletionTestSupport.IntegrationCanonicalInputDigest,
+            await connection.ExecuteScalarAsync<string>(
+                """
+                SELECT canonical_input_digest
+                FROM evaluation_deterministic_attempts
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId
+                LIMIT 1;
+                """,
+                new { claimed.Ownership.OrganizationId, claimed.RequestId }));
     }
 
     [Fact]
     public async Task Conflicting_completion_replay_with_same_evaluation_id_returns_integrity_conflict()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
 
@@ -796,25 +779,41 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     }
 
     [Fact]
-    public async Task Annotation_audit_failure_rolls_back_writes()
+    public async Task Conflicting_completion_replay_with_changed_judgment_rationale_returns_integrity_conflict()
     {
-        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
-            Fixture,
-            Guid.CreateVersion7().ToString("N"),
-            CancellationToken);
-        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
-        var claimed = await prepared.Work.TryClaimAsync(
-            prepared.WorkerActorId,
-            TimeSpan.FromSeconds(30),
-            perOrganizationConcurrency: 1,
-            CancellationToken);
-        Assert.NotNull(claimed);
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
             Fixture,
             prepared,
-            claimed!,
+            claimed,
+            artifacts,
             CancellationToken);
-        var coordinator = new PostgresEvaluationCompletionCoordinator(Fixture.Services.ConnectionAccessor);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var forgedJudgments = bundle.Command.Judgments
+            .Select(judgment => judgment with { Rationale = "A forged rationale that should not reconcile." })
+            .ToArray();
+        var replay = await coordinator.TryCompleteAsync(
+            bundle.Command with { Judgments = forgedJudgments },
+            CancellationToken);
+
+        Assert.False(replay.Succeeded);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.IntegrityConflict, replay.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Annotation_audit_failure_rolls_back_writes()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
         var completed = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
         Assert.True(completed.Succeeded, completed.OutcomeCode);
 

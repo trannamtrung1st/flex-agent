@@ -1,18 +1,44 @@
+using System.Text.Json;
 using Dapper;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
+using FlexAgent.Postgres.Audit;
+using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Infrastructure;
 
 namespace FlexAgent.Postgres.Integration.Tests.Support;
 
 internal static class EvaluationCompletionTestSupport
 {
+    internal const string IntegrationCanonicalInputDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
     internal sealed record CompletionBundle(EvaluationCompletionCommand Command);
+
+    internal static PostgresEvaluationCompletionCoordinator CreateCoordinator(
+        PostgresIntegrationFixture fixture,
+        InMemoryArtifactStore artifacts,
+        IAuditEventWriter? auditEventWriter = null) =>
+        new(
+            fixture.Services.ConnectionAccessor,
+            auditEventWriter,
+            outboxItemWriter: null,
+            new EvidenceLocatorCompletionService(
+                new PostgresEvaluationSessionEvidenceSource(
+                    fixture.Services.ConnectionAccessor,
+                    new PostgresEvaluationHandoffSource(fixture.Services.ConnectionAccessor)),
+                new PostgresEvaluationSubmissionEvidenceSource(
+                    fixture.Services.ConnectionAccessor,
+                    artifacts),
+                new PostgresProtectedDeterministicOutputStore(fixture.Services.ConnectionAccessor),
+                new PostgresEvaluationEvidenceLocatorStore(fixture.Services.ConnectionAccessor)));
 
     internal static async Task<CompletionBundle> BuildBundleAsync(
         PostgresIntegrationFixture fixture,
         EvaluationPersistenceTestSeed.PreparedEvaluation prepared,
         EvaluationDurableWorkItem claimed,
+        InMemoryArtifactStore artifacts,
         CancellationToken cancellationToken,
         string requestKind = EvaluationRequestKinds.Initial,
         Guid? predecessorEvaluationId = null,
@@ -38,9 +64,9 @@ internal static class EvaluationCompletionTestSupport
                 claimed.InvocationAttemptId,
             });
 
-        var requestRow = await connection.QuerySingleAsync<RubricRow>(
+        var requestRow = await connection.QuerySingleAsync<RequestRow>(
             """
-            SELECT rubric_source_id, rubric_source_version_id, rubric_content_digest
+            SELECT handoff_id, rubric_source_id, rubric_source_version_id, rubric_content_digest
             FROM evaluation_requests
             WHERE organization_id = @OrganizationId AND request_id = @RequestId;
             """,
@@ -91,7 +117,7 @@ internal static class EvaluationCompletionTestSupport
                     criterion.DeterministicEvaluator.EvaluatorId,
                     criterion.DeterministicEvaluator.EvaluatorVersion,
                     criterion.DeterministicEvaluator.EvaluatorDigest,
-                    CanonicalInputDigest = new string('1', 64),
+                    CanonicalInputDigest = IntegrationCanonicalInputDigest,
                     criterion.DeterministicEvaluator.DependencyDigest,
                     criterion.DeterministicEvaluator.ConfigurationDigest,
                     OutputContentDigest = new string('2', 64),
@@ -101,22 +127,82 @@ internal static class EvaluationCompletionTestSupport
         }
 
         var evaluationId = Guid.CreateVersion7();
-        var submission = prepared.Request.FrozenInput.Submission;
+        var submissionSource = new PostgresEvaluationSubmissionEvidenceSource(
+            fixture.Services.ConnectionAccessor,
+            artifacts);
+        var submissionBundle = await submissionSource.LoadBoundItemsAsync(
+            claimed.Ownership.OrganizationId,
+            claimed.Ownership.ActivityId,
+            claimed.Ownership.ParticipantId,
+            claimed.Ownership.AttemptId,
+            claimed.Ownership.SessionId,
+            cancellationToken);
+        if (submissionBundle is null || submissionBundle.BoundItems.Count == 0)
+        {
+            throw new InvalidOperationException("bound submission evidence is required for completion tests");
+        }
+
+        var submissionMaterial = submissionBundle.BoundItems[0];
         var evidenceIds = procedure.Criteria.Select(_ => Guid.CreateVersion7()).ToArray();
-        var items = evidenceIds.Select(id =>
-            EvidenceItem.TryCreate(
-                id,
-                "submission.direct_text",
-                submission,
-                claimed.Ownership,
+        var trustedOwnership = EvaluationStableOwnershipReferenceFactory.From(claimed.Ownership, evaluationId);
+        var locatorEntries = new EvidenceLocatorVerificationEntry[procedure.Criteria.Count];
+        for (var index = 0; index < procedure.Criteria.Count; index++)
+        {
+            using var locatorDocument = JsonDocument.Parse(
+                BuildSubmissionWholeItemLocatorJson(
+                    trustedOwnership,
+                    submissionMaterial.SourceId,
+                    submissionMaterial.SourceVersion,
+                    submissionMaterial.ContentDigest));
+            locatorEntries[index] = new EvidenceLocatorVerificationEntry(
+                evidenceIds[index],
+                procedure.Criteria[index].CriterionId,
+                locatorDocument.RootElement.Clone());
+        }
+
+        var locatorCompletionService = new EvidenceLocatorCompletionService(
+            new PostgresEvaluationSessionEvidenceSource(
+                fixture.Services.ConnectionAccessor,
+                new PostgresEvaluationHandoffSource(fixture.Services.ConnectionAccessor)),
+            submissionSource,
+            new PostgresProtectedDeterministicOutputStore(fixture.Services.ConnectionAccessor),
+            new PostgresEvaluationEvidenceLocatorStore(fixture.Services.ConnectionAccessor));
+        var verified = await locatorCompletionService.TryVerifyAsync(
+            claimed.Ownership.OrganizationId,
+            claimed.Ownership.SessionId,
+            procedure,
+            new EvidenceLocatorCompletionRequest(
                 evaluationId,
-                "exact_range").Value!).ToArray();
+                claimed.RequestId,
+                requestRow.handoff_id,
+                locatorEntries),
+            cancellationToken);
+        if (!verified.Succeeded || verified.Value is null)
+        {
+            throw new InvalidOperationException($"locator verification rejected: {verified.OutcomeCode}");
+        }
+
+        var items = new List<EvidenceItem>(verified.Value.LocatorRecords.Count);
+        foreach (var record in verified.Value.LocatorRecords)
+        {
+            var item = EvaluationCompletionPersistedEvidenceVerifier.ToAuthoritativeEvidenceItem(
+                record,
+                claimed.Ownership,
+                evaluationId);
+            if (!item.Succeeded || item.Value is null)
+            {
+                throw new InvalidOperationException($"evidence item rejected: {item.OutcomeCode}");
+            }
+
+            items.Add(item.Value);
+        }
+
         var evidenceSetId = Guid.CreateVersion7();
-        var evidenceSetDigest = EvaluationCompletionEvidenceSeal.TryComputeExpectedDigest(
+        var evidenceSetDigest = EvaluationCompletionEvidenceSeal.TryComputeFromPersistedRecords(
             evidenceSetId,
             claimed.InvocationAttemptId,
             prepared.Request.FrozenInput,
-            items);
+            verified.Value.LocatorRecords);
         if (!evidenceSetDigest.Succeeded || evidenceSetDigest.Value is null)
         {
             throw new InvalidOperationException(
@@ -189,11 +275,11 @@ internal static class EvaluationCompletionTestSupport
             claimed.InvocationAttemptId,
             prepared.DelegationId,
             prepared.WorkerActorId,
-            EvaluationActorTypes.Service,
             Guid.CreateVersion7(),
             "integration.test",
             completed,
             items,
+            locatorEntries,
             judgments,
             [
                 new EvaluationManifestRefDraft(
@@ -206,7 +292,37 @@ internal static class EvaluationCompletionTestSupport
         return new CompletionBundle(command);
     }
 
-    private sealed record RubricRow(
+    internal static string BuildSubmissionWholeItemLocatorJson(
+        EvaluationStableOwnershipReference trustedOwnership,
+        string sourceId,
+        string sourceVersion,
+        string sourceDigest) =>
+        $$"""
+        {
+          "locator_schema":"evidence-locator.v1",
+          "source_type":"submission.direct_text",
+          "source_ref":{"source_id":"{{sourceId}}","source_version":"{{sourceVersion}}"},
+          "ownership_ref":{
+            "organization_id":"{{trustedOwnership.OrganizationId}}",
+            "activity_id":"{{trustedOwnership.ActivityId}}",
+            "participant_id":"{{trustedOwnership.ParticipantId}}",
+            "attempt_id":"{{trustedOwnership.AttemptId}}",
+            "session_id":"{{trustedOwnership.SessionId}}",
+            "evaluation_id":"{{trustedOwnership.EvaluationId}}"
+          },
+          "location":{"location_type":"whole_item","item_id":"{{sourceId}}"},
+          "precision":"whole_item",
+          "integrity":{
+            "source_digest":"{{sourceDigest}}",
+            "adapter_version":"locator-adapter.v1",
+            "verification_state":"verified"
+          },
+          "created_by":{"service_id":"evaluation.integration","invocation_id":"inv.completion.test"}
+        }
+        """;
+
+    private sealed record RequestRow(
+        string handoff_id,
         Guid rubric_source_id,
         Guid rubric_source_version_id,
         string rubric_content_digest);

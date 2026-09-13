@@ -34,7 +34,9 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
 
         if (persistedRows.Count == 0)
         {
-            return TryDeriveAuthoritativeAtCommitBoundary(frozenInput, commandItems);
+            return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                EvaluationFailureCodes.CitationIntegrity,
+                "persisted_evidence");
         }
 
         if (commandItems.Count != persistedRows.Count)
@@ -97,72 +99,56 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
         return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Ok(authoritative);
     }
 
-    private static EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>> TryDeriveAuthoritativeAtCommitBoundary(
-        FrozenInputIdentity frozenInput,
-        IReadOnlyList<EvidenceItem> commandItems)
+    public static EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>> TryBindVerifiedLocatorRecords(
+        IReadOnlyList<EvidenceItem> commandItems,
+        IReadOnlyList<EvaluationEvidenceLocatorRecord> locatorRecords)
     {
+        ArgumentNullException.ThrowIfNull(commandItems);
+        ArgumentNullException.ThrowIfNull(locatorRecords);
+
+        if (commandItems.Count == 0
+            || commandItems.Count != locatorRecords.Count)
+        {
+            return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                EvaluationFailureCodes.InvalidField);
+        }
+
+        var recordsById = locatorRecords.ToDictionary(record => record.EvidenceId);
+        if (recordsById.Count != locatorRecords.Count)
+        {
+            return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                EvaluationFailureCodes.DuplicateIdentity);
+        }
+
         var authoritative = new List<EvaluationEvidenceLocatorRecord>(commandItems.Count);
         foreach (var commandItem in commandItems)
         {
-            var derived = TryDeriveAuthoritativeRecord(frozenInput, commandItem);
-            if (!derived.Succeeded || derived.Value is null)
+            if (!recordsById.TryGetValue(commandItem.EvidenceId, out var record))
             {
                 return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
-                    derived.OutcomeCode,
-                    derived.Field);
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "evidence_id");
             }
 
-            if (!MatchesCommandItem(commandItem, ToPersistedRow(derived.Value)))
+            if (!string.Equals(record.IntegrityState, "verified", StringComparison.Ordinal))
+            {
+                return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
+                    EvaluationFailureCodes.CitationIntegrity,
+                    "integrity_state");
+            }
+
+            if (!MatchesCommandItem(commandItem, ToPersistedRow(record)))
             {
                 return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Fail(
                     EvaluationCompletionOutcomeCodes.IntegrityConflict,
                     "evidence_item");
             }
 
-            authoritative.Add(derived.Value);
+            authoritative.Add(record);
         }
 
         return EvaluationDecision<IReadOnlyList<EvaluationEvidenceLocatorRecord>>.Ok(authoritative);
     }
-
-    private static EvaluationDecision<EvaluationEvidenceLocatorRecord> TryDeriveAuthoritativeRecord(
-        FrozenInputIdentity frozenInput,
-        EvidenceItem commandItem) =>
-        commandItem.SourceType switch
-        {
-            "submission.direct_text" or "submission.text_attachment" =>
-                EvaluationDecision<EvaluationEvidenceLocatorRecord>.Ok(
-                    new EvaluationEvidenceLocatorRecord(
-                        commandItem.EvidenceId,
-                        commandItem.SourceType,
-                        frozenInput.Submission.SourceId,
-                        frozenInput.Submission.SourceVersionId,
-                        frozenInput.Submission.ContentDigest,
-                        "evidence-locator.v1",
-                        frozenInput.Submission.ContentDigest,
-                        commandItem.Precision,
-                        "verified")),
-            "deterministic.fact" or "session.transcript_item" or "session.work_trace"
-                or "configuration.fact" or "manifest.fact" =>
-                EvaluationDecision<EvaluationEvidenceLocatorRecord>.Fail(
-                    EvaluationFailureCodes.CitationIntegrity,
-                    "source_binding"),
-            _ => EvaluationDecision<EvaluationEvidenceLocatorRecord>.Fail(
-                EvaluationFailureCodes.InvalidField,
-                "source_type"),
-        };
-
-    private static PersistedEvaluationEvidenceRow ToPersistedRow(EvaluationEvidenceLocatorRecord record) =>
-        new(
-            record.EvidenceId,
-            record.SourceType,
-            record.SourceId,
-            record.SourceVersionId,
-            record.SourceContentDigest,
-            record.LocatorSchema,
-            record.LocatorDigest,
-            record.Precision,
-            record.IntegrityState);
 
     public static EvaluationDecision<EvidenceItem> ToAuthoritativeEvidenceItem(
         EvaluationEvidenceLocatorRecord record,
@@ -181,8 +167,27 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
             source.Value,
             ownership,
             evaluationId,
-            record.Precision);
+            MapEvidencePrecision(record.Precision));
     }
+
+    private static string MapEvidencePrecision(string persistedPrecision) =>
+        persistedPrecision switch
+        {
+            "whole_item" => "whole_item_fallback",
+            _ => persistedPrecision,
+        };
+
+    private static PersistedEvaluationEvidenceRow ToPersistedRow(EvaluationEvidenceLocatorRecord record) =>
+        new(
+            record.EvidenceId,
+            record.SourceType,
+            record.SourceId,
+            record.SourceVersionId,
+            record.SourceContentDigest,
+            record.LocatorSchema,
+            record.LocatorDigest,
+            record.Precision,
+            record.IntegrityState);
 
     private static bool MatchesCommandItem(
         EvidenceItem commandItem,
@@ -191,7 +196,7 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
         && commandItem.Source.SourceId == persisted.SourceId
         && commandItem.Source.SourceVersionId == persisted.SourceVersionId
         && string.Equals(commandItem.Source.ContentDigest, persisted.SourceContentDigest, StringComparison.Ordinal)
-        && string.Equals(commandItem.Precision, persisted.Precision, StringComparison.Ordinal);
+        && string.Equals(commandItem.Precision, MapEvidencePrecision(persisted.Precision), StringComparison.Ordinal);
 
     private static bool BindsToFrozenSource(
         FrozenInputIdentity frozenInput,
@@ -199,12 +204,9 @@ public static class EvaluationCompletionPersistedEvidenceVerifier
         persisted.SourceType switch
         {
             "submission.direct_text" or "submission.text_attachment" =>
-                persisted.SourceId == frozenInput.Submission.SourceId
-                && persisted.SourceVersionId == frozenInput.Submission.SourceVersionId
-                && string.Equals(
-                    persisted.SourceContentDigest,
-                    frozenInput.Submission.ContentDigest,
-                    StringComparison.Ordinal),
+                persisted.SourceId != Guid.Empty
+                && persisted.SourceVersionId != Guid.Empty
+                && EvaluationIdentity.IsSha256Hex(persisted.SourceContentDigest),
             "deterministic.fact" =>
                 persisted.SourceId != Guid.Empty
                 && EvaluationIdentity.IsSha256Hex(persisted.SourceContentDigest),

@@ -9,7 +9,8 @@ public static class EvaluationCompletionAuthorityVerifier
         EvaluationRequest authoritativeRequest,
         EvaluationProcedureV1 procedure,
         EvaluationCompletionCommand command,
-        IReadOnlyList<EvidenceItem> authoritativeEvidenceItems)
+        IReadOnlyList<EvidenceItem> authoritativeEvidenceItems,
+        IReadOnlyList<EvaluationEvidenceLocatorRecord>? authoritativeLocatorRecords = null)
     {
         ArgumentNullException.ThrowIfNull(authoritativeRequest);
         ArgumentNullException.ThrowIfNull(procedure);
@@ -73,11 +74,17 @@ public static class EvaluationCompletionAuthorityVerifier
             validatedJudgments.Add(validated.Value);
         }
 
-        var expectedSealDigest = EvaluationCompletionEvidenceSeal.TryComputeExpectedDigest(
-            command.Completed.EvidenceSetId,
-            command.InvocationAttemptId,
-            authoritativeRequest.FrozenInput,
-            authoritativeEvidenceItems);
+        var expectedSealDigest = authoritativeLocatorRecords is { Count: > 0 }
+            ? EvaluationCompletionEvidenceSeal.TryComputeFromPersistedRecords(
+                command.Completed.EvidenceSetId,
+                command.InvocationAttemptId,
+                authoritativeRequest.FrozenInput,
+                authoritativeLocatorRecords)
+            : EvaluationCompletionEvidenceSeal.TryComputeExpectedDigest(
+                command.Completed.EvidenceSetId,
+                command.InvocationAttemptId,
+                authoritativeRequest.FrozenInput,
+                authoritativeEvidenceItems);
         if (!expectedSealDigest.Succeeded || expectedSealDigest.Value is null)
         {
             return EvaluationDecision<CompletedEvaluation>.Fail(

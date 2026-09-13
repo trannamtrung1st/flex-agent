@@ -202,11 +202,11 @@ public sealed class EvaluationCompletionAuthorityVerifierTests
             context.InvocationAttemptId,
             Guid.NewGuid(),
             Guid.NewGuid(),
-            EvaluationActorTypes.Service,
             Guid.NewGuid(),
             "unit.test",
             completed,
             context.EvidenceItems,
+            [],
             context.Judgments,
             []);
     }
