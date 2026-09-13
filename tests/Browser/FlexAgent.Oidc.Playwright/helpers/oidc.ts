@@ -53,6 +53,11 @@ export const syntheticUsers = {
     password: process.env.FLEXAGENT_OIDC_PARTICIPANT_PASSWORD ?? demoPassword,
     subject: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   },
+  reviewer: {
+    username: process.env.FLEXAGENT_OIDC_REVIEWER_USERNAME ?? "demo.reviewer",
+    password: process.env.FLEXAGENT_OIDC_REVIEWER_PASSWORD ?? demoPassword,
+    subject: "f1000000-0000-4000-8000-000000000001",
+  },
   unbound: {
     username: process.env.FLEXAGENT_OIDC_UNBOUND_USERNAME ?? "demo.unbound",
     password: process.env.FLEXAGENT_OIDC_UNBOUND_PASSWORD ?? demoPassword,

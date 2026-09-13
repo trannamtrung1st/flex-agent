@@ -198,7 +198,9 @@ matches those families where the host contract is implemented:
 | `/my-work/:enrollmentId` | `guided-task` |
 | `/sessions/:sessionId` | `live-session` |
 | `/sessions/:sessionId/operations`, `/sessions/:sessionId/transcript` | `management` nested records |
-| `/review`, `/review/:reviewId`, `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `guided-task` for Review/Release records. |
+| `/review` | `management` |
+| `/review/:reviewId`, `/review/:reviewId/criteria/:criterionId`, `/review/:reviewId/criteria/:criterionId/evidence/:evidenceId` | `guided-task` |
+| `/release`, `/release/:resultId`, `/results`, `/results/:resultId` | `management` today (honest ceremony / contract-unavailable). Approved targets remain `guided-task` for Release records. |
 | unknown locator (`*`) | `management` |
 
 When My work is available, production `/` redirects to `/my-work`; administrator
@@ -206,5 +208,7 @@ When My work is available, production `/` redirects to `/my-work`; administrator
 
 New production pages clone a matching existing production surface and Deck
 specimen. Isolated lab journeys remain donors for shells whose approved family
-is not yet production-backed (reviewer split ledger). Do not
-copy lab fixtures or invent a second chrome language.
+is not yet production-backed. Production Review work uses the management
+registry and guided-task assigned-record families; the lab reviewer split
+ledger is composition evidence only. Do not copy lab fixtures or invent a
+second chrome language.

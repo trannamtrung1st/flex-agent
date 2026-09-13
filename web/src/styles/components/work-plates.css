@@ -205,3 +205,40 @@
     width: 100%;
   }
 }
+
+/* Production Review work docket: participant hugs; assignment title absorbs leftover. */
+.queue-datatable .datatable-table thead th:not(.col-select):first-child {
+  width: 1%;
+}
+
+.queue-datatable .datatable-table thead th[data-col-min="title"] {
+  width: auto;
+}
+
+.queue-datatable .datatable-table tbody td.cell-id {
+  width: 1%;
+  min-width: var(--datatable-col-min);
+}
+
+.queue-datatable .datatable-table tbody td[data-col-min="title"] {
+  width: auto;
+}
+
+.review-criterion-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.review-criterion-nav__item {
+  display: block;
+}
+
+.review-evidence-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}

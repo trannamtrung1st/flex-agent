@@ -3,6 +3,7 @@ using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Canonicalization;
 using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.AssessmentConfiguration.Infrastructure;
+using FlexAgent.Evaluation.Application;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
@@ -71,6 +72,7 @@ public static partial class AssessmentEndpointExtensions
                     grants,
                     Guid.Empty),
                 FlexAgent.Submissions.Domain.EnrollmentAuthorizationActions.Discover) is null;
+        var reviewAvailable = grants.Contains(ReviewAuthorizedActions.ListWork, StringComparer.Ordinal);
 
         await context.Response.WriteAsJsonAsync(new
         {
@@ -84,6 +86,7 @@ public static partial class AssessmentEndpointExtensions
                 new { destination_id = "home", is_available = true },
                 new { destination_id = "activities", is_available = activitiesAvailable },
                 new { destination_id = "my-work", is_available = myWorkAvailable },
+                new { destination_id = "review", is_available = reviewAvailable },
             },
             permitted_actions = resolved.Authorization.PermittedActions,
         });

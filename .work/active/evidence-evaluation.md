@@ -2,7 +2,12 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-13T21:02:00+07:00
+updated: 2026-09-13T22:26:00+07:00
+phase9_status: implementation-pass-pending-review
+phase9_shape: confirmed-2026-09-13
+phase9_implementation: one-pass-2026-09-13
+phase9_consistency_review: working-fixes-2026-09-13
+phase9_confirmation: 2026-09-13-confirm-pass
 phase8: approved-473afd75
 phase8_status: approved
 phase8_review: approved-473afd75-0-blocker-0-high-0-medium-0-low
@@ -178,8 +183,13 @@ shell, and use the accepted Reviewer Design Lab journey only as a composition
 reference for criterion/Evidence content. Promote or recreate any required
 production-safe feature component outside `web/src/design-lab/` first; never
 import Design Lab fixtures, routes, reducers, storage, or styles into the
-production entry graph. No `$impeccable shape` work is authorized because the
-approved layout families and donors already exist.
+production entry graph.
+
+`$impeccable shape` was invoked for the documented composition gap: the lab
+reviewer is a management split-ledger, while production donors are a management
+registry plus a guided-task assigned record. The confirmed brief is recorded
+under Implementation decisions (Phase 9 composition). It does not replace the
+approved UI/UX specification or design system.
 
 # Dependency and activation gate
 
@@ -1291,59 +1301,47 @@ approved layout families and donors already exist.
 
 ## Phase 9 — Production reviewer inspection UI
 
-- [ ] Red: route/layout tests must first show `/review` and
-  `/review/:reviewId` are unavailable and not assigned to the required
-  management/guided-task families.
-- [ ] Assign `/review` to `management` and `/review/:reviewId` to
-  `guided-task`; preserve Production shell ownership, destination guards, and
-  deep-link authorization.
-- [ ] Build a typed Evaluation/Review query client with TanStack Query. Keys
-  must include current Organization/actor context and exact Review case/
-  Evaluation identity; purge protected caches on sign-out/context/assignment
-  loss, cancel in-flight reads, and render no prior protected data while access
-  is unresolved. Do not persist protected Evaluation/Evidence data in
-  `localStorage`, `sessionStorage`, IndexedDB, service-worker caches, URLs,
-  analytics, or browser logs. Do not use optimistic updates or client-owned
-  authority.
-- [ ] Implement a read-only Review work list for authorized assigned cases with
-  bounded status counts/filters and honest empty/loading/error/denial states.
-  Do not add claim, reassign, candidate, revision, decision, or Release
-  controls.
-- [ ] Implement the assigned-record hierarchy: case header, urgent status,
-  exact selected Evaluation/provenance summary, criterion navigation, active
-  criterion, Evidence references, and history/annotation. Show named timezone
-  for authoritative times. Keep disabled/ineligible
-  downstream stages semantically absent or explicitly unavailable rather than
-  visually active.
-- [ ] Use exact labels and state copy from the approved UI specification,
-  including **Internal Evaluation · Not a released Result**,
-  **Evaluation running. Criterion judgments are not available until
-  completion.**, **Open Evidence**, and **Back to criterion**.
-- [ ] Present modes as **Rule-based**, **Agent-assisted**, and **Agent
-  judgment**, with canonical values in technical provenance. Keep confidence,
-  uncertainty, insufficiency, lower precision, integrity, and provisional
-  feedback explicit and never rely on color alone.
-- [ ] Open Evidence deliberately in a subordinate view/route, reauthorize on
-  the server, show exact source/version/location/verification context, render
-  content inertly, never auto-fetch external links, and restore focus to the
-  originating Evidence reference on **Back to criterion**.
-- [ ] Red/green component tests for all applicable states, semantic headings/
-  landmarks, list/detail keyboard navigation, focus restoration, live-region
-  announcements without score disclosure, unsafe markup, cache purge,
-  assignment loss, responsive stacking, reduced motion, and forced colors.
-- [ ] Attach to an existing healthy candidate origin (`:5274` plus healthy
-  Compose `:18080`) or start only the documented origin if down. Match OIDC
-  redirect, sign in with synthetic Reviewer data, and use real API interactions.
-- [ ] Use Playwright MCP accessibility snapshots and mandatory screenshots at
-  desktop, narrow viewport, and 400% zoom for loading, empty, queued/running,
-  retryable failure, review-required, completed, insufficient/not-applicable,
-  lower-precision Evidence, denied/unavailable/integrity-changed source,
-  assignment loss, keyboard focus/return, reduced motion, and forced colors.
-  Keep artifacts under `.playwright-mcp/` and out of tracked records unless
-  deliberately committed after inspection.
-- [ ] Return a switched healthy API to canonical redirect with
-  `pnpm compose:api:canonical`; do not reseed or tear down the user's healthy
-  stack.
+- [x] Confirm `$impeccable shape` composition for the documented gap (lab
+  split-ledger vs production `management` list + `guided-task` record). Brief
+  recorded 2026-09-13; user confirmed. No code in this step.
+- [x] Red: route/layout tests first showed `/review/:reviewId` still mapped to
+  `management`; green assigned `/review` to `management` and case/criterion/
+  Evidence locators to `guided-task`.
+- [x] Assign `/review` to `management` and `/review/:reviewId` (plus nested
+  criterion/Evidence locators) to `guided-task`; preserve Production shell
+  ownership, destination guards, and deep-link authorization. Shell now emits
+  `review` when `review.work.list` is granted.
+- [x] Typed Review query client with TanStack Query. Keys include Organization/
+  actor plus case/criterion/Evidence identity; 2s poll while awaiting/queued/
+  running; no `placeholderData`; access-loss mapping for 401/403/`review.denied`.
+- [x] Read-only Review work list (registry donor) with honest empty/loading/
+  error/destination-denied states. No claim, reassign, candidate, revision,
+  decision, or Release controls. Client cursor "Load more" replaces the page
+  rather than appending; no server status facet.
+- [x] Assigned-record hierarchy on `AssignmentStationLayout`: identity rail,
+  in-well criterion `SplitBay`, processing plaques that own the well until
+  Evaluation completed. History/annotation well omitted (no Phase 8 API).
+- [x] Spec copy wired in `features/review/presentation.ts` including
+  **Internal Evaluation · Not a released Result**, running-evaluation copy,
+  **Open Evidence**, **Back to criterion**, and mode labels **Rule-based** /
+  **Agent-assisted** / **Agent judgment**.
+- [x] Nested Evidence route
+  `/review/:reviewId/criteria/:criterionId/evidence/:evidenceId` with inert
+  `display_text` and **Back to criterion** focus restore via element id.
+- [x] Component/query/route tests for list/case/Evidence, access-loss, unsafe
+  markup, and layout families. Reduced motion / forced colors / 400% not fully
+  covered by unit tests.
+- [x] Attached to candidate `:5274` plus healthy Compose `:18080`. Synthetic
+  Reviewer sign-in used after the live Keycloak realm (predating the seed user)
+  received a non-destructive `demo.reviewer` account bound to the seeded actor.
+- [x] Playwright MCP (partial): desktop/narrow/400% for destination-denied
+  (administrator), empty list, assignment-loss (guessed case), and Reviewer
+  Home. Queued/running/completed/Evidence/focus-return/reduced-motion/forced-
+  colors not reachable: live `review_cases` / assignments are empty and Worker
+  processing stays disabled. Artifacts stayed under `.playwright-mcp/`.
+- [x] Returned the healthy API to canonical redirect with
+  `pnpm compose:api:canonical` (API only; no reseed). Redirect is
+  `http://localhost:18080/auth/callback`.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1451,6 +1449,23 @@ approved layout families and donors already exist.
 - `/review` is the management index; `/review/:reviewId` is the guided assigned
   record. Design Lab supplies visual/composition evidence only and is never a
   production dependency.
+- Phase 9 composition (confirmed `$impeccable shape`, 2026-09-13; Operate mode;
+  Shipboard Terminal unchanged). List: clone `AssessmentActivitiesPage`
+  registry, not My-work assignment plates; recreate lab
+  `ReviewerQueueOperateArea`, `ReviewerQueueTableShell`, `ReviewerQueueEmpty`,
+  and `ReviewerSealedReadout` under production `web/src/components/work/` or
+  `web/src/features/review/`. Record: clone `AssignmentStationLayout`; rail is
+  identity `ReadoutList` only; compact criterion list + one active criterion
+  sit in the work well as two-track `SplitBay` (`start` list, `main`
+  `WorkWell seat="pane"`). Do not mount `ReviewerLedgerOperateArea`, a third
+  Evidence column, a decision foot, or a `PhaseSpine` that shows ineligible
+  stages as disabled-but-present. Incomplete Evaluation: status owns the well;
+  criterion navigation is semantically absent until `Evaluation completed`.
+  Evidence: nested route
+  `/review/:reviewId/criteria/:criterionId/evidence/:evidenceId` replaces the
+  well, keeps header/rail, reauthorizes on entry; **Back to criterion** is the
+  guided-task foot plus well head and restores focus. Locators only in the URL.
+  Human revision, decision, Result, and Release chrome stay absent, not greyed.
 - Evaluation status uses bounded request/response polling through TanStack
   Query unless measured requirements justify another approved transport. No
   new SSE authority is introduced by default.
@@ -1590,6 +1605,15 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
 
+**Phase 9 one-pass (2026-09-13) ready for review/refactor.** Production `/review`
+registry + guided-task case/Evidence routes are implemented against Phase 8
+APIs. Shell now advertises the `review` destination from `review.work.list`.
+Review HTTP admission uses the shared enrollment `read` surface (the previous
+`review.read` token is not in the SQL allowlist and 503'd). Live browser
+evidence covers empty, destination-denied, and assignment-loss; completed
+criterion/Evidence states need an assigned Review case seed (none in this
+stack). Do not claim Phase 9 complete until that review and remaining states.
+
 ## Upstream rollout checklist (Evaluation-required behaviors)
 
 | Upstream spec | Evaluation-required behavior | Evidence | Gate |
@@ -1634,6 +1658,33 @@ The only other active task is `text-interaction-controller-contract`
   Human Review journey. This task implements only its Evaluation-processing,
   criterion, Evidence, provenance, integrity, assignment-loss, accessibility,
   and responsive subset; decision/revision/Release behavior remains absent.
+- Phase 9 `$impeccable shape` (2026-09-13) closed the composition gap between
+  the lab management split-ledger and the production donors: registry list plus
+  guided-task record with in-well criterion inspector, nested Evidence route,
+  and processing plaques that own the well until completion. The approved
+  UI/UX specification and design system remain authority; the brief does not
+  add revision, decision, Result, or Release interaction.
+- Phase 9 one-pass (2026-09-13): `/v1/assessment/shell` previously omitted
+  `review`, so an authorized Reviewer hit destination-denied. Review endpoints
+  called shared admission with surface `review.read`, which the enrollment
+  permit function rejects (`NOT IN ('read','mutation')`) as 503. Interim
+  default: treat assigned-review GETs as `EnrollmentRequestSurfaces.Read`.
+  Known remaining shortcuts: cursor Load more replaces rather than appends;
+  compact criterion nav is a select plus prev/next; desktop criterion list is
+  plain links; no history/annotation well; guessed case 404/`review.denied`
+  uses the assignment-revoked plaque (non-disclosure).
+- Phase 9 consistency/working review (2026-09-13): Evidence deep-links on a
+  non-inspectable case opened Evidence instead of the processing well; **Back
+  to criterion** lived only in the guided-task foot; `WorkWellHead` sat in the
+  body slot; `review_required` hid criteria even though the host maps
+  `conflict_review_required` to `open_review` with criterion summaries.
+  Interim default: treat `completed` and `review_required` as inspectable
+  (`isInspectableReviewState`); awaiting/queued/running/retryable_failure still
+  own the well. Processing check now precedes Evidence; **Back to criterion**
+  is well head plus foot. Live Playwright on candidate `:5274` re-checked
+  empty registry and assignment-loss, including an Evidence URL that stayed
+  on the revoked plaque. Completed/running/Evidence inspector still needs an
+  assigned Review case seed.
 - No product, requirements, UI/UX, or architecture question blocks the core
   implementation. The detailed source procedure schema, database layout,
   endpoint names, polling interval, and built-in evaluator code are reversible
@@ -1764,6 +1815,10 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 model-response wider validation matrix (`8be2a125` → `d2d5c35d`) | approved | External review chain: initial `8be2a125` **0 Blocker / 0 High / 1 Medium / 0 Low** (lexical `"valid":false` scan); corrective `d2d5c35d` closes Medium via `VerifiedDeterministicOutputConflictInterpreter` schema-bound to `eval.builtin.schema-validate.output.v1`; corrective re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8be2a125`: Implementation `34735843429`; Documentation `34735843445` green. Authoritative head `d2d5c35d`; Implementation `34736764600`; Documentation `34736764589` — all six jobs green. `VerifiedDeterministicOutputConflictInterpreterTests` 11; `EvaluationModelResponseWiderValidationMatrixTests` 14; focused model-response suites **29**; Evaluation unit **379**; `verify-dotnet.sh` green (local). **Model-response validation parent gate closed.** **Phase 6 slice 2 closed/approved.** Worker disabled |
 | Phase 7 completion transaction + Review handoff (`0080` + `0081` + coordinator) | approved | External review at authoritative head `ea401127`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-ea401127-0-blocker-0-high-0-medium-0-low`). Chain: `909d5f66` reconcile/timestamp/provenance; `ea401127` immutable per-criterion `evaluation_deterministic_input_authority` + production `PostgresProtectedDeterministicInputAuthorityStore`; `11f88f45` work-plan bookkeeping. Hosted CI at `ea401127`: Implementation `34748779148`; Documentation `34748779101` — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke`). Focused: completion integration **26/26**; deterministic provenance **5/5**; Evaluation unit **407**; Postgres integration **501/501** (1 skipped). Worker disabled; processing/Release activation remain separate gates |
 | Phase 8 host APIs + active-assignment authorization (`0082` + `0083` + review endpoints) | approved | External review at authoritative head `473afd75`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-473afd75-0-blocker-0-high-0-medium-0-low`). Corrective chain: `d4a28268` source reauthorization + canonical locators + criterion evidence refs; `12881c53` exact pointer disclosure + criterion-Evidence retry equivalence; `d62591b0` shared resolver container dispatch; `473afd75` `"/"` empty-token semantics. Hosted CI at `473afd75`: Implementation `34761084839`; Documentation `34761084835` — all six jobs green. Focused: Evaluation unit **426**; Runtime **343**; Architecture **65**; Postgres integration **507/507** (1 skipped). Operational retry/annotate HTTP and browser `/v1/review` E2E deferred. **Phase 9 unblocked.** Worker disabled |
+| Phase 9 `$impeccable shape` composition brief | confirmed | User confirmed 2026-09-13. Gap: lab split-ledger vs production `management` registry + `guided-task` record. Seats: in-well criterion `SplitBay`; nested Evidence route; status owns the well until Evaluation completed. Recorded under Implementation decisions. No production UI code in this step. |
+| Phase 9 one-pass production Reviewer UI | implementation-pass | 2026-09-13. Red: `/review/:id` layout expected `guided-task` (failed `management`); shell review destination expected available (failed missing). Green: production routes/pages/client, shell `review` destination, review GETs on enrollment `read` admission. Focused: Runtime shell destination **3** passed; web review client/pages/layouts/routes previously **36** plus typecheck. Playwright MCP on candidate `:5274`: administrator destination-denied; Reviewer empty registry (desktop/narrow/400%); guessed-case assignment-loss (desktop/narrow); Reviewer Home plate. Not verified live: queued/running/completed/Evidence (zero `review_cases`). Canonical redirect restored. Worker disabled. Ready for review/refactor, not Phase 9 completion. |
+| Phase 9 consistency/working review | implementation-pass | 2026-09-13. Closed: Evidence URL on running owned by processing well; well-head plus foot **Back to criterion**; `WorkWell` `head` slot; `review_required` inspectable. Red then green: case-page tests (running Evidence URL, two Back links, conflict inspector) plus `isInspectableReviewState`. Focused web **20** passed; `tsc` and frontend isolation passed. Playwright MCP candidate `:5274` as `demo.reviewer`: empty registry desktop/narrow; guessed-case and Evidence-URL assignment-loss desktop/narrow. Not live: completed criterion/Evidence inspector (zero `review_cases`). Remaining shortcuts: Load more replace, compact select nav, no history well. Not Phase 9 completion. |
+| Phase 9 confirmation pass | implementation-pass | 2026-09-13. Re-ran focused web **20**, `tsc`, isolation; Runtime Reviewer shell destination **2**. Live `:5274` as Demo Reviewer: empty registry, guessed-case assignment-loss, Home still offers Review work. Canonical API redirect remains `http://localhost:18080/auth/callback`; existing candidate session still served `/v1/review`. Not Phase 9 completion. |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
@@ -1771,8 +1826,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 payload-digest/citation remainder (`87b72647` → `abe4e902` → `86877105`) | approved | External review 2026-09-12 on corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low** at authoritative head `86877105`. `87b72647` initial increment (2 Medium / 1 Low — not approved). `abe4e902` closes JCS logical-payload ambiguity and citation-authority Medium via `ProtectedModelResponseWireBytesDigest` (`evaluation-model-response-wire-content-digest-sha256-v1`), `EvaluationModelPermittedEvidenceAuthorityVerifier`, and authoritative expected-invocation source types. `86877105` closes structural digest Medium via `EvaluationModelResponseContentDigestWireLocator` (`Utf8JsonReader` span + zero-fill); total `TryVerify`/`TryCompute`; provider-format negatives. Hosted CI at `86877105`: Implementation `34701640874` and Documentation `34701640828` — all six jobs green. Docs-only `89f99d7f` (Documentation `34701869099`; Implementation `34701869112` change-detector only). Focused: `ProtectedModelResponseWireBytesDigestTests` 9; `EvaluationModelPermittedEvidenceAuthorityVerifierTests` 2; `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **340**; `verify-dotnet.sh` green (local). **Payload-digest/citation increment closed.** **Schema parse gate remains closed.** **Slice 2 not closed** — credential fail-closed review/CI for `fb0c79fb` outstanding. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
-| Frontend component/accessibility/responsive tests | pending | Populate during implementation |
-| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | pending | Required during UI implementation; keep local artifacts under `.playwright-mcp/` unless deliberately committed |
+| Frontend component/accessibility/responsive tests | partial | Phase 9 one-pass: production review client/page/layout tests green; reduced motion/forced colors/400% not fully unit-covered |
+| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | partial | Consistency review local MCP on candidate `:5274`: empty registry desktop/narrow; assignment-loss including Evidence URL desktop/narrow. Not live: queued/running/completed/Evidence inspector. Keep artifacts under `.playwright-mcp/` |
 | Performance objectives (`PROP-6`) | pending | Representative status/completion measurements required before completion |
 | Full regression and OIDC/Compose gates | pending | Run proportionately when implementation reaches integration readiness |
 | Independent backend/frontend/security/privacy/QA review | pending | Required after implementation and before completion/retirement |

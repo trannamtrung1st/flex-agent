@@ -5,6 +5,7 @@ using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Evaluation.Infrastructure.Review;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Submissions.Domain;
 using FlexAgent.Submissions.Infrastructure;
 
 namespace FlexAgent.Api;
@@ -129,7 +130,9 @@ public static class ReviewEndpointExtensions
 
     private static async Task<AssignedReviewActorContext?> TryReviewActorAsync(HttpContext context)
     {
-        var enrollmentActor = await EnrollmentEndpointExtensions.AcceptAuthenticatedAsync(context, "review.read");
+        var enrollmentActor = await EnrollmentEndpointExtensions.AcceptAuthenticatedAsync(
+            context,
+            EnrollmentRequestSurfaces.Read);
         if (enrollmentActor is null)
         {
             return null;

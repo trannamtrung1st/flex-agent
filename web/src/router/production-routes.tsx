@@ -14,6 +14,8 @@ import { ProductionEnrollmentPage } from "../pages/ProductionEnrollmentPage";
 import { ProductionHomePage } from "../pages/ProductionHomePage";
 import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage";
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
+import { ProductionReviewCasePage } from "../pages/ProductionReviewCasePage";
+import { ProductionReviewWorkPage } from "../pages/ProductionReviewWorkPage";
 import { ProductionTextSessionPage } from "../pages/ProductionTextSessionPage";
 import { ProductionSessionOperationsPage } from "../pages/ProductionSessionOperationsPage";
 import { ProductionSessionTranscriptPage } from "../pages/ProductionSessionTranscriptPage";
@@ -206,10 +208,7 @@ export function createProductionRouter() {
         path: "review",
         element: (
           <ProductionDestinationGuard destinationId="review">
-            <ProductionContractUnavailable
-              title="Review work"
-              note="Review-case APIs are not exposed to this SPA yet. Evaluation, Human revision, and Review decision remain distinct server objects."
-            />
+            <ProductionReviewWorkPage />
           </ProductionDestinationGuard>
         ),
       },
@@ -217,10 +216,23 @@ export function createProductionRouter() {
         path: "review/:reviewId",
         element: (
           <ProductionDestinationGuard destinationId="review">
-            <ProductionContractUnavailable
-              title="Review case"
-              note="This locator is not backed by a production Review API in the current contract set."
-            />
+            <ProductionReviewCasePage />
+          </ProductionDestinationGuard>
+        ),
+      },
+      {
+        path: "review/:reviewId/criteria/:criterionId",
+        element: (
+          <ProductionDestinationGuard destinationId="review">
+            <ProductionReviewCasePage />
+          </ProductionDestinationGuard>
+        ),
+      },
+      {
+        path: "review/:reviewId/criteria/:criterionId/evidence/:evidenceId",
+        element: (
+          <ProductionDestinationGuard destinationId="review">
+            <ProductionReviewCasePage />
           </ProductionDestinationGuard>
         ),
       },

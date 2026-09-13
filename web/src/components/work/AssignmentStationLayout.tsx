@@ -18,6 +18,10 @@ export function AssignmentStationLayout({
   actions,
   overlays,
   mainLabel = "Assignment",
+  railHomeTo = "/my-work",
+  railHomeLabel = "My work",
+  brandSuffix = "Assignment Station",
+  railLabel = "Assignment instruments",
 }: {
   instruments: ReactNode;
   heading: ReactNode;
@@ -25,6 +29,10 @@ export function AssignmentStationLayout({
   actions?: ReactNode;
   overlays?: ReactNode;
   mainLabel?: string;
+  railHomeTo?: string;
+  railHomeLabel?: string;
+  brandSuffix?: string;
+  railLabel?: string;
 }) {
   const { logout, shell, errorMessage } = useProductionApi();
   const { theme, toggleTheme } = useTheme();
@@ -39,11 +47,11 @@ export function AssignmentStationLayout({
     <GuidedTaskLayout
       homeTo={identity.home}
       homeLabel="Home"
-      railLabel="Assignment instruments"
-      brandSuffix="Assignment Station"
+      railLabel={railLabel}
+      brandSuffix={brandSuffix}
       brandExtras={(
         <>
-          <RailHomeLink to="/my-work">My work</RailHomeLink>
+          <RailHomeLink to={railHomeTo}>{railHomeLabel}</RailHomeLink>
           <ProfileMenu
             identity={identity}
             actions={operatorAccountActions(theme, toggleTheme, () => { void logout(); })}

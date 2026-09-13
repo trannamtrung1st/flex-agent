@@ -9,6 +9,7 @@ using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Evaluation.Application;
 using FlexAgent.Submissions.Domain;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -418,7 +419,25 @@ public sealed class AssessmentHttpNegativeContractTests
         Assert.False(string.IsNullOrWhiteSpace(shellDocument.RootElement.GetProperty("actor_id").GetString()));
         Assert.False(DestinationAvailable(shellDocument, "activities"));
         Assert.False(DestinationAvailable(shellDocument, "my-work"));
+        Assert.False(DestinationAvailable(shellDocument, "review"));
         Assert.DoesNotContain("title", activityBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reviewer_with_list_work_grant_receives_the_review_destination_without_mfa()
+    {
+        await using var context = await LoginAsync(
+            mfa: false,
+            relationship: AuthenticationStrengthEvaluator.ReviewerRelationship,
+            actions: [ReviewAuthorizedActions.ListWork]);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        using var shellDocument = JsonDocument.Parse(await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
+        Assert.Equal(AuthenticationStrengthEvaluator.ReviewerRelationship, shellDocument.RootElement.GetProperty("relationship").GetString());
+        Assert.False(DestinationAvailable(shellDocument, "activities"));
+        Assert.False(DestinationAvailable(shellDocument, "my-work"));
+        Assert.True(DestinationAvailable(shellDocument, "review"));
     }
 
     [Fact]
