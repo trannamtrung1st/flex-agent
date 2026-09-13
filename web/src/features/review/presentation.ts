@@ -132,7 +132,7 @@ export function evidenceLocationCopy(location: EvidenceLocationV1) {
     return `Lines ${location.start_line_inclusive}–${location.end_line_inclusive} of ${location.item_id}`;
   }
   if (location.location_type === "utf8_byte_range") {
-    return `Bytes ${location.start_inclusive}–${location.end_exclusive} of ${location.item_id}`;
+    return `Bytes [${location.start_inclusive}, ${location.end_exclusive}) of ${location.item_id}`;
   }
   return `JSON pointer ${location.json_pointer}`;
 }

@@ -11,14 +11,14 @@ const PROCESSING_POLL_MS = 2000;
 async function runReviewQuery<T>(
   queryClient: QueryClient,
   scope: ReviewQueryScope,
-  target: { reviewCaseId?: string },
   query: () => Promise<T>,
 ): Promise<T> {
   try {
     return await query();
   } catch (error) {
     if (isReviewAccessLoss(error)) {
-      await purgeReviewProtectedCache(queryClient, scope, target.reviewCaseId);
+      await Promise.resolve();
+      await purgeReviewProtectedCache(queryClient, scope);
     }
     throw error;
   }
@@ -71,7 +71,6 @@ export function useReviewWorkQuery(
     queryFn: ({ signal }) => runReviewQuery(
       queryClient,
       resolvedScope,
-      {},
       () => client.listWork(cursor, signal),
     ),
     enabled: Boolean(scope?.actorId && scope.organizationId),
@@ -97,7 +96,6 @@ export function useReviewCaseQuery(
     queryFn: ({ signal }) => runReviewQuery(
       queryClient,
       resolvedScope,
-      { reviewCaseId },
       () => client.getCase(reviewCaseId!, signal),
     ),
     enabled: Boolean(scope?.actorId && scope.organizationId && reviewCaseId),
@@ -128,7 +126,6 @@ export function useReviewCriterionQuery(
       const result = await runReviewQuery(
         queryClient,
         resolvedScope,
-        { reviewCaseId },
         () => client.getCriterion(reviewCaseId!, criterionId!, signal),
       );
       assertSelectedEvaluationIdentity(result, evaluationId!);
@@ -167,7 +164,6 @@ export function useReviewEvidenceQuery(
       const result = await runReviewQuery(
         queryClient,
         resolvedScope,
-        { reviewCaseId },
         () => client.openEvidence(reviewCaseId!, evidenceId!, signal),
       );
       assertSelectedEvaluationIdentity(result, evaluationId!);

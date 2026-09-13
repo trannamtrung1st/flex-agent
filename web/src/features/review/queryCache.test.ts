@@ -7,9 +7,15 @@ const scope = { actorId: "actor-1", organizationId: "org-1" };
 const caseId = "case-1";
 
 describe("purgeReviewProtectedCache", () => {
-  it("removes the Review case subtree when assignment is lost", async () => {
+  it("removes all cached Review data for the actor and organization on access loss", async () => {
     const queryClient = createFlexQueryClient();
-    queryClient.setQueryData(reviewKeys.case(scope, caseId), { review_case_id: caseId });
+    queryClient.setQueryData(reviewKeys.work(scope), {
+      items: [{ review_case_id: caseId, task_label: "Case study" }],
+    });
+    queryClient.setQueryData(reviewKeys.case(scope, caseId), {
+      review_case_id: caseId,
+      participant_label: "Participant One",
+    });
     queryClient.setQueryData(
       reviewKeys.criterion(scope, caseId, "eval-1", "crit-1"),
       { rationale: "protected" },
@@ -19,22 +25,12 @@ describe("purgeReviewProtectedCache", () => {
       { display_text: "protected" },
     );
 
-    await purgeReviewProtectedCache(queryClient, scope, caseId);
-
-    expect(queryClient.getQueryData(reviewKeys.case(scope, caseId))).toEqual({ review_case_id: caseId });
-    expect(queryClient.getQueryData(reviewKeys.criterion(scope, caseId, "eval-1", "crit-1"))).toBeUndefined();
-    expect(queryClient.getQueryData(reviewKeys.evidence(scope, caseId, "eval-1", "ev-1"))).toBeUndefined();
-  });
-
-  it("removes the entire Review scope when work access is lost", async () => {
-    const queryClient = createFlexQueryClient();
-    queryClient.setQueryData(reviewKeys.work(scope), { items: [] });
-    queryClient.setQueryData(reviewKeys.case(scope, caseId), { review_case_id: caseId });
-
     await purgeReviewProtectedCache(queryClient, scope);
 
     expect(queryClient.getQueryData(reviewKeys.work(scope))).toBeUndefined();
     expect(queryClient.getQueryData(reviewKeys.case(scope, caseId))).toBeUndefined();
+    expect(queryClient.getQueryData(reviewKeys.criterion(scope, caseId, "eval-1", "crit-1"))).toBeUndefined();
+    expect(queryClient.getQueryData(reviewKeys.evidence(scope, caseId, "eval-1", "ev-1"))).toBeUndefined();
   });
 });
 

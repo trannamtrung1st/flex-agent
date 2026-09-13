@@ -27,6 +27,13 @@ describe("review presentation", () => {
     expect(evidenceLocationCopy({ location_type: "json_pointer", json_pointer: "/answer" })).toBe(
       "JSON pointer /answer",
     );
+    expect(evidenceLocationCopy({
+      location_type: "utf8_byte_range",
+      item_id: "item-1",
+      start_inclusive: 12,
+      end_exclusive: 24,
+      excerpt_digest: "a".repeat(64),
+    })).toBe("Bytes [12, 24) of item-1");
     expect(verificationStateCopy("verified")).toBe("Verified");
     expect(WHOLE_ITEM_PRECISION).toMatch(/Whole item cited/);
     expect(isInspectableReviewState("completed")).toBe(true);

@@ -290,11 +290,15 @@ describe("ProductionReviewCasePage", () => {
       reviewKeys.criterion(scope, CASE_ID, "eval-1", "crit-1"),
       criterion(),
     );
+    queryClient.setQueryData(reviewKeys.work(scope), {
+      items: [{ review_case_id: CASE_ID, task_label: "Case study" }],
+    });
     renderCase(`/review/${CASE_ID}`, queryClient);
     expect(await screen.findByText(/no longer assigned to you/i)).toBeVisible();
     expect(screen.queryByText("The accepted Submission states the required fact.")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(queryClient.getQueryData(reviewKeys.criterion(scope, CASE_ID, "eval-1", "crit-1"))).toBeUndefined();
+      expect(queryClient.getQueryData(reviewKeys.work(scope))).toBeUndefined();
     });
   });
 });

@@ -1,46 +1,41 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import type { ReviewQueryScope } from "../../api/production-review";
 import { reviewKeys } from "./queryKeys";
 
-function hasCachedPayload(query: { state: { data: unknown } }) {
+function hasCachedPayload(query: Query) {
   return query.state.data !== undefined;
 }
 
-function isInFlight(query: { state: { fetchStatus: string } }) {
-  return query.state.fetchStatus === "fetching";
-}
-
-function isEvaluationScopedQuery(query: { queryKey: readonly unknown[] }) {
-  return query.queryKey.includes("evaluations");
+function isEvaluationQueryKey(queryKey: readonly unknown[]) {
+  return queryKey.includes("evaluations");
 }
 
 export async function purgeReviewProtectedCache(
   queryClient: QueryClient,
   scope: ReviewQueryScope,
-  reviewCaseId?: string,
 ) {
-  if (reviewCaseId) {
-    const queryKey = reviewKeys.caseRoot(scope, reviewCaseId);
-    await queryClient.cancelQueries({
-      queryKey,
-      predicate: (query) => isInFlight(query) && isEvaluationScopedQuery(query),
-    });
-    queryClient.removeQueries({
-      queryKey,
-      predicate: (query) => hasCachedPayload(query) && isEvaluationScopedQuery(query),
-    });
-    return;
-  }
-
   const queryKey = reviewKeys.all(scope);
+
   await queryClient.cancelQueries({
     queryKey,
-    predicate: isInFlight,
+    predicate: (query) =>
+      query.state.fetchStatus === "fetching" && isEvaluationQueryKey(query.queryKey),
   });
-  queryClient.removeQueries({
-    queryKey,
-    predicate: hasCachedPayload,
-  });
+
+  for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
+    if (!hasCachedPayload(query)) {
+      continue;
+    }
+
+    if (query.getObserversCount() > 0) {
+      query.setState({
+        data: undefined,
+      });
+      continue;
+    }
+
+    queryClient.removeQueries({ queryKey: query.queryKey, exact: true });
+  }
 }
 
 export async function purgeReviewEvaluationCache(
@@ -52,7 +47,7 @@ export async function purgeReviewEvaluationCache(
   const queryKey = reviewKeys.evaluation(scope, reviewCaseId, evaluationId);
   await queryClient.cancelQueries({
     queryKey,
-    predicate: isInFlight,
+    predicate: (query) => query.state.fetchStatus === "fetching",
   });
   queryClient.removeQueries({
     queryKey,
