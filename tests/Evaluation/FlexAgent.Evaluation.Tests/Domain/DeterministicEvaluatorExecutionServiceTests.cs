@@ -126,8 +126,24 @@ public sealed class DeterministicEvaluatorExecutionServiceTests
         IEvaluatorRegistry registry,
         IDeterministicEvaluatorRunner runner,
         IDeterministicInvocationStore store,
-        IProtectedDeterministicOutputStore? outputStore = null) =>
-        new(authorityStore, procedureSource, registry, runner, store, outputStore ?? new NoOpOutputStore());
+        IProtectedDeterministicOutputStore? outputStore = null,
+        IProtectedDeterministicInputAuthorityStore? inputAuthorityStore = null) =>
+        new(
+            authorityStore,
+            procedureSource,
+            registry,
+            runner,
+            store,
+            outputStore ?? new NoOpOutputStore(),
+            inputAuthorityStore ?? new NoOpInputAuthorityStore());
+
+    private sealed class NoOpInputAuthorityStore : IProtectedDeterministicInputAuthorityStore
+    {
+        public Task<EvaluationDecision<bool>> TryEstablishAsync(
+            ProtectedDeterministicInputAuthorityEstablishCommand command,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(EvaluationDecision<bool>.Ok(true));
+    }
 
     private sealed class NoOpOutputStore : IProtectedDeterministicOutputStore
     {

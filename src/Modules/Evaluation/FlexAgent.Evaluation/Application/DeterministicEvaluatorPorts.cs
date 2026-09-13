@@ -50,13 +50,32 @@ public sealed record ProtectedDeterministicOutputPersistCommand(
     string OutputContentDigest,
     ReadOnlyMemory<byte> OutputUtf8);
 
+public interface IProtectedDeterministicInputAuthorityStore
+{
+    Task<EvaluationDecision<bool>> TryEstablishAsync(
+        ProtectedDeterministicInputAuthorityEstablishCommand command,
+        CancellationToken cancellationToken);
+}
+
+public sealed record ProtectedDeterministicInputAuthorityEstablishCommand(
+    EvaluationOwnership Ownership,
+    Guid RequestId,
+    Guid InvocationAttemptId,
+    string CriterionId,
+    string CriterionVersion,
+    Guid DeterministicAttemptId,
+    string CanonicalInputDigest,
+    string ProtectedInputRef,
+    ReadOnlyMemory<byte> InputUtf8);
+
 public sealed class DeterministicEvaluatorExecutionService(
     IEvaluationRequestAuthorityStore authorityStore,
     IProtectedEvaluationProcedureSource procedureSource,
     IEvaluatorRegistry registry,
     IDeterministicEvaluatorRunner runner,
     IDeterministicInvocationStore store,
-    IProtectedDeterministicOutputStore outputStore)
+    IProtectedDeterministicOutputStore outputStore,
+    IProtectedDeterministicInputAuthorityStore inputAuthorityStore)
 {
     public async Task<EvaluationDecision<DeterministicEvaluatorExecutionResult>> TryExecuteAndPersistAsync(
         DeterministicEvaluatorExecutionRequest request,
@@ -130,6 +149,32 @@ public sealed class DeterministicEvaluatorExecutionService(
             return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Fail(
                 append.OutcomeCode,
                 append.Field);
+        }
+
+        if (string.Equals(
+                execution.Value.Outcome,
+                DeterministicInvocationOutcomes.Succeeded,
+                StringComparison.Ordinal)
+            && execution.Value.ProtectedInputRef is not null)
+        {
+            var establishInput = await inputAuthorityStore.TryEstablishAsync(
+                new ProtectedDeterministicInputAuthorityEstablishCommand(
+                    request.Ownership,
+                    request.RequestId,
+                    request.InvocationAttemptId,
+                    request.CriterionId,
+                    request.CriterionVersion,
+                    execution.Value.DeterministicAttemptId,
+                    request.Input.CanonicalInputDigest,
+                    execution.Value.ProtectedInputRef,
+                    request.Input.CanonicalUtf8),
+                cancellationToken);
+            if (!establishInput.Succeeded)
+            {
+                return EvaluationDecision<DeterministicEvaluatorExecutionResult>.Fail(
+                    establishInput.OutcomeCode,
+                    establishInput.Field);
+            }
         }
 
         if (string.Equals(

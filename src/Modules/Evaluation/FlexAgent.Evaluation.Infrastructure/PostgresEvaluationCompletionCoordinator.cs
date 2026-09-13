@@ -889,6 +889,10 @@ public sealed class PostgresEvaluationCompletionCoordinator(
             scope,
             command,
             cancellationToken);
+        var inputAuthorities = await LoadDeterministicInputAuthoritiesAsync(
+            scope,
+            command,
+            cancellationToken);
         foreach (var judgment in command.Judgments)
         {
             if (judgment.DeterministicInvocationId is null)
@@ -909,6 +913,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     criterion,
                     command.InvocationAttemptId,
                     attempts,
+                    inputAuthorities,
                     authoritativeEvidence,
                     out _))
             {
@@ -941,6 +946,36 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                     protected_input_ref AS ProtectedInputRef,
                     outcome AS Outcome
                 FROM evaluation_deterministic_attempts
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId
+                  AND invocation_attempt_id = @InvocationAttemptId;
+                """,
+                new
+                {
+                    command.Completed.Ownership.OrganizationId,
+                    command.RequestId,
+                    command.InvocationAttemptId,
+                },
+                scope.Transaction,
+                cancellationToken: cancellationToken));
+
+        return rows.AsList();
+    }
+
+    private static async Task<IReadOnlyList<DeterministicInputAuthorityRecord>> LoadDeterministicInputAuthoritiesAsync(
+        PostgresTransactionScope scope,
+        EvaluationCompletionCommand command,
+        CancellationToken cancellationToken)
+    {
+        var rows = await scope.Connection.QueryAsync<DeterministicInputAuthorityRecord>(
+            new CommandDefinition(
+                """
+                SELECT
+                    criterion_id AS CriterionId,
+                    criterion_version AS CriterionVersion,
+                    canonical_input_digest AS CanonicalInputDigest,
+                    protected_input_ref AS ProtectedInputRef
+                FROM evaluation_deterministic_input_authority
                 WHERE organization_id = @OrganizationId
                   AND request_id = @RequestId
                   AND invocation_attempt_id = @InvocationAttemptId;

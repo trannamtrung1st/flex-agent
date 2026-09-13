@@ -1,5 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Dapper;
+using FlexAgent.Contracts.Evaluation;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
@@ -12,9 +15,11 @@ namespace FlexAgent.Postgres.Integration.Tests.Support;
 
 internal static class EvaluationCompletionTestSupport
 {
-    internal const string IntegrationCanonicalInputDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
-
     internal sealed record CompletionBundle(EvaluationCompletionCommand Command);
+
+    internal static string IntegrationCanonicalInputDigest(
+        EvaluationProcedureCriterionV1 criterion) =>
+        BuildAuthoritativeCanonicalInput(criterion).Digest;
 
     internal static PostgresEvaluationCompletionCoordinator CreateCoordinator(
         PostgresIntegrationFixture fixture,
@@ -92,6 +97,9 @@ internal static class EvaluationCompletionTestSupport
 
             var attemptId = Guid.CreateVersion7();
             deterministicAttemptIds[criterion.CriterionId] = attemptId;
+            var (canonicalUtf8, authoritativeDigest) = BuildAuthoritativeCanonicalInput(criterion);
+            var attemptDigest = forgedCanonicalInputDigest ?? authoritativeDigest;
+            var attemptProtectedRef = DeterministicInvocationProvenance.ProtectedInputRef(attemptDigest);
             await connection.ExecuteAsync(
                 """
                 INSERT INTO evaluation_deterministic_attempts (
@@ -118,14 +126,37 @@ internal static class EvaluationCompletionTestSupport
                     criterion.DeterministicEvaluator.EvaluatorId,
                     criterion.DeterministicEvaluator.EvaluatorVersion,
                     criterion.DeterministicEvaluator.EvaluatorDigest,
-                    CanonicalInputDigest = forgedCanonicalInputDigest ?? IntegrationCanonicalInputDigest,
-                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(
-                        IntegrationCanonicalInputDigest),
+                    CanonicalInputDigest = attemptDigest,
+                    ProtectedInputRef = attemptProtectedRef,
                     criterion.DeterministicEvaluator.DependencyDigest,
                     criterion.DeterministicEvaluator.ConfigurationDigest,
                     OutputContentDigest = new string('2', 64),
                     StartedAt = completedAt.AddSeconds(-1),
                     FinishedAt = completedAt,
+                });
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO evaluation_deterministic_input_authority (
+                    organization_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version, canonical_input_digest,
+                    protected_input_ref, input_utf8, established_by_attempt_id, created_at)
+                VALUES (
+                    @OrganizationId, @RequestId, @InvocationAttemptId,
+                    @CriterionId, @CriterionVersion, @CanonicalInputDigest,
+                    @ProtectedInputRef, @InputUtf8, @DeterministicAttemptId, @CreatedAt);
+                """,
+                new
+                {
+                    claimed.Ownership.OrganizationId,
+                    claimed.RequestId,
+                    claimed.InvocationAttemptId,
+                    criterion.CriterionId,
+                    criterion.CriterionVersion,
+                    CanonicalInputDigest = authoritativeDigest,
+                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(authoritativeDigest),
+                    InputUtf8 = canonicalUtf8,
+                    DeterministicAttemptId = attemptId,
+                    CreatedAt = completedAt,
                 });
         }
 
@@ -323,6 +354,23 @@ internal static class EvaluationCompletionTestSupport
           "created_by":{"service_id":"evaluation.integration","invocation_id":"inv.completion.test"}
         }
         """;
+
+    internal static (byte[] Utf8, string Digest) BuildAuthoritativeCanonicalInput(
+        EvaluationProcedureCriterionV1 criterion)
+    {
+        var binding = criterion.DeterministicEvaluator!;
+        var inputJson = JsonSerializer.Serialize(new
+        {
+            schema = binding.InputSchemaId,
+            operation = "word_count",
+            text = "alpha beta",
+            minimum = 1,
+            maximum = 10,
+        });
+        var utf8 = Encoding.UTF8.GetBytes(inputJson);
+        var digest = Convert.ToHexString(SHA256.HashData(utf8)).ToLowerInvariant();
+        return (utf8, digest);
+    }
 
     private sealed record RequestRow(
         string handoff_id,

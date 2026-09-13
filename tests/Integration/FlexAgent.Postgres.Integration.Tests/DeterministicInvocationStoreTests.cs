@@ -144,6 +144,35 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
     }
 
     [Fact]
+    public async Task Successful_invocation_establishes_canonical_input_authority()
+    {
+        var context = await ExecuteAndPersistAsync();
+        var attemptId = context.First.Value!.DeterministicAttemptId;
+
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var authorityCount = await connection.QuerySingleAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM evaluation_deterministic_input_authority
+            WHERE organization_id = @OrganizationId
+              AND request_id = @RequestId
+              AND established_by_attempt_id = @DeterministicAttemptId
+              AND canonical_input_digest = @CanonicalInputDigest
+              AND protected_input_ref = @ProtectedInputRef;
+            """,
+            new
+            {
+                context.Claimed.Ownership.OrganizationId,
+                context.Claimed.RequestId,
+                DeterministicAttemptId = attemptId,
+                context.Request.Input.CanonicalInputDigest,
+                ProtectedInputRef = context.First.Value.ProtectedInputRef,
+            });
+        Assert.Equal(1, authorityCount);
+    }
+
+    [Fact]
     public async Task Successful_invocation_materializes_protected_output_payload()
     {
         var context = await ExecuteAndPersistAsync();
@@ -204,13 +233,16 @@ public sealed class DeterministicInvocationStoreTests(PostgresIntegrationFixture
         var authorityStore = new PostgresEvaluationRequestAuthorityStore(Fixture.Services.ConnectionAccessor);
         var procedureSource = new PostgresProtectedEvaluationProcedureSource(Fixture.Services.ConnectionAccessor);
         var outputStore = new PostgresProtectedDeterministicOutputStore(Fixture.Services.ConnectionAccessor);
+        var inputAuthorityStore = new PostgresProtectedDeterministicInputAuthorityStore(
+            Fixture.Services.ConnectionAccessor);
         var service = new DeterministicEvaluatorExecutionService(
             authorityStore,
             procedureSource,
             registry,
             runner,
             store,
-            outputStore);
+            outputStore,
+            inputAuthorityStore);
 
         var rubric = prepared.Request.FrozenInput.Rubric;
         var payload = await procedureSource.GetCanonicalUtf8Async(

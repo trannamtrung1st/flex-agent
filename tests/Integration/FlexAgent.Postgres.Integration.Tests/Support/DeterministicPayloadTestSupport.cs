@@ -39,13 +39,16 @@ internal static class DeterministicPayloadTestSupport
         var authorityStore = new PostgresEvaluationRequestAuthorityStore(fixture.Services.ConnectionAccessor);
         var procedureSource = new PostgresProtectedEvaluationProcedureSource(fixture.Services.ConnectionAccessor);
         var outputStore = new PostgresProtectedDeterministicOutputStore(fixture.Services.ConnectionAccessor);
+        var inputAuthorityStore = new PostgresProtectedDeterministicInputAuthorityStore(
+            fixture.Services.ConnectionAccessor);
         var service = new DeterministicEvaluatorExecutionService(
             authorityStore,
             procedureSource,
             registry,
             runner,
             store,
-            outputStore);
+            outputStore,
+            inputAuthorityStore);
 
         var rubric = prepared.Request.FrozenInput.Rubric;
         var payload = await procedureSource.GetCanonicalUtf8Async(
@@ -105,13 +108,16 @@ internal static class DeterministicPayloadTestSupport
         var store = new PostgresDeterministicInvocationStore(fixture.Services.ConnectionAccessor);
         var authorityStore = new PostgresEvaluationRequestAuthorityStore(fixture.Services.ConnectionAccessor);
         var procedureSource = new PostgresProtectedEvaluationProcedureSource(fixture.Services.ConnectionAccessor);
+        var inputAuthorityStore = new PostgresProtectedDeterministicInputAuthorityStore(
+            fixture.Services.ConnectionAccessor);
         var service = new DeterministicEvaluatorExecutionService(
             authorityStore,
             procedureSource,
             registry,
             runner,
             store,
-            new NoOpOutputStore());
+            new NoOpOutputStore(),
+            inputAuthorityStore);
 
         var rubric = prepared.Request.FrozenInput.Rubric;
         var payload = await procedureSource.GetCanonicalUtf8Async(

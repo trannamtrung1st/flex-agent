@@ -840,7 +840,7 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
                     EvaluatorDigest = sourceAttempt.evaluator_digest,
                     CanonicalInputDigest = new string('e', 64),
                     ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(
-                        EvaluationCompletionTestSupport.IntegrationCanonicalInputDigest),
+                        new string('e', 64)),
                     DependencyDigest = sourceAttempt.dependency_digest,
                     ConfigurationDigest = sourceAttempt.configuration_digest,
                     OutputContentDigest = new string('2', 64),
@@ -911,7 +911,90 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     }
 
     [Fact]
-    public async Task Completion_succeeds_with_non_fixture_deterministic_canonical_digest()
+    public async Task Forged_consistent_canonical_input_fields_reject_when_authority_unchanged()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        var citedJudgment = bundle.Command.Judgments
+            .First(judgment => judgment.DeterministicInvocationId is not null);
+        var forgedDigest = new string('e', 64);
+        var alternateAttemptId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var sourceAttempt = await connection.QuerySingleAsync<DeterministicAttemptSeedRow>(
+                """
+                SELECT criterion_id, criterion_version, evaluator_id, evaluator_version,
+                       evaluator_digest, dependency_digest, configuration_digest,
+                       started_at, finished_at
+                FROM evaluation_deterministic_attempts
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId
+                  AND deterministic_attempt_id = @DeterministicAttemptId;
+                """,
+                new
+                {
+                    claimed!.Ownership.OrganizationId,
+                    claimed.RequestId,
+                    DeterministicAttemptId = citedJudgment.DeterministicInvocationId,
+                });
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO evaluation_deterministic_attempts (
+                    organization_id, deterministic_attempt_id, request_id, invocation_attempt_id,
+                    criterion_id, criterion_version, evaluator_id, evaluator_version, evaluator_digest,
+                    canonical_input_digest, dependency_digest, configuration_digest, outcome,
+                    protected_input_ref, protected_output_ref, output_content_digest,
+                    started_at, finished_at)
+                VALUES (
+                    @OrganizationId, @DeterministicAttemptId, @RequestId, @InvocationAttemptId,
+                    @CriterionId, @CriterionVersion, @EvaluatorId, @EvaluatorVersion, @EvaluatorDigest,
+                    @CanonicalInputDigest, @DependencyDigest, @ConfigurationDigest, 'succeeded',
+                    @ProtectedInputRef, 'protected.output.ref', @OutputContentDigest,
+                    @StartedAt, @FinishedAt);
+                """,
+                new
+                {
+                    OrganizationId = claimed.Ownership.OrganizationId,
+                    DeterministicAttemptId = alternateAttemptId,
+                    RequestId = claimed.RequestId,
+                    InvocationAttemptId = bundle.Command.InvocationAttemptId,
+                    CriterionId = sourceAttempt.criterion_id,
+                    CriterionVersion = sourceAttempt.criterion_version,
+                    EvaluatorId = sourceAttempt.evaluator_id,
+                    EvaluatorVersion = sourceAttempt.evaluator_version,
+                    EvaluatorDigest = sourceAttempt.evaluator_digest,
+                    CanonicalInputDigest = forgedDigest,
+                    ProtectedInputRef = DeterministicInvocationProvenance.ProtectedInputRef(forgedDigest),
+                    DependencyDigest = sourceAttempt.dependency_digest,
+                    ConfigurationDigest = sourceAttempt.configuration_digest,
+                    OutputContentDigest = new string('2', 64),
+                    StartedAt = sourceAttempt.started_at,
+                    FinishedAt = sourceAttempt.finished_at,
+                });
+        }
+
+        var forgedJudgments = bundle.Command.Judgments
+            .Select(judgment => judgment.JudgmentId == citedJudgment.JudgmentId
+                ? judgment with { DeterministicInvocationId = alternateAttemptId }
+                : judgment)
+            .ToArray();
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var result = await coordinator.TryCompleteAsync(
+            bundle.Command with { Judgments = forgedJudgments },
+            CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(EvaluationFailureCodes.InvalidJudgment, result.OutcomeCode);
+        await AssertNoCompletionPublicationAsync(claimed);
+    }
+
+    [Fact]
+    public async Task Completion_succeeds_with_authoritative_deterministic_input_digest()
     {
         var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
         var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
@@ -927,14 +1010,21 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
         Assert.Equal(EvaluationCompletionOutcomeCodes.Completed, result.OutcomeCode);
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
         Assert.Equal(
-            EvaluationCompletionTestSupport.IntegrationCanonicalInputDigest,
-            await connection.ExecuteScalarAsync<string>(
+            await connection.ExecuteScalarAsync<int>(
                 """
-                SELECT canonical_input_digest
+                SELECT COUNT(*)
+                FROM evaluation_deterministic_input_authority
+                WHERE organization_id = @OrganizationId
+                  AND request_id = @RequestId;
+                """,
+                new { claimed.Ownership.OrganizationId, claimed.RequestId }),
+            await connection.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT(*)
                 FROM evaluation_deterministic_attempts
                 WHERE organization_id = @OrganizationId
                   AND request_id = @RequestId
-                LIMIT 1;
+                  AND outcome = 'succeeded';
                 """,
                 new { claimed.Ownership.OrganizationId, claimed.RequestId }));
     }

@@ -8,18 +8,19 @@ namespace FlexAgent.Evaluation.Tests.Application;
 public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
 {
     [Fact]
-    public void Single_succeeded_attempt_requires_matching_canonical_input_digest()
+    public void Single_succeeded_attempt_requires_matching_authoritative_canonical_input()
     {
         var invocationAttemptId = Guid.CreateVersion7();
         var attemptId = Guid.CreateVersion7();
         var criterion = Criterion();
+        var authoritativeDigest = new string('a', 64);
         var attempts = new[]
         {
             CreateAttempt(
                 attemptId,
                 invocationAttemptId,
                 criterion,
-                new string('a', 64),
+                authoritativeDigest,
                 "succeeded"),
         };
         var judgment = CreateJudgment(attemptId, criterion, Guid.CreateVersion7());
@@ -29,6 +30,7 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             criterion,
             invocationAttemptId,
             attempts,
+            [CreateAuthority(criterion, authoritativeDigest)],
             [],
             out var field);
 
@@ -42,21 +44,14 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
         var invocationAttemptId = Guid.CreateVersion7();
         var attemptId = Guid.CreateVersion7();
         var criterion = Criterion();
-        var expectedDigest = new string('a', 64);
+        var authoritativeDigest = new string('a', 64);
         var attempts = new[]
         {
-            new DeterministicAttemptProvenanceRow(
+            CreateAttempt(
                 attemptId,
                 invocationAttemptId,
-                criterion.CriterionId,
-                criterion.CriterionVersion,
-                criterion.DeterministicEvaluator!.EvaluatorId,
-                criterion.DeterministicEvaluator.EvaluatorVersion,
-                criterion.DeterministicEvaluator.EvaluatorDigest,
-                criterion.DeterministicEvaluator.DependencyDigest,
-                criterion.DeterministicEvaluator.ConfigurationDigest,
+                criterion,
                 new string('f', 64),
-                DeterministicInvocationProvenance.ProtectedInputRef(expectedDigest),
                 "succeeded"),
         };
         var judgment = CreateJudgment(attemptId, criterion, Guid.CreateVersion7());
@@ -66,6 +61,39 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             criterion,
             invocationAttemptId,
             attempts,
+            [CreateAuthority(criterion, authoritativeDigest)],
+            [],
+            out var field);
+
+        Assert.False(valid);
+        Assert.Equal("canonical_input_digest", field);
+    }
+
+    [Fact]
+    public void Forged_consistent_canonical_input_fields_fail_when_authority_unchanged()
+    {
+        var invocationAttemptId = Guid.CreateVersion7();
+        var attemptId = Guid.CreateVersion7();
+        var criterion = Criterion();
+        var authoritativeDigest = new string('a', 64);
+        var forgedDigest = new string('f', 64);
+        var attempts = new[]
+        {
+            CreateAttempt(
+                attemptId,
+                invocationAttemptId,
+                criterion,
+                forgedDigest,
+                "succeeded"),
+        };
+        var judgment = CreateJudgment(attemptId, criterion, Guid.CreateVersion7());
+
+        var valid = EvaluationCompletionDeterministicProvenanceVerifier.IsJudgmentProvenanceValid(
+            judgment,
+            criterion,
+            invocationAttemptId,
+            attempts,
+            [CreateAuthority(criterion, authoritativeDigest)],
             [],
             out var field);
 
@@ -80,19 +108,20 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
         var correctAttemptId = Guid.CreateVersion7();
         var wrongAttemptId = Guid.CreateVersion7();
         var criterion = Criterion();
+        var authoritativeDigest = new string('a', 64);
         var attempts = new[]
         {
             CreateAttempt(
                 correctAttemptId,
                 invocationAttemptId,
                 criterion,
-                new string('a', 64),
+                authoritativeDigest,
                 "succeeded"),
             CreateAttempt(
                 wrongAttemptId,
                 invocationAttemptId,
                 criterion,
-                new string('b', 64),
+                authoritativeDigest,
                 "succeeded"),
         };
         var judgment = CreateJudgment(wrongAttemptId, criterion, Guid.CreateVersion7());
@@ -102,6 +131,7 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             criterion,
             invocationAttemptId,
             attempts,
+            [CreateAuthority(criterion, authoritativeDigest)],
             [],
             out var field);
 
@@ -117,19 +147,20 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
         var wrongAttemptId = Guid.CreateVersion7();
         var evidenceId = Guid.CreateVersion7();
         var criterion = Criterion();
+        var authoritativeDigest = new string('a', 64);
         var attempts = new[]
         {
             CreateAttempt(
                 correctAttemptId,
                 invocationAttemptId,
                 criterion,
-                new string('a', 64),
+                authoritativeDigest,
                 "succeeded"),
             CreateAttempt(
                 wrongAttemptId,
                 invocationAttemptId,
                 criterion,
-                new string('b', 64),
+                authoritativeDigest,
                 "succeeded"),
         };
         var evidence = new EvaluationEvidenceLocatorRecord(
@@ -149,6 +180,7 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
             criterion,
             invocationAttemptId,
             attempts,
+            [CreateAuthority(criterion, authoritativeDigest)],
             [evidence],
             out var field);
 
@@ -159,6 +191,15 @@ public sealed class EvaluationCompletionDeterministicProvenanceVerifierTests
     private static EvaluationProcedureCriterionV1 Criterion() =>
         EvaluationProcedureTestFixtures.LoadP0TextSynthetic().Criteria
             .Single(item => item.CriterionId == "crit.objective.word-count");
+
+    private static DeterministicInputAuthorityRecord CreateAuthority(
+        EvaluationProcedureCriterionV1 criterion,
+        string canonicalInputDigest) =>
+        new(
+            criterion.CriterionId,
+            criterion.CriterionVersion,
+            canonicalInputDigest,
+            DeterministicInvocationProvenance.ProtectedInputRef(canonicalInputDigest));
 
     private static DeterministicAttemptProvenanceRow CreateAttempt(
         Guid attemptId,

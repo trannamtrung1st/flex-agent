@@ -3,6 +3,12 @@ using FlexAgent.Evaluation.Domain;
 
 namespace FlexAgent.Evaluation.Application;
 
+public sealed record DeterministicInputAuthorityRecord(
+    string CriterionId,
+    string CriterionVersion,
+    string CanonicalInputDigest,
+    string ProtectedInputRef);
+
 public sealed record DeterministicAttemptProvenanceRow(
     Guid DeterministicAttemptId,
     Guid InvocationAttemptId,
@@ -24,12 +30,14 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
         EvaluationProcedureCriterionV1 criterion,
         Guid invocationAttemptId,
         IReadOnlyList<DeterministicAttemptProvenanceRow> invocationAttempts,
+        IReadOnlyList<DeterministicInputAuthorityRecord> inputAuthorities,
         IReadOnlyList<EvaluationEvidenceLocatorRecord> authoritativeEvidence,
         out string? failureField)
     {
         ArgumentNullException.ThrowIfNull(judgment);
         ArgumentNullException.ThrowIfNull(criterion);
         ArgumentNullException.ThrowIfNull(invocationAttempts);
+        ArgumentNullException.ThrowIfNull(inputAuthorities);
         ArgumentNullException.ThrowIfNull(authoritativeEvidence);
         failureField = null;
 
@@ -62,11 +70,12 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
             return false;
         }
 
-        if (!DeterministicInvocationProvenance.TryParseCanonicalInputDigest(
-                citedAttempt.ProtectedInputRef,
-                out var expectedDigest))
+        var inputAuthority = inputAuthorities.FirstOrDefault(authority =>
+            string.Equals(authority.CriterionId, judgment.CriterionId, StringComparison.Ordinal)
+            && string.Equals(authority.CriterionVersion, judgment.CriterionVersion, StringComparison.Ordinal));
+        if (inputAuthority is null)
         {
-            failureField = "protected_input_ref";
+            failureField = "canonical_input_digest";
             return false;
         }
 
@@ -85,9 +94,21 @@ public static class EvaluationCompletionDeterministicProvenanceVerifier
             return false;
         }
 
-        if (!string.Equals(citedAttempt.CanonicalInputDigest, expectedDigest, StringComparison.Ordinal))
+        if (!string.Equals(
+                citedAttempt.CanonicalInputDigest,
+                inputAuthority.CanonicalInputDigest,
+                StringComparison.Ordinal))
         {
             failureField = "canonical_input_digest";
+            return false;
+        }
+
+        if (!string.Equals(
+                citedAttempt.ProtectedInputRef,
+                inputAuthority.ProtectedInputRef,
+                StringComparison.Ordinal))
+        {
+            failureField = "protected_input_ref";
             return false;
         }
 
