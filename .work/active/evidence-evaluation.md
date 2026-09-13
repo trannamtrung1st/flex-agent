@@ -1254,8 +1254,17 @@ approved layout families and donors already exist.
     (disjoint criterion evidence + missing canonical unavailable), locator-store
     idempotency with JSON-normalized canonical compare.
   - [x] Local green: Evaluation **413/413**; Runtime **343/343**; Architecture
-    **65/65**; Postgres **506/506** (+1 skipped). Not run: exact-head
-    Implementation CI on corrective commit.
+    **65/65**; Postgres **506/506** (+1 skipped). Exact-head Implementation CI
+    **34754052717** green on `d4a28268`.
+  - [x] **Second corrective pass (review `not-approved`, pending re-review):**
+    - [x] `REQ-EVAL-13/14/41` — `EvidenceJsonPointerResolver` shared with verifier;
+      review display serializes only the resolved JSON node (arrays, `~0`/`~1`).
+    - [x] `REQ-EVAL-32` — `StoredJudgmentSnapshot.EvidenceIds` loaded from judgment
+      evidence refs; retry equivalence compares ordered Evidence IDs.
+    - [x] Tests: `AssignedReviewEvidenceDisplayExtractorTests`,
+      `EvaluationCompletionEquivalenceTests` evidence-id cases,
+      `Conflicting_completion_replay_with_swapped_criterion_evidence_returns_integrity_conflict`.
+    - [x] Local green: Evaluation **419/419**; Postgres **507/507** (+1 skipped).
 
 ## Phase 9 — Production reviewer inspection UI
 

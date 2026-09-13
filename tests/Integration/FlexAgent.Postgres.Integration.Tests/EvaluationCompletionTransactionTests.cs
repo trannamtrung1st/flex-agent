@@ -1056,6 +1056,40 @@ public sealed class EvaluationCompletionTransactionTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Conflicting_completion_replay_with_swapped_criterion_evidence_returns_integrity_conflict()
+    {
+        var (prepared, artifacts, claimed) = await PrepareClaimedAsync();
+        var bundle = await EvaluationCompletionTestSupport.BuildBundleAsync(
+            Fixture,
+            prepared,
+            claimed,
+            artifacts,
+            CancellationToken);
+        Assert.True(bundle.Command.Judgments.Count >= 2, "procedure must expose at least two criteria");
+
+        var coordinator = EvaluationCompletionTestSupport.CreateCoordinator(Fixture, artifacts);
+        var first = await coordinator.TryCompleteAsync(bundle.Command, CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var left = bundle.Command.Judgments[0];
+        var right = bundle.Command.Judgments[1];
+        var forgedJudgments = bundle.Command.Judgments
+            .Select(judgment => judgment switch
+            {
+                _ when judgment.JudgmentId == left.JudgmentId => left with { EvidenceIds = right.EvidenceIds },
+                _ when judgment.JudgmentId == right.JudgmentId => right with { EvidenceIds = left.EvidenceIds },
+                _ => judgment,
+            })
+            .ToArray();
+        var replay = await coordinator.TryCompleteAsync(
+            bundle.Command with { Judgments = forgedJudgments },
+            CancellationToken);
+
+        Assert.False(replay.Succeeded);
+        Assert.Equal(EvaluationCompletionOutcomeCodes.IntegrityConflict, replay.OutcomeCode);
+    }
+
+    [Fact]
     public async Task Conflicting_completion_replay_with_changed_judgment_rationale_returns_integrity_conflict()
     {
         var (prepared, artifacts, claimed) = await PrepareClaimedAsync();

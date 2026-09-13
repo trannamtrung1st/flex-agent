@@ -31,7 +31,8 @@ public sealed record StoredJudgmentSnapshot(
     string Rationale,
     string? ScoreJson,
     string? ProvisionalFeedback,
-    Guid? DeterministicAttemptId);
+    Guid? DeterministicAttemptId,
+    IReadOnlyList<Guid> EvidenceIds);
 
 public sealed record StoredManifestRefSnapshot(
     string RefKind,
@@ -147,7 +148,8 @@ public static class EvaluationCompletionEquivalence
         && JsonValuesEquivalent(JsonSerializer.Serialize(command.Uncertainty), stored.UncertaintyJson)
         && JsonValuesEquivalent(
             command.Score is null ? null : JsonSerializer.Serialize(command.Score),
-            stored.ScoreJson);
+            stored.ScoreJson)
+        && command.EvidenceIds.SequenceEqual(stored.EvidenceIds);
 
     internal static bool JsonValuesEquivalent(string? expectedJson, string? storedJson)
     {

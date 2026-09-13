@@ -1107,7 +1107,7 @@ public sealed class PostgresEvaluationCompletionCoordinator(
             return null;
         }
 
-        var judgments = await scope.Connection.QueryAsync<StoredJudgmentSnapshot>(
+        var judgmentRows = await scope.Connection.QueryAsync<StoredJudgmentRow>(
             new CommandDefinition(
                 """
                 SELECT
@@ -1135,6 +1135,52 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 },
                 scope.Transaction,
                 cancellationToken: cancellationToken));
+
+        var evidenceRefRows = await scope.Connection.QueryAsync<StoredJudgmentEvidenceRefRow>(
+            new CommandDefinition(
+                """
+                SELECT
+                    judgment_id AS JudgmentId,
+                    evidence_id AS EvidenceId,
+                    reference_ordinal AS ReferenceOrdinal
+                FROM evaluation_criterion_judgment_evidence_refs
+                WHERE organization_id = @OrganizationId
+                  AND evaluation_id = @EvaluationId
+                ORDER BY judgment_id, reference_ordinal;
+                """,
+                new
+                {
+                    command.Completed.Ownership.OrganizationId,
+                    command.Completed.EvaluationId,
+                },
+                scope.Transaction,
+                cancellationToken: cancellationToken));
+
+        var evidenceIdsByJudgment = evidenceRefRows
+            .GroupBy(row => row.JudgmentId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<Guid>)group
+                    .OrderBy(row => row.ReferenceOrdinal)
+                    .Select(row => row.EvidenceId)
+                    .ToArray());
+        var judgments = judgmentRows
+            .Select(row => new StoredJudgmentSnapshot(
+                row.JudgmentId,
+                row.CriterionId,
+                row.CriterionVersion,
+                row.EvaluatorMode,
+                row.Status,
+                row.Confidence,
+                row.UncertaintyJson,
+                row.Rationale,
+                row.ScoreJson,
+                row.ProvisionalFeedback,
+                row.DeterministicAttemptId,
+                evidenceIdsByJudgment.TryGetValue(row.JudgmentId, out var evidenceIds)
+                    ? evidenceIds
+                    : Array.Empty<Guid>()))
+            .ToList();
 
         var manifestRefs = await scope.Connection.QueryAsync<StoredManifestRefSnapshot>(
             new CommandDefinition(
@@ -1254,6 +1300,24 @@ public sealed class PostgresEvaluationCompletionCoordinator(
                 scope.Transaction,
                 cancellationToken: cancellationToken));
     }
+
+    private sealed record StoredJudgmentRow(
+        Guid JudgmentId,
+        string CriterionId,
+        string CriterionVersion,
+        string EvaluatorMode,
+        string Status,
+        string Confidence,
+        string UncertaintyJson,
+        string Rationale,
+        string? ScoreJson,
+        string? ProvisionalFeedback,
+        Guid? DeterministicAttemptId);
+
+    private sealed record StoredJudgmentEvidenceRefRow(
+        Guid JudgmentId,
+        Guid EvidenceId,
+        int ReferenceOrdinal);
 
     private sealed record StoredCompletionSnapshotRow(
         Guid EvaluationId,

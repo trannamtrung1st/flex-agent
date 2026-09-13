@@ -89,12 +89,13 @@ internal static class AssignedReviewEvidenceDisplayExtractor
 
     private static EvaluationDecision<string> ExtractJsonPointer(ReadOnlyMemory<byte> projectionUtf8, string jsonPointer)
     {
-        if (!TryResolveJsonPointer(projectionUtf8, jsonPointer))
+        if (!EvidenceJsonPointerResolver.TryResolve(projectionUtf8, jsonPointer, out var resolvedJson)
+            || resolvedJson is null)
         {
             return EvaluationDecision<string>.Fail(ReviewFailureCodes.Unavailable);
         }
 
-        return EvaluationDecision<string>.Ok(Encoding.UTF8.GetString(projectionUtf8.Span));
+        return EvaluationDecision<string>.Ok(resolvedJson);
     }
 
     private static ResolvedMaterial? ResolveMaterial(
@@ -135,35 +136,6 @@ internal static class AssignedReviewEvidenceDisplayExtractor
                 new ResolvedMaterial(sourceId, deterministic.ContentDigest, deterministic.ProjectionUtf8, deterministic.ProjectionUtf8),
             _ => null,
         };
-    }
-
-    private static bool TryResolveJsonPointer(ReadOnlyMemory<byte> projectionUtf8, string jsonPointer)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(projectionUtf8);
-            var current = document.RootElement;
-            if (jsonPointer == "/")
-            {
-                return true;
-            }
-
-            foreach (var segment in jsonPointer.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var decoded = segment.Replace("~1", "/", StringComparison.Ordinal)
-                    .Replace("~0", "~", StringComparison.Ordinal);
-                if (!current.TryGetProperty(decoded, out current))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static bool TryGetRequiredString(JsonElement element, string propertyName, out string value)
