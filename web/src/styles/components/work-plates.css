@@ -247,6 +247,19 @@
 
 .review-criterion-split[data-flow-split="drawer"] {
   row-gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.review-criterion-split[data-flow-split="drawer"] > .composition-split__main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-criterion-split[data-flow-split="drawer"] > .composition-split__main > .work-well {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .review-criterion-split[data-flow-split="drawer"] > .composition-split__toolbar {
@@ -279,6 +292,31 @@
   font-size: 0.82rem;
   line-height: 1.5;
   color: var(--text);
+}
+
+/* Keep Evidence provenance readable above the guided-task foot. */
+.layout-guided__bay:has(.layout-guided__actions) .layout-guided__main .work-well .work-well__body {
+  scroll-padding-block-end: var(--space-6);
+}
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  .layout-guided__bay:has(.layout-guided__actions) .layout-guided__main .work-well .work-well__body {
+    scroll-padding-block-end: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    padding-block-end: calc(var(--frame-inset-block-end) + 4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-criterion-nav .nav-link {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .review-criterion-nav .nav-link[aria-current="page"] {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
 }
 
 @media (max-width: 720px) {

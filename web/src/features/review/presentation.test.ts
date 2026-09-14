@@ -8,6 +8,7 @@ import {
   evaluationProcessingCopy,
   evaluatorModeCopy,
   evaluatorModePresentation,
+  evidenceAvailabilityCopy,
   evidenceLocationCopy,
   isInspectableReviewState,
   processingWellCopy,
@@ -42,5 +43,23 @@ describe("review presentation", () => {
     expect(isInspectableReviewState("queued")).toBe(false);
     expect(isInspectableReviewState("awaiting")).toBe(false);
     expect(isInspectableReviewState("retryable_failure")).toBe(false);
+  });
+
+  it("maps processing and Evidence availability copy", () => {
+    expect(processingWellCopy({ evaluation_processing_state: "awaiting" })).toMatch(/awaiting an eligible Evaluation/);
+    expect(processingWellCopy({ evaluation_processing_state: "queued" })).toBe(RUNNING_CRITERION_UNAVAILABLE);
+    expect(processingWellCopy({
+      evaluation_processing_state: "retryable_failure",
+    })).toMatch(/failed and can be retried/);
+    expect(processingWellCopy({
+      evaluation_processing_state: "running",
+      processing_notice: "Custom notice.",
+    })).toBe(RUNNING_CRITERION_UNAVAILABLE);
+    expect(processingWellCopy({
+      evaluation_processing_state: "awaiting",
+      processing_notice: "Custom notice.",
+    })).toBe("Custom notice.");
+    expect(evidenceAvailabilityCopy("integrity_changed")).toBe("Integrity warning");
+    expect(evidenceAvailabilityCopy("denied")).toBe("Source unavailable");
   });
 });

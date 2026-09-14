@@ -5,7 +5,7 @@ import { createFlexQueryClient } from "../../api/query-client";
 import { ProductionApiError } from "../../api/production-api";
 import { createProductionReviewClient } from "../../api/production-review";
 import { reviewKeys } from "./queryKeys";
-import { useReviewCaseQuery, useReviewCriterionQuery, useReviewWorkInfiniteQuery, useReviewWorkQuery } from "./queries";
+import { useReviewCaseQuery, useReviewCriterionQuery, useReviewEvidenceQuery, useReviewWorkInfiniteQuery, useReviewWorkQuery } from "./queries";
 
 const scope = { actorId: "actor-1", organizationId: "org-1" };
 const caseId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
@@ -224,5 +224,70 @@ describe("useReviewWorkInfiniteQuery", () => {
       expect(queryClient.getQueryData(workPagesKey)).toBeUndefined();
       expect(queryClient.getQueryData(caseKey)).toBeUndefined();
     });
+  });
+});
+
+describe("useReviewEvidenceQuery", () => {
+  it("rejects stale Evaluation identity on Evidence open", async () => {
+    const queryClient = createFlexQueryClient();
+    const fetchJson = vi.fn().mockResolvedValue({
+      schema_version: "v1",
+      review_case_id: caseId,
+      evaluation_id: "eval-2",
+      evidence_id: "ev-1",
+    });
+    const client = createProductionReviewClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+
+    const { result } = renderHook(
+      () => useReviewEvidenceQuery(client, scope, caseId, "eval-1", "ev-1", true),
+      { wrapper: wrapper(queryClient) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(result.current.error).toBeInstanceOf(ProductionApiError);
+    expect((result.current.error as ProductionApiError).outcomeCode).toBe("review.stale_evaluation");
+  });
+});
+
+describe("useReviewCaseQuery polling", () => {
+  it("polls while Evaluation is queued", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const queryClient = createFlexQueryClient();
+      let calls = 0;
+      const fetchJson = vi.fn(() => {
+        calls += 1;
+        return Promise.resolve({
+          schema_version: "v1" as const,
+          review_case_id: caseId,
+          evaluation_processing_state: "queued" as const,
+          assignment_state: "assigned" as const,
+          integrity_state: "intact" as const,
+          internal_evaluation_notice: "Internal Evaluation · Not a released Result",
+          criterion_summaries: [],
+          updated_at: "2026-09-13T12:00:00.000Z",
+          time_zone_id: "UTC",
+        });
+      });
+      const client = createProductionReviewClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+
+      renderHook(
+        () => useReviewCaseQuery(client, scope, caseId),
+        { wrapper: wrapper(queryClient) },
+      );
+
+      await waitFor(() => {
+        expect(calls).toBeGreaterThanOrEqual(1);
+      });
+      const initialCalls = calls;
+      await vi.advanceTimersByTimeAsync(2500);
+      await waitFor(() => {
+        expect(calls).toBeGreaterThan(initialCalls);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

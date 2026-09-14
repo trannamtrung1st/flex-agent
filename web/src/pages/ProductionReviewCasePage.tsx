@@ -400,7 +400,7 @@ export function ProductionReviewCasePage() {
         <WorkWell live={false} label={phase} head={<WorkWellHead title={phase} />}>
           <WorkWellSection>
             <Stack gap="4">
-              <p>{processingWellCopy(record)}</p>
+              <p aria-live="polite">{processingWellCopy(record)}</p>
               <ReadoutList
                 label="Evaluation processing"
                 rows={[

@@ -21,7 +21,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 const CASE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 
-function runningCase(): ReviewCaseReadV1 {
+function runningCase(overrides: Partial<ReviewCaseReadV1> = {}): ReviewCaseReadV1 {
   return {
     schema_version: "v1",
     review_case_id: CASE_ID,
@@ -36,6 +36,7 @@ function runningCase(): ReviewCaseReadV1 {
     criterion_summaries: [],
     updated_at: "2026-09-13T12:00:00.000Z",
     time_zone_id: "UTC",
+    ...overrides,
   };
 }
 
@@ -153,13 +154,13 @@ function stubAuthenticatedFetch(handler: (url: string) => ReturnType<typeof json
   }));
 }
 
-function renderCase(path: string, queryClient = createFlexQueryClient()) {
+function renderCase(path: string, queryClient = createFlexQueryClient(), state?: { restoreEvidenceId?: string }) {
   return {
     queryClient,
     ...render(
       <FlexQueryProvider client={queryClient}>
         <ProductionApiProvider>
-          <MemoryRouter initialEntries={[path]}>
+          <MemoryRouter initialEntries={[{ pathname: path, state }]}>
             <Routes>
               <Route path="/review/:reviewId" element={<ProductionReviewCasePage />} />
               <Route path="/review/:reviewId/criteria/:criterionId" element={<ProductionReviewCasePage />} />
@@ -279,6 +280,204 @@ describe("ProductionReviewCasePage", () => {
     expect(backLinks[0]).toHaveAttribute("href", `/review/${CASE_ID}/criteria/crit-1`);
     expect(backLinks[1]).toHaveAttribute("href", `/review/${CASE_ID}/criteria/crit-1`);
     expect(document.querySelector(".work-well__head")).toHaveTextContent("Back to criterion");
+  });
+
+  it("restores focus to Open Evidence when returning from Evidence", async () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/criteria/crit-1") && !url.includes("evidence")) {
+        return jsonResponse(criterion());
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1`, createFlexQueryClient(), { restoreEvidenceId: "ev-1" });
+    expect(await screen.findByRole("link", { name: "Open Evidence" })).toBeVisible();
+    await waitFor(() => {
+      expect(focusSpy).toHaveBeenCalled();
+    });
+    focusSpy.mockRestore();
+  });
+
+  it.each([
+    ["awaiting", "This Session is awaiting an eligible Evaluation. Criterion judgments are not available.", null],
+    ["queued", RUNNING_CRITERION_UNAVAILABLE, null],
+    ["retryable_failure", "Evaluation failed and can be retried. Criterion judgments are not available.", null],
+  ] as const)("shows the processing well for %s Evaluation", async (state, copy, notice) => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(runningCase({
+          evaluation_processing_state: state,
+          processing_notice: notice,
+        }));
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}`);
+    const message = await screen.findByText(copy);
+    expect(message).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByRole("navigation", { name: "Criteria" })).not.toBeInTheDocument();
+  });
+
+  it("shows loading while the Review case is fetched", () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return new Promise(() => {});
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}`);
+    expect(screen.getByText("Loading Review case…")).toBeVisible();
+  });
+
+  it("offers Retry when the Review case request fails", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: "server.error" }),
+          clone() {
+            return { json: () => Promise.resolve({ error: "server.error" }) };
+          },
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}`);
+    expect(await screen.findByText("Review case unavailable")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+  });
+
+  it("shows criterion load error after the case resolves", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/criteria/crit-1") && !url.includes("evidence")) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: "server.error" }),
+          clone() {
+            return { json: () => Promise.resolve({ error: "server.error" }) };
+          },
+        });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1`);
+    expect(await screen.findByText("Criterion could not be loaded")).toBeVisible();
+  });
+
+  it("shows empty Evidence copy on a criterion without references", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/criteria/crit-2") && !url.includes("evidence")) {
+        return jsonResponse({ ...criterion(), criterion_id: "crit-2", display_label: "Coverage", evidence_references: [] });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse({
+          ...completedCase(),
+          criterion_summaries: [
+            ...completedCase().criterion_summaries,
+            {
+              criterion_id: "crit-2",
+              display_label: "Coverage",
+              evaluator_mode: "deterministic",
+              evaluator_mode_label: "Rule-based",
+              status: "insufficient_evidence",
+            },
+          ],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-2`);
+    expect(await screen.findByText("No Evidence references on this criterion.")).toBeVisible();
+  });
+
+  it.each([
+    ["insufficient_evidence", "Insufficient evidence"],
+    ["not_applicable", "Not applicable"],
+    ["unavailable", "Unavailable"],
+  ] as const)("renders criterion status %s", async (status, label) => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/criteria/crit-1") && !url.includes("evidence")) {
+        return jsonResponse({ ...criterion(), status });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1`);
+    expect(await screen.findByLabelText("Criterion judgment")).toHaveTextContent(label);
+  });
+
+  it.each([
+    ["denied", "Source unavailable"],
+    ["unavailable", "Source unavailable"],
+    ["integrity_changed", "Integrity warning"],
+    ["lower_precision", "Lower precision"],
+  ] as const)("opens Evidence with availability %s", async (availability, label) => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/evidence/ev-1")) {
+        return jsonResponse({
+          ...evidence(),
+          availability,
+          unavailability_notice: availability === "denied" ? "Access denied by policy." : undefined,
+          display_text: undefined,
+        });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`);
+    expect(await screen.findByLabelText("Evidence provenance")).toHaveTextContent(label);
+    if (availability === "denied") {
+      expect(screen.getByText("Access denied by policy.")).toBeVisible();
+    }
+  });
+
+  it("opens locator-only Evidence without cited text", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/evidence/ev-1")) {
+        return jsonResponse({ ...evidence(), display_text: undefined });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`);
+    const provenance = await screen.findByLabelText("Evidence provenance");
+    expect(provenance).toHaveTextContent("Whole item item-1");
+    expect(screen.queryByText("Cited text")).not.toBeInTheDocument();
+  });
+
+  it("shows Evidence open errors", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/evidence/ev-1")) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: () => Promise.resolve({ error: "review.evidence_unavailable" }),
+          clone() {
+            return { json: () => Promise.resolve({ error: "review.evidence_unavailable" }) };
+          },
+        });
+      }
+      if (url.includes(`/v1/review/cases/${CASE_ID}`)) {
+        return jsonResponse(completedCase());
+      }
+      return jsonResponse({}, 404);
+    });
+    renderCase(`/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`);
+    expect(await screen.findByText("Evidence could not be opened")).toBeVisible();
   });
 
   it("removes protected content when assignment is lost", async () => {

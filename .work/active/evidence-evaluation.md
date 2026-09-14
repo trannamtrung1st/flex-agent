@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T11:12:00+07:00
+updated: 2026-09-14T11:20:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -1435,6 +1435,21 @@ approved UI/UX specification or design system.
   green. Bookkeeping Implementation runs on `bed089c0` / `94f363b3` / `f5273397`
   correctly skipped the matrix (docs-only). **Corrective slice approved; Phase 9
   overall not complete.**
+- [x] **Phase 9 coverage + responsive pass (2026-09-14):** Closed remaining
+  unit-test gaps without Worker enablement: awaiting/queued/retryable_failure
+  processing wells with `aria-live="polite"`; case/criterion/Evidence
+  loading/error paths; criterion statuses (`insufficient_evidence`,
+  `not_applicable`, `unavailable`); empty Evidence references; Evidence
+  availability (`denied`, `unavailable`, `integrity_changed`, `lower_precision`);
+  locator-only Evidence; focus restore on **Back to criterion**; stale
+  Evaluation rejection (`review.stale_evaluation`); queued-case 2s poll regression.
+  CSS: Evidence provenance scroll padding above guided-task foot; compact
+  criterion `SplitBay` drawer flex/scroll; reduced-motion and forced-colors on
+  criterion nav. Focused web **34** new/expanded review tests; full
+  `verify-web.sh` green locally. Playwright MCP blocked (candidate `:5274` and
+  Compose `:18080` not listening). **Phase 9 overall still not complete**
+  (Worker-disabled live queued/running, repeatable browser suite, independent
+  Phase 11 reviews, `docs/current-state.md` promotion).
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1705,10 +1720,12 @@ identity, Evidence provenance, byte-range copy, purge race, and test lint.
 Hosted Implementation **`34767421166`** green (all six jobs). Live browser
 evidence covers empty, destination-denied, assignment-loss, and a synthetic
 assigned completed criterion/Evidence inspector (demo-review seed).
-Queued/running remain Worker-disabled. Compact criterion `SplitBay` still
-squeezes the well on a 390px viewport; desktop Evidence foot overlays the
-lowest provenance rows. **Do not claim Phase 9 complete** until remaining
-states, proportionate Playwright coverage, and downstream phases are evidenced.
+Queued/running remain Worker-disabled (unit + poll regression only). Compact
+criterion `SplitBay` squeeze and desktop Evidence foot overlay addressed in CSS
+(scroll padding + drawer flex). **Do not claim Phase 9 complete** until live
+Worker transitions, repeatable Playwright coverage (400%, reduced motion,
+forced colors), independent Phase 11 reviews, and downstream phases are
+evidenced.
 
 ## Upstream rollout checklist (Evaluation-required behaviors)
 
@@ -1765,11 +1782,10 @@ states, proportionate Playwright coverage, and downstream phases are evidenced.
   called shared admission with surface `review.read`, which the enrollment
   permit function rejects (`NOT IN ('read','mutation')`) as 503. Interim
   default: treat assigned-review GETs as `EnrollmentRequestSurfaces.Read`.
-  Known remaining shortcuts: compact criterion nav is a select plus prev/next
-  in `SplitBay start` (well unreadable at 390px); desktop criterion list is
-  plain links with raw criterion ids as labels; no history/annotation well;
-  guessed case 404/`review.denied` uses the assignment-revoked plaque
-  (non-disclosure). Demo-review Compose seed now exists for one assigned
+  Known remaining shortcuts: compact criterion nav uses hairline `nav-link`
+  toolbar in `SplitBay` drawer (fixed 2026-09-14 spacing pass); criterion labels
+  use `display_label` placards; no history/annotation well; guessed case
+  404/`review.denied` uses the assignment-revoked plaque (non-disclosure). Demo-review Compose seed now exists for one assigned
   inspectable case; fresh `compose:reset` binds `demo.reviewer` from identity
   seed. A long-lived stack whose Keycloak user was recreated may need an extra
   identity binding before that Reviewer can open the seeded case.
