@@ -2,9 +2,11 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T20:38:00+07:00
+updated: 2026-09-14T21:07:00+07:00
 phase10_slice1: approved-4a7b855e-216cadbc-4cfa0669
-phase10_fair_scheduling: implementation-pass-2026-09-14
+phase10_fair_scheduling: request-changes-89f55837-0-blocker-0-high-1-medium-0-low
+phase10_fair_scheduling_ci: approved-34850794801
+phase10_fair_scheduling_docs_ci: approved-34850794866
 phase10_slice1_head: 4cfa0669
 phase10_slice1_review: approved-4cfa0669-0-blocker-0-high-0-medium-0-low
 phase10_slice1_docs_ci: approved-34848423373
@@ -1594,16 +1596,16 @@ approved UI/UX specification or design system.
   Implementation **`34848423322`** green at exact head `4cfa0669` — all six jobs
   (`changes`, `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, `supply-chain`). **Slice 1
   implementation review and authoritative chain closed at `4cfa0669`.**
-- [x] Add fair scheduling / weighting / anti-starvation evidence for Evaluation
-  beside Session invocation/timer/expiry work. `evaluation_work_claim_partitions`
-  and `ClaimOrganizationSql`/`ClaimSql` order by `last_claimed_at`; trigger
-  `trg_evaluation_durable_work_claim_partition` stamps partition on claim.
-  **Integration:** `EvaluationFairClaimTests` mirrors Session fair-claim regressions
-  (interleave after partition completion, interleave while outstanding claim remains,
-  partition stamp respected after direct claim update). Worker loop already gives
-  Evaluation one processing opportunity per tick after Session invocation work.
-  Dedicated fairness telemetry beyond backlog partition buckets and load/recovery
-  proof remain later Phase 10 items.
+- [ ] Add fair scheduling / weighting / anti-starvation evidence for Evaluation
+  beside Session invocation/timer/expiry work. **Review (head `89f55837`):** **0 Blocker /
+  0 High / 1 Medium / 0 Low** — prior `EvaluationFairClaimTests` passed via concurrency
+  saturation or sole remaining org, not partition ordering. **Corrective (uncommitted):**
+  completion case keeps A sibling pending after A1 completes and asserts B wins while A2
+  remains eligible; outstanding/direct-trigger cases use
+  `PerOrganizationConcurrency = 2` so A sibling stays claimable; direct-trigger asserts
+  `evaluation_work_claim_partitions.last_claimed_at` advances. Local green on all three.
+  External re-review and exact-head CI pending. Dedicated fairness telemetry beyond
+  backlog partition buckets and load/recovery proof remain later Phase 10 items.
 - [ ] Prevent Evaluation claim or protected disclosure while workload identity
   is unavailable, expiring, revoked, out of delegated scope, or unqualified.
   Reauthorize at claim, source read/model disclosure, lease renewal as needed,
@@ -2118,7 +2120,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 browser inspection/responsive chain (`ecdc811e` → `722d36d6`) | approved | External review 2026-09-14 at authoritative head `722d36d6`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-722d36d6-0-blocker-0-high-0-medium-0-low`). Chain: initial browser coverage `ecdc811e`; 400% reflow corrective `76b2eaff`; bookkeeping `1a34960c`; demo-review seed digest alignment `722d36d6`. Closes Medium on `ecdc811e` fake 400% test. Hosted CI at `722d36d6`: Implementation **`34812310096`**; Documentation **`34812310123`** — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke` with OIDC live smoke + `REVIEW-E2E-01`–`05`). **`76b2eaff` run `34811731280` cancelled** by docs-only `1a34960c`; authoritative validation is on descendant `722d36d6`. **Repeatable browser inspection/responsive coverage gate materially closed; Phase 9 overall not complete.** Worker disabled |
 | Phase 9 queued/running static browser-coverage chain (`3d024577` → `72f7e9db`) | approved | External review 2026-09-14 at authoritative head `72f7e9db`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-72f7e9db-0-blocker-0-high-0-medium-0-low`). Chain: static fixtures + `REVIEW-E2E-06`/`07` + `current-state.md` promotion `3d024577` (Implementation **`34815957862`** green pre-corrective); copy corrective `72f7e9db` closes Medium on queued→running processing-well collapse. Hosted CI at `72f7e9db`: Implementation **`34818311854`**; Documentation **`34818311855`** — all six jobs green (`oci-oidc-smoke` with `REVIEW-E2E-06`/`07`). **Static queued/running browser-coverage gate closed.** Live Worker `queued → running` transition proof remains **Phase 10**; do not cite static fixtures as queue-consumer reachability. Worker disabled |
 | Phase 10 Slice 1 Worker claim path (`4a7b855e` → `216cadbc` → `4cfa0669`) | approved | External review 2026-09-14 at authoritative head `4cfa0669`: **0 Blocker / 0 High / 0 Medium / 0 Low** — CODE APPROVED (`approved-4cfa0669-0-blocker-0-high-0-medium-0-low`). Closes post-claim cleanup race (independent bounded release token + during-release cancellation regression) and multi-org concurrency starvation (`RetryableOrganizationEligibleSql` on organization selection + two-org integration proof). Hosted Documentation **`34848423373`**; Implementation **`34848423322`** — all six jobs green at exact head. **Slice 1 Worker claim path closed.** Worker runtime config-default-off |
-| Phase 10 fair Evaluation claim partitioning | implementation-pass | `EvaluationFairClaimTests` (3) mirrors Session `DurableInvocationWorkClaimTests` fair-claim interleave and partition-stamp regressions on `evaluation_work_claim_partitions`. Worker loop gives Evaluation one lane opportunity per tick after Session invocation. Dedicated fairness telemetry beyond backlog partition buckets and load/recovery proof deferred to later Phase 10 items. Not externally reviewed |
+| Phase 10 fair Evaluation claim partitioning | request-changes | External review at `89f55837`: **0 Blocker / 0 High / 1 Medium / 0 Low** — initial three tests did not isolate `last_claimed_at` fairness (concurrency-1 saturation or sole remaining org). Corrective tests use pending A sibling + completion interleave, concurrency-2 outstanding/direct-trigger interleave, and partition stamp assertion on direct claim. Hosted CI at `89f55837`: Documentation **`34850794866`**; Implementation **`34850794801`** — all six jobs green. **Checkbox pending external re-review after corrective push.** |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |

@@ -8,21 +8,29 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
     : PostgresIntegrationTest(fixture)
 {
-    private const int PerOrganizationConcurrency = 1;
+    private const int SaturatedOrganizationConcurrency = 1;
+    private const int MultiClaimOrganizationConcurrency = 2;
 
     [Fact]
     public async Task Claim_interleaves_a_waiting_organization_after_the_oldest_partition_completes()
     {
-        var first = await AdmitPreparedAsync("eval.fair.complete.a");
+        var first = await AdmitPreparedAsync("eval.fair.complete.a1");
+        var firstSibling = await AdmitSiblingAsync(first, "eval.fair.complete.a2");
         var second = await AdmitPreparedAsync(
-            "eval.fair.complete.b",
+            "eval.fair.complete.b1",
             first.WorkerActorId);
-        await using var otherWork = await HoldOtherClaimableEvaluationWorkAsync(first, second);
+        await using var otherWork = await HoldOtherClaimableEvaluationWorkAsync(
+            first,
+            firstSibling,
+            second);
         var store = first.Work;
 
-        var claimedFirst = await TryClaimAsync(first);
+        var claimedFirst = await TryClaimAsync(first, SaturatedOrganizationConcurrency);
         Assert.NotNull(claimedFirst);
         Assert.Equal(first.Request.RequestId, claimedFirst!.RequestId);
+        var partitionAfterClaim = await ReadPartitionLastClaimedAtAsync(first);
+        Assert.NotNull(partitionAfterClaim);
+
         await using (var connection = await Fixture.Services.ConnectionAccessor
             .OpenConnectionAsync(CancellationToken))
         {
@@ -36,14 +44,18 @@ public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
             claimedFirst,
             first.WorkerActorId,
             CancellationToken));
+        await AssertOrganizationHasClaimableWorkAsync(
+            first,
+            MultiClaimOrganizationConcurrency);
+        await AssertOrganizationHasClaimableWorkAsync(
+            second,
+            MultiClaimOrganizationConcurrency);
 
-        var claimedSecond = await TryClaimAsync(second);
+        var claimedNext = await TryClaimAsync(second, MultiClaimOrganizationConcurrency);
 
-        Assert.NotNull(claimedSecond);
-        Assert.Equal(second.Request.RequestId, claimedSecond!.RequestId);
-        Assert.Equal(
-            second.Request.FrozenInput.Ownership.OrganizationId,
-            claimedSecond.Ownership.OrganizationId);
+        Assert.NotNull(claimedNext);
+        Assert.Equal(second.Request.RequestId, claimedNext!.RequestId);
+        Assert.Equal("pending", await ReadWorkStateAsync(firstSibling));
     }
 
     [Fact]
@@ -51,26 +63,27 @@ public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
     {
         var first = await AdmitPreparedAsync("eval.fair.outstanding.a1");
         var firstSibling = await AdmitSiblingAsync(first, "eval.fair.outstanding.a2");
-        var firstTail = await AdmitSiblingAsync(first, "eval.fair.outstanding.a3");
         var second = await AdmitPreparedAsync(
             "eval.fair.outstanding.b1",
             first.WorkerActorId);
         await using var otherWork = await HoldOtherClaimableEvaluationWorkAsync(
             first,
             firstSibling,
-            firstTail,
             second);
-        var store = first.Work;
 
-        var claimedFirst = await TryClaimAsync(first);
-        var claimedSecond = await TryClaimAsync(second);
-
+        var claimedFirst = await TryClaimAsync(first, MultiClaimOrganizationConcurrency);
         Assert.NotNull(claimedFirst);
-        Assert.NotNull(claimedSecond);
         Assert.Equal(first.Request.RequestId, claimedFirst!.RequestId);
-        Assert.Equal(second.Request.RequestId, claimedSecond!.RequestId);
         Assert.Equal("claimed", await ReadWorkStateAsync(claimedFirst));
-        Assert.Equal("claimed", await ReadWorkStateAsync(claimedSecond));
+        await AssertOrganizationHasClaimableWorkAsync(
+            firstSibling,
+            MultiClaimOrganizationConcurrency);
+
+        var claimedSecond = await TryClaimAsync(second, MultiClaimOrganizationConcurrency);
+
+        Assert.NotNull(claimedSecond);
+        Assert.Equal(second.Request.RequestId, claimedSecond!.RequestId);
+        Assert.Equal("pending", await ReadWorkStateAsync(firstSibling));
     }
 
     [Fact]
@@ -85,6 +98,8 @@ public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
             first,
             firstSibling,
             second);
+        var partitionBefore = await ReadPartitionLastClaimedAtAsync(first);
+
         await using (var connection = await Fixture.Services.ConnectionAccessor
             .OpenConnectionAsync(CancellationToken))
         {
@@ -107,10 +122,20 @@ public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
             Assert.Equal(1, updated);
         }
 
-        var claimedSecond = await TryClaimAsync(second);
+        var partitionAfter = await ReadPartitionLastClaimedAtAsync(first);
+        Assert.NotNull(partitionAfter);
+        Assert.True(
+            partitionBefore is null || partitionAfter > partitionBefore,
+            "Direct claim update must advance evaluation_work_claim_partitions.last_claimed_at.");
+        await AssertOrganizationHasClaimableWorkAsync(
+            firstSibling,
+            MultiClaimOrganizationConcurrency);
+
+        var claimedSecond = await TryClaimAsync(second, MultiClaimOrganizationConcurrency);
 
         Assert.NotNull(claimedSecond);
         Assert.Equal(second.Request.RequestId, claimedSecond!.RequestId);
+        Assert.Equal("pending", await ReadWorkStateAsync(firstSibling));
     }
 
     private async Task<EvaluationPersistenceTestSeed.PreparedEvaluation> AdmitPreparedAsync(
@@ -140,12 +165,62 @@ public sealed class EvaluationFairClaimTests(PostgresIntegrationFixture fixture)
     }
 
     private Task<EvaluationDurableWorkItem?> TryClaimAsync(
-        EvaluationPersistenceTestSeed.PreparedEvaluation prepared) =>
+        EvaluationPersistenceTestSeed.PreparedEvaluation prepared,
+        int perOrganizationConcurrency) =>
         prepared.Work.TryClaimAsync(
             prepared.WorkerActorId,
             TimeSpan.FromSeconds(30),
-            PerOrganizationConcurrency,
+            perOrganizationConcurrency,
             CancellationToken);
+
+    private async Task AssertOrganizationHasClaimableWorkAsync(
+        EvaluationPersistenceTestSeed.PreparedEvaluation prepared,
+        int perOrganizationConcurrency)
+    {
+        var snapshot = await prepared.Work.ReadClaimableSnapshotAsync(
+            prepared.WorkerActorId,
+            perOrganizationConcurrency,
+            CancellationToken);
+        Assert.True(snapshot.ClaimableCount >= 1);
+    }
+
+    private async Task<DateTimeOffset?> ReadPartitionLastClaimedAtAsync(
+        EvaluationPersistenceTestSeed.PreparedEvaluation prepared)
+    {
+        var ownership = prepared.Request.FrozenInput.Ownership;
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<DateTimeOffset?>(
+            """
+            SELECT last_claimed_at
+            FROM evaluation_work_claim_partitions
+            WHERE organization_id = @OrganizationId
+              AND activity_id = @ActivityId;
+            """,
+            new
+            {
+                OrganizationId = ownership.OrganizationId,
+                ActivityId = ownership.ActivityId,
+            });
+    }
+
+    private async Task<string> ReadWorkStateAsync(EvaluationPersistenceTestSeed.PreparedEvaluation prepared)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        return await connection.QuerySingleAsync<string>(
+            """
+            SELECT state
+            FROM evaluation_durable_work
+            WHERE organization_id = @OrganizationId
+              AND request_id = @RequestId;
+            """,
+            new
+            {
+                prepared.Request.FrozenInput.Ownership.OrganizationId,
+                prepared.Request.RequestId,
+            });
+    }
 
     private async Task<string> ReadWorkStateAsync(EvaluationDurableWorkItem work)
     {
