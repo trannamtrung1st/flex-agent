@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T11:00:00+07:00
+updated: 2026-09-14T11:12:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -18,6 +18,9 @@ phase9_load_more_ci: 34796325485
 phase9_load_more_review: request-changes-2026-09-14-0-blocker-0-high-1-medium-0-low
 phase9_demo_review: febe1313
 phase9_demo_review_confirmation: febe1313-2026-09-14
+phase9_spacing_corrective_head: d5e1c7c1
+phase9_spacing_corrective_ci: approved-34803678062
+phase9_spacing_corrective_review: approved-d5e1c7c1-0-blocker-0-high-0-medium-0-low
 phase8: approved-473afd75
 phase8_status: approved
 phase8_review: approved-473afd75-0-blocker-0-high-0-medium-0-low
@@ -1425,6 +1428,13 @@ approved UI/UX specification or design system.
   **12**; no product-code changes. Authoritative implementation head remains
   `d5e1c7c1`; hosted Implementation **`34803678062`** still green. Bookkeeping
   `bed089c0` / `94f363b3` docs-only. Not Phase 9 completion.
+- [x] **Criterion spacing corrective chain review (2026-09-14):** External review
+  **APPROVED — 0 Blocker / 0 High / 0 Medium / 0 Low** on chain
+  `4457cf3e` → `d5e1c7c1` → `bed089c0` → `94f363b3` → `f5273397`. Authoritative
+  implementation head `d5e1c7c1`; Implementation **`34803678062`** all six jobs
+  green. Bookkeeping Implementation runs on `bed089c0` / `94f363b3` / `f5273397`
+  correctly skipped the matrix (docs-only). **Corrective slice approved; Phase 9
+  overall not complete.**
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1933,8 +1943,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 criterion inspector spacing | implementation-pass | 2026-09-14. Closed leftover padding: fused Evidence/provisional into criterion `ReadoutList`; pane span-head/body group rhythm; SplitBay `--split-start: 16rem` wins over primitives `220px`; column-gap 0; compact drawer gap closed. Focused: `ProductionReviewCasePage` 6; copied-styles plates hash. Playwright MCP candidate `:5274` desktop/390px criterion + Evidence; **Open Evidence** focus restore. Detector `--json` `[]`. Canonical redirect unchanged. Not Phase 9 completion. |
 | Phase 9 criterion inspector spacing confirmation | implementation-pass | 2026-09-14. Re-ran live `:5274` as Demo Reviewer: desktop + 390px criterion (including empty-Evidence second criterion) and Evidence; head **Back to criterion** restores **Open Evidence**. Focused web **17**; copied-styles **12**. No further product-code changes. Canonical redirect unchanged. Not Phase 9 completion. |
 | Phase 9 criterion inspector spacing review (`4457cf3e`) | request-changes | 2026-09-14. **0 Blocker / 0 High / 0 Medium / 1 Low** — stale `workWellSectionMarks.test.ts` span assertion blocked Implementation **`34803225874`**. Product/UI change approved; test-only corrective required. Not Phase 9 completion. |
-| Phase 9 criterion inspector spacing test corrective (`d5e1c7c1`) | approved | 2026-09-14. External review **0 Blocker / 0 High / 0 Medium / 0 Low** on `d5e1c7c1`. Test-only: span header asserts `padding-block-end: var(--space-2)`. Closes **`34803225874`** web failure on `4457cf3e`. Hosted Documentation **`34803678034`**; Implementation **`34803678062`** — all six jobs green. Not Phase 9 completion. |
-| Phase 9 criterion spacing corrective confirmation | implementation-pass | 2026-09-14. Re-ran focused `workWellSectionMarks` **8**, `ProductionReviewCasePage` **6**, copied-styles **12**. No product-code changes. Authoritative head `d5e1c7c1`; Implementation **`34803678062`** green. Not Phase 9 completion. |
+| Phase 9 criterion spacing corrective chain (`4457cf3e` → `f5273397`) | approved | External review 2026-09-14 at authoritative head `d5e1c7c1`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-d5e1c7c1-0-blocker-0-high-0-medium-0-low`). Chain: spacing polish `4457cf3e`; test corrective `d5e1c7c1`; bookkeeping `bed089c0` → `94f363b3` → `f5273397`. Closes **`34803225874`** web failure. Hosted CI at `d5e1c7c1`: Documentation **`34803678034`**; Implementation **`34803678062`** — all six jobs green. **Corrective slice approved; Phase 9 overall not complete.** Worker disabled |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
