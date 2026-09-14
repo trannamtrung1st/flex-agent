@@ -2,7 +2,9 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T13:05:00+07:00
+updated: 2026-09-14T13:06:00+07:00
+phase9_browser_head: 76b2eaff
+phase9_browser_ci: pending-hosted
 phase9_browser_review: request-changes-ecdc811e-0-blocker-0-high-1-medium-0-low
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
@@ -1477,7 +1479,7 @@ approved UI/UX specification or design system.
   400% zoom reflow. **Phase 9 overall still not complete** (Worker-disabled live
   queued/running transitions, independent Phase 11 reviews,
   `docs/current-state.md` promotion).
-- [>] **Phase 9 browser 400% reflow corrective (2026-09-14):** Replace
+- [x] **Phase 9 browser 400% reflow corrective (2026-09-14):** Replace
   root-font-only `REVIEW-E2E-05` with **320 CSS px** equivalent 400% zoom viewport;
   assert no unintended horizontal overflow on page/guided-task/main; keep criterion
   identity, **Open Evidence**, and Criteria nav reachable; attach full-page
@@ -1485,7 +1487,7 @@ approved UI/UX specification or design system.
   computed reduced-motion/forced-colors checks. Root-font stress retained as
   secondary check inside `REVIEW-E2E-05`. Local `verify-oidc` re-run blocked by
   transient `seed-demo-review` FK failure in this environment; await hosted CI on
-  corrective head.
+  corrective head `76b2eaff`.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
