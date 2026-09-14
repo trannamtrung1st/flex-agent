@@ -1643,7 +1643,7 @@ approved UI/UX specification or design system.
   citation failures, conflict/review-required, audit rollback, replacement,
   annotation, and deletion. Add tests that raw content and unrestricted IDs are
   absent.
-  **Implementation pass (`de0fd543`):** `IEvaluationRuntimeTelemetry` port +
+  **Implementation pass (`1bc8ec5e`):** `IEvaluationRuntimeTelemetry` port +
   `EvaluationRuntimeTelemetryAdapter` (Worker → `session.work.*` with
   `work_type=evaluation.execute`); `EvaluationDurableWorkProcessor` records bounded
   `session.work.claim` / `session.work.process`; backlog sampler moved to Evaluation
