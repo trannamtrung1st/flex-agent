@@ -18,6 +18,9 @@ export const demoReviewRunning = {
   caseId: "f2300000-0000-4000-8000-00000000000e",
 } as const;
 
+export const QUEUED_CRITERION_UNAVAILABLE =
+  "Evaluation queued. Criterion judgments are not available until processing completes.";
+
 export const RUNNING_CRITERION_UNAVAILABLE =
   "Evaluation running. Criterion judgments are not available until completion.";
 

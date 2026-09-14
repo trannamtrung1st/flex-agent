@@ -2,7 +2,10 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T13:59:00+07:00
+updated: 2026-09-14T14:32:00+07:00
+phase9_processing_head: 3d024577
+phase9_processing_ci: approved-34815957862
+phase9_processing_review: request-changes-3d024577-0-blocker-0-high-1-medium-0-low
 phase9_browser_head: 722d36d6
 phase9_browser_ci: approved-34812310096
 phase9_browser_docs_ci: approved-34812310123
@@ -1526,6 +1529,15 @@ approved UI/UX specification or design system.
   stack seeded **3** review cases; canonical Playwright on live `:18080` not rerun
   (port-bound main stack retains pre-alignment configuration). Hosted
   `verify-oidc` remains authoritative for `REVIEW-E2E-06`/`07`.
+
+- [x] **Phase 9 processing-state copy corrective (2026-09-14):** External review at
+  `3d024577`: **0 Blocker / 0 High / 1 Medium / 0 Low** — queued processing well
+  reused running copy (“Evaluation running” under **Queued** status). Split
+  `processingWellCopy()` into `QUEUED_CRITERION_UNAVAILABLE` vs
+  `RUNNING_CRITERION_UNAVAILABLE`; updated `REVIEW-E2E-07`, `presentation.test.ts`,
+  and `ProductionReviewCasePage` processing-well regression. Focused web **25/25**
+  on presentation + case page. Hosted Implementation **`34815957862`** green on
+  pre-corrective `3d024577`; corrective head pending re-review CI.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 

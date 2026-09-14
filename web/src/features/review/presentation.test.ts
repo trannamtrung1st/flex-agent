@@ -2,6 +2,7 @@ import {
   BACK_TO_CRITERION,
   INTERNAL_EVALUATION_NOTICE,
   OPEN_EVIDENCE,
+  QUEUED_CRITERION_UNAVAILABLE,
   RUNNING_CRITERION_UNAVAILABLE,
   WHOLE_ITEM_PRECISION,
   canonicalEvaluatorModeCopy,
@@ -47,7 +48,8 @@ describe("review presentation", () => {
 
   it("maps processing and Evidence availability copy", () => {
     expect(processingWellCopy({ evaluation_processing_state: "awaiting" })).toMatch(/awaiting an eligible Evaluation/);
-    expect(processingWellCopy({ evaluation_processing_state: "queued" })).toBe(RUNNING_CRITERION_UNAVAILABLE);
+    expect(processingWellCopy({ evaluation_processing_state: "queued" })).toBe(QUEUED_CRITERION_UNAVAILABLE);
+    expect(processingWellCopy({ evaluation_processing_state: "running" })).toBe(RUNNING_CRITERION_UNAVAILABLE);
     expect(processingWellCopy({
       evaluation_processing_state: "retryable_failure",
     })).toMatch(/failed and can be retried/);
@@ -55,6 +57,10 @@ describe("review presentation", () => {
       evaluation_processing_state: "running",
       processing_notice: "Custom notice.",
     })).toBe(RUNNING_CRITERION_UNAVAILABLE);
+    expect(processingWellCopy({
+      evaluation_processing_state: "queued",
+      processing_notice: "Custom notice.",
+    })).toBe(QUEUED_CRITERION_UNAVAILABLE);
     expect(processingWellCopy({
       evaluation_processing_state: "awaiting",
       processing_notice: "Custom notice.",

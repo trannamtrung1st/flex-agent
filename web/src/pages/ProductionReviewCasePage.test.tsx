@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { createFlexQueryClient, FlexQueryProvider } from "../api/query-client";
 import { ProductionReviewCasePage } from "./ProductionReviewCasePage";
-import { RUNNING_CRITERION_UNAVAILABLE } from "../features/review/presentation";
+import { QUEUED_CRITERION_UNAVAILABLE, RUNNING_CRITERION_UNAVAILABLE } from "../features/review/presentation";
 import { reviewKeys } from "../features/review/queryKeys";
 import type { ReviewCaseReadV1, ReviewCriterionReadV1, ReviewEvidenceOpenV1 } from "../contracts/v1";
 
@@ -301,7 +301,7 @@ describe("ProductionReviewCasePage", () => {
 
   it.each([
     ["awaiting", "This Session is awaiting an eligible Evaluation. Criterion judgments are not available.", null],
-    ["queued", RUNNING_CRITERION_UNAVAILABLE, null],
+    ["queued", QUEUED_CRITERION_UNAVAILABLE, null],
     ["retryable_failure", "Evaluation failed and can be retried. Criterion judgments are not available.", null],
   ] as const)("shows the processing well for %s Evaluation", async (state, copy, notice) => {
     stubAuthenticatedFetch((url) => {

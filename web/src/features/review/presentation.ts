@@ -13,7 +13,10 @@ export const LOADING_REVIEW_WORK = "Loading Review work";
 export const EMPTY_REVIEW_WORK = "No Review work is assigned to you";
 export const OPEN_EVIDENCE = "Open Evidence";
 export const BACK_TO_CRITERION = "Back to criterion";
-export const RUNNING_CRITERION_UNAVAILABLE = "Evaluation running. Criterion judgments are not available until completion.";
+export const QUEUED_CRITERION_UNAVAILABLE =
+  "Evaluation queued. Criterion judgments are not available until processing completes.";
+export const RUNNING_CRITERION_UNAVAILABLE =
+  "Evaluation running. Criterion judgments are not available until completion.";
 export const WHOLE_ITEM_PRECISION = "Whole item cited — a finer verified location is unavailable";
 
 const PROCESSING_COPY: Record<ReviewWorkItemV1["evaluation_processing_state"], string> = {
@@ -142,7 +145,10 @@ export function evidenceAvailabilityCopy(availability: ReviewEvidenceOpenV1["ava
 }
 
 export function processingWellCopy(record: Pick<ReviewCaseReadV1, "evaluation_processing_state" | "processing_notice">) {
-  if (record.evaluation_processing_state === "running" || record.evaluation_processing_state === "queued") {
+  if (record.evaluation_processing_state === "queued") {
+    return QUEUED_CRITERION_UNAVAILABLE;
+  }
+  if (record.evaluation_processing_state === "running") {
     return RUNNING_CRITERION_UNAVAILABLE;
   }
   if (record.processing_notice) {
@@ -157,7 +163,7 @@ export function processingWellCopy(record: Pick<ReviewCaseReadV1, "evaluation_pr
   if (record.evaluation_processing_state === "review_required") {
     return "Evaluation requires review before criterion judgments can be treated as complete.";
   }
-  return RUNNING_CRITERION_UNAVAILABLE;
+  return "Criterion judgments are not available until Evaluation processing completes.";
 }
 
 export function evidencePrecisionCopy(precision: ReviewEvidenceOpenV1["locator"]["precision"] | undefined) {

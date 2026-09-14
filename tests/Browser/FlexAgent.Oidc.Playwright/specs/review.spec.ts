@@ -10,6 +10,7 @@ import {
   equivalent400PercentZoomViewport,
   openDemoCriterionInspector,
   openDemoReviewCase,
+  QUEUED_CRITERION_UNAVAILABLE,
   RUNNING_CRITERION_UNAVAILABLE,
   signInAsReviewer,
 } from "../helpers/review";
@@ -113,9 +114,11 @@ test("REVIEW-E2E-07 processing well hides Criteria navigation [REVIEW-E2E-07]", 
   await page.goto("/");
   await signInAsReviewer(page);
   await openDemoReviewCase(page, demoReviewQueued.caseId);
-  await expect(page.getByText(RUNNING_CRITERION_UNAVAILABLE)).toBeVisible();
+  await expect(page.getByText(QUEUED_CRITERION_UNAVAILABLE)).toBeVisible();
+  await expect(page.getByText(RUNNING_CRITERION_UNAVAILABLE)).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Criteria" })).toHaveCount(0);
   await openDemoReviewCase(page, demoReviewRunning.caseId);
   await expect(page.getByText(RUNNING_CRITERION_UNAVAILABLE)).toBeVisible();
+  await expect(page.getByText(QUEUED_CRITERION_UNAVAILABLE)).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Criteria" })).toHaveCount(0);
 });
