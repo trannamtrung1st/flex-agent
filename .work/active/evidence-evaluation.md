@@ -1662,7 +1662,7 @@ approved UI/UX specification or design system.
   enforced it, so backlog could report claimable work during identity incidents. Low:
   exact-head Implementation CI cancelled at `1bc8ec5e`; bookkeeping `b46f6766` cannot
   substitute (docs-only run). **Bookkeeping `b46f6766`:** **APPROVED — 0/0/0/0**.
-  **Corrective pass (uncommitted):** `ReadClaimableSnapshotAsync()` now performs the same
+  **Corrective pass (`6057b303`):** `ReadClaimableSnapshotAsync()` now performs the same
   transaction-bound `IsWorkloadCurrentForClaimOwnerAsync` check before `BacklogSql` and
   returns `EvaluationDurableWorkBacklogSnapshot.Unknown` when identity is unavailable,
   expired, or revoked so the sampler emits no misleading positive backlog. **Red/green:**
