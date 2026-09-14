@@ -4,10 +4,14 @@ public sealed record EvaluationDurableWorkSettings(
     Guid WorkerActorId,
     string SourceChannel,
     TimeSpan ClaimLease = default,
-    int PerOrganizationConcurrency = 1)
+    int PerOrganizationConcurrency = 1,
+    TimeSpan ClaimCleanupTimeout = default)
 {
     public TimeSpan EffectiveClaimLease =>
         ClaimLease > TimeSpan.Zero ? ClaimLease : TimeSpan.FromSeconds(30);
+
+    public TimeSpan EffectiveClaimCleanupTimeout =>
+        ClaimCleanupTimeout > TimeSpan.Zero ? ClaimCleanupTimeout : TimeSpan.FromSeconds(2);
 }
 
 public static class EvaluationDurableWorkTypes
@@ -26,6 +30,8 @@ public static class EvaluationDurableWorkOutcomes
     public const string Idle = "idle";
 
     public const string RetryLater = "retry_later";
+
+    public const string ClaimReleaseFailed = "claim_release_failed";
 }
 
 public interface IEvaluationDurableWorkProcessor
@@ -60,24 +66,45 @@ public sealed class EvaluationDurableWorkProcessor(
 
         if (cancellationToken.IsCancellationRequested)
         {
-            await workStore.ReleaseForRetryAsync(
+            return await ReleaseForDeferredExecutionAsync(claimed, useLinkedCancellation: false);
+        }
+
+        // Full evaluator execution is deferred to later Phase 10 slices; prove claim authority first.
+        return await ReleaseForDeferredExecutionAsync(claimed, useLinkedCancellation: true, cancellationToken);
+    }
+
+    private async Task<EvaluationDurableWorkProcessResult> ReleaseForDeferredExecutionAsync(
+        EvaluationDurableWorkItem claimed,
+        bool useLinkedCancellation,
+        CancellationToken cancellationToken = default)
+    {
+        using var cleanup = useLinkedCancellation
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : new CancellationTokenSource();
+        cleanup.CancelAfter(settings.EffectiveClaimCleanupTimeout);
+        try
+        {
+            var released = await workStore.ReleaseForRetryAsync(
                 claimed,
                 settings.WorkerActorId,
                 ExecutionDeferredFailureCategory,
-                cancellationToken);
+                cleanup.Token);
+            if (!released)
+            {
+                return new EvaluationDurableWorkProcessResult(
+                    EvaluationDurableWorkOutcomes.ClaimReleaseFailed,
+                    claimed.RequestId);
+            }
+
             return new EvaluationDurableWorkProcessResult(
                 EvaluationDurableWorkOutcomes.RetryLater,
                 claimed.RequestId);
         }
-
-        // Full evaluator execution is deferred to later Phase 10 slices; prove claim authority first.
-        await workStore.ReleaseForRetryAsync(
-            claimed,
-            settings.WorkerActorId,
-            ExecutionDeferredFailureCategory,
-            cancellationToken);
-        return new EvaluationDurableWorkProcessResult(
-            EvaluationDurableWorkOutcomes.RetryLater,
-            claimed.RequestId);
+        catch (OperationCanceledException) when (cleanup.IsCancellationRequested)
+        {
+            return new EvaluationDurableWorkProcessResult(
+                EvaluationDurableWorkOutcomes.ClaimReleaseFailed,
+                claimed.RequestId);
+        }
     }
 }

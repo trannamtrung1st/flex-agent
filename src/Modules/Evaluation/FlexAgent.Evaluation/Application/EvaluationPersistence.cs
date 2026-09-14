@@ -76,7 +76,10 @@ public sealed record EvaluationDurableWorkBacklogSnapshot(int ClaimableCount, in
 
 public interface IEvaluationDurableWorkStore
 {
-    Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
+    Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(
+        Guid claimOwner,
+        int perOrganizationConcurrency,
+        CancellationToken cancellationToken) =>
         Task.FromResult(EvaluationDurableWorkBacklogSnapshot.Unknown);
 
     Task<EvaluationDurableWorkItem?> TryClaimAsync(

@@ -1553,23 +1553,31 @@ approved UI/UX specification or design system.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
-- [x] Add Evaluation as a distinct bounded Worker lane with fair scheduling
-  beside Session invocation/timer/expiry work. Report lane-specific enabled,
-  fail-closed, identity, adapter qualification, backlog, and readiness states.
+- [x] Wire Evaluation as a distinct bounded Worker lane with claim path, backlog
+  reporting, and lane-specific enabled/fail-closed/identity/readiness states beside
+  Session invocation/timer/expiry work.
   **Slice 1:** `EvaluationInfrastructure.ProcessingEnabled = true`
   opens the compile gate; runtime remains config-default-off until Compose item 8.
   `EvaluationDurableWorkProcessor` claims admitted work via
   `PostgresEvaluationDurableWorkStore`, transitions `queued → running` through
   claim SQL, then releases with `worker.execution_deferred` until evaluator
-  execution lands in a later slice. Worker registers live store/processor/backlog
-  sampler when `Evaluation:Processing:Enabled` and `Sessions:WorkerServiceActorId`
-  are set in Development/Testing. **Red/green:** unit
-  `EvaluationDurableWorkProcessorTests` (3); integration
-  `Worker_processor_claims_admitted_work_and_transitions_request_through_running`;
-  runtime `Worker_registers_live_evaluation_processor_when_processing_is_explicitly_enabled`.
-  **Verified:** Evaluation unit 441/441; Runtime 344/344; Postgres integration
-  508/508 (local 2026-09-14). Fairness remains sequential after invocation/timer
-  lanes per existing loop order; dedicated fairness telemetry is Phase 10 item 3.
+  execution lands in a later slice. Post-claim shutdown cleanup uses a bounded
+  token, reports `claim_release_failed` when release authority is lost, and
+  claimable backlog shares the same delegation/claim-owner/concurrency predicate
+  as `TryClaimAsync`. Worker registers live store/processor/backlog sampler when
+  `Evaluation:Processing:Enabled` and `Sessions:WorkerServiceActorId` are set in
+  Development/Testing. **Review corrective (post-`4a7b855e`):** bounded release
+  cleanup, explicit failed-release outcome, aligned claimable snapshot SQL,
+  `EvaluationClaimableBacklogTests` negatives, SQL composition guard, fair-scheduling
+  checkbox split. **Red/green:** unit `EvaluationDurableWorkProcessorTests` +
+  `PostgresEvaluationDurableWorkStoreSqlTests`; integration
+  `Worker_processor_claims_admitted_work_and_transitions_request_through_running`
+  and `EvaluationClaimableBacklogTests`; runtime
+  `Worker_registers_live_evaluation_processor_when_processing_is_explicitly_enabled`.
+- [ ] Add fair scheduling / weighting / anti-starvation evidence for Evaluation
+  beside Session invocation/timer/expiry work. Current loop order gives Evaluation
+  one sequential processing opportunity per tick after Session work; dedicated
+  fairness telemetry and load/recovery proof remain later Phase 10 items.
 - [ ] Prevent Evaluation claim or protected disclosure while workload identity
   is unavailable, expiring, revoked, out of delegated scope, or unqualified.
   Reauthorize at claim, source read/model disclosure, lease renewal as needed,

@@ -48,6 +48,47 @@ public sealed class EvaluationDurableWorkProcessorTests
         Assert.Equal(
             EvaluationDurableWorkProcessor.ExecutionDeferredFailureCategory,
             release.FailureCategory);
+        Assert.False(release.CancellationToken.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task Processor_reports_release_failure_when_store_rejects_cleanup()
+    {
+        var requestId = Guid.CreateVersion7();
+        var workerActorId = Guid.CreateVersion7();
+        var claimed = CreateWorkItem(requestId, workerActorId);
+        var store = new RecordingEvaluationWorkStore
+        {
+            ClaimResult = claimed,
+            ReleaseResult = false,
+        };
+        var processor = CreateProcessor(store, workerActorId);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.ClaimReleaseFailed, result.Outcome);
+        Assert.Equal(requestId, result.RequestId);
+    }
+
+    [Fact]
+    public async Task Processor_uses_bounded_cleanup_token_when_cancelled_after_claim()
+    {
+        var requestId = Guid.CreateVersion7();
+        var workerActorId = Guid.CreateVersion7();
+        var claimed = CreateWorkItem(requestId, workerActorId);
+        using var cancellation = new CancellationTokenSource();
+        var store = new RecordingEvaluationWorkStore
+        {
+            ClaimResult = claimed,
+            OnClaim = () => cancellation.Cancel(),
+        };
+        var processor = CreateProcessor(store, workerActorId);
+
+        var result = await processor.TryProcessNextAsync(cancellation.Token);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.RetryLater, result.Outcome);
+        var release = Assert.Single(store.Releases);
+        Assert.False(release.CancellationToken.IsCancellationRequested);
     }
 
     private static EvaluationDurableWorkProcessor CreateProcessor(
@@ -82,9 +123,13 @@ public sealed class EvaluationDurableWorkProcessorTests
     {
         public EvaluationDurableWorkItem? ClaimResult { get; init; }
 
+        public bool ReleaseResult { get; init; } = true;
+
+        public Action? OnClaim { get; init; }
+
         public int ClaimAttempts { get; private set; }
 
-        public List<(EvaluationDurableWorkItem Work, Guid ClaimOwner, string FailureCategory)> Releases { get; } = [];
+        public List<(EvaluationDurableWorkItem Work, Guid ClaimOwner, string FailureCategory, CancellationToken CancellationToken)> Releases { get; } = [];
 
         public Task<EvaluationDurableWorkItem?> TryClaimAsync(
             Guid claimOwner,
@@ -93,8 +138,15 @@ public sealed class EvaluationDurableWorkProcessorTests
             CancellationToken cancellationToken)
         {
             ClaimAttempts++;
+            OnClaim?.Invoke();
             return Task.FromResult(ClaimResult);
         }
+
+        public Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(
+            Guid claimOwner,
+            int perOrganizationConcurrency,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new EvaluationDurableWorkBacklogSnapshot(0, 0));
 
         public Task<DateTimeOffset?> TryRenewAsync(
             EvaluationDurableWorkItem work,
@@ -109,8 +161,8 @@ public sealed class EvaluationDurableWorkProcessorTests
             string failureCategory,
             CancellationToken cancellationToken)
         {
-            Releases.Add((work, claimOwner, failureCategory));
-            return Task.FromResult(true);
+            Releases.Add((work, claimOwner, failureCategory, cancellationToken));
+            return Task.FromResult(ReleaseResult);
         }
 
         public Task<bool> MarkExhaustedAsync(

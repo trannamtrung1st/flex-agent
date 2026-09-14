@@ -9,15 +9,28 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
     : IEvaluationDurableWorkStore
 {
     public async Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(
+        Guid claimOwner,
+        int perOrganizationConcurrency,
         CancellationToken cancellationToken)
     {
+        ValidateClaim(claimOwner, TimeSpan.FromSeconds(1));
+        if (perOrganizationConcurrency is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(perOrganizationConcurrency));
+        }
+
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
             var row = await scope.Connection.QuerySingleAsync<BacklogRow>(
                 new CommandDefinition(
                     BacklogSql,
-                    transaction: scope.Transaction,
+                    new
+                    {
+                        ClaimOwner = claimOwner,
+                        PerOrganizationConcurrency = perOrganizationConcurrency,
+                    },
+                    scope.Transaction,
                     cancellationToken: cancellationToken));
             await scope.CommitAsync(cancellationToken);
             return new EvaluationDurableWorkBacklogSnapshot(row.claimable_count, row.partition_count);
@@ -600,48 +613,9 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         return delegationId is not null;
     }
 
-    private const string BacklogSql = """
-        SELECT COUNT(*)::INT AS claimable_count,
-               COUNT(DISTINCT (work.organization_id, work.activity_id))::INT AS partition_count
-        FROM evaluation_durable_work AS work
-        INNER JOIN evaluation_requests AS request
-          ON request.organization_id = work.organization_id
-         AND request.request_id = work.request_id
-        WHERE (
-                (
-                    work.attempt_count < work.max_attempts
-                    AND (
-                        (work.state = 'pending' AND work.available_at <= clock_timestamp())
-                        OR (
-                            work.state = 'claimed'
-                            AND work.claim_lease_until IS NOT NULL
-                            AND work.claim_lease_until < clock_timestamp())
-                    )
-                )
-                OR (
-                    work.state = 'claimed'
-                    AND work.claim_lease_until < clock_timestamp()
-                    AND request.state = 'completed'
-                    AND EXISTS (
-                        SELECT 1
-                        FROM evaluations
-                        WHERE organization_id = request.organization_id
-                          AND request_id = request.request_id)
-                )
-                OR (
-                    work.state = 'claimed'
-                    AND work.claim_lease_until < clock_timestamp()
-                    AND work.attempt_count >= work.max_attempts
-                    AND request.state <> 'completed'
-                )
-              );
-        """;
-
-    private const string ClaimOrganizationSql = """
-        SELECT organization.id
-        FROM evaluation_durable_work AS work
-        INNER JOIN organizations AS organization
-          ON organization.id = work.organization_id
+    private const string ActiveEvaluationDelegationJoinSql =
+        """
+        
         INNER JOIN evaluation_requests AS request
           ON request.organization_id = work.organization_id
          AND request.request_id = work.request_id
@@ -657,19 +631,67 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
          AND delegation.revoked_at IS NULL
          AND delegation.effective_at <= clock_timestamp()
          AND (delegation.expires_at IS NULL OR delegation.expires_at > clock_timestamp())
+        """;
+
+    private const string RetryableWorkReadySql = """
+        work.attempt_count < work.max_attempts
+        AND (
+            (work.state = 'pending' AND work.available_at <= clock_timestamp())
+            OR (
+                work.state = 'claimed'
+                AND work.claim_lease_until IS NOT NULL
+                AND work.claim_lease_until < clock_timestamp())
+        )
+        """;
+
+    private const string OrganizationConcurrencyAvailableSql = """
+        (
+            SELECT COUNT(*)
+            FROM evaluation_durable_work AS active
+            WHERE active.organization_id = work.organization_id
+              AND active.state = 'claimed'
+              AND active.claim_lease_until >= clock_timestamp()
+        ) < @PerOrganizationConcurrency
+        """;
+
+    private const string ClaimCandidateEligibilitySql =
+        RetryableWorkReadySql
+        + """
+        
+          AND 
+        """
+        + OrganizationConcurrencyAvailableSql;
+
+    private const string BacklogSql =
+        """
+        SELECT COUNT(*)::INT AS claimable_count,
+               COUNT(DISTINCT (work.organization_id, work.activity_id))::INT AS partition_count
+        FROM evaluation_durable_work AS work
+        """
+        + ActiveEvaluationDelegationJoinSql
+        + """
+        WHERE 
+        """
+        + ClaimCandidateEligibilitySql
+        + ";";
+
+    private const string ClaimOrganizationSql =
+        """
+        SELECT organization.id
+        FROM evaluation_durable_work AS work
+        INNER JOIN organizations AS organization
+          ON organization.id = work.organization_id
+        """
+        + ActiveEvaluationDelegationJoinSql
+        + """
         LEFT JOIN evaluation_work_claim_partitions AS served
           ON served.organization_id = work.organization_id
          AND served.activity_id = work.activity_id
         WHERE (
                 (
-                    work.attempt_count < work.max_attempts
-                    AND (
-                        (work.state = 'pending' AND work.available_at <= clock_timestamp())
-                        OR (
-                            work.state = 'claimed'
-                            AND work.claim_lease_until IS NOT NULL
-                            AND work.claim_lease_until < clock_timestamp())
-                    )
+        """
+        + RetryableWorkReadySql
+        + """
                 )
                 OR (
                     work.state = 'claimed'
@@ -695,7 +717,8 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         LIMIT 1;
         """;
 
-    private const string ClaimSql = """
+    private const string ClaimSql =
+        """
         WITH candidate AS MATERIALIZED (
             SELECT work.organization_id, work.activity_id, work.participant_id,
                    work.attempt_id, work.session_id, work.work_id, work.request_id,
@@ -703,40 +726,17 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
                    work.attempt_count, work.max_attempts, work.attempt_timeout_seconds,
                    work.backoff_seconds
             FROM evaluation_durable_work AS work
-            INNER JOIN evaluation_requests AS request
-              ON request.organization_id = work.organization_id
-             AND request.request_id = work.request_id
-            INNER JOIN service_delegations AS delegation
-              ON delegation.delegation_id = request.delegation_id
-             AND delegation.organization_id = work.organization_id
-             AND delegation.activity_id = work.activity_id
-             AND delegation.participant_id = work.participant_id
-             AND delegation.attempt_id = work.attempt_id
-             AND delegation.session_id = work.session_id
-             AND delegation.service_actor_id = @ClaimOwner
-             AND delegation.allowed_action = 'evaluation.execute'
-             AND delegation.revoked_at IS NULL
-             AND delegation.effective_at <= clock_timestamp()
-             AND (delegation.expires_at IS NULL OR delegation.expires_at > clock_timestamp())
+        """
+        + ActiveEvaluationDelegationJoinSql
+        + """
             LEFT JOIN evaluation_work_claim_partitions AS served
               ON served.organization_id = work.organization_id
              AND served.activity_id = work.activity_id
-            WHERE work.attempt_count < work.max_attempts
-              AND work.organization_id = @CandidateOrganizationId
-              AND (
-                    (work.state = 'pending' AND work.available_at <= clock_timestamp())
-                    OR (
-                        work.state = 'claimed'
-                        AND work.claim_lease_until IS NOT NULL
-                        AND work.claim_lease_until < clock_timestamp())
-                  )
-              AND (
-                    SELECT COUNT(*)
-                    FROM evaluation_durable_work AS active
-                    WHERE active.organization_id = work.organization_id
-                      AND active.state = 'claimed'
-                      AND active.claim_lease_until >= clock_timestamp()
-                  ) < @PerOrganizationConcurrency
+            WHERE work.organization_id = @CandidateOrganizationId
+              AND 
+        """
+        + ClaimCandidateEligibilitySql
+        + """
             ORDER BY COALESCE(served.last_claimed_at, TIMESTAMPTZ '-infinity'),
                      work.available_at,
                      work.work_id

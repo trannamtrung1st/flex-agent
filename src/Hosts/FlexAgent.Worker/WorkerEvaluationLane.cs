@@ -39,6 +39,7 @@ internal static class WorkerEvaluationLane
             services.AddSingleton<IEvaluationDurableWorkBacklogSampler>(sp =>
                 new EvaluationDurableWorkBacklogSampler(
                     sp.GetRequiredService<IEvaluationDurableWorkStore>(),
+                    sp.GetRequiredService<EvaluationDurableWorkSettings>(),
                     sp.GetRequiredService<ISessionRuntimeTelemetry>()));
             return;
         }
@@ -68,6 +69,7 @@ public interface IEvaluationDurableWorkBacklogSampler
 
 internal sealed class EvaluationDurableWorkBacklogSampler(
     IEvaluationDurableWorkStore workStore,
+    EvaluationDurableWorkSettings settings,
     ISessionRuntimeTelemetry telemetry,
     TimeProvider? timeProvider = null,
     TimeSpan minInterval = default) : IEvaluationDurableWorkBacklogSampler
@@ -75,6 +77,7 @@ internal sealed class EvaluationDurableWorkBacklogSampler(
     public static TimeSpan DefaultMinInterval { get; } = TimeSpan.FromSeconds(30);
 
     private readonly IEvaluationDurableWorkStore _workStore = workStore;
+    private readonly EvaluationDurableWorkSettings _settings = settings;
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly TimeSpan _minInterval = minInterval > TimeSpan.Zero ? minInterval : DefaultMinInterval;
@@ -94,7 +97,10 @@ internal sealed class EvaluationDurableWorkBacklogSampler(
             _nextDue = now + _minInterval;
         }
 
-        var snapshot = await _workStore.ReadClaimableSnapshotAsync(cancellationToken);
+        var snapshot = await _workStore.ReadClaimableSnapshotAsync(
+            _settings.WorkerActorId,
+            _settings.PerOrganizationConcurrency,
+            cancellationToken);
         if (!snapshot.IsKnown)
         {
             return;
