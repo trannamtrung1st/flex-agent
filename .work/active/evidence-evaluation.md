@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T09:25:00+07:00
+updated: 2026-09-14T09:30:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -13,6 +13,8 @@ phase9_corrective_confirmation: 792e9031-2026-09-13
 phase9_corrective_review: approved-22929915-0-blocker-0-high-0-medium-0-low
 phase9_corrective_ci: approved-34767421166
 phase9_corrective_head: 22929915
+phase9_demo_review: febe1313
+phase9_demo_review_confirmation: febe1313-2026-09-14
 phase8: approved-473afd75
 phase8_status: approved
 phase8_review: approved-473afd75-0-blocker-0-high-0-medium-0-low
@@ -1367,6 +1369,13 @@ approved UI/UX specification or design system.
   (`org.`/`act.`/`part.`/`att.`/`sess.`/`eval.`). Assigned-review SQL casts
   jsonb score/uncertainty to text so Dapper can map GetCase. Live populated
   journey verified; Worker still disabled. Not Phase 9 completion.
+- [x] **Demo-review confirmation (`febe1313`):** Re-ran focused web **27**,
+  `tsc`, frontend isolation, `impeccable_context.py check`, compose validator
+  negatives, ESLint on production Review files, Runtime Reviewer shell
+  destination **2**. Live `:5274` as Demo Reviewer with canonical API redirect
+  `http://localhost:18080/auth/callback`: populated registry, case, Evidence
+  (quoted excerpt visible), foot **Back to criterion** restored **Open
+  Evidence** focus. No further product-code changes. Not Phase 9 completion.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1863,6 +1872,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 remaining pass (load-more append) | implementation-pass | 2026-09-14. `useReviewWorkInfiniteQuery` appends cursor pages; load-more unit test green. Demo-review seed + populated Playwright deferred (session/handoff/evaluation chain). Focused review web **23**. Not Phase 9 completion. |
 | Phase 9 remaining pass confirmation (`131fe365`) | implementation-pass | 2026-09-14. Re-ran focused web **23**, full web lint, `tsc`, frontend isolation, `impeccable_context.py check`. No further code changes. Not Phase 9 completion. |
 | Phase 9 demo-review seed + populated Playwright | implementation-pass | 2026-09-14. `seed-demo-review.sql` plus overlay/profile/validator wiring; jsonb `::text` casts and criterion-summary `judgment_id` on assigned-review SQL. Playwright MCP candidate `:5274` as `demo.reviewer`: populated registry, case, Evidence, head/foot **Back to criterion** focus restore; desktop and narrow. Local screenshots untracked. Worker disabled. Not Phase 9 completion. |
+| Phase 9 demo-review confirmation (`febe1313`) | implementation-pass | 2026-09-14. Re-ran focused web **27**, `tsc`, isolation, `impeccable_context.py check`, compose validator negatives, ESLint on production Review files, Runtime Reviewer shell destination **2**. Live `:5274` as Demo Reviewer: populated registry, case, Evidence, foot **Back to criterion** focus restore. Canonical API redirect remains `http://localhost:18080/auth/callback`. No further code changes. Not Phase 9 completion. |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
