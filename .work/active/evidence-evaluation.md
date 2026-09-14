@@ -1613,7 +1613,7 @@ approved UI/UX specification or design system.
   at exact head. **Fair Evaluation claim partitioning closed.** Representative load/recovery
   proof and broader cross-lane weighting/throughput evidence remain separate later Phase 10
   items; dedicated fairness telemetry beyond backlog partition buckets also deferred.
-- [ ] Prevent Evaluation claim or protected disclosure while workload identity
+- [x] Prevent Evaluation claim or protected disclosure while workload identity
   is unavailable, expiring, revoked, out of delegated scope, or unqualified.
   Reauthorize at claim, source read/model disclosure, lease renewal as needed,
   and completion.
@@ -1632,12 +1632,12 @@ approved UI/UX specification or design system.
   SELECT in same txn, second in-txn identity check before commit; regressions for
   post-revoke cached OAuth disclosure denial and in-txn principal-binding revoke between
   authorization and read.
-  **Integration:** `EvaluationWorkloadIdentityTests` (7). **Focused green (local):**
-  integration 7/7; Evaluation unit **453**; Runtime **344**; Architecture **65**.
-  Hosted CI green at `b10a2966`: Documentation **`34861408947`**; Implementation
-  **`34861409014`** — pre-corrective baseline only.
-  **Deferred:** model-provider disclosure ports; full evaluator execution path. Checkbox
-  stays open pending re-review.
+  **Re-review on `ed3632ce`:** **APPROVED — 0 Blocker / 0 High / 0 Medium / 0 Low**
+  (`approved-ed3632ce-0-blocker-0-high-0-medium-0-low`). Hosted Documentation
+  **`34865616876`**; Implementation **`34865616983`** — all six jobs green at exact head.
+  **Integration:** `EvaluationWorkloadIdentityTests` (7). **Deferred:** model-provider
+  disclosure ports; full evaluator execution path. **Deterministic protected-disclosure
+  corrective closed.**
 - [ ] Add bounded telemetry with allowlisted labels for status response,
   queue/claim/lease, time-to-completion, attempts, evaluator/provider outcomes,
   citation failures, conflict/review-required, audit rollback, replacement,
@@ -1656,6 +1656,20 @@ approved UI/UX specification or design system.
   **Confirmation pass (pre-commit):** runtime registration asserts
   `IEvaluationRuntimeTelemetry` when Evaluation processing is enabled; focused suites
   re-run green.
+  **Review on `1bc8ec5e`:** **REQUEST CHANGES — 0 Blocker / 0 High / 1 Medium / 1 Low**
+  (`request-changes-1bc8ec5e-0-blocker-0-high-1-medium-1-low`). Medium:
+  `ReadClaimableSnapshotAsync()` omitted workload-identity gating while `TryClaimAsync()`
+  enforced it, so backlog could report claimable work during identity incidents. Low:
+  exact-head Implementation CI cancelled at `1bc8ec5e`; bookkeeping `b46f6766` cannot
+  substitute (docs-only run). **Bookkeeping `b46f6766`:** **APPROVED — 0/0/0/0**.
+  **Corrective pass (uncommitted):** `ReadClaimableSnapshotAsync()` now performs the same
+  transaction-bound `IsWorkloadCurrentForClaimOwnerAsync` check before `BacklogSql` and
+  returns `EvaluationDurableWorkBacklogSnapshot.Unknown` when identity is unavailable,
+  expired, or revoked so the sampler emits no misleading positive backlog. **Red/green:**
+  `EvaluationWorkloadIdentityTests` (+3 backlog/identity regressions; 10 total).
+  **Focused green (local):** workload identity 10/10; claimable backlog 7/7; Evaluation
+  unit **453**; Architecture **65**. Checkbox stays open pending re-review and full exact-head
+  Implementation CI.
   **Deferred:** status-response latency, completion duration, attempt counts,
   evaluator/provider/citation/conflict/review-required/audit/replacement/annotation/
   deletion instruments until those surfaces emit telemetry. Checkbox stays open pending

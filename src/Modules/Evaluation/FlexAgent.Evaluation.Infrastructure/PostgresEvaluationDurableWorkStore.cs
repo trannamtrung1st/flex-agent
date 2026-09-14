@@ -25,6 +25,12 @@ public sealed class PostgresEvaluationDurableWorkStore(
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
+            if (!await IsWorkloadCurrentForClaimOwnerAsync(claimOwner, scope, cancellationToken))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return EvaluationDurableWorkBacklogSnapshot.Unknown;
+            }
+
             var row = await scope.Connection.QuerySingleAsync<BacklogRow>(
                 new CommandDefinition(
                     BacklogSql,

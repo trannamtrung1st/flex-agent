@@ -13,6 +13,117 @@ public sealed class EvaluationWorkloadIdentityTests(PostgresIntegrationFixture f
     : PostgresIntegrationTest(fixture)
 {
     [Fact]
+    public async Task Expired_workload_identity_returns_unknown_claimable_backlog()
+    {
+        var prepared = await SeedAdmittedWorkAsync();
+        var store = CreateWorkStore(new ExpiredEvaluationWorkloadIdentityGate(prepared.WorkerActorId));
+
+        var snapshot = await store.ReadClaimableSnapshotAsync(
+            prepared.WorkerActorId,
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+
+        Assert.False(snapshot.IsKnown);
+        Assert.Null(await store.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken));
+    }
+
+    [Fact]
+    public async Task Cached_oauth_proof_after_principal_binding_revoke_returns_unknown_claimable_backlog()
+    {
+        var prepared = await SeedAdmittedWorkAsync();
+        var organizationId = prepared.Request.FrozenInput.Ownership.OrganizationId;
+        var organizationActorId = await ReadOrganizationActorAsync(organizationId);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.ProvisionServicePrincipalBinding);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.RevokeServicePrincipalBinding);
+
+        var principalBindingId = Guid.NewGuid();
+        var mutation = new ServiceDelegationMutationContext(
+            new TrustedActor(organizationActorId, "synthetic.test_actor"),
+            Guid.NewGuid(),
+            "operator.command",
+            "revoke.cached.evaluation.backlog.binding");
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await PostgresServicePrincipalBindingCoordinator.ProvisionInTransactionAsync(
+                organizationId,
+                new ServicePrincipalBindingProvision(
+                    principalBindingId,
+                    WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+                    WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
+                    "https://issuer.example/realms/flex-agent",
+                    "worker-client-cached-eval-backlog-revoke",
+                    "worker-client-cached-eval-backlog-revoke",
+                    "flex-agent-worker",
+                    prepared.WorkerActorId,
+                    "worker.evaluation_runtime",
+                    DateTimeOffset.UtcNow),
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await PostgresServicePrincipalBindingCoordinator.RevokeInTransactionAsync(
+                organizationId,
+                principalBindingId,
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var store = CreateWorkStore(
+            new CachedOAuthEvaluationWorkloadIdentityGate(
+                prepared.WorkerActorId,
+                principalBindingId,
+                bindingVersion: 1));
+        var snapshot = await store.ReadClaimableSnapshotAsync(
+            prepared.WorkerActorId,
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+
+        Assert.False(snapshot.IsKnown);
+        Assert.Null(await store.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken));
+    }
+
+    [Fact]
+    public async Task Current_workload_identity_reports_claimable_backlog_matching_try_claim()
+    {
+        var prepared = await SeedAdmittedWorkAsync();
+        var store = CreateWorkStore(
+            new SyntheticConfiguredEvaluationWorkloadIdentityGate(prepared.WorkerActorId));
+
+        var snapshot = await store.ReadClaimableSnapshotAsync(
+            prepared.WorkerActorId,
+            perOrganizationConcurrency: 1,
+            CancellationToken);
+
+        Assert.True(snapshot.IsKnown);
+        Assert.Equal(1, snapshot.ClaimableCount);
+        Assert.Equal(1, snapshot.ClaimablePartitionCount);
+        Assert.NotNull(await store.TryClaimAsync(
+            prepared.WorkerActorId,
+            TimeSpan.FromSeconds(30),
+            perOrganizationConcurrency: 1,
+            CancellationToken));
+    }
+
+    [Fact]
     public async Task Expired_workload_identity_does_not_claim_authorized_evaluation_work()
     {
         var prepared = await SeedAdmittedWorkAsync();
@@ -343,6 +454,24 @@ public sealed class EvaluationWorkloadIdentityTests(PostgresIntegrationFixture f
     {
         private readonly AuthenticatedWorkloadTransactionGuard _guard = new(
             new ExpiredWorkloadIdentitySource(actorId));
+
+        public Task<bool> IsCurrentForWorkerActorAsync(
+            Guid workerActorId,
+            CancellationToken cancellationToken) =>
+            _guard.IsCurrentForActorAsync(workerActorId, cancellationToken);
+
+        public Task<bool> IsCurrentForWorkerActorInTransactionAsync(
+            Guid workerActorId,
+            System.Data.IDbTransaction transaction,
+            CancellationToken cancellationToken) =>
+            _guard.IsCurrentForActorInTransactionAsync(workerActorId, transaction, cancellationToken);
+    }
+
+    private sealed class SyntheticConfiguredEvaluationWorkloadIdentityGate(Guid actorId)
+        : IEvaluationWorkloadIdentityGate
+    {
+        private readonly AuthenticatedWorkloadTransactionGuard _guard = new(
+            new SyntheticConfiguredActorWorkloadIdentitySource(actorId));
 
         public Task<bool> IsCurrentForWorkerActorAsync(
             Guid workerActorId,
