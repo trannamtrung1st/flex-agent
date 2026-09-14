@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { demoReview, openDemoCriterionInspector, signInAsReviewer } from "../helpers/review";
+import {
+  assertForcedColorsCurrentCriterionNav,
+  assertNoUnintendedHorizontalOverflow,
+  assertReducedMotionCriterionNav,
+  compactCriterionViewport,
+  demoReview,
+  equivalent400PercentZoomViewport,
+  openDemoCriterionInspector,
+  signInAsReviewer,
+} from "../helpers/review";
 
 test.describe.configure({ mode: "serial" });
 
@@ -29,12 +38,16 @@ test("REVIEW-E2E-02 criterion Evidence inspect and focus restore [REVIEW-E2E-02]
 });
 
 test("REVIEW-E2E-03 narrow viewport criterion layout [REVIEW-E2E-03]", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize(compactCriterionViewport);
   await page.goto("/");
   await signInAsReviewer(page);
   await openDemoCriterionInspector(page);
-  await expect(page.getByRole("link", { name: "Open Evidence" })).toBeVisible();
+  await assertNoUnintendedHorizontalOverflow(page);
+  const openEvidence = page.getByRole("link", { name: "Open Evidence" });
+  await openEvidence.scrollIntoViewIfNeeded();
+  await expect(openEvidence).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Criteria" })).toBeVisible();
+  await expect(page.getByLabel("Criterion judgment")).toBeVisible();
 });
 
 test("REVIEW-E2E-04 reduced motion and forced colors [REVIEW-E2E-04]", async ({ page }) => {
@@ -42,19 +55,39 @@ test("REVIEW-E2E-04 reduced motion and forced colors [REVIEW-E2E-04]", async ({ 
   await signInAsReviewer(page);
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await openDemoCriterionInspector(page);
-  await expect(page.getByRole("link", { name: demoReview.criterionLabel })).toHaveAttribute("aria-current", "page");
+  const currentLink = page.getByRole("link", { name: demoReview.criterionLabel });
+  await expect(currentLink).toHaveAttribute("aria-current", "page");
+  await assertReducedMotionCriterionNav(page, demoReview.criterionLabel);
+  await assertForcedColorsCurrentCriterionNav(page, demoReview.criterionLabel);
+  await assertNoUnintendedHorizontalOverflow(page);
 });
 
-test("REVIEW-E2E-05 400% zoom reflow [REVIEW-E2E-05]", async ({ page }) => {
+test("REVIEW-E2E-05 400% zoom equivalent reflow [REVIEW-E2E-05]", async ({ page }) => {
+  await page.setViewportSize(equivalent400PercentZoomViewport);
   await page.goto("/");
   await signInAsReviewer(page);
-  await page.goto(
-    `/review/${demoReview.caseId}/criteria/${encodeURIComponent(demoReview.criterionId)}`,
-  );
-  await expect(page.getByLabel("Criterion judgment")).toBeVisible({ timeout: 30_000 });
+  await openDemoCriterionInspector(page);
+  await assertNoUnintendedHorizontalOverflow(page);
+
+  const openEvidence = page.getByRole("link", { name: "Open Evidence" });
+  const criteriaNav = page.getByRole("navigation", { name: "Criteria" });
+  const judgment = page.getByLabel("Criterion judgment");
+
+  await openEvidence.scrollIntoViewIfNeeded();
+  await expect(openEvidence).toBeVisible();
+  await expect(criteriaNav).toBeVisible();
+  await expect(judgment).toBeVisible();
+  await expect(page.getByText("Internal Evaluation · Not a released Result")).toBeVisible();
+
+  const screenshot = await page.screenshot({ fullPage: true });
+  await test.info().attach("review-criterion-400pct-equivalent-reflow", {
+    body: screenshot,
+    contentType: "image/png",
+  });
+
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "400%";
   });
-  await expect(page.getByRole("link", { name: "Open Evidence" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Criteria" })).toBeVisible();
+  await assertNoUnintendedHorizontalOverflow(page);
+  await expect(openEvidence).toBeVisible();
 });
