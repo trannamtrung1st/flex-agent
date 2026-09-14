@@ -68,10 +68,10 @@ export function useReviewWorkInfiniteQuery(
 
   return useInfiniteQuery({
     queryKey: reviewKeys.workPages(resolvedScope),
-    queryFn: ({ pageParam, signal }) => runReviewQuery(
+    queryFn: ({ pageParam, signal, queryKey }) => runReviewQuery(
       queryClient,
       resolvedScope,
-      reviewKeys.work(resolvedScope, pageParam),
+      queryKey,
       () => client.listWork(pageParam ?? undefined, signal),
     ),
     initialPageParam: null as string | null,

@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T09:30:00+07:00
+updated: 2026-09-14T09:35:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -13,6 +13,9 @@ phase9_corrective_confirmation: 792e9031-2026-09-13
 phase9_corrective_review: approved-22929915-0-blocker-0-high-0-medium-0-low
 phase9_corrective_ci: approved-34767421166
 phase9_corrective_head: 22929915
+phase9_load_more: 131fe365
+phase9_load_more_ci: 34796325485
+phase9_load_more_review: request-changes-2026-09-14-0-blocker-0-high-1-medium-0-low
 phase9_demo_review: febe1313
 phase9_demo_review_confirmation: febe1313-2026-09-14
 phase8: approved-473afd75
@@ -1369,6 +1372,12 @@ approved UI/UX specification or design system.
   (`org.`/`act.`/`part.`/`att.`/`sess.`/`eval.`). Assigned-review SQL casts
   jsonb score/uncertainty to text so Dapper can map GetCase. Live populated
   journey verified; Worker still disabled. Not Phase 9 completion.
+- [x] **Load-more access-loss Medium (`131fe365` review):** infinite Review work
+  query now passes its real TanStack `queryKey` into `runReviewQuery` so
+  `purgeReviewProtectedCache` excludes the denying `workPages` query. Red then
+  green: initial-load and Load-more `review.denied` on the hook (error retained,
+  not self-aborted, prior pages cleared) and page (**Your access changed**).
+  Focused review web **31**. Not Phase 9 completion.
 - [x] **Demo-review confirmation (`febe1313`):** Re-ran focused web **27**,
   `tsc`, frontend isolation, `impeccable_context.py check`, compose validator
   negatives, ESLint on production Review files, Runtime Reviewer shell
@@ -1714,6 +1723,12 @@ states, proportionate Playwright coverage, and downstream phases are evidenced.
   inspectable case; fresh `compose:reset` binds `demo.reviewer` from identity
   seed. A long-lived stack whose Keycloak user was recreated may need an extra
   identity binding before that Reviewer can open the seeded case.
+- Phase 9 load-more increment (`131fe365`) review 2026-09-14: **0 Blocker /
+  0 High / 1 Medium / 0 Low**. Hosted Implementation **`34796325485`** green.
+  Medium: `useReviewWorkInfiniteQuery` passed `reviewKeys.work(..., pageParam)`
+  into `runReviewQuery` instead of the live `workPages` `queryKey`, so
+  `purgeReviewProtectedCache` could self-cancel `review.denied` (same class as
+  `dce622f5`). Closed by passing `queryKey` from the query-function context.
 - Phase 9 consistency/working review (2026-09-13): Evidence deep-links on a
   non-inspectable case opened Evidence instead of the processing well; **Back
   to criterion** lived only in the guided-task foot; `WorkWellHead` sat in the
@@ -1870,7 +1885,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 test lint corrective confirmation (`22929915`) | implementation-pass | 2026-09-13. Re-ran focused web **22**, full web lint, `tsc`, frontend isolation, `impeccable_context.py check`. No further code changes. Ready for re-review on `22929915`. Hosted Implementation CI not independently observed. Not Phase 9 completion. |
 | Phase 9 Reviewer UI corrective chain (`178455b1` → `22929915`) | approved | External review 2026-09-14 at authoritative head `22929915`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-22929915-0-blocker-0-high-0-medium-0-low`). Chain: initial one-pass `178455b1`; corrective cache/provenance/identity `792e9031` → `c82cc3d7` → `dce622f5`; test lint `22929915`. Closes full Review cache purge on `review.denied`, denying-query exclusion from cancellation, concurrent read abort, Evaluation identity isolation, Evidence provenance, half-open byte-range copy, and lint regressions. Hosted CI at `22929915`: Implementation **`34767421166`** — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke`). Bookkeeping `06ea32b1` docs-only. **Corrective slice approved; Phase 9 overall not complete.** Worker disabled |
 | Phase 9 remaining pass (load-more append) | implementation-pass | 2026-09-14. `useReviewWorkInfiniteQuery` appends cursor pages; load-more unit test green. Demo-review seed + populated Playwright deferred (session/handoff/evaluation chain). Focused review web **23**. Not Phase 9 completion. |
-| Phase 9 remaining pass confirmation (`131fe365`) | implementation-pass | 2026-09-14. Re-ran focused web **23**, full web lint, `tsc`, frontend isolation, `impeccable_context.py check`. No further code changes. Not Phase 9 completion. |
+| Phase 9 remaining pass confirmation (`131fe365`) | implementation-pass | 2026-09-14. Re-ran focused web **23**, full web lint, `tsc`, frontend isolation, `impeccable_context.py check`. No further code changes. Not Phase 9 completion. Hosted Implementation **`34796325485`** later recorded as green for this increment (review 2026-09-14). |
+| Phase 9 load-more access-loss corrective (`131fe365` review) | implementation-pass | 2026-09-14. Closed Medium: infinite work query now passes its real TanStack `queryKey` into `runReviewQuery`. Red then green: initial-load and Load-more `review.denied` on `useReviewWorkInfiniteQuery` (error retained, denying query not aborted, prior pages cleared, concurrent case read aborted) and `ProductionReviewWorkPage` (**Your access changed**, not stuck loading). Focused review web **31**; `tsc`; isolation; ESLint on changed files; `impeccable_context.py check`. Live Playwright for Load-more denied not reachable (one seeded case). Not Phase 9 completion. |
 | Phase 9 demo-review seed + populated Playwright | implementation-pass | 2026-09-14. `seed-demo-review.sql` plus overlay/profile/validator wiring; jsonb `::text` casts and criterion-summary `judgment_id` on assigned-review SQL. Playwright MCP candidate `:5274` as `demo.reviewer`: populated registry, case, Evidence, head/foot **Back to criterion** focus restore; desktop and narrow. Local screenshots untracked. Worker disabled. Not Phase 9 completion. |
 | Phase 9 demo-review confirmation (`febe1313`) | implementation-pass | 2026-09-14. Re-ran focused web **27**, `tsc`, isolation, `impeccable_context.py check`, compose validator negatives, ESLint on production Review files, Runtime Reviewer shell destination **2**. Live `:5274` as Demo Reviewer: populated registry, case, Evidence, foot **Back to criterion** focus restore. Canonical API redirect remains `http://localhost:18080/auth/callback`. No further code changes. Not Phase 9 completion. |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |

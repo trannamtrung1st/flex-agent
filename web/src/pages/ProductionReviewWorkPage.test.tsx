@@ -139,4 +139,57 @@ describe("ProductionReviewWorkPage", () => {
     expect(screen.getByRole("link", { name: "First case · Open review" })).toBeVisible();
     expect(document.getElementById("reviewWorkCountValue")).toHaveTextContent("2 assigned cases");
   });
+
+  it("shows access changed when the initial Review work page is denied", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/review/work")) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: () => Promise.resolve({ error: "review.denied" }),
+          clone() {
+            return { json: () => Promise.resolve({ error: "review.denied" }) };
+          },
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderPage();
+    expect(await screen.findByText("Your access changed")).toBeVisible();
+    expect(screen.queryByText("Loading Review work…")).not.toBeInTheDocument();
+  });
+
+  it("shows access changed when Load more is denied", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/review/work")) {
+        if (url.includes("cursor=page-2")) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            json: () => Promise.resolve({ error: "review.denied" }),
+            clone() {
+              return { json: () => Promise.resolve({ error: "review.denied" }) };
+            },
+          });
+        }
+        return jsonResponse({
+          schema_version: "v1",
+          items: [workItem({
+            review_case_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            task_label: "First case",
+          })],
+          has_more: true,
+          next_cursor: "page-2",
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderPage();
+    expect(await screen.findByRole("link", { name: "First case · Open review" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Load more assigned Review work" }));
+    expect(await screen.findByText("Your access changed")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "First case · Open review" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading Review work…")).not.toBeInTheDocument();
+  });
 });
+
