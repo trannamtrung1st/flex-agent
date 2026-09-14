@@ -2,10 +2,11 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T13:15:00+07:00
-phase9_browser_head: 76b2eaff
-phase9_browser_ci: pending-hosted-rerun
-phase9_browser_review: approved-76b2eaff-0-blocker-0-high-0-medium-0-low
+updated: 2026-09-14T13:38:00+07:00
+phase9_browser_head: 722d36d6
+phase9_browser_ci: approved-34812310096
+phase9_browser_docs_ci: approved-34812310123
+phase9_browser_review: approved-722d36d6-0-blocker-0-high-0-medium-0-low
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -1498,8 +1499,13 @@ approved UI/UX specification or design system.
   `seed-demo-review.sql` rubric/configuration/manifest digests to align with
   `configuration_source_payloads` from `seed.sql` (`cb9db3a1…`); local
   `seed-demo-review` **COMMIT** green. External review **APPROVED — 0 Blocker / 0 High /
-  0 Medium / 0 Low** on corrective head `76b2eaff`. Await hosted Implementation rerun (prior run
-  cancelled). **Phase 9 overall still not complete.**
+  0 Medium / 0 Low** on chain `ecdc811e` → `76b2eaff` → `1a34960c` → `722d36d6`
+  (`approved-722d36d6-0-blocker-0-high-0-medium-0-low`). Hosted Implementation
+  **`34812310096`** and Documentation **`34812310123`** green on `722d36d6` (all six
+  jobs; `oci-oidc-smoke` OIDC live smoke + `REVIEW-E2E-01`–`05`). **Repeatable
+  Phase 9 browser inspection/responsive coverage gate materially closed.** **Phase 9
+  overall still not complete** (Worker-disabled live queued/running transitions,
+  independent Phase 11 reviews, `docs/current-state.md` promotion).
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1763,18 +1769,21 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
 
-**Phase 9 coverage pass approved at `16053fbd`.** Authoritative implementation
-head for the inspection-gap slice is `16053fbd`; hosted Implementation
-**`34805769374`** green (all six jobs). Prior corrective chain remains at
-`22929915`; spacing corrective at `d5e1c7c1`. Production `/review` registry +
-guided-task case/Evidence routes are implemented against Phase 8 APIs. Live browser
-evidence covers empty, destination-denied, assignment-loss, and a synthetic
-assigned completed criterion/Evidence inspector (demo-review seed).
-Queued/running remain Worker-disabled (unit + poll regression only). Compact
-criterion `SplitBay` squeeze and desktop Evidence foot overlay addressed in CSS
-(scroll padding + drawer flex). **Do not claim Phase 9 complete** until live
-Worker transitions, repeatable browser coverage for inspection states, independent
-Phase 11 reviews, and downstream phases are evidenced.
+**Phase 9 coverage pass approved at `16053fbd`.** Browser inspection/responsive
+coverage chain **`ecdc811e` → `76b2eaff` → `1a34960c` → `722d36d6`** approved
+2026-09-14 (**0 Blocker / 0 High / 0 Medium / 0 Low**); authoritative head
+`722d36d6`; hosted Implementation **`34812310096`** and Documentation
+**`34812310123`** green (all six jobs; canonical `REVIEW-E2E-01`–`05` on corrected
+demo-review seed). Prior inspection-gap slice remains at `16053fbd`
+(Implementation **`34805769374`**). Prior corrective chains: `22929915`; spacing
+corrective at `d5e1c7c1`. Production `/review` registry + guided-task case/Evidence
+routes are implemented against Phase 8 APIs. Live browser evidence covers empty,
+destination-denied, assignment-loss, and a synthetic assigned completed
+criterion/Evidence inspector (demo-review seed). Queued/running remain
+Worker-disabled (unit + poll regression only). Compact criterion `SplitBay` squeeze
+and desktop Evidence foot overlay addressed in CSS (scroll padding + drawer flex).
+**Do not claim Phase 9 complete** until live Worker transitions, independent Phase
+11 reviews, and downstream phases are evidenced.
 
 ## Upstream rollout checklist (Evaluation-required behaviors)
 
@@ -2009,7 +2018,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 criterion inspector spacing confirmation | implementation-pass | 2026-09-14. Re-ran live `:5274` as Demo Reviewer: desktop + 390px criterion (including empty-Evidence second criterion) and Evidence; head **Back to criterion** restores **Open Evidence**. Focused web **17**; copied-styles **12**. No further product-code changes. Canonical redirect unchanged. Not Phase 9 completion. |
 | Phase 9 criterion inspector spacing review (`4457cf3e`) | request-changes | 2026-09-14. **0 Blocker / 0 High / 0 Medium / 1 Low** — stale `workWellSectionMarks.test.ts` span assertion blocked Implementation **`34803225874`**. Product/UI change approved; test-only corrective required. Not Phase 9 completion. |
 | Phase 9 criterion spacing corrective chain (`4457cf3e` → `f5273397`) | approved | External review 2026-09-14 at authoritative head `d5e1c7c1`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-d5e1c7c1-0-blocker-0-high-0-medium-0-low`). Chain: spacing polish `4457cf3e`; test corrective `d5e1c7c1`; bookkeeping `bed089c0` → `94f363b3` → `f5273397`. Closes **`34803225874`** web failure. Hosted CI at `d5e1c7c1`: Documentation **`34803678034`**; Implementation **`34803678062`** — all six jobs green. **Corrective slice approved; Phase 9 overall not complete.** Worker disabled |
-| Phase 9 browser 400% reflow corrective (`76b2eaff`) | approved | External review 2026-09-14: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-76b2eaff-0-blocker-0-high-0-medium-0-low`). Closes Medium on `ecdc811e` fake 400% test. Focused review web **34/34**; `verify-web.sh` green. Hosted Implementation at `76b2eaff` run **`34811731280`** cancelled by docs-only `1a34960c`; seed digest alignment pending hosted rerun. **Corrective slice approved; Phase 9 overall not complete.** Worker disabled |
+| Phase 9 browser inspection/responsive chain (`ecdc811e` → `722d36d6`) | approved | External review 2026-09-14 at authoritative head `722d36d6`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-722d36d6-0-blocker-0-high-0-medium-0-low`). Chain: initial browser coverage `ecdc811e`; 400% reflow corrective `76b2eaff`; bookkeeping `1a34960c`; demo-review seed digest alignment `722d36d6`. Closes Medium on `ecdc811e` fake 400% test. Hosted CI at `722d36d6`: Implementation **`34812310096`**; Documentation **`34812310123`** — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke` with OIDC live smoke + `REVIEW-E2E-01`–`05`). **`76b2eaff` run `34811731280` cancelled** by docs-only `1a34960c`; authoritative validation is on descendant `722d36d6`. **Repeatable browser inspection/responsive coverage gate materially closed; Phase 9 overall not complete.** Worker disabled |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
@@ -2017,8 +2026,8 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 6 slice 2 payload-digest/citation remainder (`87b72647` → `abe4e902` → `86877105`) | approved | External review 2026-09-12 on corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low** at authoritative head `86877105`. `87b72647` initial increment (2 Medium / 1 Low — not approved). `abe4e902` closes JCS logical-payload ambiguity and citation-authority Medium via `ProtectedModelResponseWireBytesDigest` (`evaluation-model-response-wire-content-digest-sha256-v1`), `EvaluationModelPermittedEvidenceAuthorityVerifier`, and authoritative expected-invocation source types. `86877105` closes structural digest Medium via `EvaluationModelResponseContentDigestWireLocator` (`Utf8JsonReader` span + zero-fill); total `TryVerify`/`TryCompute`; provider-format negatives. Hosted CI at `86877105`: Implementation `34701640874` and Documentation `34701640828` — all six jobs green. Docs-only `89f99d7f` (Documentation `34701869099`; Implementation `34701869112` change-detector only). Focused: `ProtectedModelResponseWireBytesDigestTests` 9; `EvaluationModelPermittedEvidenceAuthorityVerifierTests` 2; `EvaluationModelResponseValidationMatrixTests` 3; Evaluation unit **340**; `verify-dotnet.sh` green (local). **Payload-digest/citation increment closed.** **Schema parse gate remains closed.** **Slice 2 not closed** — credential fail-closed review/CI for `fb0c79fb` outstanding. Worker disabled |
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
-| Frontend component/accessibility/responsive tests | partial | Phase 9 one-pass: production review client/page/layout tests green; reduced motion/forced colors/400% not fully unit-covered |
-| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | partial | Repeatable canonical Playwright `REVIEW-E2E-01`–`05` on Compose `:18080` with demo-review seed (registry, criterion/Evidence, focus restore, 390px, reduced motion/forced colors, 400% reflow). Queued/running still Worker-disabled. MCP screenshots remain local-only under `.playwright-mcp/` |
+| Frontend component/accessibility/responsive tests | partial | Phase 9 production review client/page/layout tests green; canonical `REVIEW-E2E-01`–`05` hosted-green on `722d36d6`; reduced motion/forced colors/400% primarily browser-E2E covered |
+| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | approved | Repeatable canonical Playwright `REVIEW-E2E-01`–`05` on Compose `:18080` with corrected demo-review seed; hosted Implementation **`34812310096`** green (`oci-oidc-smoke`). Queued/running still Worker-disabled. MCP screenshots remain local-only under `.playwright-mcp/` |
 | Performance objectives (`PROP-6`) | pending | Representative status/completion measurements required before completion |
 | Full regression and OIDC/Compose gates | pending | Run proportionately when implementation reaches integration readiness |
 | Independent backend/frontend/security/privacy/QA review | pending | Required after implementation and before completion/retirement |
