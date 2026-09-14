@@ -1668,8 +1668,12 @@ approved UI/UX specification or design system.
   expired, or revoked so the sampler emits no misleading positive backlog. **Red/green:**
   `EvaluationWorkloadIdentityTests` (+3 backlog/identity regressions; 10 total).
   **Focused green (local):** workload identity 10/10; claimable backlog 7/7; Evaluation
-  unit **453**; Architecture **65**. Checkbox stays open pending re-review and full exact-head
+  unit **453**; Architecture **65**; Runtime **344**; Session telemetry 12/12; processor
+  9/9; backlog sampler 3/3. Checkbox stays open pending re-review and full exact-head
   Implementation CI.
+  **Confirmation pass (`e3f2dea1`):** re-ran workload identity 10/10, claimable backlog 7/7,
+  telemetry unit/runtime/architecture suites, and full Evaluation unit 453/453 at pushed
+  head; no code delta beyond bookkeeping.
   **Deferred:** status-response latency, completion duration, attempt counts,
   evaluator/provider/citation/conflict/review-required/audit/replacement/annotation/
   deletion instruments until those surfaces emit telemetry. Checkbox stays open pending
