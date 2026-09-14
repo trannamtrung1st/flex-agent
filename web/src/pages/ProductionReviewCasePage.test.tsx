@@ -283,7 +283,6 @@ describe("ProductionReviewCasePage", () => {
   });
 
   it("restores focus to Open Evidence when returning from Evidence", async () => {
-    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
     stubAuthenticatedFetch((url) => {
       if (url.includes("/criteria/crit-1") && !url.includes("evidence")) {
         return jsonResponse(criterion());
@@ -294,11 +293,10 @@ describe("ProductionReviewCasePage", () => {
       return jsonResponse({}, 404);
     });
     renderCase(`/review/${CASE_ID}/criteria/crit-1`, createFlexQueryClient(), { restoreEvidenceId: "ev-1" });
-    expect(await screen.findByRole("link", { name: "Open Evidence" })).toBeVisible();
+    const openEvidence = await screen.findByRole("link", { name: "Open Evidence" });
     await waitFor(() => {
-      expect(focusSpy).toHaveBeenCalled();
+      expect(openEvidence).toHaveFocus();
     });
-    focusSpy.mockRestore();
   });
 
   it.each([

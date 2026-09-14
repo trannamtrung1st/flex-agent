@@ -2,7 +2,8 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T11:20:00+07:00
+updated: 2026-09-14T12:52:00+07:00
+phase9_browser_ci: local-verify-oidc-green
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -21,6 +22,9 @@ phase9_demo_review_confirmation: febe1313-2026-09-14
 phase9_spacing_corrective_head: d5e1c7c1
 phase9_spacing_corrective_ci: approved-34803678062
 phase9_spacing_corrective_review: approved-d5e1c7c1-0-blocker-0-high-0-medium-0-low
+phase9_coverage_head: 16053fbd
+phase9_coverage_ci: approved-34805769374
+phase9_coverage_review: approved-16053fbd-0-blocker-0-high-0-medium-0-low
 phase8: approved-473afd75
 phase8_status: approved
 phase8_review: approved-473afd75-0-blocker-0-high-0-medium-0-low
@@ -1450,6 +1454,27 @@ approved UI/UX specification or design system.
   Compose `:18080` not listening). **Phase 9 overall still not complete**
   (Worker-disabled live queued/running, repeatable browser suite, independent
   Phase 11 reviews, `docs/current-state.md` promotion).
+- [x] **Phase 9 coverage pass review (2026-09-14):** External review
+  **APPROVED — 0 Blocker / 0 High / 0 Medium / 0 Low** on authoritative head
+  `16053fbd`. Confirms meaningful coverage (processing wells, loading/error
+  paths, criterion statuses, Evidence availability/integrity, locator-only
+  Evidence, stale Evaluation on Evidence open, queued 2s poll regression);
+  restrained production changes (`aria-live`, SplitBay flex, Evidence foot
+  scroll padding, scoped reduced-motion/forced-colors); polling remains limited
+  to `awaiting`/`queued`/`running`. Hosted Documentation green; exact-head
+  Implementation **`34805769374`** — all six jobs green on `16053fbd`.
+  Optional future hardening: assert `toHaveFocus()` on **Open Evidence** restore
+  test — closed in browser pass below. **Coverage slice approved; Phase 9 overall not complete.**
+- [x] **Phase 9 repeatable browser coverage (2026-09-14):** Added canonical OIDC
+  Playwright suite `tests/Browser/FlexAgent.Oidc.Playwright/specs/review.spec.ts`
+  (`REVIEW-E2E-01`–`05`): assigned registry, criterion/Evidence inspect, **Open
+  Evidence** focus restore (`toBeFocused`), narrow 390px layout, reduced motion +
+  forced colors, 400% root font reflow. Wired into `verify-oidc.sh` manifest.
+  Hardened unit focus-restore test to assert `toHaveFocus()` on **Open Evidence**.
+  Local `verify-oidc.sh` green (OIDC-E2E-01–06 + REVIEW-E2E-01–05); full
+  `verify-web.sh` green. **Phase 9 overall still not complete** (Worker-disabled
+  live queued/running transitions, independent Phase 11 reviews,
+  `docs/current-state.md` promotion).
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1713,19 +1738,18 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
 The only other active task is `text-interaction-controller-contract`
 (`planned`, not activated).
 
-**Phase 9 one-pass (2026-09-13) corrective chain approved at `22929915`.**
-Production `/review` registry + guided-task case/Evidence routes are implemented
-against Phase 8 APIs. Corrective review closed cache isolation, Evaluation
-identity, Evidence provenance, byte-range copy, purge race, and test lint.
-Hosted Implementation **`34767421166`** green (all six jobs). Live browser
+**Phase 9 coverage pass approved at `16053fbd`.** Authoritative implementation
+head for the inspection-gap slice is `16053fbd`; hosted Implementation
+**`34805769374`** green (all six jobs). Prior corrective chain remains at
+`22929915`; spacing corrective at `d5e1c7c1`. Production `/review` registry +
+guided-task case/Evidence routes are implemented against Phase 8 APIs. Live browser
 evidence covers empty, destination-denied, assignment-loss, and a synthetic
 assigned completed criterion/Evidence inspector (demo-review seed).
 Queued/running remain Worker-disabled (unit + poll regression only). Compact
 criterion `SplitBay` squeeze and desktop Evidence foot overlay addressed in CSS
 (scroll padding + drawer flex). **Do not claim Phase 9 complete** until live
-Worker transitions, repeatable Playwright coverage (400%, reduced motion,
-forced colors), independent Phase 11 reviews, and downstream phases are
-evidenced.
+Worker transitions, repeatable browser coverage for inspection states, independent
+Phase 11 reviews, and downstream phases are evidenced.
 
 ## Upstream rollout checklist (Evaluation-required behaviors)
 
@@ -1968,7 +1992,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 4 foundation (`437401b` + `2461466`) | approved | Developer review 2026-09-08: 0 Blocker / 0 High / 0 Medium on corrective commit. Owner ports, locator verifier, seal computer, cutoff-scoped Session transcript, UTF-8 boundary checks. `FlexAgent.Evaluation.Tests` 80; architecture 65; `verify-dotnet.sh` green. Hosted CI not independently observed |
 | API/gateway negative and authenticated integration tests | pending | Populate during implementation |
 | Frontend component/accessibility/responsive tests | partial | Phase 9 one-pass: production review client/page/layout tests green; reduced motion/forced colors/400% not fully unit-covered |
-| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | partial | Local MCP on candidate `:5274`: empty/denied/assignment-loss plus populated registry/case/Evidence (desktop and 390px). Queued/running still Worker-disabled. 400%/reduced motion/forced colors not live. Screenshots stayed untracked under `.playwright-mcp/` |
+| Playwright MCP accessibility snapshots and desktop/narrow/400% screenshots | partial | Repeatable canonical Playwright `REVIEW-E2E-01`–`05` on Compose `:18080` with demo-review seed (registry, criterion/Evidence, focus restore, 390px, reduced motion/forced colors, 400% reflow). Queued/running still Worker-disabled. MCP screenshots remain local-only under `.playwright-mcp/` |
 | Performance objectives (`PROP-6`) | pending | Representative status/completion measurements required before completion |
 | Full regression and OIDC/Compose gates | pending | Run proportionately when implementation reaches integration readiness |
 | Independent backend/frontend/security/privacy/QA review | pending | Required after implementation and before completion/retirement |

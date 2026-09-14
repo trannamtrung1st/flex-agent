@@ -23,7 +23,7 @@ export default defineConfig({
   projects: [
     {
       name: "canonical",
-      testMatch: "canonical.spec.ts",
+      testMatch: ["canonical.spec.ts", "review.spec.ts"],
       use: { ...devices["Desktop Chrome"], baseURL: origin },
     },
     {
