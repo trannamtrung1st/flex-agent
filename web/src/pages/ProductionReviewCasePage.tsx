@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   Alert,
   GuidedTaskFoot,
   InstantReadout,
   Key,
-  KeyGroup,
   ReadoutList,
+  type ReadoutListRow,
   SplitBay,
   Stack,
   WaitPlate,
@@ -46,6 +46,11 @@ import {
   verificationStateCopy,
   isInspectableReviewState,
 } from "../features/review/presentation";
+import type {
+  ReviewCriterionReadV1,
+  ReviewCriterionSummaryV1,
+  ReviewEvidenceOpenV1,
+} from "../contracts/v1";
 import { maxWidthQuery } from "../lib/breakpoints";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
@@ -79,10 +84,135 @@ function ReviewHeading({
   );
 }
 
+function criterionJudgmentRows(criterion: ReviewCriterionReadV1): ReadoutListRow[] {
+  const rows: ReadoutListRow[] = [
+    { term: "Boundary", value: INTERNAL_EVALUATION_NOTICE, emphasis: "inline" },
+    { term: "Version", value: criterion.criterion_version },
+    { term: "Status", value: criterionStatusCopy(criterion.status) },
+  ];
+  if (criterion.score != null && String(criterion.score).length > 0) {
+    rows.push({ term: "Score", value: String(criterion.score) });
+  }
+  rows.push({
+    term: "Mode",
+    value: evaluatorModePresentation(criterion.evaluator_mode, criterion.evaluator_mode_label),
+  });
+  if (criterion.confidence) {
+    rows.push({ term: "Confidence", value: criterion.confidence });
+  }
+  if (criterion.uncertainty.length > 0) {
+    rows.push({ term: "Uncertainty", value: criterion.uncertainty.join(", ") });
+  }
+  if (criterion.rationale) {
+    rows.push({ term: "Rationale", value: criterion.rationale });
+  }
+  return rows;
+}
+
+function evidenceProvenanceRows(evidence: ReviewEvidenceOpenV1): ReadoutListRow[] {
+  const rows: ReadoutListRow[] = [
+    { term: "Boundary", value: INTERNAL_EVALUATION_NOTICE, emphasis: "inline" },
+    { term: "Evaluation", value: evidence.evaluation_id },
+    { term: "Source", value: `${evidence.locator.source_type} · ${evidence.locator.source_ref.source_id}` },
+    { term: "Version", value: evidence.locator.source_ref.source_version },
+    { term: "Location", value: evidenceLocationCopy(evidence.locator.location) },
+    { term: "Precision", value: evidencePrecisionCopy(evidence.locator.precision) },
+    { term: "Verification", value: verificationStateCopy(evidence.locator.integrity.verification_state) },
+    { term: "Availability", value: evidenceAvailabilityCopy(evidence.availability) },
+    { term: "Adapter", value: evidence.locator.integrity.adapter_version },
+  ];
+  if (evidence.unavailability_notice) {
+    rows.push({ term: "Notice", value: evidence.unavailability_notice });
+  }
+  if (evidence.display_text) {
+    rows.push({
+      term: "Cited text",
+      value: <pre className="review-evidence-source">{evidence.display_text}</pre>,
+    });
+  }
+  return rows;
+}
+
+function CriterionNav({
+  summaries,
+  activeCriterionId,
+  reviewCaseId,
+}: {
+  summaries: readonly ReviewCriterionSummaryV1[];
+  activeCriterionId: string | undefined;
+  reviewCaseId: string;
+}) {
+  if (summaries.length === 0) {
+    return <p>No criteria are available on this Evaluation.</p>;
+  }
+  return (
+    <nav className="review-criterion-nav" aria-label="Criteria">
+      <ul className="nav-list">
+        {summaries.map((item) => {
+          const current = item.criterion_id === activeCriterionId;
+          return (
+            <li key={item.criterion_id}>
+              <Link
+                className="nav-link"
+                to={`/review/${reviewCaseId}/criteria/${encodeURIComponent(item.criterion_id)}`}
+                aria-current={current ? "page" : undefined}
+              >
+                <span className="nav-link-copy">
+                  <span className="nav-link-placard">{item.display_label}</span>
+                  <span className="nav-link-note">{criterionStatusCopy(item.status)}</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function criterionInspectRows(
+  criterion: ReviewCriterionReadV1,
+  reviewCaseId: string,
+  restoreEvidenceId?: string,
+): ReadoutListRow[] {
+  const rows = criterionJudgmentRows(criterion);
+  if (criterion.evidence_references.length === 0) {
+    rows.push({ term: "Evidence", value: "No Evidence references on this criterion." });
+  } else {
+    for (const reference of criterion.evidence_references) {
+      const restore = restoreEvidenceId === reference.evidence_id;
+      rows.push({
+        term: "Evidence",
+        emphasis: "inline",
+        value: (
+          <Stack gap="2">
+            <Key
+              id={restore ? `evidence-ref-${reference.evidence_id}` : undefined}
+              variant="inspect"
+              size="compact"
+              to={`/review/${reviewCaseId}/criteria/${encodeURIComponent(criterion.criterion_id)}/evidence/${encodeURIComponent(reference.evidence_id)}`}
+            >
+              {OPEN_EVIDENCE}
+            </Key>
+            <span className="action-note">
+              {reference.source_type}
+              {" · "}
+              {evidencePrecisionCopy(reference.precision)}
+            </span>
+          </Stack>
+        ),
+      });
+    }
+  }
+  if (criterion.provisional_feedback) {
+    rows.push({ term: "Provisional feedback", value: criterion.provisional_feedback });
+  }
+  return rows;
+}
+
 export function ProductionReviewCasePage() {
   const { reviewId, criterionId, evidenceId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const restoreEvidenceId = (location.state as ReviewLocationState | null)?.restoreEvidenceId;
   const { fetchJson, shell } = useProductionApi();
   const client = useMemo(() => createProductionReviewClient(fetchJson), [fetchJson]);
@@ -269,12 +399,25 @@ export function ProductionReviewCasePage() {
       <AssignmentStationLayout {...layoutProps}>
         <WorkWell live={false} label={phase} head={<WorkWellHead title={phase} />}>
           <WorkWellSection>
-            <p>{processingWellCopy(record)}</p>
-            <p>{INTERNAL_EVALUATION_NOTICE}</p>
-            <AssignmentRecordReadout
-              variant={processingIndicatorVariant(record.evaluation_processing_state)}
-              label={assignment}
-            />
+            <Stack gap="4">
+              <p>{processingWellCopy(record)}</p>
+              <ReadoutList
+                label="Evaluation processing"
+                rows={[
+                  { term: "Boundary", value: INTERNAL_EVALUATION_NOTICE, emphasis: "inline" },
+                  {
+                    term: "Record",
+                    value: (
+                      <AssignmentRecordReadout
+                        variant={processingIndicatorVariant(record.evaluation_processing_state)}
+                        label={assignment}
+                      />
+                    ),
+                    emphasis: "inline",
+                  },
+                ]}
+              />
+            </Stack>
           </WorkWellSection>
         </WorkWell>
       </AssignmentStationLayout>
@@ -310,26 +453,10 @@ export function ProductionReviewCasePage() {
                 {evidenceQuery.error instanceof Error ? evidenceQuery.error.message : "Request failed"}
               </Alert>
             ) : evidence ? (
-              <Stack gap="4">
-                <p>{INTERNAL_EVALUATION_NOTICE}</p>
-                <ReadoutList
-                  label="Evidence provenance"
-                  rows={[
-                    { term: "Evaluation", value: evidence.evaluation_id },
-                    { term: "Source", value: `${evidence.locator.source_type} · ${evidence.locator.source_ref.source_id}` },
-                    { term: "Version", value: evidence.locator.source_ref.source_version },
-                    { term: "Location", value: evidenceLocationCopy(evidence.locator.location) },
-                    { term: "Precision", value: evidencePrecisionCopy(evidence.locator.precision) },
-                    { term: "Verification", value: verificationStateCopy(evidence.locator.integrity.verification_state) },
-                    { term: "Availability", value: evidenceAvailabilityCopy(evidence.availability) },
-                    { term: "Adapter", value: evidence.locator.integrity.adapter_version },
-                  ]}
-                />
-                {evidence.unavailability_notice ? <p>{evidence.unavailability_notice}</p> : null}
-                {evidence.display_text ? (
-                  <pre className="review-evidence-source">{evidence.display_text}</pre>
-                ) : null}
-              </Stack>
+              <ReadoutList
+                label="Evidence provenance"
+                rows={evidenceProvenanceRows(evidence)}
+              />
             ) : null}
           </WorkWellSection>
         </WorkWell>
@@ -338,77 +465,22 @@ export function ProductionReviewCasePage() {
   }
 
   const criterion = criterionQuery.data;
-  const criterionNav = summaries.length === 0 ? (
-    <p>No criteria are available on this Evaluation.</p>
-  ) : compact ? (
-    <KeyGroup>
-      {summaries.map((item, index) => {
-        const previous = summaries[index - 1];
-        const next = summaries[index + 1];
-        if (item.criterion_id !== activeCriterionId) {
-          return null;
-        }
-        return (
-          <span key={item.criterion_id}>
-            <label>
-              Criterion
-              <select
-                aria-label="Criterion"
-                value={item.criterion_id}
-                onChange={(event) => {
-                  navigate(`/review/${record.review_case_id}/criteria/${encodeURIComponent(event.target.value)}`);
-                }}
-              >
-                {summaries.map((option) => (
-                  <option key={option.criterion_id} value={option.criterion_id}>
-                    {option.display_label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {previous ? (
-              <Key
-                size="compact"
-                to={`/review/${record.review_case_id}/criteria/${encodeURIComponent(previous.criterion_id)}`}
-              >
-                Previous criterion
-              </Key>
-            ) : null}
-            {next ? (
-              <Key
-                size="compact"
-                to={`/review/${record.review_case_id}/criteria/${encodeURIComponent(next.criterion_id)}`}
-              >
-                Next criterion
-              </Key>
-            ) : null}
-          </span>
-        );
-      })}
-    </KeyGroup>
-  ) : (
-    <nav aria-label="Criteria">
-      <ul className="review-criterion-nav">
-        {summaries.map((item) => {
-          const current = item.criterion_id === activeCriterionId;
-          return (
-            <li key={item.criterion_id} className="review-criterion-nav__item">
-              <Link
-                to={`/review/${record.review_case_id}/criteria/${encodeURIComponent(item.criterion_id)}`}
-                aria-current={current ? "page" : undefined}
-              >
-                {item.display_label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+  const criterionNav = (
+    <CriterionNav
+      summaries={summaries}
+      activeCriterionId={activeCriterionId}
+      reviewCaseId={record.review_case_id}
+    />
   );
 
   return (
     <AssignmentStationLayout {...layoutProps}>
-      <SplitBay start={criterionNav}>
+      <SplitBay
+        className="review-criterion-split"
+        drawer={compact}
+        start={compact ? undefined : criterionNav}
+        toolbar={compact ? criterionNav : undefined}
+      >
         <WorkWell
           live={false}
           label={criterion?.display_label ?? "Criterion"}
@@ -422,43 +494,10 @@ export function ProductionReviewCasePage() {
                 {criterionQuery.error instanceof Error ? criterionQuery.error.message : "Request failed"}
               </Alert>
             ) : criterion ? (
-              <Stack gap="4">
-                <p>{INTERNAL_EVALUATION_NOTICE}</p>
-                <p>{evaluatorModePresentation(criterion.evaluator_mode, criterion.evaluator_mode_label)}</p>
-                <p>{criterionStatusCopy(criterion.status)}</p>
-                {criterion.score != null ? <p>Score {String(criterion.score)}</p> : null}
-                {criterion.confidence ? <p>Confidence {criterion.confidence}</p> : null}
-                {criterion.uncertainty.length > 0 ? <p>Uncertainty {criterion.uncertainty.join(", ")}</p> : null}
-                {criterion.rationale ? <p>{criterion.rationale}</p> : null}
-                {criterion.provisional_feedback ? (
-                  <p>Provisional feedback {criterion.provisional_feedback}</p>
-                ) : null}
-                {criterion.evidence_references.length === 0 ? (
-                  <p>No Evidence references on this criterion.</p>
-                ) : (
-                  <ul>
-                    {criterion.evidence_references.map((reference) => {
-                      const restore = restoreEvidenceId === reference.evidence_id;
-                      return (
-                        <li key={reference.evidence_id}>
-                          <Key
-                            id={restore ? `evidence-ref-${reference.evidence_id}` : undefined}
-                            variant="inspect"
-                            size="compact"
-                            to={`/review/${record.review_case_id}/criteria/${encodeURIComponent(criterion.criterion_id)}/evidence/${encodeURIComponent(reference.evidence_id)}`}
-                          >
-                            {OPEN_EVIDENCE}
-                          </Key>
-                          {" "}
-                          {reference.source_type}
-                          {" · "}
-                          {evidencePrecisionCopy(reference.precision)}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </Stack>
+              <ReadoutList
+                label="Criterion judgment"
+                rows={criterionInspectRows(criterion, record.review_case_id, restoreEvidenceId)}
+              />
             ) : (
               <p>Select a criterion to inspect its judgment and Evidence.</p>
             )}

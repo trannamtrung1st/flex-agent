@@ -154,6 +154,9 @@ describe("layout primitives", () => {
     expect(css).toMatch(/auto-fit/);
     expect(css).toMatch(/\.composition-grid\[data-flow-fit="fill"\][^{]*\{[^}]*auto-fill/);
     expect(css).toMatch(/grid-template-areas:\s*"start main end"/);
+    expect(css).toMatch(
+      /\.composition-split:not\(\[data-flow-head\]\):not\(\[data-flow-foot\]\):not\(\[data-flow-split="drawer"\]\):not\(:has\(>\s*\.composition-split__end\)\):has\(>\s*\.composition-split__start\)\s*\{[^}]*grid-template-areas:\s*"start main"/,
+    );
     expect(css).toMatch(/--content-width-prose/);
     expect(css).toMatch(/--content-width-form/);
   });

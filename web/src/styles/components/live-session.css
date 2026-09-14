@@ -705,8 +705,8 @@ html:has([data-layout="live-session"]) {
 
 @media (max-width: 1180px) /* bp.wideGrid */ {
   .rail-brand { border-bottom: none; padding-bottom: 0; }
-  .readout-stack { flex-direction: row; gap: 20px; }
-  .readout, .readout:first-child { border: none; padding: 0; }
+  .layout-session .readout-stack { flex-direction: row; gap: 20px; }
+  .layout-session .readout, .layout-session .readout:first-child { border: none; padding: 0; }
   .feed, .protocol-plate { display: none; }
   .agent-post { padding: 16px 14px 14px; }
   .agent-core--live1 { width: 96px; height: 96px; }
@@ -722,7 +722,7 @@ html:has([data-layout="live-session"]) {
   }
   .stage-line { white-space: normal; }
   .rail-brand-name { white-space: normal; }
-  .readout-stack { flex-wrap: wrap; }
+  .layout-session .readout-stack { flex-wrap: wrap; }
   .turn-text { max-width: none; }
   .rail { flex-wrap: wrap; gap: 10px 16px; }
   .agent-panel {

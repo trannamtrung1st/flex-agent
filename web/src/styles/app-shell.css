@@ -374,7 +374,8 @@
 .status-readout {
   display: flex;
   gap: 22px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .status-item {
@@ -402,7 +403,8 @@
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
   max-width: 32ch;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .layout-guided .readout dd {

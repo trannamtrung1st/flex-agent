@@ -119,6 +119,12 @@
   padding-bottom: var(--form-group-gap);
   border-bottom: 1px solid var(--hairline-dim);
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.assignment-ident {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .assignment-title {
@@ -224,21 +230,70 @@
   width: auto;
 }
 
-.review-criterion-nav {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.composition-split.review-criterion-split {
+  --split-start: 16rem;
+  column-gap: 0;
+  row-gap: var(--form-group-gap);
 }
 
-.review-criterion-nav__item {
-  display: block;
+.review-criterion-split > .composition-split__start {
+  padding: var(--frame-inset-block-start) var(--space-4) var(--frame-inset-block-end);
+  border-inline-end: 1px solid var(--hairline-dim);
+}
+
+.review-criterion-split > .composition-split__start .nav-list > li:first-child .nav-link {
+  padding-block-start: 0;
+}
+
+.review-criterion-split[data-flow-split="drawer"] {
+  row-gap: 0;
+}
+
+.review-criterion-split[data-flow-split="drawer"] > .composition-split__toolbar {
+  padding: var(--space-4) var(--frame-inset-inline) 0;
+}
+
+.review-criterion-split > .composition-split__start > .review-criterion-nav,
+.review-criterion-split > .composition-split__toolbar > .review-criterion-nav {
+  flex: 0 0 auto;
+}
+
+.review-criterion-nav {
+  min-width: 0;
+}
+
+.review-criterion-nav .nav-link {
+  display: flex;
+  align-items: flex-start;
+}
+
+.review-criterion-nav .nav-link-placard {
+  overflow-wrap: anywhere;
 }
 
 .review-evidence-source {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .review-criterion-split .work-well:not([data-inset="flush"]) .work-well__head {
+    padding-top: var(--space-4);
+  }
+
+  .review-criterion-nav .nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: var(--space-5);
+  }
+
+  .review-criterion-nav .nav-link {
+    width: auto;
+    border-bottom: none;
+  }
 }

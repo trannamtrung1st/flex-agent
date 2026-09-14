@@ -197,6 +197,12 @@ html[data-surface="participant-journey"] {
   padding-bottom: var(--form-group-gap);
   border-bottom: 1px solid var(--hairline-dim);
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.assignment-ident {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .assignment-title {
@@ -218,7 +224,8 @@ html[data-surface="participant-journey"] {
 .status-readout {
   display: flex;
   gap: 22px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .status-item {
@@ -243,7 +250,8 @@ html[data-surface="participant-journey"] {
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
   max-width: 32ch;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* record-state node comes from the shared component family sheets; seat it in the readout */

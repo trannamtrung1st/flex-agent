@@ -220,7 +220,8 @@ describe("ProductionReviewCasePage", () => {
     });
     renderCase(`/review/${CASE_ID}/criteria/crit-1`);
     expect(await screen.findByRole("link", { name: "Open Evidence" })).toBeVisible();
-    expect(screen.getByText("Conflict")).toBeVisible();
+    expect(screen.getByLabelText("Criterion judgment")).toHaveTextContent("Conflict");
+    expect(screen.getByRole("navigation", { name: "Criteria" })).toHaveTextContent("Conflict");
     expect(screen.queryByText(/requires review before criterion judgments/i)).not.toBeInTheDocument();
   });
 
@@ -242,9 +243,17 @@ describe("ProductionReviewCasePage", () => {
       "href",
       `/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`,
     );
-    expect(screen.getByText("Rule-based (deterministic)")).toBeVisible();
+    const judgment = screen.getByLabelText("Criterion judgment");
+    expect(judgment).toHaveTextContent("Rule-based (deterministic)");
+    expect(judgment).toHaveTextContent("Version");
+    expect(judgment).toHaveTextContent("Satisfied");
+    expect(judgment).toHaveTextContent("The accepted Submission states the required fact.");
+    expect(judgment).toHaveTextContent("Open Evidence");
+    expect(screen.queryByLabelText("Evidence references")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Clarity/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByText("Internal Evaluation · Not a released Result").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /human revision/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Criterion" })).not.toBeInTheDocument();
   });
 
   it("opens Evidence in the subordinate route and offers Back to criterion", async () => {
@@ -259,7 +268,9 @@ describe("ProductionReviewCasePage", () => {
     });
     renderCase(`/review/${CASE_ID}/criteria/crit-1/evidence/ev-1`);
     expect(await screen.findByText(/<script>alert\(1\)<\/script> cited text/)).toBeVisible();
-    expect(screen.getByLabelText("Evidence provenance")).toBeVisible();
+    const provenance = screen.getByLabelText("Evidence provenance");
+    expect(provenance).toHaveTextContent("Internal Evaluation · Not a released Result");
+    expect(provenance).toHaveTextContent("Cited text");
     expect(screen.getByText("Whole item item-1")).toBeVisible();
     expect(screen.getByText("Verified")).toBeVisible();
     expect(document.querySelector("script")).toBeNull();

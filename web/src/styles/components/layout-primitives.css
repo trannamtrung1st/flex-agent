@@ -68,6 +68,16 @@
   grid-template-areas: "start main end";
 }
 
+.composition-split:not([data-flow-head]):not([data-flow-foot]):not([data-flow-split="drawer"]):not(:has(> .composition-split__end)):has(> .composition-split__start) {
+  grid-template-columns: var(--split-start) minmax(0, 1fr);
+  grid-template-areas: "start main";
+}
+
+.composition-split:not([data-flow-head]):not([data-flow-foot]):not([data-flow-split="drawer"]):not(:has(> .composition-split__start)):has(> .composition-split__end) {
+  grid-template-columns: minmax(0, 1fr) var(--split-end);
+  grid-template-areas: "main end";
+}
+
 .composition-split[data-flow-head="true"] {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:

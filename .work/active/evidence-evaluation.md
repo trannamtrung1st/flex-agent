@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T09:35:00+07:00
+updated: 2026-09-14T10:37:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -1385,6 +1385,33 @@ approved UI/UX specification or design system.
   `http://localhost:18080/auth/callback`: populated registry, case, Evidence
   (quoted excerpt visible), foot **Back to criterion** restored **Open
   Evidence** focus. No further product-code changes. Not Phase 9 completion.
+- [x] **Criterion/Evidence inspector polish (2026-09-14):** Guided-task well uses
+  `ReadoutList` + `ItemList` instead of unlabeled paragraphs; criterion nav reuses
+  hairline `nav-link` grammar (compact toolbar, not a raw select); SplitBay
+  collapses an unused end track; assignment status wraps instead of clipping
+  **Assigned to you**. Live-session compact `.readout-stack` row wrap is scoped to
+  `.layout-session` so work wells stay stacked. Playwright MCP on candidate
+  `:5274` as Demo Reviewer: criterion + Evidence, desktop and 390px, **Back to
+  criterion** restored **Open Evidence** focus. Canonical API redirect restored.
+  Not Phase 9 completion.
+- [x] **Criterion inspector spacing (2026-09-14):** Screenshot evaluation of the
+  populated criterion well showed a 24px split gutter plus 16px start pad
+  (~65px nav-to-title), ~41px title-to-first-readout, and Evidence on a padded
+  `ItemList` island. Fix: one `ReadoutList` (judgment + Evidence + provisional);
+  pane span-head uses `--space-2` then `--form-group-gap` like flush/title wells;
+  first readout drops the extra hairline; SplitBay start is `16rem` with
+  column-gap 0 and frame-aligned nav. Compact drawer row-gap 0. Playwright MCP
+  candidate `:5274` as Demo Reviewer: desktop + 390px criterion, Evidence well,
+  head **Back to criterion** restored **Open Evidence** focus. Canonical API
+  redirect already `http://localhost:18080/auth/callback`. Not Phase 9 completion.
+- [x] **Criterion inspector spacing confirmation (2026-09-14):** Re-checked live
+  candidate `:5274` as Demo Reviewer with no further product-code changes.
+  Desktop: split `16rem` / gap 0; nav aligns with title; title-to-readout 25px;
+  Evidence row shares readout inset; empty Evidence copy on the second criterion
+  stays in the same list. Compact 390px: drawer nav-to-title 16px. Evidence well
+  desktop and compact keep head and foot **Back to criterion**; head restore
+  focuses **Open Evidence**. Focused web **17**; copied-styles **12**. Canonical
+  redirect unchanged. Not Phase 9 completion.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1889,6 +1916,9 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 load-more access-loss corrective (`131fe365` review) | implementation-pass | 2026-09-14. Closed Medium: infinite work query now passes its real TanStack `queryKey` into `runReviewQuery`. Red then green: initial-load and Load-more `review.denied` on `useReviewWorkInfiniteQuery` (error retained, denying query not aborted, prior pages cleared, concurrent case read aborted) and `ProductionReviewWorkPage` (**Your access changed**, not stuck loading). Focused review web **31**; `tsc`; isolation; ESLint on changed files; `impeccable_context.py check`. Live Playwright for Load-more denied not reachable (one seeded case). Not Phase 9 completion. |
 | Phase 9 demo-review seed + populated Playwright | implementation-pass | 2026-09-14. `seed-demo-review.sql` plus overlay/profile/validator wiring; jsonb `::text` casts and criterion-summary `judgment_id` on assigned-review SQL. Playwright MCP candidate `:5274` as `demo.reviewer`: populated registry, case, Evidence, head/foot **Back to criterion** focus restore; desktop and narrow. Local screenshots untracked. Worker disabled. Not Phase 9 completion. |
 | Phase 9 demo-review confirmation (`febe1313`) | implementation-pass | 2026-09-14. Re-ran focused web **27**, `tsc`, isolation, `impeccable_context.py check`, compose validator negatives, ESLint on production Review files, Runtime Reviewer shell destination **2**. Live `:5274` as Demo Reviewer: populated registry, case, Evidence, foot **Back to criterion** focus restore. Canonical API redirect remains `http://localhost:18080/auth/callback`. No further code changes. Not Phase 9 completion. |
+| Phase 9 criterion inspector polish | implementation-pass | 2026-09-14. Labeled criterion/Evidence wells, hairline criterion nav, compact toolbar (no select), SplitBay unused-end collapse, assignment status wrap, live-session readout leak scoped to `.layout-session`. Focused: `ProductionReviewCasePage` + layout primitives + copied-styles + style-entry. Playwright MCP candidate `:5274` desktop/390px criterion and Evidence; **Open Evidence** focus restore. Detector `--json` on changed UI targets: `[]`. Canonical redirect restored. Not Phase 9 completion. |
+| Phase 9 criterion inspector spacing | implementation-pass | 2026-09-14. Closed leftover padding: fused Evidence/provisional into criterion `ReadoutList`; pane span-head/body group rhythm; SplitBay `--split-start: 16rem` wins over primitives `220px`; column-gap 0; compact drawer gap closed. Focused: `ProductionReviewCasePage` 6; copied-styles plates hash. Playwright MCP candidate `:5274` desktop/390px criterion + Evidence; **Open Evidence** focus restore. Detector `--json` `[]`. Canonical redirect unchanged. Not Phase 9 completion. |
+| Phase 9 criterion inspector spacing confirmation | implementation-pass | 2026-09-14. Re-ran live `:5274` as Demo Reviewer: desktop + 390px criterion (including empty-Evidence second criterion) and Evidence; head **Back to criterion** restores **Open Evidence**. Focused web **17**; copied-styles **12**. No further product-code changes. Canonical redirect unchanged. Not Phase 9 completion. |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |
