@@ -107,6 +107,53 @@ describe("ProductionReviewWorkPage", () => {
     expect(screen.queryByRole("link", { name: /release/i })).not.toBeInTheDocument();
   });
 
+  it("shows queued processing state without an open-review action", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/review/work")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [workItem({
+            evaluation_processing_state: "queued",
+            next_action: "none",
+            campaign_label: "Campaign A",
+            task_label: null,
+          })],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderPage();
+    expect(await screen.findByText("Queued")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Campaign A" })).toHaveAttribute(
+      "href",
+      "/review/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+    );
+    expect(screen.queryByRole("link", { name: /Open review/i })).not.toBeInTheDocument();
+  });
+
+  it("shows running processing state without an open-review action", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/review/work")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [workItem({
+            evaluation_processing_state: "running",
+            next_action: "none",
+            campaign_label: "Campaign A",
+            task_label: null,
+          })],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderPage();
+    expect(await screen.findByText("Running")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Campaign A" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Open review/i })).not.toBeInTheDocument();
+  });
+
   it("appends additional assigned cases when Load more is clicked", async () => {
     stubSession((url) => {
       if (url.includes("/v1/review/work")) {

@@ -1,6 +1,6 @@
 # Current state
 
-Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-04**.
+Derived, **non-normative** status index for Flex Agent. Reviewed **2026-09-14**.
 
 This file owns **classification only**. It must not restate or override product
 meaning, `REQ-*`/`AC-*` contracts, UI/UX journeys, architecture documents, or
@@ -82,17 +82,17 @@ when they disagree (for example citations of `web-legacy`).
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | UX/accessibility requirements, `AC-SESS-24`–`AC-SESS-26`, `AC-SESS-31`, `AC-SESS-32` | Partial |
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | Performance/reliability requirements, `AC-SESS-6`, `AC-SESS-9`–`AC-SESS-11`, `AC-SESS-27`, `PROP-4` | Partial |
 | [`session-text-lifecycle.md`](requirements/features/session-text-lifecycle.md) | Security/privacy requirements, `AC-SESS-8`, `AC-SESS-13`, `AC-SESS-14`, `AC-SESS-23`, `AC-SESS-26`, `AC-SESS-29` | Partial |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-1`–`REQ-EVAL-7`, `AC-EVAL-1`–`AC-EVAL-5` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-8`–`REQ-EVAL-17`, `AC-EVAL-5`–`AC-EVAL-8`, `PROP-2` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-18`–`REQ-EVAL-28`, `AC-EVAL-9`–`AC-EVAL-14`, `AC-EVAL-20`, `PROP-1`, `PROP-5` | Gap |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-1`–`REQ-EVAL-7`, `AC-EVAL-1`–`AC-EVAL-5` | Partial |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-8`–`REQ-EVAL-17`, `AC-EVAL-5`–`AC-EVAL-8`, `PROP-2` | Partial |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-18`–`REQ-EVAL-28`, `AC-EVAL-9`–`AC-EVAL-14`, `AC-EVAL-20`, `PROP-1`, `PROP-5` | Partial |
 | [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-47`–`REQ-EVAL-53`, `AC-EVAL-32`–`AC-EVAL-38`, `PROP-8` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-29`–`REQ-EVAL-36`, `AC-EVAL-15`–`AC-EVAL-19`, `AC-EVAL-27`, `PROP-4` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-37`–`REQ-EVAL-46`, `AC-EVAL-21`–`AC-EVAL-27`, `AC-EVAL-30` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | UX requirements, `AC-EVAL-22`, `AC-EVAL-28` | Gap |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-29`–`REQ-EVAL-36`, `AC-EVAL-15`–`AC-EVAL-19`, `AC-EVAL-27`, `PROP-4` | Partial |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `REQ-EVAL-37`–`REQ-EVAL-46`, `AC-EVAL-21`–`AC-EVAL-27`, `AC-EVAL-30` | Partial |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | UX requirements, `AC-EVAL-22`, `AC-EVAL-28` | Partial |
 | [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | Performance requirements, `AC-EVAL-29`, `PROP-6` | Gap |
 | [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | `AC-EVAL-31`, `AC-EVAL-36` | Gap |
-| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | Downstream boundary, `REQ-EVAL-28`, `AC-EVAL-20`, `PROP-3`, `PROP-4` | Gap |
-| [`review-result-release.md`](requirements/features/review-result-release.md) | `REQ-REV-1`–`REQ-REV-8`, `AC-REV-1`–`AC-REV-4`, `PROP-1` | Gap |
+| [`evidence-evaluation.md`](requirements/features/evidence-evaluation.md) | Downstream boundary, `REQ-EVAL-28`, `AC-EVAL-20`, `PROP-3`, `PROP-4` | Partial |
+| [`review-result-release.md`](requirements/features/review-result-release.md) | `REQ-REV-1`–`REQ-REV-8`, `AC-REV-1`–`AC-REV-4`, `PROP-1` | Partial |
 | [`review-result-release.md`](requirements/features/review-result-release.md) | `REQ-REV-9`–`REQ-REV-18`, `AC-REV-5`–`AC-REV-9`, `PROP-2` | Gap |
 | [`review-result-release.md`](requirements/features/review-result-release.md) | `REQ-REV-19`–`REQ-REV-26`, `AC-REV-6`, `AC-REV-10`–`AC-REV-15` | Gap |
 | [`review-result-release.md`](requirements/features/review-result-release.md) | `REQ-REL-1`–`REQ-REL-5`, `AC-REL-1`, `AC-REL-2`, `PROP-3` | Gap |
@@ -103,15 +103,16 @@ when they disagree (for example citations of `web-legacy`).
 | [`review-result-release.md`](requirements/features/review-result-release.md) | Performance requirements, `AC-REV-17`, `PROP-8` | Gap |
 | [`review-result-release.md`](requirements/features/review-result-release.md) | Upstream/downstream end-to-end boundary | Gap |
 
-## Live inventory (2026-09-01)
+## Live inventory (2026-09-14)
 
 Counts and paths are evidence pointers, not contracts.
 
 ### Backend modules
 
-`src/Modules/`: `AssessmentConfiguration`, `Configuration`, `IdentityAccess`,
-`Sessions`, `Submissions`, `SyntheticBrowser`. There is no Evaluation, Review,
-or Release host module in this tree.
+`src/Modules/`: `AssessmentConfiguration`, `Configuration`, `Evaluation`, `IdentityAccess`,
+`Sessions`, `Submissions`, `SyntheticBrowser`. Evaluation hosts persistence,
+Worker wake-up, assigned-review read APIs, and protected Evidence resolution.
+Review decision, Result, and Release host modules remain gaps.
 
 Related hosts and infrastructure: `src/Hosts/`, `src/Infrastructure/`,
 `src/BuildingBlocks/`. Session OpenAI-compatible adapter:
@@ -136,8 +137,9 @@ Pages: `ProductionAuthGatePage`, `ProductionHomePage`,
 `ProductionActivitiesPage`, `ProductionCampaignCreatePage`,
 `ProductionAssessmentSetupRoute`, `ProductionEnrollmentPage`,
 `ProductionEnrollmentDetailPage`, `ProductionMyWorkPage`,
-`ProductionMyWorkDetailPage`, `ProductionTextSessionPage`. Review/Release/Results
-locators may still be unavailable shells.
+`ProductionMyWorkDetailPage`, `ProductionTextSessionPage`, `ProductionReviewWorkPage`,
+`ProductionReviewCasePage` (criterion and Evidence nested routes). Review/Release/Results
+locators beyond assigned read-only inspection may still be unavailable shells.
 
 Design Lab: isolated under `web/src/design-lab/` and `/design-lab/*`. Not
 product authority.
@@ -145,7 +147,7 @@ product authority.
 ### Tests and contracts
 
 - `tests/Architecture`, `tests/AssessmentConfiguration`, `tests/Browser`
-  (`FlexAgent.Oidc.Playwright`), `tests/CanonicalJson`, `tests/Contract`,
+  (`FlexAgent.Oidc.Playwright`), `tests/CanonicalJson`, `tests/Contract`, `tests/Evaluation`,
   `tests/Integration` (Artifact, Keycloak, Postgres), `tests/Runtime`,
   `tests/Sessions`, `tests/Submissions`
 - `contracts/tests/` OpenAPI/JCS checks
@@ -174,7 +176,9 @@ synthetic pin is not production qualification.
 | Enrollment assignment / My work | Partial implemented | `Submissions`; production enrollment and My work pages |
 | Submission intake / Attempt start | Partial implemented | Development atomic start, readiness, durable exact acknowledgments (`current_outcome` vs bindable), history, reconciliation, and **Continue Attempt** locator are complete and reviewed on `ec84274` ([Implementation 33703247493](https://github.com/trannamtrung1st/flex-agent/actions/runs/33703247493)); Production/Staging remain fail-closed; beyond-baseline retry grant (`REQ-SUBM-21`) remains a gap |
 | Hosted Session start/command/snapshot; e2e production Session | Partial implemented | Authenticated host snapshot/command/events and production `/sessions/:sessionId` live-session, `/operations`, `/transcript` landed; frozen timing at Attempt start (`0069`); durable append-only warning occurrences (`0070`); Worker timing, warning, and expiry sweeps on authenticated-browser Compose (Development `deterministic_fake` only). Production/Staging Worker stay fail-closed. Design-system `LiveSessionLayout` and work `StageBars` are production donors. Core timing + Implementation CI closed (`888eb91` / `33743544924`; `b24f67c` / `33754337758`; `920596e` / `33763594004`). **Running-Worker expiry-loop proof:** corrected in `92b43fb`; local confirm pass 2026-09-03 (`probe-compose-hosted-expiry-sweep.sh` green; Session `01a067b2-…532c58` → `completed` / `time_expiry`); env-gated probe skipped in CI. **Hosted realtime:** production `/v1/sessions/{id}/events` projects authoritative `session_version` plus distinct `stream_cursor` deltas for lifecycle, timing and reconstructable warnings, access/reconcile, exact accepted Participant message text, Agent work/no-action/failure, fragments/completion, and terminal state. Client merge preserves SSE-ahead transcript and resolved Agent activity; commands remain blocked while work or reconciliation is open. Authenticated canonical live QA on 2026-09-04 verified exact one-copy transcript synchronization across two same-actor tabs, local-draft isolation, explicit offline state, closed offline commands, no timer-pause claim, narrow reflow, and snapshot reconciliation before commands return after SSE recovery. **Multi-device/offline closure:** `12bfc65` accepted by completion review ([Implementation 33899790628](https://github.com/trannamtrung1st/flex-agent/actions/runs/33899790628); Documentation 33899790653 green): bounded `message_text` on SSE, one-copy cross-context materialization with local-draft isolation, EventSource-generation/epoch offline reconnect guards, and centralized 16,384 Unicode-scalar admission/projection. The broader P0 Session specification remains partial where grouped rows above still include unimplemented product-wide requirements. |
-| Evaluation, Human review, Result, Release hosts | Gap | Intended in P0; no host modules |
+| Evaluation execution, persistence, and assigned-review read APIs | Partial implemented | `Evaluation` module; Phase 8 `/v1/review` GETs; Worker lane default-off; live queued→running transitions deferred Phase 10 |
+| Production reviewer inspection UI (`/review`, guided case/criterion/Evidence) | Partial implemented | Production Review pages, demo-review seed, canonical `REVIEW-E2E-01`–`07`; decision/Release controls absent; Worker-disabled live transitions |
+| Result and Release hosts | Gap | Intended in P0; no host modules |
 | Agent/Harness library authoring | Not implemented | Named deferred P1 scope; not MVP requirements |
 | Voice, tools, Dynamic memory, shared Sessions | Deferred | Placeholders are not requirements |
 | Interaction Controller | Deferred | Product docs; planned (not activated) [text-interaction-controller-contract.md](../.work/active/text-interaction-controller-contract.md) |

@@ -6,9 +6,20 @@ export const demoReview = {
   caseId: "f2100000-0000-4000-8000-00000000000e",
   criterionId: "crit.judgment.quality",
   evidenceId: "f2100000-0000-4000-8000-000000000012",
-  taskTitle: "Hazard identification response",
+  campaignTitle: "Q3 Safety Compliance — Pilot Cohort",
   criterionLabel: "crit judgment quality",
 } as const;
+
+export const demoReviewQueued = {
+  caseId: "f2200000-0000-4000-8000-00000000000e",
+} as const;
+
+export const demoReviewRunning = {
+  caseId: "f2300000-0000-4000-8000-00000000000e",
+} as const;
+
+export const RUNNING_CRITERION_UNAVAILABLE =
+  "Evaluation running. Criterion judgments are not available until completion.";
 
 /** 1280 CSS px desktop at 400% browser zoom ≈ 320 CSS px reflow width. */
 export const equivalent400PercentZoomViewport = { width: 320, height: 844 } as const;
@@ -27,10 +38,15 @@ export async function signInAsReviewer(page: Page): Promise<void> {
 export async function openDemoCriterionInspector(page: Page): Promise<void> {
   await page.goto("/review");
   await expect(page.getByRole("heading", { name: "Review work" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("link", { name: new RegExp(`${demoReview.taskTitle}.*Open review`, "i") }).click();
+  await page.getByRole("link", { name: new RegExp(`${demoReview.campaignTitle}.*Open review`, "i") }).click();
   await expect(page.getByRole("navigation", { name: "Criteria" })).toBeVisible();
   await page.getByRole("link", { name: demoReview.criterionLabel }).click();
   await expect(page.getByLabel("Criterion judgment")).toBeVisible();
+}
+
+export async function openDemoReviewCase(page: Page, caseId: string): Promise<void> {
+  await page.goto(`/review/${caseId}`);
+  await expect(page.getByRole("heading", { name: demoReview.campaignTitle })).toBeVisible({ timeout: 30_000 });
 }
 
 export async function assertNoUnintendedHorizontalOverflow(page: Page): Promise<void> {

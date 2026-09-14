@@ -5,8 +5,12 @@ import {
   assertReducedMotionCriterionNav,
   compactCriterionViewport,
   demoReview,
+  demoReviewQueued,
+  demoReviewRunning,
   equivalent400PercentZoomViewport,
   openDemoCriterionInspector,
+  openDemoReviewCase,
+  RUNNING_CRITERION_UNAVAILABLE,
   signInAsReviewer,
 } from "../helpers/review";
 
@@ -18,7 +22,8 @@ test("REVIEW-E2E-01 assigned Review work registry [REVIEW-E2E-01]", async ({ pag
   await page.goto("/review");
   await expect(page.getByRole("heading", { name: "Review work" })).toBeVisible();
   await expect(page.getByText("Internal Evaluation · Not a released Result")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Open review/i })).toBeVisible();
+  await expect(page.locator("#reviewWorkCountValue")).toHaveText("3 assigned cases");
+  await expect(page.getByRole("link", { name: /Open review/i })).toHaveCount(1);
   await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /release/i })).toHaveCount(0);
 });
@@ -90,4 +95,27 @@ test("REVIEW-E2E-05 400% zoom equivalent reflow [REVIEW-E2E-05]", async ({ page 
   });
   await assertNoUnintendedHorizontalOverflow(page);
   await expect(openEvidence).toBeVisible();
+});
+
+test("REVIEW-E2E-06 queued and running registry rows [REVIEW-E2E-06]", async ({ page }) => {
+  await page.goto("/");
+  await signInAsReviewer(page);
+  await page.goto("/review");
+  await expect(page.getByRole("heading", { name: "Review work" })).toBeVisible();
+  await expect(page.locator("#reviewWorkCountValue")).toHaveText("3 assigned cases");
+  await expect(page.getByText("Queued", { exact: true })).toBeVisible();
+  await expect(page.getByText("Running", { exact: true })).toBeVisible();
+  await expect(page.getByText("Evaluation completed", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open review/i })).toHaveCount(1);
+});
+
+test("REVIEW-E2E-07 processing well hides Criteria navigation [REVIEW-E2E-07]", async ({ page }) => {
+  await page.goto("/");
+  await signInAsReviewer(page);
+  await openDemoReviewCase(page, demoReviewQueued.caseId);
+  await expect(page.getByText(RUNNING_CRITERION_UNAVAILABLE)).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Criteria" })).toHaveCount(0);
+  await openDemoReviewCase(page, demoReviewRunning.caseId);
+  await expect(page.getByText(RUNNING_CRITERION_UNAVAILABLE)).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Criteria" })).toHaveCount(0);
 });

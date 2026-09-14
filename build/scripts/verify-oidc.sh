@@ -100,7 +100,7 @@ FLEXAGENT_OIDC_REPORT="${ARTIFACTS}/canonical-playwright.json" \
 python3 "${ROOT}/build/scripts/assert-oidc-case-manifest.py" \
   --report "${ARTIFACTS}/canonical-playwright.json" \
   --require OIDC-E2E-01 OIDC-E2E-02 OIDC-E2E-03 OIDC-E2E-04 OIDC-E2E-05A OIDC-E2E-05B OIDC-E2E-06 \
-  REVIEW-E2E-01 REVIEW-E2E-02 REVIEW-E2E-03 REVIEW-E2E-04 REVIEW-E2E-05
+  REVIEW-E2E-01 REVIEW-E2E-02 REVIEW-E2E-03 REVIEW-E2E-04 REVIEW-E2E-05 REVIEW-E2E-06 REVIEW-E2E-07
 
 echo "==> Candidate/non-Production transition overlay"
 bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" \
