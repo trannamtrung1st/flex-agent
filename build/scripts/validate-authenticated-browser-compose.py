@@ -23,7 +23,7 @@ REQUIRED_SERVICES = {
     "nginx",
     "worker",
 }
-DEMO_WORK_SERVICES = {"seed-demo-work"}
+DEMO_WORK_SERVICES = {"seed-demo-work", "seed-demo-review"}
 IMAGE_SERVICES = {
     "postgres",
     "keycloak-db",
@@ -176,8 +176,10 @@ def validate_compose(config: dict[str, Any], mode: str, demo_work: bool) -> None
     if demo_work:
         if depends_condition(services["seed-demo-work"], "seed") != "service_completed_successfully":
             fail("demo-work seed must wait for identity seed completion")
-        if depends_condition(services["api"], "seed-demo-work") != "service_completed_successfully":
-            fail("API must wait for demo-work seed before starting when enabled")
+        if depends_condition(services["seed-demo-review"], "seed-demo-work") != "service_completed_successfully":
+            fail("demo-review seed must wait for demo-work seed completion")
+        if depends_condition(services["api"], "seed-demo-review") != "service_completed_successfully":
+            fail("API must wait for demo-review seed before starting when enabled")
     elif depends_condition(services["api"], "seed") != "service_completed_successfully":
         fail("API must wait for identity seed before starting")
 

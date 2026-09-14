@@ -12,6 +12,7 @@ PREBUILT_IMAGES_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.prebuilt-i
 CANDIDATE_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.candidate-dev.compose.yaml"
 DEMO_WORK_OVERLAY="${ROOT}/deploy/compose/authenticated-browser.demo-work.compose.yaml"
 DEMO_WORK_SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed-demo-work.sql"
+DEMO_REVIEW_SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed-demo-review.sql"
 NGINX_FILE="${ROOT}/deploy/compose/nginx/authenticated-browser.conf"
 SEED_FILE="${ROOT}/deploy/compose/authenticated-browser/seed.sql"
 SEED_DEMO_WORK="${FLEXAGENT_SEED_DEMO_WORK:-1}"
@@ -159,8 +160,8 @@ validate() {
     echo "authenticated browser profile files are missing" >&2
     exit 1
   fi
-  if demo_work_enabled && [[ ! -f "${DEMO_WORK_OVERLAY}" || ! -f "${DEMO_WORK_SEED_FILE}" ]]; then
-    echo "demo-work seed files are missing" >&2
+  if demo_work_enabled && [[ ! -f "${DEMO_WORK_OVERLAY}" || ! -f "${DEMO_WORK_SEED_FILE}" || ! -f "${DEMO_REVIEW_SEED_FILE}" ]]; then
+    echo "demo-work or demo-review seed files are missing" >&2
     exit 1
   fi
   if grep -q '5432:5432' "${COMPOSE_FILE}"; then
@@ -203,6 +204,8 @@ seed() {
   if demo_work_enabled; then
     run_compose exec -T postgres \
       psql -U flexagent -d flexagent -v ON_ERROR_STOP=1 -f /seed/seed-demo-work.sql
+    run_compose exec -T postgres \
+      psql -U flexagent -d flexagent -v ON_ERROR_STOP=1 -f /seed/seed-demo-review.sql
   fi
 }
 
@@ -310,6 +313,7 @@ up_smoke() {
   run_compose run --rm --no-deps seed
   if demo_work_enabled; then
     run_compose run --rm --no-deps seed-demo-work
+    run_compose run --rm --no-deps seed-demo-review
   fi
   if ! compose_up api spa nginx; then
     echo "app tier failed" >&2

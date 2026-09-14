@@ -142,9 +142,13 @@ def main() -> None:
         "image": f"postgres:18{DIGEST}",
         "depends_on": {"seed": {"condition": "service_completed_successfully"}},
     }
+    demo_work["services"]["seed-demo-review"] = {
+        "image": f"postgres:18{DIGEST}",
+        "depends_on": {"seed-demo-work": {"condition": "service_completed_successfully"}},
+    }
     demo_work["services"]["api"]["depends_on"] = {
         "keycloak": {"condition": "service_healthy"},
-        "seed-demo-work": {"condition": "service_completed_successfully"},
+        "seed-demo-review": {"condition": "service_completed_successfully"},
     }
     ok_demo_work = run_validator(demo_work, demo_work=True)
     if ok_demo_work.returncode != 0:

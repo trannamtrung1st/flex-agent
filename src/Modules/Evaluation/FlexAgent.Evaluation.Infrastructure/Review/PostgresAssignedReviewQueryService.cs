@@ -172,9 +172,9 @@ public sealed class PostgresAssignedReviewQueryService(
                     evaluator_mode,
                     status,
                     confidence,
-                    uncertainty_json,
+                    uncertainty_json::text AS uncertainty_json,
                     rationale,
-                    score_json,
+                    score_json::text AS score_json,
                     provisional_feedback
                 FROM evaluation_criterion_judgments
                 WHERE organization_id = @OrganizationId
@@ -438,14 +438,15 @@ public sealed class PostgresAssignedReviewQueryService(
             new CommandDefinition(
                 """
                 SELECT
+                    judgment_id,
                     criterion_id,
                     criterion_version,
                     evaluator_mode,
                     status,
                     confidence,
-                    uncertainty_json,
+                    uncertainty_json::text AS uncertainty_json,
                     rationale,
-                    score_json,
+                    score_json::text AS score_json,
                     provisional_feedback
                 FROM evaluation_criterion_judgments
                 WHERE organization_id = @OrganizationId
