@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { ProductionApiError } from "../../api/production-api";
 import type { ProductionReviewClient, ReviewQueryScope } from "../../api/production-review";
 import { isReviewAccessLoss } from "../../api/production-review";
@@ -57,6 +57,33 @@ export function usePruneStaleReviewEvaluationCache(
     }
     previousEvaluationIdRef.current = evaluationId;
   }, [evaluationId, queryClient, reviewCaseId, scope]);
+}
+
+export function useReviewWorkInfiniteQuery(
+  client: ProductionReviewClient,
+  scope: ReviewQueryScope | null,
+) {
+  const queryClient = useQueryClient();
+  const resolvedScope = scope ?? { actorId: "", organizationId: "" };
+
+  return useInfiniteQuery({
+    queryKey: reviewKeys.workPages(resolvedScope),
+    queryFn: ({ pageParam, signal }) => runReviewQuery(
+      queryClient,
+      resolvedScope,
+      reviewKeys.work(resolvedScope, pageParam),
+      () => client.listWork(pageParam ?? undefined, signal),
+    ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_cursor ?? undefined : undefined),
+    enabled: Boolean(scope?.actorId && scope.organizationId),
+    refetchInterval: (query) => {
+      const items = query.state.data?.pages.flatMap((page) => page.items) ?? [];
+      return items.some((item) => isProcessingReviewState(item.evaluation_processing_state))
+        ? PROCESSING_POLL_MS
+        : false;
+    },
+  });
 }
 
 export function useReviewWorkQuery(

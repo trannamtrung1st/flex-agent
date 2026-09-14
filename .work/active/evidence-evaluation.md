@@ -2,7 +2,7 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T08:29:00+07:00
+updated: 2026-09-14T08:34:00+07:00
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
 phase9_implementation: one-pass-2026-09-13
@@ -1321,8 +1321,8 @@ approved UI/UX specification or design system.
   running; no `placeholderData`; access-loss mapping for 401/403/`review.denied`.
 - [x] Read-only Review work list (registry donor) with honest empty/loading/
   error/destination-denied states. No claim, reassign, candidate, revision,
-  decision, or Release controls. Client cursor "Load more" replaces the page
-  rather than appending; no server status facet.
+  decision, or Release controls. Client cursor **Load more** appends pages via
+  `useInfiniteQuery` (2026-09-14); no server status facet.
 - [x] Assigned-record hierarchy on `AssignmentStationLayout`: identity rail,
   in-well criterion `SplitBay`, processing plaques that own the well until
   Evaluation completed. History/annotation well omitted (no Phase 8 API).
@@ -1356,6 +1356,12 @@ approved UI/UX specification or design system.
   jobs. Bookkeeping `06ea32b1` docs-only. **Corrective slice approved; Phase 9
   overall not complete** (remaining live states, Playwright gaps, Worker
   disabled).
+- [x] **Remaining pass (2026-09-14):** Review work **Load more** now appends
+  cursor pages (`useReviewWorkInfiniteQuery`) with unit regression. Demo-review
+  Compose seed deferred: inspectable cases require session/handoff/evaluation
+  chain beyond current demo-work fixtures. Playwright for completed/criterion/
+  Evidence inspector still blocked without that seed or Worker. Not Phase 9
+  completion.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
@@ -1684,10 +1690,11 @@ Playwright coverage, and downstream phases are evidenced.
   called shared admission with surface `review.read`, which the enrollment
   permit function rejects (`NOT IN ('read','mutation')`) as 503. Interim
   default: treat assigned-review GETs as `EnrollmentRequestSurfaces.Read`.
-  Known remaining shortcuts: cursor Load more replaces rather than appends;
-  compact criterion nav is a select plus prev/next; desktop criterion list is
-  plain links; no history/annotation well; guessed case 404/`review.denied`
-  uses the assignment-revoked plaque (non-disclosure).
+  Known remaining shortcuts: compact criterion nav is a select plus prev/next;
+  desktop criterion list is plain links; no history/annotation well; guessed case
+  404/`review.denied` uses the assignment-revoked plaque (non-disclosure).
+  Demo-review Compose seed still deferred pending session/handoff/evaluation
+  fixture chain for populated Playwright.
 - Phase 9 consistency/working review (2026-09-13): Evidence deep-links on a
   non-inspectable case opened Evidence instead of the processing well; **Back
   to criterion** lived only in the guided-task foot; `WorkWellHead` sat in the
@@ -1843,6 +1850,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 test lint corrective (`dce622f5` follow-up) | implementation-pass | 2026-09-13. Closed CI Low: `waitForAbort()` rejects `Error` instances; replaced deprecated `fetchQuery()` with `queryClient.query()`. Full web lint green locally. Ready for re-review and full hosted Implementation run. Not Phase 9 completion. |
 | Phase 9 test lint corrective confirmation (`22929915`) | implementation-pass | 2026-09-13. Re-ran focused web **22**, full web lint, `tsc`, frontend isolation, `impeccable_context.py check`. No further code changes. Ready for re-review on `22929915`. Hosted Implementation CI not independently observed. Not Phase 9 completion. |
 | Phase 9 Reviewer UI corrective chain (`178455b1` → `22929915`) | approved | External review 2026-09-14 at authoritative head `22929915`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-22929915-0-blocker-0-high-0-medium-0-low`). Chain: initial one-pass `178455b1`; corrective cache/provenance/identity `792e9031` → `c82cc3d7` → `dce622f5`; test lint `22929915`. Closes full Review cache purge on `review.denied`, denying-query exclusion from cancellation, concurrent read abort, Evaluation identity isolation, Evidence provenance, half-open byte-range copy, and lint regressions. Hosted CI at `22929915`: Implementation **`34767421166`** — all six jobs green (`changes`, `dotnet`, `oidc`, `web`, `supply-chain`, `oci-oidc-smoke`). Bookkeeping `06ea32b1` docs-only. **Corrective slice approved; Phase 9 overall not complete.** Worker disabled |
+| Phase 9 remaining pass (load-more append) | implementation-pass | 2026-09-14. `useReviewWorkInfiniteQuery` appends cursor pages; load-more unit test green. Demo-review seed + populated Playwright deferred (session/handoff/evaluation chain). Focused review web **23**. Not Phase 9 completion. |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |

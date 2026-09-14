@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { FlexQueryProvider } from "../api/query-client";
@@ -105,5 +105,38 @@ describe("ProductionReviewWorkPage", () => {
     expect(screen.getByText("Internal Evaluation · Not a released Result")).toBeVisible();
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /release/i })).not.toBeInTheDocument();
+  });
+
+  it("appends additional assigned cases when Load more is clicked", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/review/work")) {
+        if (url.includes("cursor=page-2")) {
+          return jsonResponse({
+            schema_version: "v1",
+            items: [workItem({
+              review_case_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+              task_label: "Second case",
+            })],
+            has_more: false,
+          });
+        }
+        return jsonResponse({
+          schema_version: "v1",
+          items: [workItem({
+            review_case_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            task_label: "First case",
+          })],
+          has_more: true,
+          next_cursor: "page-2",
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    renderPage();
+    expect(await screen.findByRole("link", { name: "First case · Open review" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Load more assigned Review work" }));
+    expect(await screen.findByRole("link", { name: "Second case · Open review" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "First case · Open review" })).toBeVisible();
+    expect(document.getElementById("reviewWorkCountValue")).toHaveTextContent("2 assigned cases");
   });
 });

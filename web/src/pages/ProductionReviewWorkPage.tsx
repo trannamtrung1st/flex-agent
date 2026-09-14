@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Alert,
   CeremonyArea,
@@ -20,7 +20,7 @@ import { useProductionApi } from "../api/production-api";
 import { createProductionReviewClient, isReviewAccessLoss } from "../api/production-review";
 import { ReviewerQueueEmpty, ReviewerQueueTableShell } from "../components/work/ReviewerQueueTable";
 import { ReviewerQueueOperateArea } from "../components/work/ReviewerQueueOperateArea";
-import { useReviewWorkQuery } from "../features/review/queries";
+import { useReviewWorkInfiniteQuery } from "../features/review/queries";
 import {
   EMPTY_REVIEW_WORK,
   INTERNAL_EVALUATION_NOTICE,
@@ -40,8 +40,11 @@ export function ProductionReviewWorkPage() {
   const scope = shell
     ? { actorId: shell.actor_id, organizationId: shell.organization_id }
     : null;
-  const [cursor, setCursor] = useState<string | null>(null);
-  const workQuery = useReviewWorkQuery(client, scope, cursor);
+  const workQuery = useReviewWorkInfiniteQuery(client, scope);
+  const items = useMemo(
+    () => workQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [workQuery.data],
+  );
 
   if (!workQuery.data && !workQuery.isError) {
     return (
@@ -62,7 +65,7 @@ export function ProductionReviewWorkPage() {
     );
   }
 
-  if (workQuery.error && !workQuery.data) {
+  if (workQuery.error && items.length === 0) {
     const note = workQuery.error instanceof Error ? workQuery.error.message : "Request failed";
     return (
       <CeremonyUnavailable
@@ -75,9 +78,7 @@ export function ProductionReviewWorkPage() {
     );
   }
 
-  const items = workQuery.data?.items ?? [];
-  const hasMore = workQuery.data?.has_more ?? false;
-  const nextCursor = workQuery.data?.next_cursor ?? null;
+  const hasMore = workQuery.hasNextPage ?? false;
 
   return (
     <ReviewerQueueOperateArea
@@ -163,10 +164,11 @@ export function ProductionReviewWorkPage() {
           />
         ) : undefined}
       />
-      {hasMore && nextCursor ? (
+      {hasMore ? (
         <Key
           size="compact"
-          onClick={() => setCursor(nextCursor)}
+          disabled={workQuery.isFetchingNextPage}
+          onClick={() => { void workQuery.fetchNextPage(); }}
         >
           Load more assigned Review work
         </Key>

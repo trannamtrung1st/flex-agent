@@ -2,6 +2,7 @@ import type { ReviewQueryScope } from "../../api/production-review";
 
 export const reviewKeys = {
   all: (scope: ReviewQueryScope) => ["review", "v1", scope.organizationId, scope.actorId] as const,
+  workPages: (scope: ReviewQueryScope) => [...reviewKeys.all(scope), "work", "pages"] as const,
   work: (scope: ReviewQueryScope, cursor?: string | null) =>
     [...reviewKeys.all(scope), "work", cursor ?? ""] as const,
   caseRoot: (scope: ReviewQueryScope, reviewCaseId: string) =>
