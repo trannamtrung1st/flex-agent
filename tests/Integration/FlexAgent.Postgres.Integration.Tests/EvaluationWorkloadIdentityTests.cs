@@ -154,6 +154,154 @@ public sealed class EvaluationWorkloadIdentityTests(PostgresIntegrationFixture f
         Assert.Null(claimed);
     }
 
+    [Fact]
+    public async Task Cached_oauth_proof_cannot_disclose_protected_deterministic_output_after_principal_binding_revoke()
+    {
+        var execution = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(
+            Fixture,
+            CancellationToken);
+        Assert.NotNull(execution.First.Value!.OutputContentDigest);
+
+        var organizationId = execution.Claimed.Ownership.OrganizationId;
+        var organizationActorId = await ReadOrganizationActorAsync(organizationId);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.ProvisionServicePrincipalBinding);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.RevokeServicePrincipalBinding);
+
+        var principalBindingId = Guid.NewGuid();
+        var mutation = new ServiceDelegationMutationContext(
+            new TrustedActor(organizationActorId, "synthetic.test_actor"),
+            Guid.NewGuid(),
+            "operator.command",
+            "revoke.cached.evaluation.disclosure.binding");
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await PostgresServicePrincipalBindingCoordinator.ProvisionInTransactionAsync(
+                organizationId,
+                new ServicePrincipalBindingProvision(
+                    principalBindingId,
+                    WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+                    WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
+                    "https://issuer.example/realms/flex-agent",
+                    "worker-client-cached-eval-disclosure-revoke",
+                    "worker-client-cached-eval-disclosure-revoke",
+                    "flex-agent-worker",
+                    execution.WorkerActorId,
+                    "worker.evaluation_runtime",
+                    DateTimeOffset.UtcNow),
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await PostgresServicePrincipalBindingCoordinator.RevokeInTransactionAsync(
+                organizationId,
+                principalBindingId,
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var outputStore = CreateProtectedOutputStore(
+            execution.WorkerActorId,
+            new CachedOAuthEvaluationWorkloadIdentityGate(
+                execution.WorkerActorId,
+                principalBindingId,
+                bindingVersion: 1));
+        var material = await outputStore.TryLoadVerifiedMaterialAsync(
+            execution.Claimed.Ownership,
+            execution.Claimed.RequestId,
+            execution.First.Value!.DeterministicAttemptId,
+            execution.First.Value.OutputContentDigest!,
+            execution.Request.CriterionId,
+            execution.Request.CriterionVersion,
+            CancellationToken);
+        Assert.Null(material);
+    }
+
+    [Fact]
+    public async Task Principal_binding_revoke_after_authorization_and_before_read_denies_protected_disclosure()
+    {
+        var execution = await DeterministicPayloadTestSupport.ExecuteAndPersistAsync(
+            Fixture,
+            CancellationToken);
+        Assert.NotNull(execution.First.Value!.OutputContentDigest);
+
+        var organizationId = execution.Claimed.Ownership.OrganizationId;
+        var organizationActorId = await ReadOrganizationActorAsync(organizationId);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.ProvisionServicePrincipalBinding);
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            organizationActorId,
+            AuthorizationActions.RevokeServicePrincipalBinding);
+
+        var principalBindingId = Guid.NewGuid();
+        var mutation = new ServiceDelegationMutationContext(
+            new TrustedActor(organizationActorId, "synthetic.test_actor"),
+            Guid.NewGuid(),
+            "operator.command",
+            "revoke.racing.evaluation.disclosure.binding");
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await PostgresServicePrincipalBindingCoordinator.ProvisionInTransactionAsync(
+                organizationId,
+                new ServicePrincipalBindingProvision(
+                    principalBindingId,
+                    WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+                    WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
+                    "https://issuer.example/realms/flex-agent",
+                    "worker-client-racing-eval-disclosure",
+                    "worker-client-racing-eval-disclosure",
+                    "flex-agent-worker",
+                    execution.WorkerActorId,
+                    "worker.evaluation_runtime",
+                    DateTimeOffset.UtcNow),
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var outputStore = CreateProtectedOutputStore(
+            execution.WorkerActorId,
+            new CachedOAuthEvaluationWorkloadIdentityGate(
+                execution.WorkerActorId,
+                principalBindingId,
+                bindingVersion: 1));
+        outputStore.AfterProtectedDisclosureAuthorizedAsync = transaction =>
+            PostgresServicePrincipalBindingCoordinator.RevokeInTransactionAsync(
+                organizationId,
+                principalBindingId,
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                transaction,
+                CancellationToken);
+
+        var material = await outputStore.TryLoadVerifiedMaterialAsync(
+            execution.Claimed.Ownership,
+            execution.Claimed.RequestId,
+            execution.First.Value!.DeterministicAttemptId,
+            execution.First.Value.OutputContentDigest!,
+            execution.Request.CriterionId,
+            execution.Request.CriterionVersion,
+            CancellationToken);
+        Assert.Null(material);
+    }
+
     private async Task<Guid> ReadOrganizationActorAsync(Guid organizationId)
     {
         await using var connection = await Fixture.Services.ConnectionAccessor
@@ -181,6 +329,14 @@ public sealed class EvaluationWorkloadIdentityTests(PostgresIntegrationFixture f
 
     private PostgresEvaluationDurableWorkStore CreateWorkStore(IEvaluationWorkloadIdentityGate gate) =>
         new(Fixture.Services.ConnectionAccessor, gate);
+
+    private PostgresProtectedDeterministicOutputStore CreateProtectedOutputStore(
+        Guid workerActorId,
+        IEvaluationWorkloadIdentityGate gate) =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            gate,
+            protectedDisclosureActorId: workerActorId);
 
     private sealed class ExpiredEvaluationWorkloadIdentityGate(Guid actorId)
         : IEvaluationWorkloadIdentityGate

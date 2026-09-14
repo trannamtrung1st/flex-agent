@@ -1,8 +1,10 @@
+using System.Data;
 using Dapper;
 using FlexAgent.Contracts.Manifest;
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Domain;
 using FlexAgent.Postgres;
+using Npgsql;
 
 namespace FlexAgent.Evaluation.Infrastructure;
 
@@ -11,9 +13,12 @@ public sealed class PostgresProtectedDeterministicOutputStore(
     IEvaluationWorkloadIdentityGate? workloadIdentityGate = null,
     Guid protectedDisclosureActorId = default) : IProtectedDeterministicOutputStore
 {
+    internal Func<NpgsqlTransaction, Task>? AfterProtectedDisclosureAuthorizedAsync { get; set; }
+
     private readonly IEvaluationWorkloadIdentityGate? _workloadIdentityGate = workloadIdentityGate;
     private readonly Guid? _protectedDisclosureActorId =
         protectedDisclosureActorId != Guid.Empty ? protectedDisclosureActorId : null;
+
     public async Task<EvaluationDecision<bool>> TryPersistAsync(
         ProtectedDeterministicOutputPersistCommand command,
         CancellationToken cancellationToken)
@@ -143,7 +148,7 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         return EvaluationDecision<bool>.Ok(true);
     }
 
-    public async Task<EvaluationSafeFactProjection?> TryLoadProjectionAsync(
+    public Task<EvaluationSafeFactProjection?> TryLoadProjectionAsync(
         Guid organizationId,
         Guid requestId,
         Guid deterministicAttemptId,
@@ -159,58 +164,48 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             || string.IsNullOrWhiteSpace(expectedCriterionId)
             || string.IsNullOrWhiteSpace(expectedCriterionVersion))
         {
-            return null;
+            return Task.FromResult<EvaluationSafeFactProjection?>(null);
         }
 
-        if (!await CanDiscloseProtectedMaterialAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
-            new CommandDefinition(
-                """
-                SELECT payload.protected_ref, payload.content_digest, payload.output_utf8
-                FROM evaluation_deterministic_payloads AS payload
-                INNER JOIN evaluation_deterministic_attempts AS attempt
-                  ON attempt.organization_id = payload.organization_id
-                 AND attempt.request_id = payload.request_id
-                 AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
-                WHERE payload.organization_id = @OrganizationId
-                  AND payload.deterministic_attempt_id = @DeterministicAttemptId
-                  AND payload.request_id = @RequestId
-                  AND attempt.criterion_id = @ExpectedCriterionId
-                  AND attempt.criterion_version = @ExpectedCriterionVersion
-                  AND attempt.outcome = 'succeeded'
-                  AND payload.protected_ref = attempt.protected_output_ref
-                  AND payload.content_digest = @ExpectedContentDigest
-                  AND attempt.output_content_digest = @ExpectedContentDigest;
-                """,
-                new
-                {
-                    OrganizationId = organizationId,
-                    RequestId = requestId,
-                    DeterministicAttemptId = deterministicAttemptId,
-                    ExpectedContentDigest = expectedContentDigest,
-                    ExpectedCriterionId = expectedCriterionId,
-                    ExpectedCriterionVersion = expectedCriterionVersion,
-                },
-                cancellationToken: cancellationToken));
-
-        if (row is null)
-        {
-            return null;
-        }
-
-        var projection = EvaluationDeterministicFactProjector.TryCreate(
-            deterministicAttemptId,
-            row.output_utf8,
-            row.content_digest);
-        return projection.Succeeded ? projection.Value : null;
+        return LoadProjectionAsync(
+            """
+            SELECT payload.protected_ref, payload.content_digest, payload.output_utf8
+            FROM evaluation_deterministic_payloads AS payload
+            INNER JOIN evaluation_deterministic_attempts AS attempt
+              ON attempt.organization_id = payload.organization_id
+             AND attempt.request_id = payload.request_id
+             AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
+            WHERE payload.organization_id = @OrganizationId
+              AND payload.deterministic_attempt_id = @DeterministicAttemptId
+              AND payload.request_id = @RequestId
+              AND attempt.criterion_id = @ExpectedCriterionId
+              AND attempt.criterion_version = @ExpectedCriterionVersion
+              AND attempt.outcome = 'succeeded'
+              AND payload.protected_ref = attempt.protected_output_ref
+              AND payload.content_digest = @ExpectedContentDigest
+              AND attempt.output_content_digest = @ExpectedContentDigest;
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                RequestId = requestId,
+                DeterministicAttemptId = deterministicAttemptId,
+                ExpectedContentDigest = expectedContentDigest,
+                ExpectedCriterionId = expectedCriterionId,
+                ExpectedCriterionVersion = expectedCriterionVersion,
+            },
+            cancellationToken,
+            row =>
+            {
+                var projection = EvaluationDeterministicFactProjector.TryCreate(
+                    deterministicAttemptId,
+                    row.output_utf8,
+                    row.content_digest);
+                return projection.Succeeded ? projection.Value : null;
+            });
     }
 
-    public async Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
+    public Task<VerifiedDeterministicOutputMaterial?> TryLoadVerifiedMaterialAsync(
         EvaluationOwnership ownership,
         Guid requestId,
         Guid deterministicAttemptId,
@@ -226,86 +221,169 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             || string.IsNullOrWhiteSpace(expectedCriterionId)
             || string.IsNullOrWhiteSpace(expectedCriterionVersion))
         {
-            return null;
+            return Task.FromResult<VerifiedDeterministicOutputMaterial?>(null);
         }
 
-        if (!await CanDiscloseProtectedMaterialAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
-            new CommandDefinition(
-                """
-                SELECT payload.protected_ref, payload.content_digest, payload.output_utf8
-                FROM evaluation_deterministic_payloads AS payload
-                INNER JOIN evaluation_deterministic_attempts AS attempt
-                  ON attempt.organization_id = payload.organization_id
-                 AND attempt.request_id = payload.request_id
-                 AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
-                INNER JOIN evaluation_requests AS request
-                  ON request.organization_id = payload.organization_id
-                 AND request.request_id = payload.request_id
-                WHERE payload.organization_id = @OrganizationId
-                  AND payload.deterministic_attempt_id = @DeterministicAttemptId
-                  AND payload.request_id = @RequestId
-                  AND request.activity_id = @ActivityId
-                  AND request.participant_id = @ParticipantId
-                  AND request.attempt_id = @AttemptId
-                  AND request.session_id = @SessionId
-                  AND attempt.criterion_id = @ExpectedCriterionId
-                  AND attempt.criterion_version = @ExpectedCriterionVersion
-                  AND attempt.outcome = 'succeeded'
-                  AND payload.protected_ref = attempt.protected_output_ref
-                  AND payload.content_digest = @ExpectedContentDigest
-                  AND attempt.output_content_digest = @ExpectedContentDigest;
-                """,
-                new
+        return LoadProjectionAsync(
+            """
+            SELECT payload.protected_ref, payload.content_digest, payload.output_utf8
+            FROM evaluation_deterministic_payloads AS payload
+            INNER JOIN evaluation_deterministic_attempts AS attempt
+              ON attempt.organization_id = payload.organization_id
+             AND attempt.request_id = payload.request_id
+             AND attempt.deterministic_attempt_id = payload.deterministic_attempt_id
+            INNER JOIN evaluation_requests AS request
+              ON request.organization_id = payload.organization_id
+             AND request.request_id = payload.request_id
+            WHERE payload.organization_id = @OrganizationId
+              AND payload.deterministic_attempt_id = @DeterministicAttemptId
+              AND payload.request_id = @RequestId
+              AND request.activity_id = @ActivityId
+              AND request.participant_id = @ParticipantId
+              AND request.attempt_id = @AttemptId
+              AND request.session_id = @SessionId
+              AND attempt.criterion_id = @ExpectedCriterionId
+              AND attempt.criterion_version = @ExpectedCriterionVersion
+              AND attempt.outcome = 'succeeded'
+              AND payload.protected_ref = attempt.protected_output_ref
+              AND payload.content_digest = @ExpectedContentDigest
+              AND attempt.output_content_digest = @ExpectedContentDigest;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                RequestId = requestId,
+                DeterministicAttemptId = deterministicAttemptId,
+                ownership.ActivityId,
+                ownership.ParticipantId,
+                ownership.AttemptId,
+                ownership.SessionId,
+                ExpectedContentDigest = expectedContentDigest,
+                ExpectedCriterionId = expectedCriterionId,
+                ExpectedCriterionVersion = expectedCriterionVersion,
+            },
+            cancellationToken,
+            row =>
+            {
+                var projection = EvaluationDeterministicFactProjector.TryCreate(
+                    deterministicAttemptId,
+                    row.output_utf8,
+                    row.content_digest);
+                if (!projection.Succeeded || projection.Value is null)
                 {
-                    ownership.OrganizationId,
-                    RequestId = requestId,
-                    DeterministicAttemptId = deterministicAttemptId,
-                    ownership.ActivityId,
-                    ownership.ParticipantId,
-                    ownership.AttemptId,
-                    ownership.SessionId,
-                    ExpectedContentDigest = expectedContentDigest,
-                    ExpectedCriterionId = expectedCriterionId,
-                    ExpectedCriterionVersion = expectedCriterionVersion,
-                },
-                cancellationToken: cancellationToken));
+                    return null;
+                }
 
-        if (row is null)
-        {
-            return null;
-        }
-
-        var projection = EvaluationDeterministicFactProjector.TryCreate(
-            deterministicAttemptId,
-            row.output_utf8,
-            row.content_digest);
-        if (!projection.Succeeded || projection.Value is null)
-        {
-            return null;
-        }
-
-        return new VerifiedDeterministicOutputMaterial(
-            projection.Value,
-            new ProtectedPayloadRefV1(row.protected_ref, row.content_digest));
+                return new VerifiedDeterministicOutputMaterial(
+                    projection.Value,
+                    new ProtectedPayloadRefV1(row.protected_ref, row.content_digest));
+            });
     }
 
-    private async Task<bool> CanDiscloseProtectedMaterialAsync(CancellationToken cancellationToken)
+    private async Task<TProjection?> LoadProjectionAsync<TProjection>(
+        string sql,
+        object parameters,
+        CancellationToken cancellationToken,
+        Func<PersistedPayloadRow, TProjection?> project)
+        where TProjection : class
+    {
+        if (!RequiresTransactionBoundDisclosure())
+        {
+            await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+            var row = await QueryPayloadRowAsync(connection, null, sql, parameters, cancellationToken);
+            return row is null ? null : project(row);
+        }
+
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var row = await LoadProtectedPayloadRowInTransactionAsync(
+                scope,
+                sql,
+                parameters,
+                cancellationToken);
+            if (row is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var projected = project(row);
+            if (projected is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            await scope.CommitAsync(cancellationToken);
+            return projected;
+        }
+        catch
+        {
+            await scope.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    private bool RequiresTransactionBoundDisclosure() =>
+        _workloadIdentityGate is not null && _protectedDisclosureActorId is not null;
+
+    private async Task<PersistedPayloadRow?> LoadProtectedPayloadRowInTransactionAsync(
+        PostgresTransactionScope scope,
+        string sql,
+        object parameters,
+        CancellationToken cancellationToken)
+    {
+        if (!await AuthorizeProtectedDisclosureInTransactionAsync(scope.Transaction, cancellationToken))
+        {
+            return null;
+        }
+
+        if (AfterProtectedDisclosureAuthorizedAsync is not null)
+        {
+            await AfterProtectedDisclosureAuthorizedAsync(scope.Transaction).ConfigureAwait(false);
+        }
+
+        if (!await AuthorizeProtectedDisclosureInTransactionAsync(scope.Transaction, cancellationToken))
+        {
+            return null;
+        }
+
+        return await QueryPayloadRowAsync(
+            scope.Connection,
+            scope.Transaction,
+            sql,
+            parameters,
+            cancellationToken);
+    }
+
+    private async Task<bool> AuthorizeProtectedDisclosureInTransactionAsync(
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
     {
         if (_workloadIdentityGate is null || _protectedDisclosureActorId is null)
         {
             return true;
         }
 
-        return await _workloadIdentityGate.IsCurrentForWorkerActorAsync(
+        return await _workloadIdentityGate.IsCurrentForWorkerActorInTransactionAsync(
             _protectedDisclosureActorId.Value,
+            transaction,
             cancellationToken).ConfigureAwait(false);
     }
+
+    private static async Task<PersistedPayloadRow?> QueryPayloadRowAsync(
+        System.Data.Common.DbConnection connection,
+        IDbTransaction? transaction,
+        string sql,
+        object parameters,
+        CancellationToken cancellationToken) =>
+        await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
+            new CommandDefinition(
+                sql,
+                parameters,
+                transaction,
+                cancellationToken: cancellationToken));
 
     private sealed record PersistedPayloadRow(
         string protected_ref,
