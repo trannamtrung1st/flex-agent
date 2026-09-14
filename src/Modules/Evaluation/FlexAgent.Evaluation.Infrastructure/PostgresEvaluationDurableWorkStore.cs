@@ -8,6 +8,27 @@ namespace FlexAgent.Evaluation.Infrastructure;
 public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccessor connectionAccessor)
     : IEvaluationDurableWorkStore
 {
+    public async Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(
+        CancellationToken cancellationToken)
+    {
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var row = await scope.Connection.QuerySingleAsync<BacklogRow>(
+                new CommandDefinition(
+                    BacklogSql,
+                    transaction: scope.Transaction,
+                    cancellationToken: cancellationToken));
+            await scope.CommitAsync(cancellationToken);
+            return new EvaluationDurableWorkBacklogSnapshot(row.claimable_count, row.partition_count);
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task<EvaluationDurableWorkItem?> TryClaimAsync(
         Guid claimOwner,
         TimeSpan lease,
@@ -579,6 +600,43 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         return delegationId is not null;
     }
 
+    private const string BacklogSql = """
+        SELECT COUNT(*)::INT AS claimable_count,
+               COUNT(DISTINCT (work.organization_id, work.activity_id))::INT AS partition_count
+        FROM evaluation_durable_work AS work
+        INNER JOIN evaluation_requests AS request
+          ON request.organization_id = work.organization_id
+         AND request.request_id = work.request_id
+        WHERE (
+                (
+                    work.attempt_count < work.max_attempts
+                    AND (
+                        (work.state = 'pending' AND work.available_at <= clock_timestamp())
+                        OR (
+                            work.state = 'claimed'
+                            AND work.claim_lease_until IS NOT NULL
+                            AND work.claim_lease_until < clock_timestamp())
+                    )
+                )
+                OR (
+                    work.state = 'claimed'
+                    AND work.claim_lease_until < clock_timestamp()
+                    AND request.state = 'completed'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM evaluations
+                        WHERE organization_id = request.organization_id
+                          AND request_id = request.request_id)
+                )
+                OR (
+                    work.state = 'claimed'
+                    AND work.claim_lease_until < clock_timestamp()
+                    AND work.attempt_count >= work.max_attempts
+                    AND request.state <> 'completed'
+                )
+              );
+        """;
+
     private const string ClaimOrganizationSql = """
         SELECT organization.id
         FROM evaluation_durable_work AS work
@@ -713,6 +771,8 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
             work.backoff_seconds,
             work.claim_lease_until;
         """;
+
+    private sealed record BacklogRow(int claimable_count, int partition_count);
 
     private sealed record ClaimedRow(
         Guid organization_id,

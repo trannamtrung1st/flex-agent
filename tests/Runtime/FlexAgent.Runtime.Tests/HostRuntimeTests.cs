@@ -2,6 +2,7 @@ using System.Diagnostics.Metrics;
 using System.Net;
 using FlexAgent.Api;
 using FlexAgent.Evaluation.Application;
+using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
@@ -275,7 +276,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Fact]
-    public void Worker_rejects_evaluation_processing_when_infrastructure_gate_is_closed()
+    public void Worker_registers_live_evaluation_processor_when_processing_is_explicitly_enabled()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
         {
@@ -283,12 +284,15 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Evaluation:Processing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            _ = factory.Services.GetRequiredService<IEvaluationDurableWorkProcessor>());
-
-        Assert.Contains("EvaluationInfrastructure.ProcessingEnabled", exception.Message, StringComparison.Ordinal);
+        Assert.IsType<EvaluationDurableWorkProcessor>(
+            factory.Services.GetRequiredService<IEvaluationDurableWorkProcessor>());
+        Assert.IsType<PostgresEvaluationDurableWorkStore>(
+            factory.Services.GetRequiredService<IEvaluationDurableWorkStore>());
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().EvaluationProcessingEnabled);
+        Assert.NotNull(factory.Services.GetService<IEvaluationDurableWorkBacklogSampler>());
     }
 
     [Fact]

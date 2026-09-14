@@ -1553,9 +1553,23 @@ approved UI/UX specification or design system.
 
 ## Phase 10 — Worker composition, operations, lifecycle, and performance
 
-- [ ] Add Evaluation as a distinct bounded Worker lane with fair scheduling
+- [x] Add Evaluation as a distinct bounded Worker lane with fair scheduling
   beside Session invocation/timer/expiry work. Report lane-specific enabled,
   fail-closed, identity, adapter qualification, backlog, and readiness states.
+  **Slice 1:** `EvaluationInfrastructure.ProcessingEnabled = true`
+  opens the compile gate; runtime remains config-default-off until Compose item 8.
+  `EvaluationDurableWorkProcessor` claims admitted work via
+  `PostgresEvaluationDurableWorkStore`, transitions `queued → running` through
+  claim SQL, then releases with `worker.execution_deferred` until evaluator
+  execution lands in a later slice. Worker registers live store/processor/backlog
+  sampler when `Evaluation:Processing:Enabled` and `Sessions:WorkerServiceActorId`
+  are set in Development/Testing. **Red/green:** unit
+  `EvaluationDurableWorkProcessorTests` (3); integration
+  `Worker_processor_claims_admitted_work_and_transitions_request_through_running`;
+  runtime `Worker_registers_live_evaluation_processor_when_processing_is_explicitly_enabled`.
+  **Verified:** Evaluation unit 441/441; Runtime 344/344; Postgres integration
+  508/508 (local 2026-09-14). Fairness remains sequential after invocation/timer
+  lanes per existing loop order; dedicated fairness telemetry is Phase 10 item 3.
 - [ ] Prevent Evaluation claim or protected disclosure while workload identity
   is unavailable, expiring, revoked, out of delegated scope, or unqualified.
   Reauthorize at claim, source read/model disclosure, lease renewal as needed,
@@ -1728,9 +1742,10 @@ on `13fd2f3` with hardening follow-up on `4e2fb53` and fault-matrix closure on
   `FrozenModelIdentity` requires exact profile id/version/digest plus
   credential binding; names and `latest`/`current` aliases fail as
   `evaluation.unqualified_model`.
-- Infrastructure remains host-fail-closed (`ProcessingEnabled = false`;
-  `DisabledEvaluationAdmission` returns `evaluation.processing_disabled`). No
-  host or provider adapter is wired. `0072` now owns Evaluation requests,
+- Infrastructure compile gate opened for Worker processing
+  (`EvaluationInfrastructure.ProcessingEnabled = true`; admission API path still
+  uses `DisabledEvaluationAdmission` → `evaluation.processing_disabled` until
+  host wiring). `0072` owns Evaluation requests,
   attempts, durable work, protected artifact references, Evidence/completion
   records, lineage, annotations/dispositions, manifest references, and the
   minimal Review handoff.

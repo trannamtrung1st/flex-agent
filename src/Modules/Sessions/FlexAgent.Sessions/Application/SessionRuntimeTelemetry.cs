@@ -449,6 +449,7 @@ internal static class SessionRuntimeTelemetryVocabularies
     private static readonly HashSet<string> WorkTypes =
     [
         DurableSessionWorkTypes.ExecuteInvocation,
+        "evaluation.execute",
     ];
 
     private static readonly HashSet<string> DelayBuckets =

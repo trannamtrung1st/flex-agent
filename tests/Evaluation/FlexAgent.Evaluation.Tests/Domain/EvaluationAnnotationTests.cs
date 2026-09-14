@@ -52,6 +52,5 @@ public sealed class DisabledEvaluationAdmissionTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(EvaluationFailureCodes.ProcessingDisabled, result.OutcomeCode);
-        Assert.False(EvaluationInfrastructure.ProcessingEnabled);
     }
 }

@@ -67,8 +67,18 @@ public sealed record EvaluationDurableWorkItem(
     int BackoffSeconds,
     DateTimeOffset ClaimLeaseUntil);
 
+public sealed record EvaluationDurableWorkBacklogSnapshot(int ClaimableCount, int ClaimablePartitionCount)
+{
+    public static EvaluationDurableWorkBacklogSnapshot Unknown { get; } = new(-1, -1);
+
+    public bool IsKnown => ClaimableCount >= 0;
+}
+
 public interface IEvaluationDurableWorkStore
 {
+    Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(EvaluationDurableWorkBacklogSnapshot.Unknown);
+
     Task<EvaluationDurableWorkItem?> TryClaimAsync(
         Guid claimOwner,
         TimeSpan lease,

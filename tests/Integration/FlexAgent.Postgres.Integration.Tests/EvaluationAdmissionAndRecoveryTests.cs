@@ -1,5 +1,6 @@
 using Dapper;
 using FlexAgent.Evaluation.Application;
+using FlexAgent.Evaluation.Domain;
 using FlexAgent.Evaluation.Infrastructure;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
@@ -11,6 +12,75 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class EvaluationAdmissionAndRecoveryTests(PostgresIntegrationFixture fixture)
     : PostgresIntegrationTest(fixture)
 {
+    [Fact]
+    public async Task Worker_processor_claims_admitted_work_and_transitions_request_through_running()
+    {
+        var prepared = await EvaluationPersistenceTestSeed.CreateAsync(
+            Fixture,
+            Guid.CreateVersion7().ToString("N"),
+            CancellationToken);
+        Assert.True((await prepared.Admission.AdmitAsync(prepared.Command(), CancellationToken)).Succeeded);
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken))
+        {
+            var before = await connection.QuerySingleAsync<(string RequestState, string WorkState)>(
+                """
+                SELECT request.state AS RequestState, work.state AS WorkState
+                FROM evaluation_requests AS request
+                INNER JOIN evaluation_durable_work AS work
+                  ON work.organization_id = request.organization_id
+                 AND work.request_id = request.request_id
+                WHERE request.request_id = @RequestId;
+                """,
+                new { prepared.Request.RequestId });
+            Assert.Equal(("queued", "pending"), before);
+        }
+
+        var processor = new EvaluationDurableWorkProcessor(
+            prepared.Work,
+            new EvaluationDurableWorkSettings(
+                prepared.WorkerActorId,
+                "test.evaluation_runtime"));
+        var result = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.RetryLater, result.Outcome);
+        Assert.Equal(prepared.Request.RequestId, result.RequestId);
+        await using var verification = await Fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(CancellationToken);
+        var after = await verification.QuerySingleAsync<(string RequestState, string WorkState, string FailureCategory)>(
+            """
+            SELECT request.state AS RequestState, work.state AS WorkState, work.failure_category AS FailureCategory
+            FROM evaluation_requests AS request
+            INNER JOIN evaluation_durable_work AS work
+              ON work.organization_id = request.organization_id
+             AND work.request_id = request.request_id
+            WHERE request.request_id = @RequestId;
+            """,
+            new { prepared.Request.RequestId });
+        Assert.Equal(EvaluationRequestStates.FailedRetryable, after.RequestState);
+        Assert.Equal("pending", after.WorkState);
+        Assert.Equal(EvaluationDurableWorkProcessor.ExecutionDeferredFailureCategory, after.FailureCategory);
+        var attempts = (await verification.QueryAsync<(int Ordinal, string State, string? FailureCategory)>(
+            """
+            SELECT attempt_ordinal, state, failure_category
+            FROM evaluation_invocation_attempts
+            WHERE organization_id = @OrganizationId AND request_id = @RequestId
+            ORDER BY attempt_ordinal;
+            """,
+            new
+            {
+                prepared.Request.FrozenInput.Ownership.OrganizationId,
+                prepared.Request.RequestId,
+            })).AsList();
+        Assert.Equal(
+            new List<(int, string, string?)>
+            {
+                (1, "failed_retryable", EvaluationDurableWorkProcessor.ExecutionDeferredFailureCategory),
+            },
+            attempts);
+    }
+
     [Fact]
     public async Task Admission_atomically_creates_request_work_audit_and_outbox()
     {

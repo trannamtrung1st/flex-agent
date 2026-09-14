@@ -13,7 +13,8 @@ public sealed class WorkerBackgroundService(
     IEvaluationDurableWorkProcessor evaluationWorkProcessor,
     IDurableTimerFireProcessor timerFireProcessor,
     IHostedSessionExpirySweep expirySweep,
-    IDurableWorkBacklogSampler backlogSampler) : BackgroundService
+    IDurableWorkBacklogSampler backlogSampler,
+    IEvaluationDurableWorkBacklogSampler evaluationBacklogSampler) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,6 +35,19 @@ public sealed class WorkerBackgroundService(
                 catch (Exception exception)
                 {
                     logger.LogError(exception, "Durable work backlog sampling failed.");
+                }
+
+                try
+                {
+                    await evaluationBacklogSampler.SampleIfDueAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError(exception, "Evaluation durable work backlog sampling failed.");
                 }
 
                 if (workClaimGate.TryClaimWork() && authorityGate.CanAcceptProtectedWork())

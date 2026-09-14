@@ -123,7 +123,9 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
             services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
             services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
-            WorkerEvaluationLane.RegisterServices(services, evaluationProcessingEnabled: false);
+            WorkerEvaluationLane.RegisterServices(services, configuration, evaluationProcessingEnabled: false);
+            services.AddSingleton<IEvaluationDurableWorkBacklogSampler>(_ =>
+                IdleEvaluationDurableWorkBacklogSampler.Instance);
             services.AddSingleton(new WorkerRuntimeCapabilities
             {
                 DurableWorkClaimingEnabled = false,
@@ -202,7 +204,7 @@ internal static class WorkerDurableWorkSampling
                 services.AddSingleton<IHostedSessionExpirySweep>(_ => IdleHostedSessionExpirySweep.Instance);
             }
 
-            WorkerEvaluationLane.RegisterServices(services, evaluationProcessingEnabled);
+            WorkerEvaluationLane.RegisterServices(services, configuration, evaluationProcessingEnabled);
 
             services.AddSingleton(new WorkerRuntimeCapabilities
             {

@@ -4,7 +4,7 @@ namespace FlexAgent.Evaluation.Infrastructure;
 
 public static class EvaluationInfrastructure
 {
-    public const bool ProcessingEnabled = false;
+    public const bool ProcessingEnabled = true;
 }
 
 public sealed class DisabledEvaluationAdmission
