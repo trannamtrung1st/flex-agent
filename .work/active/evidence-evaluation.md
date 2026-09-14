@@ -1566,14 +1566,23 @@ approved UI/UX specification or design system.
   claimable backlog shares the same delegation/claim-owner/concurrency predicate
   as `TryClaimAsync`. Worker registers live store/processor/backlog sampler when
   `Evaluation:Processing:Enabled` and `Sessions:WorkerServiceActorId` are set in
-  Development/Testing. **Review corrective (post-`4a7b855e`):** bounded release
+  Development/Testing.   **Review corrective (post-`4a7b855e`):** bounded release
   cleanup, explicit failed-release outcome, aligned claimable snapshot SQL,
   `EvaluationClaimableBacklogTests` negatives, SQL composition guard, fair-scheduling
-  checkbox split. **Red/green:** unit `EvaluationDurableWorkProcessorTests` +
+  checkbox split. **Review corrective (post-`216cadbc`):** all post-claim release
+  cleanup is independent of caller/shutdown token and bounded only by
+  `ClaimCleanupTimeout`; `ClaimOrganizationSql` retryable branch applies
+  `RetryableOrganizationEligibleSql` with `@PerOrganizationConcurrency`; integration
+  `TryClaimAsync_claims_ready_organization_when_first_ordered_organization_is_concurrency_saturated`
+  proves multi-org claim path matches claimable backlog when the first-ordered org is
+  saturated. **Red/green:** unit `EvaluationDurableWorkProcessorTests` (including
+  `Processor_uses_bounded_cleanup_token_when_cancelled_during_release`) +
   `PostgresEvaluationDurableWorkStoreSqlTests`; integration
-  `Worker_processor_claims_admitted_work_and_transitions_request_through_running`
-  and `EvaluationClaimableBacklogTests`; runtime
+  `Worker_processor_claims_admitted_work_and_transitions_request_through_running`,
+  `EvaluationClaimableBacklogTests` (including multi-org concurrency selection), runtime
   `Worker_registers_live_evaluation_processor_when_processing_is_explicitly_enabled`.
+  **Local verification (uncommitted corrective):** `pnpm verify:dotnet` green;
+  Evaluation 447 / Runtime 344 / Postgres integration 515 passed.
 - [ ] Add fair scheduling / weighting / anti-starvation evidence for Evaluation
   beside Session invocation/timer/expiry work. Current loop order gives Evaluation
   one sequential processing opportunity per tick after Session work; dedicated

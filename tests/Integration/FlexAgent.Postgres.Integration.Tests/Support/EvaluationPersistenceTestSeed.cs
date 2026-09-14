@@ -18,14 +18,132 @@ internal static class EvaluationPersistenceTestSeed
     internal static async Task<PreparedEvaluation> CreateAsync(
         PostgresIntegrationFixture fixture,
         string key,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? workerActorId = null)
     {
         var harness = await SubmissionIntakeTestSeed.CreateAsync(fixture, cancellationToken);
-        var workerActorId = await fixture.SeedWorkerActorAsync();
-        var ownership = new EvaluationOwnership(
+        var resolvedWorkerActorId = workerActorId ?? await fixture.SeedWorkerActorAsync();
+        return await CreatePreparedEvaluationAsync(
+            fixture,
             harness.OrganizationId,
             harness.ActivityId,
-            harness.ParticipantId,
+            harness.EnrollmentId,
+            key,
+            resolvedWorkerActorId,
+            cancellationToken);
+    }
+
+    internal static async Task<PreparedEvaluation> CreateSiblingAsync(
+        PostgresIntegrationFixture fixture,
+        PreparedEvaluation sibling,
+        string key,
+        CancellationToken cancellationToken)
+    {
+        var ownership = sibling.Request.FrozenInput.Ownership;
+        var enrollmentId = await CreateAdditionalEnrollmentAsync(
+            fixture,
+            ownership.OrganizationId,
+            ownership.ActivityId,
+            cancellationToken);
+
+        return await CreatePreparedEvaluationAsync(
+            fixture,
+            ownership.OrganizationId,
+            ownership.ActivityId,
+            enrollmentId,
+            key,
+            sibling.WorkerActorId,
+            cancellationToken);
+    }
+
+    private static async Task<Guid> CreateAdditionalEnrollmentAsync(
+        PostgresIntegrationFixture fixture,
+        Guid organizationId,
+        Guid activityId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(cancellationToken);
+        var template = await connection.QuerySingleAsync<EnrollmentTemplateRow>(
+            new CommandDefinition(
+                """
+                SELECT baseline_id, cohort_id, task_source_id, task_version_id, task_content_digest,
+                       lifecycle_policy_id, assigned_by_actor_id
+                FROM submissions_enrollments
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                ORDER BY enrollment_id
+                LIMIT 1;
+                """,
+                new { OrganizationId = organizationId, ActivityId = activityId },
+                cancellationToken: cancellationToken));
+
+        var participantId = Guid.CreateVersion7();
+        var enrollmentId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO actors (id, created_at)
+                VALUES (@ParticipantId, @Now);
+
+                INSERT INTO submissions_enrollments (
+                    organization_id, enrollment_id, activity_id, cohort_id, baseline_id,
+                    task_source_id, task_version_id, task_content_digest, lifecycle_policy_id,
+                    lifecycle_policy_version, participant_actor_id, status, revision,
+                    assigned_by_actor_id, assigned_at, updated_at)
+                VALUES (
+                    @OrganizationId, @EnrollmentId, @ActivityId, @CohortId, @BaselineId,
+                    @TaskSourceId, @TaskVersionId, @TaskContentDigest, @LifecyclePolicyId,
+                    1, @ParticipantId, 'active', 1,
+                    @AssignedByActorId, @Now, @Now);
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    EnrollmentId = enrollmentId,
+                    ActivityId = activityId,
+                    BaselineId = template.baseline_id,
+                    CohortId = template.cohort_id,
+                    TaskSourceId = template.task_source_id,
+                    TaskVersionId = template.task_version_id,
+                    TaskContentDigest = template.task_content_digest,
+                    LifecyclePolicyId = template.lifecycle_policy_id,
+                    ParticipantId = participantId,
+                    AssignedByActorId = template.assigned_by_actor_id,
+                    Now = now,
+                },
+                cancellationToken: cancellationToken));
+
+        return enrollmentId;
+    }
+
+    private static async Task<PreparedEvaluation> CreatePreparedEvaluationAsync(
+        PostgresIntegrationFixture fixture,
+        Guid organizationId,
+        Guid activityId,
+        Guid enrollmentId,
+        string key,
+        Guid workerActorId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await fixture.Services.ConnectionAccessor
+            .OpenConnectionAsync(cancellationToken);
+        var enrollment = await connection.QuerySingleAsync<EnrollmentRow>(
+            new CommandDefinition(
+                """
+                SELECT baseline_id, enrollment_id, cohort_id, participant_actor_id,
+                       task_source_id, task_version_id, task_content_digest
+                FROM submissions_enrollments
+                WHERE organization_id = @OrganizationId
+                  AND enrollment_id = @EnrollmentId;
+                """,
+                new { OrganizationId = organizationId, EnrollmentId = enrollmentId },
+                cancellationToken: cancellationToken));
+        var ownership = new EvaluationOwnership(
+            organizationId,
+            activityId,
+            enrollment.participant_actor_id,
             Guid.CreateVersion7(),
             Guid.CreateVersion7());
         var terminalRecordId = Guid.CreateVersion7();
@@ -41,22 +159,9 @@ internal static class EvaluationPersistenceTestSeed
         const string boundSubmissionText = "bound submission evidence text";
         var boundSubmissionItemDigest = Digest(boundSubmissionText);
         var boundSubmissionArtifactObjectKey =
-            $"org/{harness.OrganizationId:D}/{submissionArtifactId:D}";
+            $"org/{organizationId:D}/{submissionArtifactId:D}";
         var handoffId = $"handoff.eval.{key}";
 
-        await using var connection = await fixture.Services.ConnectionAccessor
-            .OpenConnectionAsync(cancellationToken);
-        var enrollment = await connection.QuerySingleAsync<EnrollmentRow>(
-            new CommandDefinition(
-                """
-                SELECT baseline_id, enrollment_id, cohort_id, participant_actor_id,
-                       task_source_id, task_version_id, task_content_digest
-                FROM submissions_enrollments
-                WHERE organization_id = @OrganizationId
-                  AND enrollment_id = @EnrollmentId;
-                """,
-                new { harness.OrganizationId, harness.EnrollmentId },
-                cancellationToken: cancellationToken));
         var rubric = await connection.QuerySingleAsync<RubricRow>(
             new CommandDefinition(
                 """
@@ -69,7 +174,7 @@ internal static class EvaluationPersistenceTestSeed
                 WHERE payload.organization_id = @OrganizationId
                   AND descriptor.category = 'rubric_evaluation';
                 """,
-                new { harness.OrganizationId },
+                new { OrganizationId = organizationId },
                 cancellationToken: cancellationToken));
         var resolvedConfigurationJson = JsonSerializer.Serialize(new
         {
@@ -503,4 +608,13 @@ internal static class EvaluationPersistenceTestSeed
         Guid configuration_source_id,
         Guid source_version_id,
         string content_digest);
+
+    private sealed record EnrollmentTemplateRow(
+        Guid baseline_id,
+        Guid cohort_id,
+        Guid task_source_id,
+        Guid task_version_id,
+        string task_content_digest,
+        Guid lifecycle_policy_id,
+        Guid assigned_by_actor_id);
 }

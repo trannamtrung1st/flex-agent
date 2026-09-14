@@ -62,7 +62,11 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
             var candidateOrganizationId = await scope.Connection.QuerySingleOrDefaultAsync<Guid?>(
                 new CommandDefinition(
                     ClaimOrganizationSql,
-                    new { ClaimOwner = claimOwner },
+                    new
+                    {
+                        ClaimOwner = claimOwner,
+                        PerOrganizationConcurrency = perOrganizationConcurrency,
+                    },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
             if (candidateOrganizationId is null)
@@ -654,13 +658,15 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         ) < @PerOrganizationConcurrency
         """;
 
-    private const string ClaimCandidateEligibilitySql =
+    private const string RetryableOrganizationEligibleSql =
         RetryableWorkReadySql
         + """
         
           AND 
         """
         + OrganizationConcurrencyAvailableSql;
+
+    private const string ClaimCandidateEligibilitySql = RetryableOrganizationEligibleSql;
 
     private const string BacklogSql =
         """
@@ -690,7 +696,7 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         WHERE (
                 (
         """
-        + RetryableWorkReadySql
+        + RetryableOrganizationEligibleSql
         + """
                 )
                 OR (

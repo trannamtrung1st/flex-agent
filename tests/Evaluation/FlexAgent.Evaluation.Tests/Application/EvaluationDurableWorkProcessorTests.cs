@@ -91,6 +91,28 @@ public sealed class EvaluationDurableWorkProcessorTests
         Assert.False(release.CancellationToken.IsCancellationRequested);
     }
 
+    [Fact]
+    public async Task Processor_uses_bounded_cleanup_token_when_cancelled_during_release()
+    {
+        var requestId = Guid.CreateVersion7();
+        var workerActorId = Guid.CreateVersion7();
+        var claimed = CreateWorkItem(requestId, workerActorId);
+        using var callerCancellation = new CancellationTokenSource();
+        var store = new RecordingEvaluationWorkStore
+        {
+            ClaimResult = claimed,
+            OnRelease = () => callerCancellation.Cancel(),
+        };
+        var processor = CreateProcessor(store, workerActorId);
+
+        var result = await processor.TryProcessNextAsync(callerCancellation.Token);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.RetryLater, result.Outcome);
+        var release = Assert.Single(store.Releases);
+        Assert.True(callerCancellation.IsCancellationRequested);
+        Assert.False(release.CancellationToken.IsCancellationRequested);
+    }
+
     private static EvaluationDurableWorkProcessor CreateProcessor(
         IEvaluationDurableWorkStore store,
         Guid? workerActorId = null) =>
@@ -127,6 +149,8 @@ public sealed class EvaluationDurableWorkProcessorTests
 
         public Action? OnClaim { get; init; }
 
+        public Action? OnRelease { get; init; }
+
         public int ClaimAttempts { get; private set; }
 
         public List<(EvaluationDurableWorkItem Work, Guid ClaimOwner, string FailureCategory, CancellationToken CancellationToken)> Releases { get; } = [];
@@ -161,6 +185,7 @@ public sealed class EvaluationDurableWorkProcessorTests
             string failureCategory,
             CancellationToken cancellationToken)
         {
+            OnRelease?.Invoke();
             Releases.Add((work, claimOwner, failureCategory, cancellationToken));
             return Task.FromResult(ReleaseResult);
         }

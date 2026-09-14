@@ -64,23 +64,14 @@ public sealed class EvaluationDurableWorkProcessor(
             return EvaluationDurableWorkProcessResult.Idle;
         }
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return await ReleaseForDeferredExecutionAsync(claimed, useLinkedCancellation: false);
-        }
-
-        // Full evaluator execution is deferred to later Phase 10 slices; prove claim authority first.
-        return await ReleaseForDeferredExecutionAsync(claimed, useLinkedCancellation: true, cancellationToken);
+        // Slice 1 only proves claim authority; release cleanup is independent of caller shutdown.
+        return await ReleaseForDeferredExecutionAsync(claimed);
     }
 
     private async Task<EvaluationDurableWorkProcessResult> ReleaseForDeferredExecutionAsync(
-        EvaluationDurableWorkItem claimed,
-        bool useLinkedCancellation,
-        CancellationToken cancellationToken = default)
+        EvaluationDurableWorkItem claimed)
     {
-        using var cleanup = useLinkedCancellation
-            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
-            : new CancellationTokenSource();
+        using var cleanup = new CancellationTokenSource();
         cleanup.CancelAfter(settings.EffectiveClaimCleanupTimeout);
         try
         {
