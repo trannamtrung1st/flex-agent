@@ -3,6 +3,7 @@ id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
 updated: 2026-09-14T12:52:00+07:00
+phase9_browser_head: ecdc811e
 phase9_browser_ci: local-verify-oidc-green
 phase9_status: corrective-approved-22929915
 phase9_shape: confirmed-2026-09-13
