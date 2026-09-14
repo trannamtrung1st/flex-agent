@@ -291,6 +291,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             factory.Services.GetRequiredService<IEvaluationDurableWorkProcessor>());
         Assert.IsType<PostgresEvaluationDurableWorkStore>(
             factory.Services.GetRequiredService<IEvaluationDurableWorkStore>());
+        Assert.NotNull(factory.Services.GetService<IEvaluationRuntimeTelemetry>());
         Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().EvaluationProcessingEnabled);
         Assert.NotNull(factory.Services.GetService<IEvaluationDurableWorkBacklogSampler>());
     }

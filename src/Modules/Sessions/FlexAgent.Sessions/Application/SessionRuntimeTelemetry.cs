@@ -414,6 +414,7 @@ internal static class SessionRuntimeTelemetryVocabularies
         DurableInvocationWorkOutcomes.ExecutionFailed,
         DurableInvocationWorkOutcomes.Reconciled,
         DurableInvocationWorkOutcomes.RetryLater,
+        "claim_release_failed",
         DurableInvocationWorkOutcomes.Published,
         DurableInvocationWorkOutcomes.PublicationIncomplete,
         DurableInvocationWorkOutcomes.PublicationFailed,

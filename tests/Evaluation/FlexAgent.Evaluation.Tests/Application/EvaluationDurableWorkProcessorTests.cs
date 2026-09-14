@@ -113,14 +113,72 @@ public sealed class EvaluationDurableWorkProcessorTests
         Assert.False(release.CancellationToken.IsCancellationRequested);
     }
 
+    [Fact]
+    public async Task Idle_claim_records_bounded_work_claim_without_request_identifiers()
+    {
+        var telemetry = new CapturingEvaluationRuntimeTelemetry();
+        var store = new RecordingEvaluationWorkStore { ClaimResult = null };
+        var processor = CreateProcessor(store, telemetry: telemetry);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.Idle, result.Outcome);
+        Assert.Equal([EvaluationDurableWorkOutcomes.Idle], telemetry.WorkClaims);
+        Assert.Empty(telemetry.WorkProcesses);
+        Assert.DoesNotContain(telemetry.AllRecordedValues(), value => Guid.TryParse(value, out _));
+    }
+
+    [Fact]
+    public async Task Claimed_work_records_bounded_claim_and_process_without_request_identifiers()
+    {
+        var requestId = Guid.CreateVersion7();
+        var workerActorId = Guid.CreateVersion7();
+        var claimed = CreateWorkItem(requestId, workerActorId);
+        var telemetry = new CapturingEvaluationRuntimeTelemetry();
+        var store = new RecordingEvaluationWorkStore { ClaimResult = claimed };
+        var processor = CreateProcessor(store, workerActorId, telemetry);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.RetryLater, result.Outcome);
+        Assert.Equal([EvaluationRuntimeTelemetryOutcomes.Claimed], telemetry.WorkClaims);
+        Assert.Equal([EvaluationDurableWorkOutcomes.RetryLater], telemetry.WorkProcesses);
+        Assert.DoesNotContain(telemetry.AllRecordedValues(), value => value.Contains(requestId.ToString(), StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(telemetry.AllRecordedValues(), value => Guid.TryParse(value, out _));
+    }
+
+    [Fact]
+    public async Task Release_failure_records_bounded_process_outcome_without_request_identifiers()
+    {
+        var requestId = Guid.CreateVersion7();
+        var workerActorId = Guid.CreateVersion7();
+        var claimed = CreateWorkItem(requestId, workerActorId);
+        var telemetry = new CapturingEvaluationRuntimeTelemetry();
+        var store = new RecordingEvaluationWorkStore
+        {
+            ClaimResult = claimed,
+            ReleaseResult = false,
+        };
+        var processor = CreateProcessor(store, workerActorId, telemetry);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(EvaluationDurableWorkOutcomes.ClaimReleaseFailed, result.Outcome);
+        Assert.Equal([EvaluationRuntimeTelemetryOutcomes.Claimed], telemetry.WorkClaims);
+        Assert.Equal([EvaluationDurableWorkOutcomes.ClaimReleaseFailed], telemetry.WorkProcesses);
+        Assert.DoesNotContain(telemetry.AllRecordedValues(), value => Guid.TryParse(value, out _));
+    }
+
     private static EvaluationDurableWorkProcessor CreateProcessor(
         IEvaluationDurableWorkStore store,
-        Guid? workerActorId = null) =>
+        Guid? workerActorId = null,
+        IEvaluationRuntimeTelemetry? telemetry = null) =>
         new(
             store,
             new EvaluationDurableWorkSettings(
                 workerActorId ?? Guid.CreateVersion7(),
-                "test.evaluation_runtime"));
+                "test.evaluation_runtime"),
+            telemetry);
 
     private static EvaluationDurableWorkItem CreateWorkItem(Guid requestId, Guid delegationId) =>
         new(

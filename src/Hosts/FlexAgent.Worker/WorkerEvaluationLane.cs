@@ -43,12 +43,18 @@ internal static class WorkerEvaluationLane
                 new PostgresEvaluationDurableWorkStore(
                     sp.GetRequiredService<PostgresConnectionAccessor>(),
                     sp.GetRequiredService<IEvaluationWorkloadIdentityGate>()));
-            services.AddSingleton<IEvaluationDurableWorkProcessor, EvaluationDurableWorkProcessor>();
+            services.AddSingleton<IEvaluationRuntimeTelemetry>(sp =>
+                new EvaluationRuntimeTelemetryAdapter(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
+            services.AddSingleton<IEvaluationDurableWorkProcessor>(sp =>
+                new EvaluationDurableWorkProcessor(
+                    sp.GetRequiredService<IEvaluationDurableWorkStore>(),
+                    sp.GetRequiredService<EvaluationDurableWorkSettings>(),
+                    sp.GetRequiredService<IEvaluationRuntimeTelemetry>()));
             services.AddSingleton<IEvaluationDurableWorkBacklogSampler>(sp =>
                 new EvaluationDurableWorkBacklogSampler(
                     sp.GetRequiredService<IEvaluationDurableWorkStore>(),
                     sp.GetRequiredService<EvaluationDurableWorkSettings>(),
-                    sp.GetRequiredService<ISessionRuntimeTelemetry>()));
+                    sp.GetRequiredService<IEvaluationRuntimeTelemetry>()));
             return;
         }
 
@@ -68,65 +74,4 @@ internal static class WorkerEvaluationLane
 
         return parsed;
     }
-}
-
-public interface IEvaluationDurableWorkBacklogSampler
-{
-    Task SampleIfDueAsync(CancellationToken cancellationToken);
-}
-
-internal sealed class EvaluationDurableWorkBacklogSampler(
-    IEvaluationDurableWorkStore workStore,
-    EvaluationDurableWorkSettings settings,
-    ISessionRuntimeTelemetry telemetry,
-    TimeProvider? timeProvider = null,
-    TimeSpan minInterval = default) : IEvaluationDurableWorkBacklogSampler
-{
-    public static TimeSpan DefaultMinInterval { get; } = TimeSpan.FromSeconds(30);
-
-    private readonly IEvaluationDurableWorkStore _workStore = workStore;
-    private readonly EvaluationDurableWorkSettings _settings = settings;
-    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
-    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
-    private readonly TimeSpan _minInterval = minInterval > TimeSpan.Zero ? minInterval : DefaultMinInterval;
-    private readonly object _gate = new();
-    private DateTimeOffset _nextDue = DateTimeOffset.MinValue;
-
-    public async Task SampleIfDueAsync(CancellationToken cancellationToken)
-    {
-        var now = _timeProvider.GetUtcNow();
-        lock (_gate)
-        {
-            if (now < _nextDue)
-            {
-                return;
-            }
-
-            _nextDue = now + _minInterval;
-        }
-
-        var snapshot = await _workStore.ReadClaimableSnapshotAsync(
-            _settings.WorkerActorId,
-            _settings.PerOrganizationConcurrency,
-            cancellationToken);
-        if (!snapshot.IsKnown)
-        {
-            return;
-        }
-
-        _telemetry.RecordGauge(
-            SessionRuntimeTelemetryInstruments.WorkBacklog,
-            snapshot.ClaimableCount,
-            SessionRuntimeTelemetryRecording.Labels(
-                (SessionRuntimeTelemetryLabelKeys.WorkType, EvaluationDurableWorkTypes.ExecuteRequest),
-                (SessionRuntimeTelemetryLabelKeys.BacklogBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimableCount)),
-                (SessionRuntimeTelemetryLabelKeys.PartitionBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimablePartitionCount))));
-    }
-}
-
-internal sealed class IdleEvaluationDurableWorkBacklogSampler : IEvaluationDurableWorkBacklogSampler
-{
-    public static IdleEvaluationDurableWorkBacklogSampler Instance { get; } = new();
-
-    public Task SampleIfDueAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

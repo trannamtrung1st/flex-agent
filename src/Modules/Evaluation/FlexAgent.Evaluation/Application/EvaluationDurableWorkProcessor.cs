@@ -47,9 +47,13 @@ public sealed class IdleEvaluationDurableWorkProcessor : IEvaluationDurableWorkP
 
 public sealed class EvaluationDurableWorkProcessor(
     IEvaluationDurableWorkStore workStore,
-    EvaluationDurableWorkSettings settings) : IEvaluationDurableWorkProcessor
+    EvaluationDurableWorkSettings settings,
+    IEvaluationRuntimeTelemetry? telemetry = null) : IEvaluationDurableWorkProcessor
 {
     public const string ExecutionDeferredFailureCategory = "worker.execution_deferred";
+
+    private readonly IEvaluationRuntimeTelemetry _telemetry =
+        telemetry ?? NoopEvaluationRuntimeTelemetry.Instance;
 
     public async Task<EvaluationDurableWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
@@ -61,11 +65,14 @@ public sealed class EvaluationDurableWorkProcessor(
             cancellationToken);
         if (claimed is null)
         {
+            RecordClaim(EvaluationDurableWorkOutcomes.Idle);
             return EvaluationDurableWorkProcessResult.Idle;
         }
 
+        RecordClaim(EvaluationRuntimeTelemetryOutcomes.Claimed);
+
         // Slice 1 only proves claim authority; release cleanup is independent of caller shutdown.
-        return await ReleaseForDeferredExecutionAsync(claimed);
+        return RecordProcess(await ReleaseForDeferredExecutionAsync(claimed));
     }
 
     private async Task<EvaluationDurableWorkProcessResult> ReleaseForDeferredExecutionAsync(
@@ -97,5 +104,13 @@ public sealed class EvaluationDurableWorkProcessor(
                 EvaluationDurableWorkOutcomes.ClaimReleaseFailed,
                 claimed.RequestId);
         }
+    }
+
+    private void RecordClaim(string outcome) => _telemetry.RecordWorkClaim(outcome);
+
+    private EvaluationDurableWorkProcessResult RecordProcess(EvaluationDurableWorkProcessResult result)
+    {
+        _telemetry.RecordWorkProcess(result.Outcome);
+        return result;
     }
 }

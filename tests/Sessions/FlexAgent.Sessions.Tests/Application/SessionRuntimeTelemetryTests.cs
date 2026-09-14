@@ -374,6 +374,51 @@ public sealed class SessionRuntimeTelemetryTests
     }
 
     [Fact]
+    public void Evaluation_work_claim_and_process_use_bounded_outcomes_without_scope_identifiers()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkClaim,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = SessionRuntimeTelemetryValues.Idle,
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = "evaluation.execute",
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkProcess,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "retry_later",
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = "evaluation.execute",
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkProcess,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "claim_release_failed",
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = "evaluation.execute",
+            });
+        telemetry.RecordGauge(
+            SessionRuntimeTelemetryInstruments.WorkBacklog,
+            12,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = "evaluation.execute",
+                [SessionRuntimeTelemetryLabelKeys.BacklogBucket] = SessionRuntimeTelemetryBuckets.Count(12),
+                [SessionRuntimeTelemetryLabelKeys.PartitionBucket] = SessionRuntimeTelemetryBuckets.Count(2),
+            });
+
+        Assert.Equal(3, sink.Counters.Count());
+        Assert.Single(sink.Gauges);
+        Assert.DoesNotContain(sink.AllLabelValues(), value => Guid.TryParse(value, out _));
+        Assert.DoesNotContain(
+            sink.Counters,
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.Rejected);
+    }
+
+    [Fact]
     public void Replay_records_outcome_without_projected_text()
     {
         var sink = new CapturingSessionRuntimeTelemetrySink();

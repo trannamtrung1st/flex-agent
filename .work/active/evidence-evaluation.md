@@ -1627,13 +1627,13 @@ approved UI/UX specification or design system.
   **Review on `b10a2966`:** **REQUEST CHANGES — 0 Blocker / 0 High / 1 Medium / 0 Low**
   (`request-changes-b10a2966-0-blocker-0-high-1-medium-0-low`). Medium: protected
   deterministic disclosure used non-transactional identity check before SELECT.
-  **Corrective pass (uncommitted):** transaction-bound protected reads — open txn,
+  **Corrective pass (`ed3632ce`):** transaction-bound protected reads — open txn,
   `IsCurrentForWorkerActorInTransactionAsync` (FOR SHARE), optional hook, protected
   SELECT in same txn, second in-txn identity check before commit; regressions for
   post-revoke cached OAuth disclosure denial and in-txn principal-binding revoke between
   authorization and read.
   **Integration:** `EvaluationWorkloadIdentityTests` (7). **Focused green (local):**
-  integration 7/7; Evaluation unit **447**; Runtime **344**; Architecture **65**.
+  integration 7/7; Evaluation unit **453**; Runtime **344**; Architecture **65**.
   Hosted CI green at `b10a2966`: Documentation **`34861408947`**; Implementation
   **`34861409014`** — pre-corrective baseline only.
   **Deferred:** model-provider disclosure ports; full evaluator execution path. Checkbox
@@ -1643,6 +1643,23 @@ approved UI/UX specification or design system.
   citation failures, conflict/review-required, audit rollback, replacement,
   annotation, and deletion. Add tests that raw content and unrestricted IDs are
   absent.
+  **Implementation pass (`de0fd543`):** `IEvaluationRuntimeTelemetry` port +
+  `EvaluationRuntimeTelemetryAdapter` (Worker → `session.work.*` with
+  `work_type=evaluation.execute`); `EvaluationDurableWorkProcessor` records bounded
+  `session.work.claim` / `session.work.process`; backlog sampler moved to Evaluation
+  Application and records bounded backlog gauges via the same port; vocabulary adds
+  `claim_release_failed`. **Red/green:** `EvaluationDurableWorkProcessorTests` (+3
+  telemetry cases), `EvaluationDurableWorkBacklogSamplerTests` (3),
+  `SessionRuntimeTelemetryTests.Evaluation_work_claim_and_process_use_bounded_outcomes_without_scope_identifiers`.
+  **Focused green (local):** processor 9/9; backlog 3/3; Session telemetry 12/12;
+  Evaluation unit **453**; Runtime **344**; Architecture **65**; workload identity 7/7.
+  **Confirmation pass (pre-commit):** runtime registration asserts
+  `IEvaluationRuntimeTelemetry` when Evaluation processing is enabled; focused suites
+  re-run green.
+  **Deferred:** status-response latency, completion duration, attempt counts,
+  evaluator/provider/citation/conflict/review-required/audit/replacement/annotation/
+  deletion instruments until those surfaces emit telemetry. Checkbox stays open pending
+  review.
 - [ ] Resolve lifecycle policy before creating Evaluation records. Apply the
   approved Activity-closure 365-day default to Evidence/Evaluation lineage,
   the 90-day defaults to terminal work/idempotency as applicable, and legal-
