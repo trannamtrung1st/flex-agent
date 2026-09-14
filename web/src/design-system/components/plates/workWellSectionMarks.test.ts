@@ -23,7 +23,7 @@ describe("prose section marks", () => {
     expect(rule(platesCss, ".work-well__section h3")).toMatch(/color:\s*var\(--teal\)/);
     expect(rule(platesCss, ".work-well__section h3")).toMatch(/margin-bottom:\s*var\(--field-label-gap\)/);
     expect(platesCss).toMatch(
-      /\.work-well__head\[data-mark="span"\]\s*\{[^}]*var\(--frame-inset-block-end\)/,
+      /\.work-well__head\[data-mark="span"\]\s*\{[^}]*padding-block-end:\s*var\(--space-2\)/,
     );
     expect(platesCss).not.toMatch(/\.work-well__head\[data-mark="span"\]\s*\{[^}]*18px/);
     expect(platesCss).toMatch(
