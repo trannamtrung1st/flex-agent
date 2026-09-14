@@ -13,6 +13,7 @@ internal static class DeterministicPayloadTestSupport
 {
     internal sealed record ExecutionContext(
         EvaluationDurableWorkItem Claimed,
+        Guid WorkerActorId,
         DeterministicEvaluatorExecutionRequest Request,
         EvaluationDecision<DeterministicEvaluatorExecutionResult> First,
         DeterministicEvaluatorExecutionService Service);
@@ -84,7 +85,7 @@ internal static class DeterministicPayloadTestSupport
         var first = await service.TryExecuteAndPersistAsync(request, cancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
 
-        return new ExecutionContext(claimed, request, first, service);
+        return new ExecutionContext(claimed, prepared.WorkerActorId, request, first, service);
     }
 
     internal static async Task<ExecutionContext> ExecuteAttemptOnlyAsync(
@@ -153,7 +154,7 @@ internal static class DeterministicPayloadTestSupport
         var first = await service.TryExecuteAndPersistAsync(request, cancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
 
-        return new ExecutionContext(claimed, request, first, service);
+        return new ExecutionContext(claimed, prepared.WorkerActorId, request, first, service);
     }
 
     private sealed class NoOpOutputStore : IProtectedDeterministicOutputStore

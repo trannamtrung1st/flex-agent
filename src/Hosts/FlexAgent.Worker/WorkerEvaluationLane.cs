@@ -1,5 +1,7 @@
 using FlexAgent.Evaluation.Application;
 using FlexAgent.Evaluation.Infrastructure;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 
 namespace FlexAgent.Worker;
@@ -34,7 +36,13 @@ internal static class WorkerEvaluationLane
             services.AddSingleton(new EvaluationDurableWorkSettings(
                 workerActorId,
                 "worker.evaluation_runtime"));
-            services.AddSingleton<IEvaluationDurableWorkStore, PostgresEvaluationDurableWorkStore>();
+            services.AddSingleton<IEvaluationWorkloadIdentityGate>(sp =>
+                new EvaluationWorkloadIdentityGateAdapter(
+                    sp.GetRequiredService<IAuthenticatedWorkloadTransactionGuard>()));
+            services.AddSingleton<IEvaluationDurableWorkStore>(sp =>
+                new PostgresEvaluationDurableWorkStore(
+                    sp.GetRequiredService<PostgresConnectionAccessor>(),
+                    sp.GetRequiredService<IEvaluationWorkloadIdentityGate>()));
             services.AddSingleton<IEvaluationDurableWorkProcessor, EvaluationDurableWorkProcessor>();
             services.AddSingleton<IEvaluationDurableWorkBacklogSampler>(sp =>
                 new EvaluationDurableWorkBacklogSampler(

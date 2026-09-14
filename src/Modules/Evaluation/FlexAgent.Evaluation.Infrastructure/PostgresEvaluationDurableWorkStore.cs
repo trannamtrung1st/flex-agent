@@ -5,9 +5,12 @@ using FlexAgent.Postgres;
 
 namespace FlexAgent.Evaluation.Infrastructure;
 
-public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccessor connectionAccessor)
+public sealed class PostgresEvaluationDurableWorkStore(
+    PostgresConnectionAccessor connectionAccessor,
+    IEvaluationWorkloadIdentityGate? workloadIdentityGate = null)
     : IEvaluationDurableWorkStore
 {
+    private readonly IEvaluationWorkloadIdentityGate? _workloadIdentityGate = workloadIdentityGate;
     public async Task<EvaluationDurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(
         Guid claimOwner,
         int perOrganizationConcurrency,
@@ -59,6 +62,12 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
             cancellationToken);
         try
         {
+            if (!await IsWorkloadCurrentForClaimOwnerAsync(claimOwner, scope, cancellationToken))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
             var candidateOrganizationId = await scope.Connection.QuerySingleOrDefaultAsync<Guid?>(
                 new CommandDefinition(
                     ClaimOrganizationSql,
@@ -226,6 +235,12 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
             if (requestUpdated != 1)
             {
                 await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            if (!await IsWorkloadCurrentForClaimOwnerAsync(claimOwner, scope, cancellationToken))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
                 return null;
             }
 
@@ -569,7 +584,7 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
         }
     }
 
-    private static async Task<bool> IsAuthorizedClaimAsync(
+    private async Task<bool> IsAuthorizedClaimAsync(
         PostgresTransactionScope scope,
         EvaluationDurableWorkItem work,
         Guid claimOwner,
@@ -614,7 +629,28 @@ public sealed class PostgresEvaluationDurableWorkStore(PostgresConnectionAccesso
                 },
                 scope.Transaction,
                 cancellationToken: cancellationToken));
-        return delegationId is not null;
+        if (delegationId is null)
+        {
+            return false;
+        }
+
+        return await IsWorkloadCurrentForClaimOwnerAsync(claimOwner, scope, cancellationToken);
+    }
+
+    private async Task<bool> IsWorkloadCurrentForClaimOwnerAsync(
+        Guid claimOwner,
+        PostgresTransactionScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (_workloadIdentityGate is null)
+        {
+            return true;
+        }
+
+        return await _workloadIdentityGate.IsCurrentForWorkerActorInTransactionAsync(
+            claimOwner,
+            scope.Transaction,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private const string ActiveEvaluationDelegationJoinSql =

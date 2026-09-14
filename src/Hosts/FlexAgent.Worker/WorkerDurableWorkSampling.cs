@@ -95,6 +95,9 @@ internal static class WorkerDurableWorkSampling
             protectedLaneRequested
                 && (invocationProcessingEnabled || timerPollingEnabled || evaluationProcessingEnabled),
             !string.IsNullOrWhiteSpace(connectionString));
+        services.AddSingleton<IAuthenticatedWorkloadTransactionGuard>(sp =>
+            new AuthenticatedWorkloadTransactionGuard(
+                sp.GetService<IAuthenticatedWorkloadContextSource>()));
         services.AddSingleton<IRecoverableAuthorityGate>(_ =>
         {
             var gate = new RecoverableAuthorityGate();

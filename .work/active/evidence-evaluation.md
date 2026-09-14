@@ -2,9 +2,10 @@
 id: evidence-evaluation
 status: in-progress
 created: 2026-09-07
-updated: 2026-09-14T22:07:00+07:00
+updated: 2026-09-14T22:20:00+07:00
 phase10_slice1: approved-4a7b855e-216cadbc-4cfa0669
 phase10_fair_scheduling: approved-89f55837-ea9c48b7
+phase10_workload_identity: confirmation-pass-2026-09-14
 phase10_fair_scheduling_head: ea9c48b7
 phase10_fair_scheduling_review: approved-ea9c48b7-0-blocker-0-high-0-medium-0-low
 phase10_fair_scheduling_initial_review: request-changes-89f55837-0-blocker-0-high-1-medium-0-low
@@ -1615,6 +1616,21 @@ approved UI/UX specification or design system.
   is unavailable, expiring, revoked, out of delegated scope, or unqualified.
   Reauthorize at claim, source read/model disclosure, lease renewal as needed,
   and completion.
+  **Implementation pass (uncommitted, 2026-09-14):** shared
+  `IAuthenticatedWorkloadTransactionGuard` / `AuthenticatedWorkloadTransactionGuard`
+  (IdentityAccess) adapted to Evaluation via `IEvaluationWorkloadIdentityGate`;
+  `PostgresEvaluationDurableWorkStore` re-checks workload at claim (pre/post SQL),
+  lease renewal, release, and completion via `IsAuthorizedClaimAsync`; optional gate on
+  `PostgresProtectedDeterministicOutputStore` protected-byte loads; Worker registers
+  guard adapter and injects into live Evaluation store.
+  **Integration:** `EvaluationWorkloadIdentityTests` (5) — expired OAuth proof
+  blocks claim, renew, release, and protected deterministic disclosure; cached OAuth
+  proof cannot claim after principal binding revoke.
+  **Confirmation pass (2026-09-14):** added revoked-binding claim negative; focused
+  green — integration 5/5; Evaluation unit **447**; Runtime **344**; Architecture **65**;
+  `EvaluationClaimableBacklogTests` unchanged green.
+  **Deferred:** OAuth in-transaction protected read for model-provider disclosure ports;
+  full evaluator execution path. Checkbox stays open pending external review.
 - [ ] Add bounded telemetry with allowlisted labels for status response,
   queue/claim/lease, time-to-completion, attempts, evaluator/provider outcomes,
   citation failures, conflict/review-required, audit rollback, replacement,
@@ -2126,6 +2142,7 @@ interim default and rationale in the owning authority before proceeding.
 | Phase 9 queued/running static browser-coverage chain (`3d024577` → `72f7e9db`) | approved | External review 2026-09-14 at authoritative head `72f7e9db`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-72f7e9db-0-blocker-0-high-0-medium-0-low`). Chain: static fixtures + `REVIEW-E2E-06`/`07` + `current-state.md` promotion `3d024577` (Implementation **`34815957862`** green pre-corrective); copy corrective `72f7e9db` closes Medium on queued→running processing-well collapse. Hosted CI at `72f7e9db`: Implementation **`34818311854`**; Documentation **`34818311855`** — all six jobs green (`oci-oidc-smoke` with `REVIEW-E2E-06`/`07`). **Static queued/running browser-coverage gate closed.** Live Worker `queued → running` transition proof remains **Phase 10**; do not cite static fixtures as queue-consumer reachability. Worker disabled |
 | Phase 10 Slice 1 Worker claim path (`4a7b855e` → `216cadbc` → `4cfa0669`) | approved | External review 2026-09-14 at authoritative head `4cfa0669`: **0 Blocker / 0 High / 0 Medium / 0 Low** — CODE APPROVED (`approved-4cfa0669-0-blocker-0-high-0-medium-0-low`). Closes post-claim cleanup race (independent bounded release token + during-release cancellation regression) and multi-org concurrency starvation (`RetryableOrganizationEligibleSql` on organization selection + two-org integration proof). Hosted Documentation **`34848423373`**; Implementation **`34848423322`** — all six jobs green at exact head. **Slice 1 Worker claim path closed.** Worker runtime config-default-off |
 | Phase 10 fair Evaluation claim partitioning (`89f55837` → `ea9c48b7`) | approved | External review 2026-09-14 at authoritative head `ea9c48b7`: **0 Blocker / 0 High / 0 Medium / 0 Low** — APPROVED (`approved-ea9c48b7-0-blocker-0-high-0-medium-0-low`). Initial `89f55837` **0/0/1/0** closed by discriminative `EvaluationFairClaimTests`: pending A sibling + concurrency-2 eligibility, B wins via partition age while A2 stays pending, direct-trigger verifies `last_claimed_at` advance. Hosted Documentation **`34853791682`**; Implementation **`34853791691`** — all six jobs green. **Fair claim partitioning closed.** Load/recovery and cross-lane throughput evidence remain separate Phase 10 items |
+| Phase 10 Evaluation workload identity reauthorization | in-progress | **Confirmation pass (uncommitted):** `IAuthenticatedWorkloadTransactionGuard` + `IEvaluationWorkloadIdentityGate`; Evaluation claim/renew/release/completion + protected deterministic load gates; Worker adapter wiring; `EvaluationWorkloadIdentityTests` (5 incl. revoked-binding claim). Local green: Evaluation **447**, Runtime **344**, Architecture **65**. Awaiting external review; model-provider disclosure deferred |
 | Phase 6 green/refactor execution matrix (`250e91ea` → `8ffd4b8a`) | approved | Corrective `8ffd4b8a` re-review **0 Blocker / 0 High / 0 Medium / 0 Low**. Hosted CI at `8ffd4b8a`: Documentation `34737826854` green; Implementation `34737826888` green — all six jobs. Matrix **13**; Evaluation unit **392** (local Release at closure). Worker disabled |
 | Phase 6 slice 2 provider artifact persistence (`d9c7b6a5` + `16da6ef2` + `591f1381`) | approved | External review 2026-09-11 on full corrective chain: **0 Blocker / 0 High / 0 Medium / 0 Low**. `d9c7b6a5`: `IEvaluationProviderArtifactStore`, persistence helper, provenance/outcome mapping, in-memory + Postgres stores; optional wire-in to `EvaluationModelExecutionService` after port execution. Protected refs only; bounded failure categories; no raw model bodies. Review Medium: concurrent idempotent insert — closed in `16da6ef2` via `INSERT ... ON CONFLICT DO NOTHING` + provenance reconciliation + eight-way concurrent integration test. Review Low: criterion self-compare — closed in `16da6ef2` via migration `0079` and DB-backed reconciliation. Review documentation-state Low: stale post-corrective CI wording — closed at `591f1381` bookkeeping. Focused: `ProviderArtifactProvenanceTests` 7; `EvaluationProviderArtifactPersistenceTests` 4; `EvaluationModelExecutionServiceTests` 14; `EvaluationProviderArtifactStoreTests` 3; Evaluation unit 298; `verify-dotnet.sh` green (local). Hosted CI green at corrective `591f1381`: Documentation `34614235435`; Implementation `34614235430` — all six jobs including `dotnet`, `web`, `oidc`, `oci-oidc-smoke`, and `supply-chain`. Docs-only `7b708062` not authoritative implementation CI.   **Provider artifact increment closed.** Worker disabled |
 | Phase 6 slice 2 evidence-source injection (`8773c4f9` + `f3105a7b` + `1afd1cbb`) | approved | External review 2026-09-11 on `8773c4f9`: **0 Blocker / 0 High / 0 Medium**; bookkeeping chain `f3105a7b` → `f329933b` → `1afd1cbb` also **0 Blocker / 0 High / 0 Medium** — closes `09c8f8e1` stale-CI documentation-state Medium; `f3105a7b` records hosted CI and reconciles stale `2db28254` CI to green; `1afd1cbb` updates verification table to full approved chain. Chain: `8773c4f9` `EvidenceSourcePromptInjectionAndConfusedDeputyTests` 9; `09c8f8e1` confirmation; `f3105a7b` approval + CI reconciliation; `f329933b` timestamp-only pass-through; `1afd1cbb` table reconciliation. No production code change; hostile source text treated as data per `AC-EVAL-24`. Evaluation unit 274; `verify-dotnet.sh` green (local). Hosted CI green at `8773c4f9`: Documentation `34574753938`; Implementation `34574753257` — all six jobs. Wider AC-EVAL-24 matrix remains `[>]` at Phase 6 gate. **Evidence-source increment closed.** Worker disabled |

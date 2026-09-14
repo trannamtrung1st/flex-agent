@@ -13,34 +13,17 @@ internal static class AuthenticatedWorkloadGuard
         CancellationToken cancellationToken,
         NpgsqlTransaction? transaction = null)
     {
-        ArgumentNullException.ThrowIfNull(actor);
-        if (source is null)
+        var guard = new AuthenticatedWorkloadTransactionGuard(source);
+        if (transaction is null)
         {
-            return true;
+            return await guard.IsCurrentForActorAsync(actor.ActorId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        var context = await source.TryGetCurrentAsync(cancellationToken).ConfigureAwait(false);
-        if (context is null
-            || context.ServiceActorId != actor.ActorId
-            || !context.IsProofValidAt(DateTimeOffset.UtcNow))
-        {
-            return false;
-        }
-
-        if (string.Equals(
-            context.Profile,
-            WorkloadIdentityProfiles.SyntheticConfiguredActor,
-            StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return transaction is not null
-            && await PostgresServicePrincipalBindingCoordinator.MatchesCurrentInTransactionAsync(
-                context.BindingId,
-                context.BindingVersion,
-                context.ServiceActorId,
+        return await guard.IsCurrentForActorInTransactionAsync(
+                actor.ActorId,
                 transaction,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }

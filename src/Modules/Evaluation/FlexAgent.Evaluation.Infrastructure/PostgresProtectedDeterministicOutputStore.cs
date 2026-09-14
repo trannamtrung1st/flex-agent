@@ -7,8 +7,13 @@ using FlexAgent.Postgres;
 namespace FlexAgent.Evaluation.Infrastructure;
 
 public sealed class PostgresProtectedDeterministicOutputStore(
-    PostgresConnectionAccessor connectionAccessor) : IProtectedDeterministicOutputStore
+    PostgresConnectionAccessor connectionAccessor,
+    IEvaluationWorkloadIdentityGate? workloadIdentityGate = null,
+    Guid protectedDisclosureActorId = default) : IProtectedDeterministicOutputStore
 {
+    private readonly IEvaluationWorkloadIdentityGate? _workloadIdentityGate = workloadIdentityGate;
+    private readonly Guid? _protectedDisclosureActorId =
+        protectedDisclosureActorId != Guid.Empty ? protectedDisclosureActorId : null;
     public async Task<EvaluationDecision<bool>> TryPersistAsync(
         ProtectedDeterministicOutputPersistCommand command,
         CancellationToken cancellationToken)
@@ -157,6 +162,11 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             return null;
         }
 
+        if (!await CanDiscloseProtectedMaterialAsync(cancellationToken))
+        {
+            return null;
+        }
+
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<PersistedPayloadRow>(
             new CommandDefinition(
@@ -215,6 +225,11 @@ public sealed class PostgresProtectedDeterministicOutputStore(
             || !EvaluationIdentity.IsSha256Hex(expectedContentDigest)
             || string.IsNullOrWhiteSpace(expectedCriterionId)
             || string.IsNullOrWhiteSpace(expectedCriterionVersion))
+        {
+            return null;
+        }
+
+        if (!await CanDiscloseProtectedMaterialAsync(cancellationToken))
         {
             return null;
         }
@@ -278,6 +293,18 @@ public sealed class PostgresProtectedDeterministicOutputStore(
         return new VerifiedDeterministicOutputMaterial(
             projection.Value,
             new ProtectedPayloadRefV1(row.protected_ref, row.content_digest));
+    }
+
+    private async Task<bool> CanDiscloseProtectedMaterialAsync(CancellationToken cancellationToken)
+    {
+        if (_workloadIdentityGate is null || _protectedDisclosureActorId is null)
+        {
+            return true;
+        }
+
+        return await _workloadIdentityGate.IsCurrentForWorkerActorAsync(
+            _protectedDisclosureActorId.Value,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private sealed record PersistedPayloadRow(
