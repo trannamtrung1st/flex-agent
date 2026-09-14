@@ -12,8 +12,8 @@ INSERT INTO session_resolved_configurations (
 VALUES (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     'f2100000-0000-4000-8000-000000000003',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
-    '{"sources":[{"source_key":"rubric_evaluation","source_id":"22222222-2222-2222-2222-222222222206","source_version_id":"33333333-3333-3333-3333-333333333316","content_digest":"8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2"}],"permitted_submissions":[{"protected_ref":"submission.version.f2100000000040008000000000000007","content_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}]}',
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
+    '{"sources":[{"source_key":"rubric_evaluation","source_id":"22222222-2222-2222-2222-222222222206","source_version_id":"33333333-3333-3333-3333-333333333316","content_digest":"cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de"}],"permitted_submissions":[{"protected_ref":"submission.version.f2100000000040008000000000000007","content_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}]}',
     CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, configuration_id) DO NOTHING;
 
@@ -23,8 +23,8 @@ VALUES (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     'f2100000-0000-4000-8000-000000000004',
     'f2100000-0000-4000-8000-000000000003',
-    '283f9116a8c5e81ee45b955cd19b34b47d82d49f3a923406dda46a3ae53adf31',
-    '{"manifest_id":"f2100000-0000-4000-8000-000000000004","configuration_id":"f2100000-0000-4000-8000-000000000003","configuration_digest":"cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c","provenance":[{"source_key":"rubric_evaluation","source_id":"22222222-2222-2222-2222-222222222206","source_version_id":"33333333-3333-3333-3333-333333333316","content_digest":"8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2"}]}',
+    '5d3e95b981c053f6104ead70a95e67c76c727a2f3ad02fe4b8b65fe4518e5ef9',
+    '{"manifest_id":"f2100000-0000-4000-8000-000000000004","configuration_id":"f2100000-0000-4000-8000-000000000003","configuration_digest":"e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89","provenance":[{"source_key":"rubric_evaluation","source_id":"22222222-2222-2222-2222-222222222206","source_version_id":"33333333-3333-3333-3333-333333333316","content_digest":"cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de"}]}',
     CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, manifest_id) DO NOTHING;
 
@@ -97,8 +97,8 @@ VALUES (
     'f2100000-0000-4000-8000-000000000002',
     'f2100000-0000-4000-8000-000000000003',
     'f2100000-0000-4000-8000-000000000004',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
-    '283f9116a8c5e81ee45b955cd19b34b47d82d49f3a923406dda46a3ae53adf31')
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
+    '5d3e95b981c053f6104ead70a95e67c76c727a2f3ad02fe4b8b65fe4518e5ef9')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO submissions_attempt_submission_bindings (
@@ -123,7 +123,7 @@ VALUES (
     'f2100000-0000-4000-8000-000000000001',
     'f2100000-0000-4000-8000-000000000002',
     'f2100000-0000-4000-8000-000000000003',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
     'f2100000-0000-4000-8000-000000000004',
     'completed',
     1,
@@ -186,7 +186,7 @@ VALUES (
     'completed',
     42,
     'f2100000-0000-4000-8000-000000000003',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
     'f2100000-0000-4000-8000-000000000004',
     repeat('f', 64))
 ON CONFLICT DO NOTHING;
@@ -246,16 +246,16 @@ VALUES (
     NULL,
     '22222222-2222-2222-2222-222222222206',
     '33333333-3333-3333-3333-333333333316',
-    '8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2',
+    'cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de',
     'f2100000-0000-4000-8000-000000000006',
     'f2100000-0000-4000-8000-000000000007',
     repeat('e', 64),
     'f2100000-0000-4000-8000-000000000003',
     'f2100000-0000-4000-8000-000000000003',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
     'f2100000-0000-4000-8000-000000000004',
     'f2100000-0000-4000-8000-000000000004',
-    '283f9116a8c5e81ee45b955cd19b34b47d82d49f3a923406dda46a3ae53adf31',
+    '5d3e95b981c053f6104ead70a95e67c76c727a2f3ad02fe4b8b65fe4518e5ef9',
     'manifest-jcs-sha256-v2',
     repeat('f', 64),
     'mdl.p0.text.synthetic',
@@ -319,7 +319,7 @@ VALUES (
     'f2100000-0000-4000-8000-00000000000b',
     '22222222-2222-2222-2222-222222222206',
     '33333333-3333-3333-3333-333333333316',
-    '8f1d3f5fc630bab60b48a29bfa915f159cd4b2136839ccc705ae8737b40327e2',
+    'cb9db3a1cf6f96961cf8506ec3196edd2b9ce3d0dcf7cbfc4334ecaf624860de',
     'complete',
     'evaluation.demo-review',
     CLOCK_TIMESTAMP(),
@@ -363,7 +363,7 @@ VALUES (
     'configuration.fact',
     'f2100000-0000-4000-8000-000000000003',
     'c923b9f6-f293-9b5f-a48e-96c053543c32',
-    'cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c',
+    'e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89',
     'evidence-locator.v1',
     'e18f698cb086a4e70cedf05770c2da9c9826e127ed9809252980a289dff73393',
     'exact_range',
@@ -371,7 +371,7 @@ VALUES (
     $locator${
   "locator_schema":"evidence-locator.v1",
   "source_type":"configuration.fact",
-  "source_ref":{"source_id":"cfg.f2100000000040008000000000000003","source_version":"rev.cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c"},
+  "source_ref":{"source_id":"cfg.f2100000000040008000000000000003","source_version":"rev.e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89"},
   "ownership_ref":{
     "organization_id":"org.cccccccccccc4ccc8ccccccccccccccc",
     "activity_id":"act.a1000000000040008000000000000025",
@@ -383,7 +383,7 @@ VALUES (
   "location":{"location_type":"json_pointer","json_pointer":"/sources/0/source_key"},
   "precision":"exact_range",
   "integrity":{
-    "source_digest":"cde6ff4517a369e2afde4d6a3700d1c6d05e2cc2cf845059dfe28b3bd9331c2c",
+    "source_digest":"e5f9898c1fdfa4b20a792818ddb34ea20b2756e980c6bd48160dcede3be05b89",
     "adapter_version":"locator-adapter.v1",
     "verification_state":"verified"
   },
